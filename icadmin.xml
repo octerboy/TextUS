@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="GB2312" ?>
+<!-- 参数设置 -->
+<Parameter sum="E1EF87C9B90671F1">
+    <!-- 串口RS232设置 -->
+    <serial tty="/dev/ttyS0" parity="even" baud="9600" size="8" stop_bit="1" />
+    <!-- oracle数据库设置 -->
+    <DB lib="libclntsh.so.10.1" cocurrent="no">
+        <connect ip="192.168.3.162" port="01521" service="gdscard" user="scard" password="scard" />
+    </DB>
+    <!-- 对某些域数据作转换,以适合数据库的数据 -->
+    <Convert provide="nothing" offset="6" mapOnly="yes">
+        <facio from="LFirst" to="LFirst">
+            <convert>
+                <!-- 2域转换-->
+                <source no="2" code="BCD" />
+                <destination no="2" code="ASCII" />
+            </convert>
+        </facio>
+        <sponte from="LSecond" to="LSecond">
+            <map source="140" destination="39">
+                <!-- 数据库访问错误 , 设置相应的39域 -->
+                <with>
+                    <!-- 数据库访问无误, 不作处理 -->
+                    <from>\x00\x00\x00\x00</from>
+                    <to />
+                </with>
+                <with>
+                    <!-- 错误返回99 -->
+                    <from />
+                    <to>99</to>
+                </with>
+            </map>
+        </sponte>
+    </Convert>
+    <!-- SQL操作 -->
+    <DBPort in="first" out="second" offset="6" error="140" rowsCount="141" rowsFetched="142" errorInfo="143" chunk="1">
+        <!-- 金融交易 -->
+        <face statement="jinrong" type="procedure">
+            <!-- 参考域不受offset的影响 -->
+            <reference field="4">\x02\x00</reference>
+            <out field="39" type="char" length="2" desc="存储过程输出结果标志" />
+            <in field="2" type="char" length="19" />
+            <out field="63" type="char" length="19" />
+        </face>
+    </DBPort>
+</Parameter>

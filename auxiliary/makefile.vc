@@ -1,0 +1,24 @@
+# Title: Makefile(VC)
+# ID: Textus-Auxiliary-Makefile-vc
+# Build:
+#	B01:created by octerboy 2006/06/07, ÓÚ·¬Ø®
+include ..\Rules.basemod.vc
+CFLAGS = $(CFLAGS) -I..\baselib\include
+LDLIB = ..\baselib\libbase.lib $(LDLIB)
+AMOROBJS=Auxi.obj
+
+all: auxiliary.dll
+
+Auxi.obj: Auxi.cpp
+	$(CC) $(CFLAGS) -DNDEBUG -DAMOR_CLS_TYPE=Auxi Auxi.cpp
+
+auxiliary.dll:$(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

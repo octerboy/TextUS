@@ -1,0 +1,2860 @@
+<!--
+Copyright (c) 2000-2002 Microsoft Corp. All rights reserved.
+Version 1.0.1.1120
+-->
+
+<PUBLIC:COMPONENT  ID=_webservice  Name="WEBSERVICE" >
+<PUBLIC:PROPERTY NAME="version"
+VALUE="Microsoft WebService Behavior 1.0.1.1120" />
+<PUBLIC:PROPERTY NAME="showProgress" VALUE=false />
+<PUBLIC:PROPERTY NAME="helperUtils" />
+<PUBLIC:METHOD   NAME="useService"/>
+<PUBLIC:METHOD   NAME="createCallOptions"/>
+<PUBLIC:METHOD   NAME="createUseOptions"/>
+<PUBLIC:METHOD   NAME="invokeNext"/>
+<PUBLIC:EVENT    ID="eventResult"  NAME="onresult"/>
+<PUBLIC:EVENT    ID="eventService" NAME="onserviceavailable"/>
+</PUBLIC:COMPONENT>
+<SCRIPT LANGUAGE="JSCRIPT">
+var _nextId  = 0;
+var _nextNsQ = 0;
+var _sdl = new Array();	/* asmx的集合, 以获取wsdl的URL为下标, 每个分量包括网页的"XML"元素(即wsdl文档)等内容 */
+	/* 分量(即oS)的属性:
+		_oXml: wsdl文档
+	*/
+var _mProg = null;
+var _fVBon = false;
+var _aXmlHttp = new Array();
+var xsi99 = "http://www.w3.org/1999/XMLSchema-instance";
+var xsi01 = "http://www.w3.org/2001/XMLSchema-instance";
+var xsd01 = "http://www.w3.org/2001/XMLSchema";
+var xsd99 = "http://www.w3.org/1999/XMLSchema";
+var _st = {
+"negativeInteger" : 0,
+"unsignedShort"   : 0,
+"unsignedByte"    : 0,
+"unsignedLong"    : 0,
+"unsignedInt"     : 0,
+"decimal"         : 0,
+"boolean"         : 0,
+"integer"         : 0,
+"double"          : 0,
+"float"           : 0,
+"short"           : 0,
+"byte"            : 0,
+"long"            : 0,
+"int"             : 0,
+"QName"           : 1,
+"string"          : 1,
+"normalizedString": 2,
+"timeInstant"     : 3,
+"dateTime"        : 3,
+"date"            : 4,
+"time"            : 5,
+"base64Binary"    : 6,
+"base64"          : 7};
+
+function ErrDetail(errCode, errString, errRaw)
+{
+	this.code = errCode;
+	this.string = errString;
+	this.raw = errRaw;
+}
+
+var L_InProgress_Text = "In Progress";
+var L_InvalArg_Text = "Invalid argument";
+var L_NotReady_Text = "Service unavailable";
+var L_InvalRes_Text = "Invalid response";
+var L_UnsupFun_Text = "Function not found";
+var L_UnknownS_Text = "Unknown server error";
+var L_AcDenied_Text = "Access denied";
+var L_SoapUnav_Text = "Soap not available";
+var L_HtcInter_Text = "HTC internal error";
+var L_InvaPort_Text = "Invalid active port";
+var L_InvaHead_Text = "Invalid headers";
+var _errInvalArg = new ErrDetail("Client", L_InvalArg_Text, null);
+var _errNotReady = new ErrDetail("Client", L_NotReady_Text, null);
+var _errInvalRes = new ErrDetail("Server", L_InvalRes_Text, null);
+var _errUnsupFun = new ErrDetail("Client", L_UnsupFun_Text, null);
+var _errUnknownS = new ErrDetail("Server", L_UnknownS_Text, null);
+var _errAcDenied = new ErrDetail("Server", L_AcDenied_Text, null);
+var _errSoapUnav = new ErrDetail("Client", L_SoapUnav_Text, null);
+var _errHtcInter = new ErrDetail("Client", L_HtcInter_Text, null);
+var _errInvaPort = new ErrDetail("Client", L_InvaPort_Text, null);
+var _errInvaHead = new ErrDetail("Client", L_InvaHead_Text, null);
+
+var _aryError = new Array(
+	_errInvalArg,
+	_errNotReady,
+	_errInvalRes,
+	_errUnsupFun,
+	_errUnknownS,
+	_errAcDenied,
+	_errSoapUnav,
+	_errHtcInter,
+	_errInvaPort,
+	_errInvaHead
+);
+
+function postError(oCall, refError)
+{
+	if (oCall.co != null && !oCall.co.async)
+		return returnError(oCall, refError);
+
+	var s = function(){returnError(oCall, refError);};
+	setTimeout(s, 0);
+	return oCall.id;
+}
+
+function returnError(oCall, refError)
+{
+	hideProgress();
+	
+	var r = new Object();
+	r.id = oCall.id;
+	r.error = true;
+	r.errorDetail = _aryError[refError];
+
+	if (oCall.co != null && oCall.co.async == false)
+	{
+		return r;
+	}
+
+	var cb = oCall.cb;
+	if (cb == null)
+	{
+		var evt = createEventObject();
+		evt.result = r;
+		try { eventResult.fire(evt); } catch(e) {};
+	} else {
+		try { cb(r); } catch(e) {};
+	}
+	return oCall.id;
+}
+
+function createCallOptions(fn, pn, cm, to, un, pw, hd, ep, pr)
+{
+	var o = new Object();
+	o.funcName = fn;
+	o.portName = pn;
+	o.async    = cm;
+	o.timeout  = to;
+	o.userName = un;
+	o.password = pw;
+	o.SOAPHeader= hd;
+	o.endpoint = ep;
+	o.params   = pr;
+
+	return o;
+}
+
+function createUseOptions(rc, sh)
+{
+	var o = new Object();
+	o.reuseConnection = rc == true;
+	o.SOAPHeader = sh;
+
+	return o;
+}
+
+function cloneObject(co)
+{
+	var o = new Object();
+	for (var x in co)
+		o[x] = co[x];
+	return o;
+}
+
+function ensureVBArray(d)
+{
+	if (!_fVBon)
+	{
+		var s1 = "\nFunction VBGetArySize(a, d)\n" + "Dim x\n" + "Dim s\n" + "s=UBound(a, 1)\n" + "For x = 2 To d \n" + 's = s & "," & UBound(a, x)\n' + "Next\n" + "VBGetArySize=s\n" + "End Function\n"; 
+		var o = element.document.createElement("script");
+		o.language = "VBS";
+		o.text = s1;
+		element.document.body.appendChild(o);
+		_fVBon = true;
+	}
+
+	var fn = "VBGetAryItem" + d;
+	if (eval("typeof " + fn) != 'undefined')
+		return;
+
+	var a  = new Array();
+	for (var i = 0; i < d; i++)
+		a[i] = 'p' + i;
+
+	var sp = a.join(", ");
+	var s2 = "\nFunction " + fn + "(a, " + sp + ")\n" + "x = VarType(a(" + sp + "))\n" + "If x=9 Or x=12 Then\n" + "Set " + fn + "=a(" + sp + ")\n" + "Else\n" + fn + "=a(" + sp + ")\n" + "End If\n" + "End Function\n";
+
+	var o = element.document.createElement("script");
+	o.language = "VBS";
+	o.text = s2;
+	element.document.body.appendChild(o);
+}
+
+var _b64="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+function encb64hlp(a, k, s, iFrom, iTo, fStr)
+{
+	var d = 0;
+	for (var i = 0; i + iFrom <= iTo; i ++)
+		d |= (fStr ? s.charCodeAt(i + iFrom) : s[i + iFrom]) << (16 - 8*i);
+	for (var i = 0; i <= iTo - iFrom + 1; i ++)
+		a[k++] = _b64.charAt(d>>>(18 - i*6)&0x3f);
+	return k;
+}
+
+function decb64hlp(a, ai, ca, iFrom, iTo)
+{
+	var d = 0;
+	var l = iTo - iFrom;
+
+	for (var i = 0; i + iFrom <= iTo; i ++)
+		d |= ca[i + iFrom] << (18 - 6*i);
+
+	for (var i = 0; i < l; i ++)
+		a[ai + i] = (d >>> (16 - i*8)) & 0xff;
+
+	return ai + i;
+}
+
+/* encb64: 字符串s的base64编码 */
+function encb64(s)
+{
+	var fStr = typeof(s) == "string";
+	var i;
+	var l = s.length;
+	var a = new Array();
+	var k = 0;
+	for (i = 2; i < l; i = i + 3)
+	{
+		k = encb64hlp(a, k, s, i - 2, i, fStr);
+		if ((i+1) % 57 == 0)
+			a[k++] = "\r\n";
+	}
+
+	var padd = l - i + 2;
+	if (padd > 0)
+	{
+		k = encb64hlp(a, k, s, i - 2, l-1, fStr);
+		a[k] = (padd > 1) ? "=" : "==";
+	}
+
+	return a.join("");
+}
+
+var _b64rsc = "\n\r\t";
+
+/* decb64: 字符串s的base64解码, 若fStr==false, 则返回解码的字符串的每个字符的ASCII值 */
+function decb64(s, fStr)
+{
+	var i, j = 0;
+	var ip = s.indexOf('=');
+	var l = ip >= 0 ? ip : s.length;
+	var ca = new Array();
+
+	for (i = 0; i < l; i++)
+	{
+		var c = s.charAt(i);
+	if (_b64rsc.indexOf(c) >= 0)
+		continue;
+	ca[j++] = _b64.indexOf(c);
+	}
+
+	var l = j;
+	var a = new Array();
+	var ai = 0;
+	for (i = 3; i < l; i = i + 4)
+		ai = decb64hlp(a, ai, ca, i-3, i);
+
+	if (i-4 < l)
+	ai = decb64hlp(a, ai, ca, i-3, l-1);
+	if (!fStr)
+	return a;
+
+	var r = '';
+	try
+	{
+		r = String.fromCharCode.apply(element, a);
+	} catch (E) {
+		for (i = 0; i < a.length; i++)
+		r += String.fromCharCode(a[i]);
+	}
+
+	return r;
+}
+
+/* 对Wsdl的URI规范处理
+	1: 如果已经有 :// 内容(如:https://, http://等), 则不处理 
+	2：返回 网页的根路径 + szService, 如果szService中没有 ".", 即没有指明扩展形式, 则加上".asmx?wsdl"
+ */
+function ensureWsdlUrl(szService)
+{
+	if (szService.indexOf("://") > 0)
+		return szService;
+
+	var baseUrl = element.document.URL;	/* 这是所用网页本身的路径 */
+	var qi = baseUrl.lastIndexOf("?");	
+	var url2 = qi > 0 ? baseUrl.substr(0, qi) : baseUrl; /* ?后是query, 当然query不需要 */
+	return  url2.substr(0, baseUrl.lastIndexOf("/"))
+		+ "/" + szService + (szService.indexOf(".")>=0 ? "" : ".asmx?wsdl");
+
+}
+
+function allocCall()
+{
+	var o = new Object();
+	o.fDone = false;
+	o.next = null;
+	o.id = _nextId;
+	_nextId++;
+
+	return o;
+}
+
+function fnShowProgress()
+{
+	if (_mProg == null)
+	{
+		var s = "<MARQUEE WIDTH=160 HEIGHT=20 BEHAVIOR=alternate SCROLLDELAY=1"
+			+ " STYLE='background:lightblue;position:absolute;top:0;left:0'>"
+			+ "</MARQUEE>";
+
+		_mProg = element.document.createElement(s);
+		_mProg.innerHTML = L_InProgress_Text;
+	}
+
+	if (_mProg.parentElement == null)
+		element.document.body.insertAdjacentElement("beforeEnd",_mProg);
+}
+
+function isSimpleType(os, oschm, t)
+{
+	return oschm == null || oschm.sTypes[t.type]!=null;
+}
+
+function isPrimitive(os, t)
+{
+	return os.ns[t.ns] == os.ns["xsd"];
+}
+
+function getWsdl()
+{
+	var szService = null;
+	for (var aService in _sdl)
+	{
+		if (_sdl[aService] == null)
+			continue;
+
+		var xmlisld = _sdl[aService]._oXml;
+		if (xmlisld == null)
+			continue;
+
+		if (_sdl[aService].fPending && xmlisld.XMLDocument.readyState == 4)
+		{	
+			/* 要等"XML"元素的状态, 即完全取得了wsdl文档 */
+			_sdl[aService].fPending = false;
+			szService = aService;
+			break;
+		}
+	}
+
+	if (szService == null)
+		return;
+
+	var oS = _sdl[szService];
+	var fImportDone = loadImports(oS);	/* 装载其中进口的其它wsdl文档 */
+	if (fImportDone)
+		processService(oS);
+}
+
+/* WSDL处理: 
+	1:分析(调用parseWsdl) 
+	2:删去oS中的._oXml, 也即_sdl的分量不再保存整个WSDL文档, 因为前面已经分析并保存了相关内容
+*/
+function processService(oS)
+{
+	var xmlSdl = oS._oXml.documentElement;
+	try {
+		parseWsdl(oS, xmlSdl);
+	} catch(e) {
+		xmlSdl = null;
+	} 
+
+	var evt = createEventObject();
+	evt.serviceUrl = oS.url;
+	evt.userName = oS._oXml.service;
+	evt.serviceAvailable = xmlSdl != null;
+	evt.WSDL = xmlSdl;
+
+	oS._oXml.removeNode(true);
+	oS._oXml = null;
+
+	if (xmlSdl == null)
+	{
+		for (var nc = oS.nextCall; nc != null; nc = nc.next)
+		returnError(nc, 1);
+		_sdl[oS.url] = null;
+		eventService.fire(evt);
+		return;
+	}
+
+	eventService.fire(evt);
+	alert("EventObj serviceUrl oooo"+ evt.serviceUrl + " usrName " + evt.userName + " oS.fSeq " + oS.fSeq);
+
+	if (oS.fSeq)
+		return callNext(oS);
+
+	while (oS.nextCall != null)
+	{
+		var nc = oS.nextCall;
+		oS.nextCall = oS.nextCall.next;
+		_invoke(nc);
+	}
+}
+
+function onImportLoaded(oS)
+{
+	for (var i = 0; i < oS.imports.length; i++)
+	{
+		if (    oS.imports[i] == null ||  !oS.imports[i].fPending 
+			||  oS.imports[i].XMLDocument.readyState!=4)
+			continue;
+
+		var oImp = oS.imports[i].documentElement;
+		if (oImp == null)
+			continue;
+
+		oS.imports[i].fPending = false;
+		oS.cImporting --;
+
+		var xmlSdl = oS._oXml.documentElement;
+		switch (oImp.baseName)
+		{
+		case "definitions" :
+			for (var j = 0; j < oImp.attributes.length; j++)
+			{
+				var oAtt = oImp.attributes.item(j);
+				if (oAtt.name == "xmlns")
+					continue;
+
+				var ii = oAtt.name.indexOf("xmlns:");
+				if (ii != 0) continue;
+
+				var nsn = oAtt.name.substring(6, oAtt.name.length);
+				if (oS.ns[nsn] != null)
+					continue;
+
+				oS.ns[nsn] = oAtt.value;
+				oS.nsalias[oAtt.value] = nsn;
+			}
+
+			for (var j = oImp.childNodes.length - 1; j >= 0; j --)
+				xmlSdl.appendChild(oImp.childNodes[j]);
+
+			break;
+
+		case "types" :
+		case "message" :
+		case "portType" :
+		case "binding" :
+		case "service" :
+			xmlSdl.appendChild(oImp);
+			break;
+
+		default :
+			var nsq = getQualifier(xmlSdl.nodeName);
+			nsq = nsq.length == 0 ? "" : (nsq + ":");
+			var nt = oS._oXml.XMLDocument.createElement(nsq + "types");
+			xmlSdl.appendChild(nt);
+			nt.appendChild(oImp);
+		}
+
+		oS.imports[i].removeNode(true);
+		oS.imports[i] = null;
+		if (oS.cImporting == 0)
+		{
+			processService(oS);
+			return;
+		}
+	}
+}
+
+/* 某个_sdl分量(oS)分析: 对wsdl文档中的"进口WSDL文档"进行分析 */
+function loadImports(oS)
+{
+	var xmlSdl = oS._oXml.documentElement;
+	if (xmlSdl == null)
+		return true;
+
+	var nsq = getQualifier(xmlSdl.nodeName);	/* 从第一个节点名中取得前缀nsq */
+	nsq = nsq.length == 0 ? "" : (nsq + ":");
+
+	var nImp = xmlSdl.selectNodes(nsq + "import");	/* 看wsdl文档中有没有import元素,一般没有 */
+	if (nImp.length == 0)
+		return true;
+
+	oS.imports = new Array();
+	oS.cImporting = 0;
+	for (var i = 0; i < nImp.length; i++)
+	{
+		var oImp = document.createElement("XML");
+		document.body.appendChild(oImp);
+		oImp.fPending = true;
+		oS.imports[i] = oImp;
+		oImp.onreadystatechange = function() {onImportLoaded(oS)};
+
+		var impUrl = getAttrib(nImp[i], "location");
+		if (impUrl == null)
+			continue;
+
+		oS.cImporting ++;
+		oImp.src = impUrl;
+	}
+	return false;
+}
+
+function invokeNext(svcName)
+{
+	var oS = _sdl[svcName];
+	if (oS == null)
+		return;
+
+	var oC = oS.nextCall;
+	if (oC == null)
+		return null;
+
+	oS.nextCall = oC.next;
+	if (oS.nextCall == null)
+		oS.lastCall = null;
+
+	_invoke(oC);
+}
+
+function callNext(oS)
+{
+	if (oS.fSeq)
+		setTimeout(element.uniqueID + '.invokeNext("' + oS.url + '")', 0);
+}
+
+function getAttrib(o, sAName)
+{
+	if (o.attributes == null)
+		return null;
+
+	var a = o.attributes.getNamedItem(sAName);
+	if (a != null)
+		return a.value;
+
+	return null;
+}
+
+/* getBaseName: 比如对于"xs:Good", "Good" 就是BaseName, 本函数就返回 "Good", 如果就是"Good", 那就是"Good" */
+function getBaseName(str)
+{
+	var a = str.split(":");
+	if (a.length > 1)
+		return a[1];
+
+	return str;
+}
+
+/* getQualifier: 比如对于"xs:Good", "xs" 就是Qualifier, 本函数就返回 "xs", 如果就是"Good", 那就返回"" */
+function getQualifier(str)
+{
+	var a = str.split(":");
+	if (a.length > 1)
+		return a[0];
+	return '';
+}
+
+function getNextNsq(oS)
+{
+	var nsq1;
+	do {
+		nsq1 = "mswsb" + _nextNsQ;
+		_nextNsQ ++;
+	}
+
+	while (oS.ns[nsq1] != null)
+		return nsq1;
+}
+
+function getUniqueNsq(oS, o, litNsq)
+{
+	if (litNsq == null)
+		return litNsq;
+
+	var nsuri = null;
+	if (litNsq == '')		/* 如果没有前缀, 则取整个文档的名字空间, 也即根节点中xmlns属性值 */
+		nsuri = o.namespaceURI;
+	else {
+		var o1 = o;
+		while (o1 != null) 
+		{
+			nsuri = getAttrib(o1, 'xmlns:'+litNsq);
+			if (nsuri != null)
+				break;
+			o1 = o1.parentNode;	/* 如此追溯, 一般直到definitions节点;
+						如果中间某个节点中有重新定义, 则看nsalias中是否有定义;
+						*/
+		}
+	}
+
+	if (nsuri == null)	/* 整个没有定义, 取原来的算了 */
+		return litNsq;
+
+	var nsq1 = oS.nsalias[nsuri];	/* 有定义 */
+	if (nsq1 != null)		/* 但还没有别名 */
+		return nsq1;
+
+	litNsq = getNextNsq(oS);	/* 如果没有别名, 则从mswsb0, mswsb1, .. 开始  */
+	oS.ns[litNsq] = nsuri;
+	oS.nsalias[nsuri] = litNsq;
+
+	return litNsq;
+}
+
+/* 分析simpleType节点 */
+/*
+	oS: _sdl的一个分量, 对应于整个asmx
+	oschm: oS的schemas的一个分量
+	o: xml节点
+	ssffx: 那个所在的element的name属性内容. 方法名?  函数名?
+*/
+function parseSimpleType(oS, oschm, o, ssffx)
+{
+	var ns = getQualifier(o.tagName);
+	var o1 = o.firstChild;	/* 得有一个子节点, 否则不行 */
+	if (o1 == null)
+		return null;
+
+	var sn = getAttrib(o, "name");
+	if (sn == null)
+		return null;	/* 得有name属性 */
+
+	sn = getBaseName(sn);
+	var ot = new Object();
+	ot.name = sn;
+	switch(o1.baseName)
+	{
+	case 'restriction' :
+		var base = getAttrib(o1, "base");
+		if (base == null)
+		{
+			ot.ns = "xsd";
+			ot.type = "string";
+		} else {
+			ot.type = getBaseName(base);
+			ot.ns = getQualifier(base);
+		}
+
+		oschm.sTypes[sn] = ot;
+		break;
+
+	case 'list' :
+	case 'union' :
+		ot.type = "string";
+		ot.ns = "xsd";
+		oschm.sTypes[sn] = ot;
+		break;
+
+	default:
+		ot = null;
+	}
+
+	return ot;
+}
+
+function parseType(oS, oschm, o, ssffx)
+{
+	if (o == null)
+		return null;
+
+	switch(o.baseName)
+	{
+	case "complexType" :
+		return parseComplexType(oS, oschm, o, ssffx);
+
+	case "simpleType" :
+		return parseSimpleType(oS, oschm, o, ssffx);
+	}
+
+	return null;
+}
+/*
+at: 输出阵列
+sz: 属性内容中第一个'['后的内容. 如"[3,4,5", 这表示一个三维数组,每维的长度分别为3,4,5 
+*/
+function parseArrayType(at, sz)
+{
+	var asa = sz.split("["); /* 如sz是一个字符串, 而不是经过split来的分量, 这一行才有可能用, 导致递归调用,
+					不过在递归中不会有用了 */
+	if (asa.length <= 1)
+	{
+		alert("asa " + asa);
+		asa = sz.split(",");
+		for (var i = 0; i < asa.length; i++)
+		{
+			var ii = parseInt(asa[i]);
+			at[at.length] = isNaN(ii) ? null : ii;
+		}
+		return;
+	}
+
+	for (var i=0; i < asa.length; i++)
+		parseArrayType(at, asa[i]);
+}
+
+/* 分析complexType节点 */
+/*
+	oS: _sdl的一个分量, 对应于整个asmx
+	oschm: oS的schemas的一个分量
+	o: xml节点
+	ssffx: 那个所在的element节点的name属性内容. 方法名?  函数名?
+	返回一个阵列: 
+	1:可能是一个element阵列
+	2:可能是一个attribute阵列
+		
+*/
+function parseComplexType(oS, oschm, o, ssffx)
+{
+	var ns = getQualifier(o.tagName);
+	if (!o.hasChildNodes())	/* 没有子节点不行 */
+		return null;
+
+	var ot = null;	/* 这是element的集合? */
+	for (var j = 0; j < o.childNodes.length; j++)
+	{	/* 处理每一个节点 */
+		var o1 = o.childNodes[j];
+		switch(o1.baseName)
+		{
+		case 'sequence' :
+		case 'all' :
+			var ao = o1.selectNodes(ns.length ? (ns+':any') : 'any');
+			if (ao.length != 0)
+				continue;
+
+			ao = o1.selectNodes(ns.length ? (ns+':element') : 'element');
+			if (ao.length == 0)
+				continue;
+
+			/* 得有any子节点或element, 两者不应同时存在 */
+			if (ot == null)
+				ot = new Array();
+
+			for (var i = 0; i < ao.length; i++)
+			{	/* 处理每一个any或element子节点, 对于any实际上不作任何处理 */
+				var s = getAttrib(ao[i], "name");
+				if (s == null)
+				{	/* 没有name属性的, 如果有ref属性, 则加到oS的refs阵列中*/
+					var s = getAttrib(ao[i], "ref");
+					if (s != null)
+					{
+						oS.refs[s] = ot;
+					}
+				} else	/* 有name属性的话, 当element处理了, 加到集合中 */
+					ot[s] = parseElem(oS, oschm, ao[i], ssffx);
+			}
+
+			continue;
+
+		case 'complexContent' :
+			var o2 = o1.firstChild;	/* 只处理complexContent下的一个子节点 */
+			switch(o2.baseName)	/* 根据节点名称判断 */
+			{
+			case 'extension' :
+				var base = getAttrib(o2, "base");
+				if (base == null)
+					continue;
+
+				var ab = base.split(":");
+				var oBase = new Object();
+				oBase.nsuri = ab.length > 1 ? oS.ns[ab[0]] : oschm.uri;
+				oBase.base = ab.length > 1 ? ab[1] : ab[0];
+				ot = parseComplexType(oS, oschm, o2, ssffx);
+				oBase.type = getAttrib(o, "name");
+				oBase.derivedType = ot;
+				oBase.fExpanded = false;
+				if (oBase.type != null)
+					oS.exts[oBase.type] = oBase;
+				else
+					oS.exts[oS.exts.length] = oBase;
+
+				continue;
+
+			case 'restriction' :
+				return parseComplexType(oS, oschm, o2, ssffx);
+
+			case 'all' :
+				return parseComplexType(oS, oschm, o1, ssffx);
+			}
+			continue;
+
+		case 'attribute' :
+			var soapns = oS.ns[oS.qlt["soap"]];
+			var wsdlns = oS.ns[oS.qlt["wsdl"]];
+			var at=o1.attributes.getQualifiedItem("arrayType", wsdlns);
+			if (at == null)
+				at=o1.attributes.getQualifiedItem("arrayType", soapns);
+
+			if (at == null)
+			{
+				if (ot == null)
+				{	/* 如果已经有阵列, 这里的attribute就无效,不接受第二个attribute */
+					ot = new Array();
+					ot[getAttrib(o1, "name")] = parseAttrib(o1);
+				}
+
+				continue;
+			}
+
+			var tn = getBaseName(at.value);
+			if (ot != null)
+			{
+				var oe = get1stAryItem(ot);
+				oe.fArray = true;
+				oe.sizeArray = new Array();
+				parseArrayType(oe.sizeArray, tn.substring(tn.indexOf("[")+1, tn.length));
+
+				continue;
+			}
+
+			var oe = new Object();
+			var a = tn.split("[");
+			if (a.length < 2)
+				continue;
+
+			oe.ns = getQualifier(at.value);
+			oe.ns = getUniqueNsq(oS, o1, oe.ns);
+			oe.name = a[0];
+			oe.fArray = true;
+			oe.type = a[0];
+			if (oe.type == "anyType" && oS.ns[oe.ns] == oS.ns["xsd"])
+				oe.type = "string";
+
+			oe.sizeArray = new Array();
+			parseArrayType(oe.sizeArray, tn.substring(tn.indexOf("[")+1, tn.length));
+
+			ot = new Array();
+			ot[a[0]] = oe;
+
+			continue;
+		}
+	}
+
+	return ot;
+}
+
+function parseAttrib(o)
+{
+	var attrib = new Object();
+	attrib.fAttrib = true;
+
+	var st = getAttrib(o, "type");
+	if (st != null)
+	{
+		var a = st.split(":");
+		attrib.type = a.length > 1 ? a[1] : a[0];
+		attrib.ns = a.length > 1 ? a[0] : null;
+	}
+
+	attrib.fixed = getAttrib(o, "fixed");
+	attrib.name = getAttrib(o, "name");
+	attrib.allowed = getAttrib(o, "use") != "prohibited";
+
+	return attrib;
+}
+/* 分析Schema中的节点的基本名为element的节点
+	oS: 对应于整个asmx
+	oschm: oS下schemas的一个分量
+	o:  xml节点
+	ssfx: xml节点中name属性的内容. 方法名称, 函数名称? 这是在soap-body中第一个元素节点名
+*/
+function parseElem(oS, oschm, o, ssffx)
+{
+	var oe = new Object();
+	oe.name = getAttrib(o, "name");
+
+	var st = getAttrib(o, "type");
+
+	if (st == null)
+		st = getAttrib(o, "xsi:type");
+
+	var minOccurs = getAttrib(o, "minOccurs");
+	var maxOccurs = getAttrib(o, "maxOccurs");
+
+	oe.fArray = (maxOccurs != null && maxOccurs != "1");
+	if (st != null)
+	{
+		oe.type = getBaseName(st);	/* 数据类型? */
+		oe.ns = getQualifier(st);
+		if (oe.ns == '')
+			oe.ns = oschm.qdef;
+
+		if (oe.type == "anyType" && oS.ns[oe.ns] == oS.ns["xsd"])
+			oe.type = "string";
+
+		return oe;
+	}
+
+	oe.ns = oS.nsalias[oschm.uri];
+	if (typeof ssffx != 'undefined')
+		oe.type = ssffx + '_' + oe.name;
+	else
+		oe.type = oe.name;
+
+	var ct = parseType(oS, oschm, o.firstChild, ssffx);	/* element的第一个元素是type */
+	oschm.types[oe.type] = ct;	/* ct可能指向一个element阵列,  或是attribute阵列 */
+
+	return oe;
+}
+
+function parseSoapHeader(oS, o)
+{
+	var hdrInfo = new Object();
+	hdrInfo.ns = getAttrib(o, "namespace");
+	hdrInfo.es = getAttrib(o, "encodingStyle");
+
+	var sUs = getAttrib(o, "use");
+	hdrInfo.fLiteral = (sUs != null && sUs.toLowerCase()=='literal');
+
+	var smsg = getAttrib(o, "message");
+	var amh = oS.msgs[getBaseName(smsg)];
+	var spart = getAttrib(o, "part");
+
+	hdrInfo.fRequired = getAttrib(o, "required") == "true";
+	hdrInfo.type = amh.args[getBaseName(spart)];
+
+	return hdrInfo;
+}
+
+function expBase(oS, a, t)
+{
+	if (t.fExpanded)
+		return;
+
+	if (a[t.base] != null)
+		expBase(oS, a, a[t.base]);
+
+	t.fExpanded = true;
+	var oSchm = oS.schemas[t.nsuri];
+	var oSuper = oSchm.types[t.base];
+	if (oSuper == null || t.derivedType == null)
+		return;
+
+	for (var x in oSuper)
+		if (t.derivedType[x] == null)
+			t.derivedType[x] = oSuper[x];
+}
+
+function parseSchemas(oS, nSchemas)
+{
+	alert("nSchemas.length " + nSchemas.length );
+	for (var j = 0; j < nSchemas.length; j ++)
+	{
+		var schmUri = getAttrib(nSchemas[j], "targetNamespace");
+		if (oS.schemas[schmUri] == null)
+		{	/* 对于未在oS中登记在, 这里登记一下 */
+			var oSchm = new Object();
+			oSchm.uri = getAttrib(nSchemas[j], "targetNamespace");
+			oSchm.efd = getAttrib(nSchemas[j], "elementFormDefault");
+			oSchm.afd = getAttrib(nSchemas[j], "attributeFormDefault");
+
+			var nsdef = nSchemas[j].namespaceURI;	/* namespaceURI从节点名的前缀而得, 
+								definitions中有属性定义了该前缀所指向的名字空间
+								 */
+			if (nsdef == null || nSchemas[j].prefix != '')
+				nsdef = oSchm.uri;	/* 本schema有前缀或是所指名字空间不存在, 则用这里的uri*/
+							/* 没有前缀, nsdef会是defnitions节点xmlns属性的内容 */
+
+			oSchm.qdef = oS.nsalias[nsdef];	/* qdef是个别名 */
+			
+			if (oSchm.qdef == null)
+			{	/* 还没有这个别名? 加上去, 不过别名却为"" */
+				oSchm.qdef = "";
+				oS.ns[oSchm.qdef] = nsdef;
+				oS.nsalias[nsdef] = oSchm.qdef;
+			}
+
+			oSchm.service = oS.url;	/* asmx所在的URL */
+			oSchm.elems = new Array();
+			oSchm.types = new Array();
+			oSchm.sTypes = new Array();
+			oS.schemas[oSchm.uri] = oSchm;
+		} else
+			oSchm = oS.schemas[schmUri];	/* 已经登记, 取出 */
+
+		var nElements = nSchemas[j].childNodes;
+		for (var k = 0; k < nElements.length; k ++)
+		{
+			/* 一个Schema下有多个和多种元素, 这里分类处理每个元素 */
+			var sn = getAttrib(nElements[k], "name");	/* 必须有name属性 */
+			if (sn == null)
+				continue;
+
+			switch(nElements[k].baseName)
+			{
+			case 'element' :
+				oSchm.elems[sn] = parseElem(oS,oSchm,nElements[k],sn);
+				break;
+
+			case 'simpleType' :
+			case 'complexType' :
+				oSchm.types[sn] = parseType(oS, oSchm, nElements[k]);
+				break;
+			}
+		}
+	}
+}
+
+/* WSDL文档的分析, 
+	oS:	就是_sdl的一个分量 
+	xmlSdl: WSDL文档内容  
+*/
+function parseWsdl(oS, xmlSdl)
+{
+	if (xmlSdl == null)
+		return false;
+
+	var nsq = getQualifier(xmlSdl.nodeName);
+	nsq = nsq.length == 0 ? "" : (nsq + ":");	/* 从第一个节点名中取得前缀nsq */
+	alert("nodeName " + xmlSdl.nodeName + "\r\nnsq " + nsq );
+
+	var nsqMsg = nsq;
+	var nsqPort = nsq;
+	var nsqBinding = nsq;
+	var nsqService = nsq;
+	var nsqTypes = nsq;
+
+	var nMsgs    = xmlSdl.selectNodes(nsq + "message");
+	var nPort    = xmlSdl.selectNodes(nsq + "portType");
+	var nBinding = xmlSdl.selectNodes(nsq + "binding");
+	var nService = xmlSdl.selectNodes(nsq + "service");
+	var nTypes   = xmlSdl.selectNodes(nsq + "types");
+	if (nMsgs.length == 0)
+	{
+		nMsgs = xmlSdl.selectNodes("message");
+		nsqMsg = "";
+	}
+
+	if (nPort.length == 0)
+	{
+		nPort = xmlSdl.selectNodes("portType");
+		nsqPort = "";
+	}
+
+	if (nBinding.length == 0)
+	{
+		nBinding = xmlSdl.selectNodes("binding");
+		nsqBinding = "";
+	}
+
+	if (nService.length == 0)
+	{
+		nService = xmlSdl.selectNodes("service");
+		nsqService = "";
+	}
+
+	if (nTypes.length == 0)
+	{
+		nTypes = xmlSdl.selectNodes("types");
+		nsqTypes = "";
+	}
+
+	var aMsgs    = new Array();
+	var aPort    = new Array();
+	var aBinding = new Array();
+
+	oS.targetns = getAttrib(xmlSdl, "targetNamespace");
+	oS.ns["xsd"] = "http://www.w3.org/2001/XMLSchema";
+	oS.schemas = new Array();
+	oS.msgs = aMsgs;
+	oS.refs = new Array();
+	oS.exts = new Array();
+
+	for (var i = 0; i < xmlSdl.attributes.length; i++)
+	{
+		var oAtt = xmlSdl.attributes.item(i);
+		if (oAtt.name == "xmlns")
+			continue;
+
+		var ii = oAtt.name.indexOf("xmlns:");
+		if (ii != 0)
+			continue;
+
+		var nsn = oAtt.name.substring(6, oAtt.name.length);
+		if (oS.ns[nsn] != null && nsn != "xsd")
+			continue;
+
+		oS.ns[nsn] = oAtt.value;
+		oS.nsalias[oAtt.value] = nsn;
+	}
+
+	oS.qlt = new Array();
+	oS.qlt["soapenc"] = "http://schemas.xmlsoap.org/soap/encoding/";
+	oS.qlt["wsdl"] = "http://schemas.xmlsoap.org/wsdl/";
+	oS.qlt["soap"] = "http://schemas.xmlsoap.org/wsdl/soap/";
+	oS.qlt["SOAP-ENV"] = 'http://schemas.xmlsoap.org/soap/envelope/';
+
+	for (var x in oS.qlt)
+	{
+		if (oS.nsalias[oS.qlt[x]] != null)
+		{
+			oS.qlt[x] = oS.nsalias[oS.qlt[x]];
+			continue;
+		}
+
+		oS.ns[x] = oS.qlt[x];
+		oS.nsalias[oS.qlt[x]] = x;
+		oS.qlt[x] = x;
+	}
+
+	if (oS.ns["xsi"] == null)
+	oS.ns["xsi"] = oS.ns["xsd"] == xsd99 ? xsi99 : xsi01;
+
+	for (var i = 0; i < nTypes.length; i ++)
+		parseSchemas(oS, nTypes[i].childNodes);
+
+	for (var x in oS.refs)
+	{
+		var q = getQualifier(x);
+		var nsUri = oS.ns[q];
+		var oschm = oS.schemas[nsUri];
+
+		if (oschm == null)
+			continue;
+
+		var ot = oschm.elems[getBaseName(x)];
+		oS.refs[x][ot.name] = ot;
+	}
+
+	for (var i in oS.exts)
+		expBase(oS, oS.exts, oS.exts[i]);
+
+	for (var i = 0; i < nMsgs.length; i++)
+	{
+		var sName = getAttrib(nMsgs[i], 'name');
+		aMsgs[sName] = new Object();
+		var ps = nMsgs[i].selectNodes(nsqMsg + "part");
+		aMsgs[sName].args = new Array();
+
+		for (var j = 0; j < ps.length; j ++)
+		{
+			var ap = new Object();
+			ap.name = getAttrib(ps[j], "name");
+			ap.type = getAttrib(ps[j], "type");
+			ap.elem = getAttrib(ps[j], "element");
+			if (ap.elem != null)
+			{
+				ap.ns = getQualifier(ap.elem);
+				ap.elem = getBaseName(ap.elem);
+			}
+
+			if (ap.type != null)
+			{
+				ap.ns = getQualifier(ap.type);
+				ap.type = getBaseName(ap.type);
+			}
+
+			ap.ns = getUniqueNsq(oS, ps[j], ap.ns);
+			if (ap.type == "anyType" && oS.ns[ap.ns] == oS.ns["xsd"])
+				ap.type = "string";	/* ap.type is null usually */
+
+			aMsgs[sName].args[ap.name] = ap;
+		}
+
+		aMsgs[sName].argl = ps.length;	/* 似乎aMsgs[sName].args.length必然为0 */
+	}
+
+	for (var i = 0; i < nPort.length; i++)
+	{
+		var sName = getAttrib(nPort[i], "name");
+		aPort[sName] = new Object();
+		var nops = nPort[i].selectNodes(nsqPort + "operation");
+		var oops = new Array();
+
+		aPort[sName].ops = oops;
+		for (var j = 0; j < nops.length; j++)
+		{
+			var sOpName = getAttrib(nops[j], "name");
+			var nInputs = nops[j].selectNodes(nsqPort + "input");
+			var mInput = null;
+
+			if (nInputs.length > 0)
+			{
+				var s = getAttrib(nInputs[0], "message");
+				var sMsgName = getBaseName(s);
+				var sNS = getQualifier(s);
+
+				if (oops[sOpName] == null)
+					oops[sOpName] = new Array();
+
+				var sin = getAttrib(nInputs[0], "name");
+				if (sin != null)
+					oops[sOpName][sin] = aMsgs[sMsgName];
+				else
+					oops[sOpName][sOpName] = aMsgs[sMsgName];
+
+				if (aMsgs[sMsgName] == null)
+					break;
+
+				aMsgs[sMsgName].opname = sOpName;
+				//alert("sMsgName " + sMsgName + "\r\nsOpName " + sOpName );
+				mInput = aMsgs[sMsgName];
+				var firstArg = get1stAryItem(mInput.args);
+				//alert("firstArg name " + firstArg.name + " elem " + firstArg.elem);
+				if (sin != null)
+					sOpName = sin;
+
+				mInput.fWrapped = mInput.argl == 1 && firstArg != null
+						&& (    firstArg.type == sOpName
+						||  firstArg.elem == sOpName
+						||  "parameters"  == firstArg.name.toLowerCase());
+			}
+
+			var nOutputs = nops[j].selectNodes(nsqPort + "output");
+			if (nOutputs.length > 0)
+			{
+				var s = getAttrib(nOutputs[0], "message");
+				var sMsgName = getBaseName(s);
+				var sSoapName = aMsgs[sMsgName].soapName;	
+					/* soapName在文中仅此一处, 下面的else代码根本就是废的? */
+				if (sSoapName == null)
+					aPort[sName].ops[sMsgName] = aMsgs[sMsgName];
+				else {
+					aPort[sName].ops[sSoapName] = aMsgs[sMsgName];
+					aMsgs[sSoapName] = aMsgs[sMsgName];
+				}
+
+				if (mInput != null)
+					mInput.response = aMsgs[sMsgName];
+			}
+
+			mInput.fOneWay = nOutputs.length == 0;
+		}
+	}
+
+	for (var i = 0; i < nBinding.length; i++)
+	{
+		var osoapb = nBinding[i].selectNodes("soap:binding");
+		if (osoapb == null || osoapb.length == 0)
+			continue;
+		/* binding节点下面必须得有 "soap:binding"子节点, 否则无效 */
+
+		var sStyle= getAttrib(osoapb[0], "style");
+		var sName = getAttrib(nBinding[i], "name");
+		aBinding[sName] = new Object();
+
+		var stype = getBaseName(getAttrib(nBinding[i], "type"));
+		aBinding[sName].msgs = aPort[stype].ops;	/*一个binding节点与一个portType节点绑定
+								这个stype是个索引值
+								*/
+		var nops = nBinding[i].selectNodes(nsqBinding + "operation");
+
+		for (var j = 0; j < nops.length; j++)
+		{	/* 处理每个operation子节点 nops[j] */
+
+			var sOpName = getAttrib(nops[j], "name");
+			/* 这个sOpName 应是在portType节点下的一个operation子节点 */
+
+			var input = nops[j].selectSingleNode(nsqBinding + "input");
+			if (input == null)
+				continue;	/* binding节点下operation子节点须有input子节点 */
+
+			/* input可以用name指明另外特别的operation, 一般就用本处的 */
+			var sin = getAttrib(input, "name");
+			if (sin == null)
+				sin = sOpName;
+
+			var oM = aBinding[sName].msgs[sOpName][sin];
+			if (oM == null)
+				continue;
+			/* oM就是portType节点下的一个operation子节点的input子节点所指的message */
+
+			var nsoapops = nops[j].selectNodes("soap:operation");
+			if (nsoapops.length == 0)
+				continue;
+
+			var sOpStyle= getAttrib(nsoapops[0], "style");
+			oM.soapAction = getAttrib(nsoapops[0], "soapAction");
+
+			var nsoapbody = nops[j].selectNodes(nsqBinding + "input/soap:body");
+			if (nsoapbody.length > 0)
+			{
+				oM.ns = getAttrib(nsoapbody[0], "namespace");
+				oM.es = getAttrib(nsoapbody[0], "encodingStyle");
+
+				var sUs = getAttrib(nsoapbody[0], "use");
+				oM.fLiteral = (sUs != null && sUs.toLowerCase() == 'literal');
+			}
+
+			var nheadIn = nops[j].selectNodes(nsqBinding + "input/soap:header");
+			oM.hdrsIn = new Array();	/* 通常没有 */
+
+			for (var k = 0; k < nheadIn.length; k ++)
+				oM.hdrsIn[k] = parseSoapHeader(oS, nheadIn[k])
+
+			var nheadOut = nops[j].selectNodes(nsqBinding+"output/soap:header");
+			oM.hdrsOut = new Array();	/* 通常没有 */
+
+			for (var k = 0; k < nheadOut.length; k ++)
+				oM.hdrsOut[k] = parseSoapHeader(oS, nheadOut[k])
+
+			if (sOpStyle != null)
+				oM.fRpc = sOpStyle.toLowerCase()=='rpc';
+			else
+				oM.fRpc=(sStyle !=null && sStyle.toLowerCase()=='rpc');
+		}
+	}
+
+	oS.soapPort = new Array();
+	oS.headers  = new Array();
+	if (nService.length == 0)
+	{
+		oS.defPortName = "defaultPort";
+		var aPort = new Object();
+		oS.soapPort[oS.defPortName] = aPort;
+		aPort.location = null;
+		var firstBind = get1stAryItem(aBinding);
+		aPort.msgs = firstBind == null ? (new Array()) : firstBind.msgs;
+		return;
+	}
+
+	var nports = nService[0].selectNodes(nsqService + "port");
+	for (var j = 0; j < nports.length; j++)
+	{	/* 一个service有多个port组成 */
+		var oAddress = nports[j].selectNodes("soap:address");
+		if (oAddress.length == 0)
+			continue;	/* 每个port必须有soap:address的location来指明webService的URL */
+
+		var oSOAPHdr = nports[j].selectNodes("soap:header");
+		for (var k = 0; k < oSOAPHdr.length; k ++)
+			oS.headers[k] = parseSoapHeader(oS, oSOAPHdr[k]);
+
+		oPort = new Object();
+		oPort.location = getAttrib(oAddress[0], "location");
+
+		var b = aBinding[getBaseName(getAttrib(nports[j], "binding"))];
+		if (b == null)
+			continue
+
+		oPort.msgs = b.msgs;
+		var szname = getAttrib(nports[j], "name");
+		oS.soapPort[szname] = oPort;
+		if (oS.defPortName == null)
+			oS.defPortName = szname;
+	}
+}
+
+/* 创建一个XMLHTTP对象, 不free, 并将之置到全局的_aXmlHttp中 
+   如果再一次调用, 则从oS中取得, 或从_aXmlHttp中取
+*/
+function ensureXmlHttp(fAsync, oS)
+{
+	var oXmlHttp = null;
+	var fCreate = fAsync ? oS.aXmlHttp == null : oS.sXmlHttp == null;
+	if (!fCreate && oS.fSeq)
+	{
+		oXmlHttp = fAsync ? oS.aXmlHttp : oS.sXmlHttp;
+		oXmlHttp.fFree = false;
+		return oXmlHttp;
+	}
+
+	/* 在初始, _aXmlHttp.length ==0 */
+	for (var i = 0; i < _aXmlHttp.length; i++)
+	if (_aXmlHttp[i].fFree)
+	{
+		_aXmlHttp[i].fFree = false;
+		oXmlHttp = _aXmlHttp[i];
+		break;
+	}
+
+	if (oXmlHttp == null)
+	{
+		var xmlHttp;
+		try {
+			xmlHttp = new ActiveXObject("Microsoft.XMLHTTP");
+		} catch (e) {
+			return null;
+		}
+
+		var oXmlHttp = new Object();
+		oXmlHttp.fFree = false;
+		oXmlHttp.xmlHttp = xmlHttp;
+		_aXmlHttp[_aXmlHttp.length] = oXmlHttp;
+	}
+
+	if (!oS.fSeq)
+		return oXmlHttp;
+
+	if (fAsync)
+		oS.aXmlHttp = oXmlHttp;
+	else
+		oS.sXmlHttp = oXmlHttp;
+
+	return oXmlHttp;
+}
+
+function encodeHeader(oS, oM, oCall)
+{
+	var co = oCall.co;
+	var sh = co.SOAPHeader == null ? oS.SOAPHeader : co.SOAPHeader;
+	if (sh == null)
+		return "";
+
+	var ht = (oM.hdrsIn == null) ? oS.headers : oM.hdrsIn;
+	var szHeader = "";
+	if (typeof sh == 'string')
+		szHeader = sh;
+	else if (typeof sh == 'object' && sh.xml != null)
+		szHeader = sh.xml;
+	else if (ht.length != 0)
+	{
+		if (typeof(sh) == "unknown")
+		sh = vbArrayToJs(sh, 1);
+		oM1 = new Object();
+		oM1.opname = null;
+		oM1.ns = oM.ns;
+		oM1.fRpc = oM.fRpc;
+		oM1.fWrapped = false;
+
+		for (var i = 0; i < ht.length; i++)
+		{
+			if (sh[i] == null)
+			{
+				if (ht[i].fRequired)
+					return returnError(oCall, 9);
+
+				continue;
+			}
+
+			oM1.fLiteral = ht[i].fLiteral;
+			var ta = new Array();
+			ta[ht[i].type.name] = ht[i].type;
+
+			var va = new Array();
+			va[0] = sh[i];
+			szHeader += encodeArgs(oS, oM1, ta, va, 0, false);
+		}
+	}
+
+	var soapenvns = oS.qlt["SOAP-ENV"];
+	return '<'+soapenvns+':Header>' + szHeader +"</"+soapenvns+":Header>\n";
+}
+
+function _invoke(oCall)
+{
+	alert("oCall.service = " + oCall.service );
+
+	var szS = oCall.service;
+	var oS = _sdl[szS];
+	var co = oCall.co;
+	if (oS == null)
+	{
+		return postError(oCall, 1);
+	}
+
+	if (co.portName == null)	/* 一般都是null */
+		co.portName = oS.defPortName;	/* 找WSDL文档service的第一个port */
+
+	if (oS.soapPort[co.portName] == null)
+	{
+		callNext(oS);
+		return returnError(oCall, 8);
+	}
+
+	var oXmlHttp = ensureXmlHttp(co.async, oS);
+	if (oXmlHttp == null)
+		return returnError(oCall, 6);
+
+	var args = co.params == null ? oCall.args : co.params;	/* 一般都指向oCall.args,网页调用的参数表 */
+	var cb = oCall.cb;	/* 第一个参数, function之类。如果调用者的第一参数不是function等, 此项为空 */
+	var j = cb == null ? 1 : 2;	
+	j = co.params == null ? j : 0;
+	var oM = getMsg(szS, co, args, j);
+	var szParams = null;
+	if (oM != null)
+	{	/* szParams: 整个soap-body的内容 */
+		szParams = encodeArgs(oS, oM, oM.args, args, j, co.params != null);
+	}
+
+	alert("szParams " + szParams );
+	if (szParams == null)
+	{
+		callNext(oS);
+		return returnError(oCall, 0);
+	}
+
+	oCall.oM = oM;
+	if (showProgress == "true" || showProgress == true)
+		fnShowProgress();
+
+	var oP = oS.soapPort[co.portName];
+	var loc = co.endpoint == null ? oP.location : co.endpoint;
+	if (loc == null)
+	{
+		callNext(oS);
+		return returnError(oCall, 8);
+	}
+
+	try {
+		if (co.userName == null)
+			oXmlHttp.xmlHttp.open("POST", loc, co.async);
+		else
+			oXmlHttp.xmlHttp.open("POST", loc, co.async,
+
+		co.userName, co.password == null ? "" : co.password);
+	} catch (e) {
+		callNext(oS);
+		return returnError(oCall, 5);
+	}
+
+	var szAction = oM.soapAction;
+	if (szAction != null && szAction.length > 0)
+		oXmlHttp.xmlHttp.setRequestHeader("SOAPAction", '"'+szAction+'"');
+	/* 上下两行 设置一个请求HTTP头 */
+
+	oXmlHttp.xmlHttp.setRequestHeader("Content-Type", 'text/xml; charset="UTF-8"');
+	var sNS = ' xmlns=""';
+	for (var ns in oS.ns)
+	{
+		var nsuri = oS.ns[ns];
+		if (ns == "" || nsuri == "")
+			continue;
+
+		sNS +=  " xmlns:" + ns + '="' + nsuri + '"';
+	}
+
+	var szHeader = encodeHeader(oS, oM, oCall);	/* 构造soap-head,不关心也罢 */
+	var soapenvns = oS.qlt["SOAP-ENV"];
+	var soapes = (oM.es==null?'':(' '+soapenvns+':encodingStyle="'+oM.es+'"'));
+	var szPayload = "<?xml version='1.0' encoding='utf-8'?>\n<"
+			+ soapenvns + ":Envelope"
+			+ soapes
+			+ sNS + ">\n"
+			+ szHeader
+			+ '<' + soapenvns + ':Body>'
+			+ szParams + "</" + soapenvns + ":Body>\n"
+			+ "</" + soapenvns + ":Envelope>\n";
+
+	if (co.async)
+	{
+		oCall.oXmlHttp = oXmlHttp;
+		oXmlHttp.xmlHttp.onreadystatechange = function() {getResult(oCall);};
+		try {
+			oXmlHttp.xmlHttp.send(szPayload); /* 终于, 发送soap请求啦 */
+		} catch(e) {
+			return postError(oCall, 5);
+		}
+
+		return oCall.id;	/* 异步方式，返回, getResult()函数处理结果 */
+	}
+
+	/* 以下是同步方式进行的工作 */
+	try {
+		oXmlHttp.xmlHttp.send(szPayload);
+	} catch(e) {
+		return returnError(oCall, 5);
+	}
+
+	if (oXmlHttp.xmlHttp.responseXML.parseError.errorCode != 0)
+	{
+		_errUnknownS.raw = oXmlHttp.xmlHttp.responseText;
+		return returnError(oCall, 4);
+	}
+
+	var r;
+	try {
+		r = processResult(oCall, oXmlHttp.xmlHttp.responseXML.documentElement);
+	} catch (e)
+	{
+		return returnError(oCall, 7);
+	}
+
+	return r;
+}
+
+function callService(service, args)
+{
+	var oC = allocCall();
+	if (args.length < 1)
+	{
+		return postError(oC, 0);
+	}
+
+	var cb = null;
+	var iM = 0;
+	if (    typeof args[0] == "function"
+		||  typeof args[0] == "object" && args[0].funcName == null)
+	{
+		/* 如果网页调用的第一个参数是"function"什么的, 下面就分析第二个参数 iM=1 */
+		iM = 1;
+		cb = args[0];
+	}
+
+	var co;
+	if (typeof args[iM] == 'string')
+		co = createCallOptions(args[iM]);
+	else
+		co = cloneObject(args[iM]);
+
+	oC.co = co;
+	oC.cb = cb;	/* cb是一个网页调用时指定的结果处理函数, 也即第一个参数, 也可能为null */
+	oC.service = service;
+	oC.args = args;
+	if (co.async == null)
+		co.async = true;
+
+	if (co.funcName == null)
+	{
+		return postError(oC, 0);
+	}
+
+	var oS = _sdl[service];
+	if (oS == null)
+	{
+		return postError(oC, 1);
+	}
+
+	if (co.async == false)
+		return oS.fPending ? returnError(oC, 1) : _invoke(oC);
+
+	if (oS.fSeq || oS.fPending)
+	{
+		if (oS.lastCall != null)
+			oS.lastCall.next = oC;
+		else
+			oS.nextCall = oC;
+
+		oS.lastCall = oC;
+	}
+
+	if (oS.fPending)
+	{
+		return oC.id;
+	}
+
+	if (!oS.fSeq)
+		_invoke(oC);
+	else if (oC == oS.nextCall && (oS.aXmlHttp == null || oS.aXmlHttp.fFree))
+		invokeNext(service);
+
+	return oC.id;
+}
+
+/* useService: 一个具体的网页在其Init时调用本函数 
+	szService: 指向一个asmx, 这是一个获得Wsdl的URI.
+	userName:  在本网页部件中要增加的一个Property名称. 本函数对新名称要作登记, 以后将以此名为索引.
+			此Property包含了callService等内容
+*/
+function useService(szService, userName, options)
+{
+	if ( szService == null || szService.length == 0
+		||  userName == null  || userName.length == 0)
+	{
+		throw("Invalid arguments");
+		return;
+	}
+	var url = ensureWsdlUrl(szService);	/* 通常, szService变为*.asmx?wsdl的形式 */
+	var oProp = getAttribute(userName);
+	if (oProp == null)
+	{
+		oProp=document.createElement("<PUBLIC:PROPERTY NAME="+userName+" />");
+		_webservice.appendChild(oProp);
+	}
+	
+	/* 以下三行使得service.Caculate.callService()才可进行 */
+	var oPropValue = new Object();
+	setAttribute(userName, oPropValue);
+	oPropValue.callService = function(){return callService(url, arguments)};
+
+	if (_sdl[url] != null)
+	{
+		if (options != null)
+		{
+			_sdl[url].fSeq = options.reuseConnection == null ? false : options.reuseConnection;
+			_sdl[url].SOAPHeader = options.SOAPHeader;
+		}
+
+		return;
+	}
+
+	var oXml = document.createElement("XML");	
+	document.body.appendChild(oXml);		/* 网页中增加个"XML"元素, 这是为浏览器所认识的 */
+
+	oS = new Object();
+	oS.sXmlHttp = null;
+	oS.aXmlHttp = null;
+	oS.fPending = true;
+	oS.nextCall = null;
+	oS.lastCall = null;
+	oS.url      = url;
+	oS._oXml    = oXml;
+	oS.ns = new Array();
+	oS.nsalias = new Array();
+	if (options != null)			/* 一般不用options */
+	{
+		oS.fSeq = options.reuseConnection;
+		oS.SOAPHeader = options.SOAPHeader;
+	}
+
+	if (oS.fSeq == null)
+		oS.fSeq = false;
+
+	_sdl[url]   = oS;		/* _sdl作为全局变量, 以获取wsdl的URL路径为下标, 每个分量为oS */
+	oXml.service = userName;
+	oXml.onreadystatechange = getWsdl;	/* 如果"XML"内容变了, 则调用getWsdl()函数 */
+	oXml.src = url;	/* 对"XML"元素, src的设置导致浏览器自动去获取url所指向的内容, 才使上面的getWsdl()能执行*/
+
+	return;
+}
+
+/* 
+ 本函数的目标: 取得input(soap请求)所指明的message.
+ service:	asmx的URL
+ co:	有function名称, 如"Add" 
+ args:	网页调用的参数表
+ argIdx: 如果有网页调用的参数表第一个是某个函数(处理结果), 则为2, 否则为1
+ 返回： 相应的message
+*/
+
+function getMsg(service, co, args, argIdx)
+{
+	var oM;
+	var mn = co.funcName;			/* mn内容就是那个"Add" 之类的 */
+	var oS = _sdl[service];
+	var sp = oS.soapPort[co.portName];	/* 找到service下特定的port, co.portName就是其name */
+	if (sp == null)
+		return null;
+
+	oM  = sp.msgs[mn];			/* 找到portType下相应的operation, mn就是其name属性的内容*/
+	if (oM == null || oM.length == null)
+	{
+		return null;
+	}
+
+	var om1;
+	for (om1 in oM)	/* oM是一个阵列,下标是portType/operation/input的name属性或是就是operation的 */
+	{
+		if (co.params != null || oM[om1].args.length == args.length - argIdx)
+		{
+			/* co.params 似乎必定为null, oM[om1].args.length必然为0(似乎脚本有BUG?),
+			所以 args.length - argIdx == 0 只是表明方法("Add")后没有其它参数
+			*/
+			oM = oM[om1];
+			break;
+		}
+	}
+
+	/* 如果有多个input,且有不同的name, 则om1则指到最后一个 */
+	if (oM.length != null)	/* 如果已经做过oM=oM[om1], 这里就为null了, 否则oM.length不为null, 但为0 */
+		oM = oM[om1];
+
+	return 	oM;	/* oM就指向了一个用于input的一个message */
+}
+
+function fixupDT(x)
+{
+	return (x < 10) ? ("0" + x) : x;
+}
+
+function encTZ(d)
+{
+	var tzo = d.getTimezoneOffset();
+	return (tzo > 0 ? '-' : '+') + fixupDT(tzo / 60) + ':' + fixupDT(tzo % 60);
+}
+
+function encodePrimitive(os, argType, argVal)
+{
+	var sz = '';
+	switch(_st[argType])
+	{
+	case 1 :
+		sz = argVal;
+		break;
+
+	case 2 :
+		sz = "<![CDATA[" + argVal + "]]>";
+		break;
+
+	case 3 :
+		try
+		{
+			sz  =   argVal.getFullYear()
+				+   "-" + fixupDT(argVal.getMonth() + 1)
+				+   "-" + fixupDT(argVal.getDate())
+				+   "T" + fixupDT(argVal.getHours())
+				+   ":" + fixupDT(argVal.getMinutes())
+				+   ":" + fixupDT(argVal.getSeconds())
+				+   (argVal.getMilliseconds==null ? '' : ('.' + argVal.getMilliseconds()))
+				+   encTZ(argVal);
+		} catch (e) { sz = argVal; }
+
+		break;
+	case 4 :
+		try {
+			sz  =   argVal.getFullYear()
+				+   "-" + fixupDT(argVal.getMonth() + 1)
+				+   "-" + fixupDT(argVal.getDate())
+				+   encTZ(argVal);
+		} catch (e) { sz = argVal; }
+		break;
+
+	case 5 :
+		try {
+			sz  =   fixupDT(argVal.getHours())
+				+   ":" + fixupDT(argVal.getMinutes())
+				+   ":" + fixupDT(argVal.getSeconds())
+				+   (argVal.getMilliseconds==null ? '' : ('.' + argVal.getMilliseconds()))
+				+   encTZ(argVal);
+		} catch (e) { sz = argVal; }
+		break;
+
+	case 6 :
+	case 7 :
+		sz = encb64(argVal);
+		break;
+
+	default :
+		sz = argVal;
+	}
+
+	return sz;
+}
+
+function bldJsAry(a, as, d)
+{
+	if (d == as.length-1)
+		return;
+
+	for (var i = 0; i < as[d]; i++)
+	{
+		a[i] = new Array();
+		bldJsAry(a[i], as, d+1)
+	}
+}
+
+function getNextIndexAry(a, ai)
+{
+	var i;
+	var l = a.length;
+	if (ai.length == 0)
+	{
+		for (i = 0; i < l; i++)
+			ai[i] = 0;
+
+		return true;
+	}
+
+	for (i = l - 1; i >= 0; i--)
+	{
+		if (i == 0 && 1 + ai[0] > a[0] - 1)
+			return false;
+
+		var x = ai[i] + 1;
+		if (x <= a[i] - 1)
+		{
+			ai[i] = x;
+			return true;
+		}
+
+		ai[i] = 0;
+	}
+
+	return true;
+}
+
+function vbArrayToJs(a, d)
+{
+	ensureVBArray(d);
+	var szSize;
+	try { szSize = VBGetArySize(a, d); } catch (e) {return new Array()}
+
+	var aSize = szSize.toString().split(",");
+	var aszIndex = new Array();
+	var ajs = new Array();
+	bldJsAry(ajs, aSize, 0);
+	var ai = new Array();
+	while (true == getNextIndexAry(aSize, ai))
+	{
+		var s = "ajs["+ai.join("][")+"]=VBGetAryItem"+d+"(a,"+ai.join(",")+");";
+		try { eval(s);} catch (e) {break;}
+	}
+
+	return ajs;
+}
+
+function encodeArray(os, t, nt, v, d)
+{
+	var sz = "";
+	for (var i in v)
+	{
+		if (d == 1)
+		{
+			var ar = encodeVar(os, v[i], nt);
+			xt = ' xsi:type="' + (t.ns ==''?'':(t.ns + ':'))+t.type+'"';
+			sz += '\n<' + t.type + ar[1] +xt+'>' + ar[0] + '</' + t.type + '>';
+		} else
+			sz += encodeArray(os, t, nt, v[i], d-1);
+	}
+
+	return sz;
+}
+/*
+  t:	element, 这是WSDL文档中为某个方法的某个参数的定义
+  v:	网页调用者的某个参数 
+*/
+function encodeVar(oS, v, t)
+{
+	var ar = new Array("", "");
+	if (v == null)	/* 网页调用用了null参数 */
+		return ar;
+
+	var oschm = getSchema(oS, t);	
+	var ae = t.fArray ? t : getAryElem(os, oschm, t);
+	/* ae一般为null, 如果这个参数element所指的type其前缀并不是本WSDL文档定义的 */
+	if (ae != null)
+	{
+		if (typeof v != 'object' && typeof v != 'unknown')
+			return ar;
+
+		var nt = cloneObject(ae);
+		nt.fArray = false;
+
+		var sArr = ae.sizeArray;
+		var k = 1;
+		k = (sArr == null) ? 1 : sArr.length;
+		if (typeof v == 'unknown')
+			v = vbArrayToJs(v, k);
+
+		ar[0] += encodeArray(oS, ae, nt, v, k);
+		return ar;
+	}
+
+	if (isSimpleType(oS, oschm, t))
+	{
+		ar[0] = encodePrimitive(oS, t.type, v);
+		return ar;
+	}
+
+	var et = oschm.types[t.type];
+	if (et == null)
+	{
+		try {
+			var os = v.childNodes;
+			for (var i = 0; i < os.length; i ++)
+			{
+				ar[0] += os[i].xml;
+			}
+		} catch (e) {
+			ar[0] += v;
+		}
+
+		return ar;
+	}
+
+	if (typeof v != 'object' || v.length > 0)
+	{
+		var et1 = get1stAryItem(et);
+		if (et1 == null)
+			return ar;
+
+		return encodeVar(oS, v, et1)
+	}
+
+	for (var k in et)
+	{
+		if (et[k] == null)
+			continue;
+
+		if (v[k] == null)
+		{
+			if (!et[k].fAttrib)
+				ar[0] += '\n<' + et[k].name + ' xsi:null="true"' + '/>\n';
+
+			continue;
+		}
+
+		if (et[k].fAttrib)
+		{
+			ar[1] += encodeAttrib(oS, v[k], et[k]);
+			continue;
+		}
+
+		var qt = "";
+		var asi = "";
+		var it = getAryElem(oS, getSchema(oS, et[k]), et[k]);
+		var soapencns = oS.qlt["soapenc"];
+		if (it != null)
+		{
+			asi = getArySizeInfo(it, v[k]);
+			var ts = (isPrimitive(oS, it) || et[k].ns == "") ? "xsd:" : (et[k].ns + ":");
+			asi = ' xsi:type="' + soapencns + ':Array" '
+				+ soapencns + ':arrayType="' + ts + it.type+'['+ asi +']"';
+		} else if (isPrimitive(oS, et[k]))
+
+		qt = ' xsi:type="xsd:' + et[k].type + '"';
+		var ark = encodeVar(oS, v[k], et[k]);
+		ar[0] += '\n<' + et[k].name + qt + asi + ark[1] + '>' + ark[0] + '</' + et[k].name + '>';
+	}
+
+	return ar;
+}
+
+function getArySize(a)
+{
+	var l = 0;
+	for (var x in a)
+		l++;
+
+	return l;
+}
+
+function get1stAryItem(a)
+{
+	for (var x in a)
+		return a[x];
+
+	return null;
+}
+
+function getAryItemFromIndex(a, index)
+{
+	var i = 0;
+	for (var x in a)
+	{
+		if (i == index)
+			return a[x];
+
+		i++;
+	}
+
+	return null;
+}
+/*
+ os: 即oS, _sdl某个分量, 对应于某个asmx
+ t:  message下的某个part 或是某个 element
+ 返回: 根据这个part所指出的ns(前缀), 找出WSDL文档中types的一个schema(前缀代表其targetNamespace, 
+	schema以此为索引)
+*/
+function getSchema(os, t)
+{
+	if (isPrimitive(os, t))
+		return null;
+
+	if (t.ns==null)	/* 一般t.ns都有值, 若无值则取amsx文档中的第一个schema */
+		return get1stAryItem(os.schemas);
+
+	var nsUrl = os.ns[t.ns];
+	var oschm = os.schemas[nsUrl];
+	if (oschm != null || t.ns.length == 0)
+		return oschm;
+
+	for (var x in os.schemas)
+	if (x.indexOf(nsUrl) == 0 && os.schemas[x].types[t.type] != null)
+		return os.schemas[x];
+
+	return null;
+}
+/*
+  at:	某个element, 这是WSDL文档中为某个方法的某个参数的定义
+  av:	网页调用者的某个参数 
+*/
+function getArySizeInfo(at, av)
+{
+	var as = at.sizeArray;
+	alert(" as  " + as );
+	var k = 1;
+	k = (as == null) ? 1 : as.length;
+	var arr = av;
+	if (typeof arr == 'unknown')
+		arr = vbArrayToJs(arr, k);
+	var sArr = getArySize(arr);
+	if (as == null)
+		return sArr;
+
+	sArr = "";
+	for (var j = 0;;)
+	{
+		var l2 = getArySize(arr);
+		if (as[j] == null)
+			sArr+=l2;
+		else
+			sArr+=Math.min(as[j], l2);
+
+		j = j + 1;
+		if (j == as.length)
+			break;
+
+		sArr += ",";
+		if (l2 == 0)
+			return null;
+
+		arr = get1stAryItem(arr);
+	}
+
+	return sArr;
+}
+
+function encodeAttrib(oS, v, t)
+{
+	if (t.type == null)
+		return "";
+
+	return " " + t.name + '="' + encodePrimitive(oS, t.type, v) + '"';
+}
+
+/*
+  oS:	_sdl的分量, 与asmx为一一对应
+  oM:	某个message
+  a:	element, 这是WSDL文档中为某个方法的某个参数的定义
+  v:	网页调用者的某个参数 
+  返回：某个参数子节点(xml格式)
+*/
+function serPart(oS, oM, a, v)
+{
+	var sz = "";
+	var szt = '';
+	if (a.type!=null && isPrimitive(oS, a))	/* 如果WSDL文档没有对http://www.w3.org/2001/XMLSchema重作别名 */
+		szt = ' xsi:type="xsd:' + a.type + '"';
+
+	var oschm = getSchema(oS, a);	/* 从a.ns取得某个schema, 通常
+					这个a.ns指的是http://www.w3.org/2001/XMLSchema,所以这里的oschm为null */
+	var aryItem = a.fArray ? a : getAryElem(oS, oschm, a); /* 如果是个阵列, 则取它;否则从schema中取type */
+	var soapencns = oS.qlt["soapenc"];
+	if (aryItem != null)
+	{
+		var sArr = getArySizeInfo(aryItem, v);
+		var oschm = getSchema(oS, aryItem);
+		if (oschm != null)
+			aryItem.ns = oS.nsalias[oschm.uri];
+
+		var ts = (isPrimitive(oS, aryItem) || aryItem.ns == "") ? "xsd:" : (aryItem.ns + ":");
+		szt = ' xsi:type="' + soapencns + ':Array" '
+			+ soapencns + ':arrayType="'+ts+aryItem.type+'['+sArr+']"';
+	} else	/* 对于element不是阵列型, 而oschm为null ,所以执行以下一行 */
+		szt = ' xsi:type="' + (a.ns == '' ? '' : (a.ns + ':'))+a.type+'"';
+		/* 这里只不过取回原WSDL文档中对参数element的type属性内容 */
+
+	et = (a.elem == null || oschm == null) ? a : oschm.elems[a.elem];	/* 这个oschm通常是null */
+	var ar = encodeVar(oS, v, et);
+	if (oM.fLiteral)
+	{	/* 非修饰型, 通常是这样 */
+		if (a.elem == null)
+		{	/* 通常为null */
+			if (oM.fWrapped || oM.fRpc)
+			{	/* 这里就对网页调用的参数构造出了soap-body下方法节点下(如Add)的一个节点*/
+				sz += '\n<' + a.name + ar[1] + '>' + ar[0];
+				sz += '</' + a.name + '>';
+				//alert( "sz " + sz);
+			} else
+				sz += ar[0];
+		} else {
+			var ns=' xmlns="'+(a.ns==null?oS.targetns:oS.ns[a.ns])+'"';
+			sz += '\n<' + a.elem + ns + ar[1] + '>' + ar[0];
+			sz += '</' + a.elem + '>';
+		}
+	} else {
+		if (a.type == null)
+			a.type = a.elem;
+
+		var stn = 'mswsb:' + (oM.fRpc ? et.name : et.type);
+		stn = aryItem == null ? stn : (soapencns + ":Array");
+		n = "";
+
+		if (oM.fWrapped || oM.fRpc && oM.opname != null)
+			stn = a.name;
+		else if (aryItem == null)
+			n =' xmlns:mswsb="'+(a.ns==null?oS.targetns:oS.ns[a.ns])+'"';
+
+		sz += '\n<' + stn + n + szt + ar[1] + '>' + ar[0];
+		sz += '</' + stn + '>';
+	}
+
+	return sz;
+}
+
+/*
+  oS:	_sdl的分量, 与asmx为一一对应
+  oM:	某个message
+  argv:	该message下的part
+  aWrap: 将是soap-body下的第一个子节点
+*/
+function getWrap(aWrap, oS, oM, argv)
+{
+	//alert("oM.fWrapped " + oM.fWrapped );
+	//alert("oM.fRpc " + oM.fRpc );
+	if (!oM.fRpc && !oM.fWrapped)
+		return argv;
+
+	var mn = oM.opname;
+	var pns = oM.fLiteral ? "" : "mswsb:";
+	var nsq1 = oM.ns;
+	if (!oM.fRpc)
+	{
+		var firstArg = get1stAryItem(argv);
+		var oschm = getSchema(oS, firstArg);	/* 根据message下第一个part(根据其前缀)找出相应的schema */
+		if (firstArg.type != null)
+		{
+			argv = oschm.types[firstArg.type];	/* 如果part指明了type, 
+								则根据这个type找schema中的types */
+			mn = firstArg.type;		/* 第一个part的type属性基本名, 不为null */
+
+		} else {					/* part没有指明type */
+			var e = oschm.elems[firstArg.elem];	/* 根据part所指明的元素名找到相应的element */
+			oschm = getSchema(oS, e);		/* 根据该element的ns(前缀)找出相应的schema */
+			mn = null;
+			if (oschm != null)
+			{
+				//alert("e.type " + e.type);
+				var et = oschm.types[e.type];
+				if (et != null)
+					argv = et;	/* 找到相应的type, argv被换成了types */
+
+				mn = firstArg.elem;
+			}
+		}
+
+		nsq1 = oS.ns[firstArg.ns];	/* 根据第一个part的别名找出URL */
+	}
+
+	if (mn == null)		/* 似乎不会为null, 如果为null则仍以part元素返回 */
+		return argv;
+
+	var ns1 = nsq1 == null ? oS.targetns : nsq1;
+	var nsd1 = ' xmlns' + (oM.fLiteral ? '' : ':mswsb') + '="' + ns1 + '"';
+	aWrap[0] = '\n<'+ pns + mn + nsd1 + (oM.fLiteral?'':' xmlns=""');
+	aWrap[1] = "</" + pns + mn + ">";
+
+	/* 根据mn(element的基本内容)构造出 soap-body下的第一个子节点:
+		aWrap[0]为tag头, aWrap[1]为tag尾 */
+	//alert("aWrap[0] " + aWrap[0] );
+	//alert("aWrap[1] " + aWrap[1] );
+	/* 如果是rpc, 则返回的是part阵列, 而不是WSDL文档的types/schema下的某个element的types */
+	return argv;
+}
+/*
+  oS:	_sdl的分量, 与asmx为一一对应
+  oM:	某个message
+  omargs:	该message下的part
+  args:	网页调用者的参数表
+  j:	2: 第一个参数是function之类, 1:第一个就是"Add"之类的方法名
+  fParam: 是否有参数(什么参数?), 一般为false.
+  返回: soap-body下整个子节点的(内容xml格式)
+*/
+function encodeArgs(oS, oM, omargs, args, j, fParam)
+{
+	var l = fParam ? 0 : args.length;	/* l: 参数个数 */
+	var sz = '';
+	var sa = '';
+	var aWrap = new Array("", "");
+
+	omargs = getWrap(aWrap, oS, oM, omargs);/* omargs被更新过了, 成为schema中相应的types阵列,对于rpc则不变
+						aWrap已经构成了soap-body的子节点 */
+	var i = j;
+	for (var pn in omargs)
+	{
+		var a = omargs[pn];	/* 一般 a是某个element或是attribute */
+		if (a.elem == null && a.type == null)	/* elem肯定为null? */
+			return null;
+
+		if (!fParam && i >= l)	/* 调用者没有后面的参数了, 就不再对此参数赋值了 */
+			break;
+
+		var argi = fParam ? args[pn] : args[i++];	/* 有指定参数: 按WSDL中指定的名称, 如para1;
+									否则：按顺序取网页调用者的参数 */
+		if (argi == null)
+			continue;
+
+		if (a.fAttrib)
+			sa += encodeAttrib(oS, argi, a);	/* attribute */
+		else
+			sz += serPart(oS, oM, a, argi);		/* 对于element, 构造出某个参数子节点 */
+	}
+
+	/* 构造soap-body下整个方法子节点*/
+	return aWrap[0] + sa + (aWrap[0].length > 0 ? ">" : "") + sz + aWrap[1];
+}
+
+function returnResult(oCall, r)
+{
+	hideProgress();
+	if (oCall.co.async == false)
+	{
+		return r;
+	}
+
+	if (oCall.cb == null)
+	{
+		var evt = createEventObject();
+		evt.result = r;
+		try { eventResult.fire(evt); } catch (e) {};
+	} else {	/* 调用网页提供的结果处理函数 */
+		try { oCall.cb(r); } catch (e) {};
+	}
+}
+
+function decTZ(s)
+{
+	var a = s.split(':');
+	if (a.length == 0)
+		return 0;
+
+	var h = parseInt(a[0],10);
+	return (-h)*60 + (a.length > 1 ? ((h > 0 ? -1:1) * parseInt(a[1],10)) : 0);
+}
+
+function applyTZ(d, tzo)
+{
+	d.setTime(d.getTime() + (tzo - d.getTimezoneOffset()) * 60000);
+}
+
+function decDate(d, s)
+{
+	var a = s.split('-');
+	if (a.length < 3)
+		return;
+
+	d.setYear(a[0]);
+	d.setMonth(parseInt(a[1], 10) - 1);
+	d.setDate(a[2]);
+
+	var tzo = d.getTimezoneOffset();
+	var tzi = s.indexOf('+');
+	if (a.length >= 4)
+		tzo = -decTZ(a[3]);
+	else if (tzi > 0)
+		tzo = decTZ(s.substring(tzi, s.length));
+	else
+		return;
+
+	applyTZ(d, tzo);
+}
+
+function decTime(d, s)
+{
+	var tzi = s.indexOf('+');
+	if (tzi < 0)
+		tzi = s.indexOf('-');
+
+	var a = s.split(':');
+	if (a.length < 3)
+		return;
+
+	d.setHours(a[0]);
+	d.setMinutes(a[1]);
+	d.setSeconds(parseInt(a[2], 10));
+	var msec = a[2].split('.')[1];
+	if (msec != null && d.setMilliseconds != null)
+		d.setMilliseconds(parseInt(msec.substring(0, 3, 10)));
+
+	applyTZ(d, tzi < 0 ? 0 : decTZ(s.substring(tzi, s.length)));
+}
+
+/*
+ os: _sdl的分量, 对应于一个asmx
+ st 类型, 如float或string等
+ o:  与参数定义相应的响应的soap-body下方法(Add)节点下的一个xml子节点(result)
+ 返回节点o的内容, 作一定转换
+*/
+function decodePrimitive(os, st, o)
+{
+	var r = o.hasChildNodes() ? o.firstChild.nodeValue : o.nodeValue;
+	if (r == null)
+	{
+		if (_st[st] == null || _st[st] == 1)
+			return '';
+
+		return null;
+	}
+
+	switch(_st[st])
+	{
+	case 0:
+		try { r = eval(r); } catch(e) { }
+		break;
+
+	case 1 :
+		break;
+	case 3 :
+	case 4:
+		var aXmlDT = r.split("T");
+		r = new Date();
+		if (aXmlDT.length > 0)
+		{
+			decDate(r, aXmlDT[0]);
+			if (aXmlDT.length > 1)
+				decTime(r, aXmlDT[1]);
+		}
+		break;
+
+	case 5:
+		var s = r;
+		r = new Date();
+		decTime(r, s);
+		break;
+
+	case 6 :
+		r = decb64(r, false); break;
+	case 7 :
+		r = decb64(r, true); break;
+
+	default:
+		break;
+	}
+
+	return r;
+}
+/*
+o:  与参数定义相应的响应的soap-body下方法节点下的一个xml子节点(如: result )
+返回： at, at[0]表明第一维数组长度, 依此类推
+
+	getQualifiedItem(x,y)
+	x: 属性的基本名
+	y: 如果实际节点的属性名为soapenc, 则y应为相应的"http://schemas.xmlsoap.org/soap/encoding/". 
+	   此函数根据y找相应的别名(在返回的SOAP-ENV的属性中), 如果找到的别名与这里的前缀相同则ok.
+   按这里的处理, 对于y的定义应与wsdl文档的相同
+*/
+function getAryInfo(oS,o)
+{
+	var oAt=o.attributes.getQualifiedItem("arrayType",oS.ns[oS.qlt["soapenc"]]);
+	if (oAt == null)
+		return null;
+
+	var at = new Array();
+	var asa= oAt.value.split("[");
+	if (asa.length > 1)
+		parseArrayType(at, asa[1]);
+	else
+		at[0] = o.childNodes.length;
+
+	return at;
+}
+/*
+c: 初始为0, 每分析一个具体的元素就c++, c指示了o阵列的哪一个分量
+a: 阵列，输出保存结果
+s: 阵列的信息, 也可能就是s[0]==子节点数, 可能s.length 表示阵列的维数 == 1
+d: 初始为1, 如果未达到s.length值, 则会d+1后再递归调用, 变成多一维的阵列
+o: 那个xml节点(如result)的子节点阵列 
+os: _sdl的分量, 对应于一个asmx
+osc: schema
+t: 对simpleType, 为null; 否则是某个type
+e: 某个参数定义(element或attribute)
+*/
+function decodeArray(c, a, s, d, o, os, osc, t, e, aNodes, fSimple)
+{
+	for (var i = 0; i < s[d-1]; i++)
+	{
+		//alert("d " + d + "    s.length " + s.length);
+		if (d == s.length)
+			a[i] = decodeAryItem(os, osc, t, e, o[c++], aNodes, fSimple);
+		else {
+			a[i] = new Array();
+			c = decodeArray(c, a[i], s, d+1, o, os, osc, t, e, aNodes, fSimple);
+		}
+	}
+
+	return c;
+}
+/*
+os: _sdl的分量, 对应于一个asmx
+osc: schema
+t: 对simpleType, 为null; 否则是某个type
+e: 某个参数定义(element或attribute)
+v: 那个xml节点(如result)的子节点阵列中的某一个分量
+*/
+function decodeAryItem(os, osc, t, e, v, aNodes, fSimple)
+{
+	if (fSimple)
+		return decodePrimitive(os, e.type, v);
+
+	if (e.type == "anyType")
+		return v;
+
+	var sr = getAttrib(v, "href");
+	if (sr != null && sr.charAt(0) == '#')
+		v = aNodes[sr.substring(1, sr.length)];
+
+	var e1 = getAryElem(os, osc, e);
+	if (e1 == e || e1 == null)
+		return decodeType(os, t, v, aNodes);
+	else
+		return decodeElem(os, e1, v, aNodes);
+}
+/* 根据e(通常是个element)的type(数据类型?), 从oschm这个schema取得第一个type
+e: 某个参数定义(element或attribute)
+*/
+function getAryElem(os, oschm, e)
+{
+	//alert("getAryElem sochm " + oschm );
+	if (oschm == null)
+		return null;
+
+	var e1 = get1stAryItem(oschm.types[e.type]);
+	//alert(" e1 " + e1 );
+	return (e1 != null && e1.fArray) ? e1 : null;
+}
+
+/*
+ os: _sdl的分量, 对应于一个asmx
+ e: 某个参数定义(element或attribute)
+ o:  与参数定义相应的响应的soap-body下的方法子节点(如AddResponse)下的一个xml子节点(如result)
+ aNodes: ??
+*/
+function decodeElem(os, e, o, aNodes)
+{
+	var oschm = getSchema(os, e);
+	if (isSimpleType(os, oschm, e) && !e.fArray)
+	{	/* 有些情况下, 这是一个简单的参数了, 如float 之类的 */
+		var stype = oschm == null ? e.type : oschm.sTypes[e.type];
+		//alert("eval " + o.firstChild.nodeValue);
+		return decodePrimitive(os, stype, o);
+	}
+
+	var ae = e.fArray ? e : getAryElem(os, oschm, e)
+	if (ae != null)
+	{
+		var ai = getAryInfo(os, o);
+		var o2 = o.childNodes;
+		if (ai == null)
+		{
+			ai = ae.sizeArray;
+			if (ai == null)
+			{
+				ai = new Array();
+				ai[0] = o2.length;
+			}
+		}
+
+		if (ai.length == 1 && ai[0] == null)
+			ai[0] = o2.length;
+
+		alert("ai[0] " + ai[0]);
+		oschm = getSchema(os, ae);
+		var r = new Array();
+		var fSimple = isSimpleType(os, oschm, ae);
+		decodeArray(0, r, ai, 1, o2, os, oschm,
+			fSimple ? null : oschm.types[ae.type], ae, aNodes, fSimple);
+
+		return r;
+	}
+
+	if (oschm == null)
+		return null;
+
+	var t1 = oschm.types[e.type];
+	if (t1 == null)
+	{
+		return o;
+	}
+
+	/* 嵌套 */
+	return decodeType(os, t1, o, aNodes);
+}
+/*
+ os: _sdl的分量, 对应于一个asmx
+ ot: 参数定义阵列(element或attribute)
+ o:  soap-body下的方法节点(如AddResponse) (rpc或wrapped)
+ aNodes: ??
+ 返回：以参数名为索引的阵列
+*/
+function decodeType(os, ot, o, aNodes)
+{
+	if (ot == null)
+		return null;
+
+	var j = -1;
+	if (typeof ot.type == 'string')	/* ot通常为阵列, 此条件通常不成立 */
+		return decodeElem(os, ot, o, aNodes);
+
+	var or = new Array();
+	for (var sn in ot)
+	{	/* 根据输出的每个定义,sn是定义的name属性内容. 服务端应返回以sn内容为名的节点 */
+		//alert("sn " +sn );
+		j++;
+		t1 = ot[sn];	/* t1为某个输出参数的定义, 是一个element或attribute */
+		if (t1.fAttrib == true)
+		{	/* 这是attribute定义 */
+			var attrib = o.attributes.getNamedItem(sn);
+			if (attrib != null)
+				or[sn] = attrib.value;
+
+			continue;
+		}
+
+		var o1 = o.selectSingleNode(sn);	/* 取得与参数定义名相应的子节点, o1不应为null */
+		var fHasKids = o1 != null;
+		if (o1 ==null)	/* 没有与定义相应的, 则按顺序取一个子节点 */
+			o1 = getAryInfo(os,o)==null&&o.hasChildNodes() ? o.childNodes[j]:o;
+
+		if (o1 == null)
+			continue;
+
+		var st = t1.type;	/* 参数定义应指明type */
+		if (st == null)
+		{	/* 没有指明则找schema */
+			var oschm = getSchema(os, t1);
+			if (t1.elem == null || oschm == null)
+				or[sn] = null;
+			else
+				or[sn] = decodeElem(os, oschm.elems[t1.elem], o1, aNodes);
+
+			continue;
+		}
+
+		if (!o1.hasChildNodes())
+		{	/* 响应参数无值? */
+			alert("!o1.hasChildNodes");
+			var sr = null;
+			sr = getAttrib(o1, "href");
+			if (sr != null && sr.charAt(0) == '#')
+			{
+				o1 = aNodes[sr.substring(1, sr.length)];
+			} else if (isSimpleType(os, getSchema(os, t1), t1))
+			{
+				or[sn] = decodePrimitive(os, st, o1);
+				continue;
+			} else if (!fHasKids)
+			{
+				or[sn] = null;
+				continue;
+			}
+		}
+
+		or[sn] = decodeElem(os, t1, o1, aNodes);
+		//alert("or["+sn+"]="+or[sn]);
+	}
+
+	return or;
+}
+/*
+ 从返回的XML文档中获得soap-head、soap-body的数据, 将其赋值到一个结果对象中,
+ 最后调用returnResult()
+*/
+function processResult(oC, oResult)
+{
+	var r = new Object();
+	r.id = oC.id;
+	r.error = true;
+	if (oResult == null)
+	{
+		if (oC.oM.fOneWay)	/* 对于单向的, 没有结果反而正确 */
+			r.error = false;
+		else
+			r.errorDetail = _errUnknownS;
+
+		return returnResult(oC, r);
+	}
+
+	var pf = oResult.prefix;
+	var ns = pf == null || pf == "" ? "" : (pf + ":");
+	var oS = _sdl[oC.service];
+	if (oS == null || oS.fPending)
+	{
+		r.errorDetail = _errNotReady;
+		return returnResult(oC, r);
+	}
+
+	var oHeader = oResult.selectSingleNode(ns + "Header"); /* 取得soap头 */
+	if (oHeader != null)
+	{
+		var ht = oC.oM.hdrsOut;
+		var rh = new Array();
+		var oHdrs = oHeader.childNodes;
+		var nodesRef = new Array();
+		for (var i = 0; i < oHdrs.length; i++)
+		{
+			if (ht[i] == null)
+				break;
+			var he = ht[i].type;
+
+			if (he.elem != null)
+			{
+				he = getSchema(oS, he).elems[he.elem];
+				rh[i] = decodeElem(oS, he, oHdrs[i], nodesRef);
+			} else if (he.type != null)
+			{
+				he = getSchema(oS, he).types[he.type];
+				rh[i] = decodeType(oS, he, oHdrs[i], nodesRef);
+			}
+		}
+
+		if (ht.length == 1)
+			r.SOAPHeader = rh[0];
+		else
+			r.SOAPHeader = rh;
+	}
+
+	var oBody = oResult.selectSingleNode(ns + "Body"); /* 取得soap-body */
+	if (oBody == null)	/* 没有body是错误的 */ 
+	{
+		r.errorDetail = _errInvalRes;
+		return returnResult(oC, r);
+	}
+
+	var aryFault = oBody.selectNodes(ns + "Fault");	/* 看看Body下有没有Fault, 有就作错误处理了 */
+	if (aryFault.length > 0)
+	{
+		r.errorDetail = new Object();
+		var ac = aryFault[0].selectNodes(ns+"faultcode");
+		if (ac.length == 0)
+			ac = aryFault[0].selectNodes("faultcode");
+			r.errorDetail.code=ac.length > 0 ? ac[0].firstChild.nodeValue:"Unknown";
+			var as = aryFault[0].selectNodes(ns+"faultstring");
+			if (as.length == 0)
+				as = aryFault[0].selectNodes("faultstring");
+
+			if (as.length > 0 && as[0].hasChildNodes())
+				r.errorDetail.string= as[0].firstChild.nodeValue;
+			else
+				r.errorDetail.string= "";
+
+			r.errorDetail.raw = oResult;
+			return returnResult(oC, r);
+	}
+
+	r.error = false;
+	r.raw   = oResult;
+	var args = oC.oM.response.args;	/* 取得portType/operation/output所指向的message的part阵列 */
+	var l = oC.oM.response.argl;
+	if (args == null || l == 0)	/* 没有定义output是不行的 */
+	{
+		r.value = null;
+		return returnResult(oC, r);
+	}
+
+	var arg0 = get1stAryItem(args);
+	alert ( " oC.oM.fRpc || oC.oM.fWrapped " + oC.oM.fRpc || oC.oM.fWrapped );
+	/* 对于rpc或Wrapped, 就取body下第一个节点(也即方法子点AddResponse, 通常是这样), 否则取oBody本身 */
+	var o = oC.oM.fRpc || oC.oM.fWrapped ? oBody.firstChild : oBody;
+	if (o == null)
+	{
+		r.value = null;
+		return returnResult(oC, r);
+	}
+
+	if (!oC.oM.fRpc && oC.oM.fWrapped)
+	{
+		alert("!oC.oM.fRpc && oC.oM.fWrapped");
+		var oschm = oS.schemas[oS.ns[arg0.ns]];	/* 这arg0是WSDL文档message下的第一个part,
+							一般 oschm就是这个schema了 */
+		if (oschm != null)
+		{
+			if (arg0.elem != null)
+			{	/* part必然指向一个某个element */
+				arg0 = oschm.elems[arg0.elem];	/* 取出相应的element */
+				if (isSimpleType(oS, getSchema(oS, arg0), arg0))
+				{
+					alert ( "isSimpleTyype" );
+					args = new Array();
+					args[arg0.name] = arg0;
+				} else
+					args = oschm.types[arg0.type];	/* 取出相应的type,可能是element阵列(参数)
+						args就成为输出参数了*/
+			} else
+				args = oschm.types[arg0.type];	/* 响应part没有指明schema的某个element,则要直接
+								指明type */
+		}
+
+		l = getArySize(args);	/* l指向了所定义的输出参数个数 */
+	}
+
+	var aryNwId = o.selectNodes("//*[@id]");	/* ????? */
+	var aNodes = new Array();
+	alert ( "aryNwID len " + aryNwId.length );
+	for (var i = 0; i < aryNwId.length; i++)
+	{
+		aNodes[getAttrib(aryNwId[i], "id")] = aryNwId[i];
+	}
+
+	var ar = decodeType(oS, args, o, aNodes);	/* 这是具体分析并赋值的 */
+	if (l == 1)
+	{	/* 对于定义一个返回结果的, 直接取第一个值 */
+		for (var i in ar)
+		{
+			r.value = ar[i];
+			break;
+		}
+	} else
+		r.value = ar;	/* 这就是一个阵列啦 */
+
+	return returnResult(oC, r);
+}
+
+function hideProgress()
+{
+	if (_mProg == null || _mProg.parentElement == null)
+		return;
+
+	element.document.body.removeChild(_mProg);
+}
+/*
+  这是有SOAP响应后, 被调用的函数
+ 1: 判断响应数据是否取完整
+ 2: 是否作XML数据被parse正确
+ 3: 作标志不重复处理
+ 4: 设置xmlhttp对象为空闲, 可以被其它所用了
+ 5: 调用processResult()
+*/
+function getResult(oC)
+{
+	if (oC == null) return;
+	var oS = _sdl[oC.service];
+	var xmlHttp = oC.oXmlHttp.xmlHttp;
+	if (xmlHttp == null || xmlHttp.readyState != 4) return;	/* 4这个状态表明响应数据已经取完 */
+	if (oC.fDone) return;	/* 不重复处理结果 */
+
+	oC.fDone = true;	/* 标志 */
+	if (xmlHttp.responseXML.parseError.errorCode != 0)
+	{
+		_errUnknownS.raw = xmlHttp.responseText;
+		returnError(oC, 4);
+	} else {
+		try {
+			processResult(oC, xmlHttp.responseXML.documentElement);
+		} catch (e) { returnError(oC, 7); }
+	}
+
+	oC.oXmlHttp.fFree = true;
+	callNext(oS);
+}
+
+function getJsArrayItem(a)
+{
+	var s = "a";
+	for (var i = 1; i < arguments.length; i++)
+		s += "[" + arguments[i] + "]";
+
+	var ai = null;
+	try {ai = eval(s) } catch(e) {};
+
+	return ai;
+}
+
+function getJsArraySize(a)
+{
+	return a.length;
+}
+
+function getJsArrayDimensions(a)
+{
+	var x = a;
+	var ai = new Array();
+	var ia = 0;
+	while (typeof(x) == "object" && x.length != null && x[x.length-1] != null)
+	{
+		ai[ia++] = x.length;
+		x = x[0];
+	}
+
+	return ai;
+}
+
+helperUtils = new Object();
+helperUtils.getJsArrayItem = getJsArrayItem;
+helperUtils.getJsArraySize = getJsArraySize;
+helperUtils.getJsArrayDimensions = getJsArrayDimensions;
+
+</SCRIPT>

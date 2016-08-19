@@ -1,0 +1,24 @@
+# Title: Makefile(VC)
+# ID: Textus-clipol-Makefile-vc
+# Build: 
+#	B01:created by octerboy 2016/05/14, Panyu
+include ..\Rules.basemod.vc
+CFLAGS =$(CFLAGS) -I..\logdata\include  -I..\baselib\include
+LDLIB =$(LDLIB) ..\baselib\libbase.lib 
+AMOROBJS=clipol.obj
+
+all: clipol.dll
+
+clipol.obj: CliPol.cpp
+	$(CC) $(CFLAGS) -I..\sched\include -DNNDEBUG -DAMOR_CLS_TYPE=CliPol CliPol.cpp
+
+clipol.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+	
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

@@ -1,0 +1,33 @@
+# Title: Makefile(VC)
+# ID: Textus-httpdigest-Makefile-vc
+# Build: B01:created by octerboy 2006/05/28, Gaungzhou
+
+include ..\Rules.basemod.vc
+CFLAGS  = $(CFLAGS) -I..\logdata\include -I..\baselib\include -I..\httpsrvhead\include -I..\unipac\include
+LDLIB = $(LDLIB) ..\baselib\libbase.lib
+AMOROBJS=Digest.obj  md5.obj tools.obj digcalc.obj
+
+all: httpdigest.dll
+
+Digest.obj: Digest.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Digest Digest.cpp
+
+md5.obj:md5.c
+	$(CC)  $(CFLAGS) md5.c
+
+tools.obj:tools.c
+	$(CC)  $(CFLAGS) tools.c
+
+digcalc.obj:digcalc.c
+	$(CC)  $(CFLAGS)  digcalc.c
+
+httpdigest.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

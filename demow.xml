@@ -1,0 +1,601 @@
+<?xml version="1.0" encoding="GB2312" ?>
+<root>
+<Module name="tcpsrv" >
+	<Property port="10000" />
+	<!-- 这是TCP服务模块 -->
+	<Session inner_end="close only" />
+	<Multi radic="yes" />
+	<Cross>
+		<sponte ordo="FD_SETRD" />
+		<sponte ordo="FD_SETWR" />
+		<sponte ordo="FD_CLRRD" />
+		<sponte ordo="FD_CLRWR" />
+	</Cross>
+	<Log ID="-88" alias="tcpsrv">
+		<Exclude level="DEBUG"/>
+	</Log>
+	<Module name="demo">
+		<Property>
+			<type>长大了</type>
+		</Property>
+		<Log ID="-222" > <exclude level="DEBUG"/> </Log>
+	</Module>
+	<Module name="frame" > 
+		<Property length='string:4' />
+		<Log ID="-77" > <Exclude level="DEBUG"/> </Log>
+		<Session outer_end="close only" />
+		<aux>
+			<Module name="demo">
+				<Property>
+					<type>111</type>
+				</Property>
+				<Log ID="-97" > <Exclude level="DEBUG"/> </Log>
+			</Module>
+		</aux>
+		<Module name="unipac" > 
+			<ExternalProperty document="unipac.xml" >
+				<B1/>
+			</ExternalProperty>
+			<Log ID="-47" > <Exclude level="DEBUG"/> </Log>
+			<Aux tag="aux">
+				<aux name="unifom">
+				<Property />
+				<Log ID="-55" > <Exclude level="DEBUG"/> </Log>
+				</aux>
+			</Aux>
+			<Module name="unipac" > 
+				<Log ID="-51" > <Exclude level="DEBUG"/> </Log>
+				<ExternalProperty document="unipac.xml" >
+				<B2/>
+				</ExternalProperty>
+				<Aux tag="aux">
+					<aux name="unifom">
+					<Property />
+					<Log ID="-53" > <Exclude level="DEBUG"/> </Log>
+					</aux>
+				</Aux>
+			</Module>
+			<Module name="autopack" > 
+				<Log ID="-57" > <Exclude level="DEBUG"/> </Log>
+				<ExternalProperty document="unipac.xml" >
+					<AutoPac/>
+				</ExternalProperty>
+			</Module>
+			<Module name="dbport" >
+				<ExternalProperty document="dbface.xml" >
+				<face_1/>
+				</ExternalProperty>
+				<module name="oracli" >
+					<ExternalProperty document="oradb.xml" />
+					<Property lib="libclntsh.so.10.1" />
+					<Log ID="-89" >
+						<Exclude level="DEBUG"/>
+					</Log>
+				</module>
+			</Module>
+		</Module>
+	</Module>
+</Module>
+<Module name='tcpsrv' >
+	<Property Eth="eth0" port="90" />
+	<externalProperty document="mycfg.xml" >
+		<Web>
+			<tcpsrv/>
+		</Web>
+	</externalProperty>
+	<!-- 这是TCP服务模块 -->
+	<Session inner_end="close only" />
+	<Multi radic="yes" />
+	<Cross>
+		<sponte ordo="FD_SETRD" />
+		<sponte ordo="FD_SETWR" />
+		<sponte ordo="FD_CLRRD" />
+		<sponte ordo="FD_CLRWR" />
+	</Cross>
+	<Log ID="-2" alias="tcpsrv">
+		<Exclude level="DEBUG"/>
+	</Log>
+		<Aux tag="aux">
+			<aux name="demo">
+				<Property>
+					<type>小时候</type>
+				</Property>
+				<Log ID="-99" > <Exclude level="DEBUG"/> </Log>
+			</aux>
+		</Aux>
+	<Module name="tcpctrl">
+		<Property>
+			<client certno="01"/>
+		</Property>
+		<Log ID="-766" > <Exclude level="DEBUG"/> </Log>
+		<Cross_4 where="end" cause="yes"/>
+	</Module>
+		<Module name="httpsrvhead" disable="no">
+			<Property server="my server">
+				<method name="DD"/>
+				<method name="FF"/>
+				<method name="CC"/>
+			</Property>
+			<Session inner_end="pass only" outer_end="close only"/>
+			<Log ID="-3" > <Exclude level="DEBUG"/> </Log>
+			<Relay />
+
+			<Module name="demo4" disable="yes">
+				<Property enable="yes" name="http.usr" realm="keyou.cn"/>
+				<Cross_2 effect="last">
+					<sponte ordo="CMD_GET_CERT_NO" />
+				</Cross_2>
+				<Cross_3 effect="last" noCause="del">
+					<sponte ordo="162" />
+				</Cross_3>
+				<Cross_4 effect="last" noCause="del">
+					<sponte ordo="162" />
+				</Cross_4>
+				<Log ID="-123" >
+					<Exclude level="DEBUG"/>
+				</Log>
+			</Module>
+
+			<Module name="httpauth" disable="no">
+				<!-- 这是http服务认证 -->
+				<Property enable="yes" file="http.usr" realm="keyou.cn"/>
+				<Log ID="-4" >
+					<Exclude level="DEBUG"/>
+				</Log>
+				<Relay>
+					<stop sponte="PRO_HTTP_HEAD" />
+					<continue sponte="PRO_HTTP_HEAD" />
+				</Relay>
+			</Module>
+			<Module name="httpfile" disable="no">
+				<Property home="tinyxml/docs" default="index.html" security = "no"/>
+				<Property home="./" default="ut.htm" security = "no" charset="gb2312"/>
+				<Property home="tinyxml/docs" default="index.html" charset="ISO-8859-1"/>
+				<Property home="/home/octerboy/samba-3.0.20pre1/docs/htmldocs" default="index.html" charset="gb2312"/>
+				<Log ID="-12" >
+					<Exclude level="DEBUG"/>
+				</Log>
+				<Relay>
+					<continue pass="yes" pius="null" />
+					<stop sponte="PRO_TBUF" />
+				</Relay>
+			</Module>
+			<Module name="httpdir" >
+				<Property home="tinyxml/docs" charset="gb2312"/>
+				<Log ID="-20" >
+					<Exclude level="DEBUG"/>
+				</Log>
+				<Relay >
+					<stop sponte="PRO_TBUF" />
+				</Relay>
+			</Module>
+			<Module name="httpsrvbody" disable="no">
+				<Property />
+				<Relay >
+					<stop sponte="PRO_HTTP_RESPONSE" pass="yes" />
+				</Relay>
+				<Log ID="-6" >
+					<Exclude level="DEBUG"/>
+				</Log>
+				<Module name="httpform" >
+					<Log ID="-33" >
+						<Exclude level="DEBUG"/>
+					</Log>
+					<Relay >
+						<stop pass="yes" />
+						<continue pass="yes" pius="get" />
+					</Relay>
+				</Module>
+				<Module name="httpxml" >
+					<Property />
+					<Log ID="-33" >
+						<Exclude level="DEBUG"/>
+					</Log>
+					<Relay>
+						<stop sponte="PRO_HTTP_RESPONSE" pass="yes" />
+					</Relay>
+					<Module name="tsoap" >
+						<ExternalProperty document="wsdl.xml" />
+						<Log ID="-129" >
+							<Exclude level="DEBUG"/>
+						</Log>
+						<URL case="no" >
+							<match> /Cacu.asmx </match>
+						</URL>
+						<Module name="getversions" >
+							<Property />
+							<Log ID="-139" >
+								<Exclude level="DEBUG"/>
+							</Log>
+							<Version get="yes" />
+							<URL case="no" field='SOAPAction' ordo='154' >
+								<match> "sysadm/version" </match>
+							</URL>
+						</Module>
+					</Module>
+					<Module name="nicd" >
+						<Property />
+						<Log ID="-113" >
+							<Exclude level="DEBUG"/>
+						</Log>
+						<URL case="no" >
+							<match> /SystemNIC.xml </match>
+							<match> /SystemSetNIC </match>
+						</URL>
+					</Module>
+					<Module name="cacu" >
+						<Property />
+						<Log ID="-120" >
+							<Exclude level="DEBUG"/>
+						</Log>
+						<URL>
+							<match> /caculate.xml </match>
+						</URL>
+					</Module>
+					<Module name="sysinfo" >
+						<Property />
+						<Log ID="-114" >
+							<Exclude level="DEBUG"/>
+						</Log>
+						<Version get="yes" />
+						<URL>
+							<match> /SystemInfo.xml </match>
+							<match> /caculate.xml </match>
+						</URL>
+					</Module>
+					<Module name="netdiag" >
+						<Property />
+						<Log ID="-115" >
+							<Exclude level="DEBUG"/>
+						</Log>
+						<URL>
+							<match> /SystemDiag </match>
+						</URL>
+					</Module>
+					<Module name="route" >
+						<Log ID="-116" >
+							<Exclude level="DEBUG"/>
+						</Log>
+						<URL>
+							<match> /SystemRoute.xml </match>
+							<match> /SystemSetRoute </match>
+						</URL>
+					</Module>
+					<Module name="restart" >
+						<Property redirect="/index.html"/>
+						<Log ID="-118" >
+							<Exclude level="DEBUG"/>
+						</Log>
+						<Cross>
+							<sponte ordo="3" />
+						</Cross>
+						<URL field="Path" >
+							<match> /SystemRestart </match>
+						</URL>
+					</Module>
+					<Module name="systime" >
+						<Log ID="-117" >
+							<Exclude level="DEBUG"/>
+						</Log>
+						<URL>
+							<match> /SystemTime.xml </match>
+							<match> /SystemSetTime </match>
+						</URL>
+					</Module>
+				</Module>
+				<Module name="httpupfile" >
+					<Property />
+					<Log ID="-122" >
+						<Exclude level="DEBUG"/>
+					</Log>
+					<Relay stop="pass" />
+					<Module name="systime" >
+						<Log ID="-119" >
+							<Exclude level="DEBUG"/>
+						</Log>
+						<URL>
+							<match> /SystemUpgradeiii </match>
+						</URL>
+					</Module>
+				</Module>
+				<module name="httpnourl" >
+					<Log ID="-9" > </Log> 
+					<Property Redirect="/tfom.htm"/>
+					<Relay sponte="PRO_HTTP_HEAD" />
+				</module>
+			</Module>
+
+			<Module name="httpnourl" >
+				<Property Redirect="/tfom.htm"/>
+				<Log ID="-7" ></Log>
+			</Module>
+		</Module>
+</Module>
+
+<module name="tcpsrv" >
+	<Property port="9000" />
+	<!-- 这是TCP服务模块 -->
+	<Session inner_end="close only" />
+	<Multi radic="yes" />
+	<Cross>
+		<sponte ordo="FD_SETRD" />
+		<sponte ordo="FD_SETWR" />
+		<sponte ordo="FD_CLRRD" />
+		<sponte ordo="FD_CLRWR" />
+	</Cross>
+	<Log ID="-88" alias="tcpsrv">
+		<exclude level="DEBUG"/>
+	</Log>
+	<Module name="demo3">
+		<Property>
+			<type>长大了</type>
+		</Property>
+		<Log ID="-222" > <exclude level="DEBUG"/> </Log>
+	</Module>
+	<module name="frame" > 
+		<Property />
+		<Log ID="-77" > <Exclude level="DEBUG"/> </Log>
+		<Session outer_end="close only" />
+		<aux>
+			<Module name="demo">
+				<Property>
+					<type>111</type>
+				</Property>
+				<Log ID="-99" > <Exclude level="DEBUG"/> </Log>
+			</Module>
+		</aux>
+	</module>
+</module>
+<module name='tcpsrv' >
+	<Property port="7000" />
+	<!-- 这是TCP服务模块 -->
+	<Session inner_end="close only" />
+	<Multi radic="yes" />
+	<Cross>
+		<sponte ordo="FD_SETRD" />
+		<sponte ordo="FD_SETWR" />
+		<sponte ordo="FD_CLRRD" />
+		<sponte ordo="FD_CLRWR" />
+	</Cross>
+	<Log ID="-6" alias="tcpsrv">
+		<Exclude level="DEBUG"/>
+	</Log>
+		<Aux tag="aux">
+			<aux name="demo3">
+				<Property>
+					<type>外婆</type>
+				</Property>
+				<Log ID="-97" > <Exclude level="DEBUG"/> </Log>
+			</aux>
+		</Aux>
+	<Joint />
+</module>
+
+<Module name='tcpsrv' >
+	<Property port="8000" />
+	<!-- 这是TCP服务模块 -->
+	<Session inner_end="close only" />
+	<Multi radic="yes" />
+	<Cross>
+		<sponte ordo="FD_SETRD" />
+		<sponte ordo="FD_SETWR" />
+		<sponte ordo="FD_CLRRD" />
+		<sponte ordo="FD_CLRWR" />
+	</Cross>
+	<Log ID="-1" alias="tcpsrv">
+		<Exclude level="DEBUG"/>
+	</Log>
+		<Aux tag="aux">
+			<aux name="demo3">
+				<Property>
+					<type>小时候</type>
+				</Property>
+				<Log ID="-98" > <Exclude level="DEBUG"/> </Log>
+			</aux>
+		</Aux>
+	<Joint />
+	<Module name="tcpctrl">
+		<Property>
+			<client certno="01"/>
+		</Property>
+		<Log ID="-766" > <Exclude level="DEBUG"/> </Log>
+		<Cross_3 where="end" cause="yes"/>
+	</Module>
+</Module>
+
+<Module name='tcpsrv' >
+	<Property port="80" />
+	<!-- 这是TCP服务模块 -->
+	<Session inner_end="close only" />
+	<Multi radic="yes" />
+	<Cross>
+		<sponte ordo="FD_SETRD" />
+		<sponte ordo="FD_SETWR" />
+		<sponte ordo="FD_CLRRD" />
+		<sponte ordo="FD_CLRWR" />
+	</Cross>
+	<Log ID="-2" alias="tcpsrv">
+		<exclude level="DEBUG"/>
+	</Log>
+	<Aux tag="aux">
+		<aux name="demo4">
+			<Property>
+				<type>音乐</type>
+			</Property>
+			<Log ID="-99" > <Exclude level="DEBUG"/> </Log>
+		</aux>
+	</Aux>
+	<Module name="tcpctrl">
+		<Property>
+			<client certno="01"/>
+		</Property>
+		<Log ID="-766" > <exclude level="DEBUG"/> </Log>
+		<Cross_4 where="end" cause="yes"/>
+	</Module>
+
+	<Module name="httpsrvhead">
+		<Property server="my server" agent="yes">
+			<method name="DD"/>
+			<method name="FF"/>
+			<method name="CC"/>
+		</Property>
+		<Joint location="right" />
+		<Session inner_end="pass only" outer_end="close then pass"/>
+		<Log ID="-3" > <exclude level="DEBUG"/> </Log>
+		<Relay />
+
+			<Module name="demo3">
+				<Property >
+					<type>yyyyyy</type>
+				</Property>
+				<Cross_4 effect="last" noCause="del">
+					<sponte ordo="118" />
+				</Cross_4>
+				<Cross_3 effect="last" noCause="del">
+					<sponte ordo="118" />
+				</Cross_3>
+				<Log ID="-123" >
+					<Exclude level="DEBUG"/>
+				</Log>
+			</Module>
+			<module name="httpauth">
+				<!-- 这是http服务认证 -->
+				<Property enable="yes" file="..\http.usr" realm="keyou.cn"/>
+				<Log ID="-4" >
+					<Exclude level="DEBUG"/>
+				</Log>
+				<Relay sponte="PRO_HTTP_HEAD" />
+			</module>
+
+		<module name="httpfile" >
+			<Property home="tinyxml/docs" default="index.html"/>
+			<Log ID="-12" >
+				<exclude level="DEBUG"/>
+			</Log>
+			<Relay sponte="PRO_HTTP_BODY" />
+		</module>
+
+		<module name="httpdir" >
+			<Property home="tinyxml/docs" charset="gb2312"/>
+			<Log ID="-20" >
+					<Exclude level="DEBUG"/>
+			</Log>
+			<Relay sponte="PRO_HTTP_BODY" />
+		</module>
+
+		<Module name="restart" >
+			<Log ID="-117" >
+			<Exclude level="DEBUG"/>
+			</Log>
+			<URL case='no'>
+				<match path="/SystemRestart" />
+			</URL>
+			<Cross>
+				<sponte ordo="3" />
+			</Cross>
+		</Module>
+		<Module name="httpsrvbody" >
+				<Property />
+				<Relay stop="pass"/>
+				<Relay/>
+				<Log ID="-6" >
+					<exclude level="DEBUG"/>
+				</Log>
+				<Module name="httpform" >
+					<Log ID="-33" >
+						<Exclude level="DEBUG"/>
+					</Log>
+					<Relay stop="pass" />
+				</Module>
+				<Module name="httpxml" >
+					<Property />
+					<Log ID="-33" >
+						<Exclude level="DEBUG"/>
+					</Log>
+					<Relay stop="pass" />
+					<Module name="systime" >
+						<Log ID="-117" >
+							<exclude level="DEBUG"/>
+						</Log>
+						<URL case='no'>
+							<match path="/SystemTime.xml" />
+							<match path="/SystemSetTime" />
+						</URL>
+					</Module>
+				</Module>
+		</Module>
+		<Module name="httpagent" >
+			<Property Redirect="/tfom.htm"/>
+			<Session inner_end="close only" outer_end="close then pass"/>
+			<Log ID="-7" ></Log>
+<Module name="tcpcli">
+	<Property ip="192.1.1.6" port="80" try="3" start=no/>
+	<Session inner_end="pass only" outer_end="close only"/>
+	<Log ID="-30" > <Exclude level="DEBUG"/> </Log>
+	<Cross>
+		<sponte ordo="FD_SETRD" />
+		<sponte ordo="FD_SETWR" />
+		<sponte ordo="FD_SETEX" />
+		<sponte ordo="FD_CLRRD" />
+		<sponte ordo="FD_CLRWR" />
+		<sponte ordo="FD_CLREX" />
+		<sponte ordo="DMD_SET_TIMER" />
+		<sponte ordo="DMD_CLR_TIMER" />
+	</Cross>
+</Module>
+		</Module>
+	</Module>
+</Module>
+<Module name="demo4" >
+	<Property >
+		<type>xxxxx</type>
+	</Property>
+	<Version get="yes" />
+	<Log channel="yes" />
+</Module>
+<module name="demo2">
+	<Property>
+		<type>mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm</type>
+	</Property>
+	<Cross>
+		<sponte ordo="DMD_SET_TIMER" />
+		<sponte ordo="DMD_SET_ALARM" />
+	</Cross>
+<Module name="tcpcli">
+	<Property ip="192.168.0.2" port="9000" try="3"/>
+	<Log ID="-29" > <exclude level="DEBUG"/> </Log>
+	<Cross>
+		<sponte ordo="FD_SETRD" />
+		<sponte ordo="FD_SETWR" />
+		<sponte ordo="FD_SETEX" />
+		<sponte ordo="FD_CLRRD" />
+		<sponte ordo="FD_CLRWR" />
+		<sponte ordo="FD_CLREX" />
+		<sponte ordo="DMD_SET_TIMER" />
+	</Cross>
+</Module>
+</module>
+<Module name="sched" >
+	<Log ID="-1" alias = "sched">
+		<exclude level="DEBUG"/>
+	</Log>
+	<Cross where="end"/>
+	<Property timer="10000"/>
+</Module>
+<Attachment name="libbase" flag="GLOB" />
+<Attachment name="logdata" maxium="2"/>
+<Attachment name="auxiliary" />
+<Attachment name="tversion" />
+<Attachment name="complex" />
+<Attachment name="cross" />
+<Attachment name="joint" />
+<Attachment name="httpurlsw" />
+<Attachment name="induco" />
+<Attachment name="keep" />
+<Attachment name="nostra" />
+<Attachment name="relay" />
+<Attachment name="session" />
+<Attachment name="cross_2" tag="Cross_2" causation="yes" />
+<Attachment name="cross_3" tag="Cross_3" causation="yes" />
+<Attachment name="cross_4" tag="Cross_4" causation="yes" />
+</root>

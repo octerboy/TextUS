@@ -1,0 +1,24 @@
+# Title: Makefile(VC)
+# ID: Textus-Ef06-Makefile-vc
+# Build
+#	B01:created by octerboy 2013/12/19
+include ..\Rules.basemod.vc
+CFLAGS = $(CFLAGS) -I..\baselib\include -I..\logdata\include -I..\unipac\include
+LDLIB = ..\baselib\libbase.lib $(LDLIB)
+AMOROBJS=Ef06.obj 
+
+all: ef06.dll 
+
+Ef06.obj: Ef06.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Ef06 Ef06.cpp
+
+ef06.dll: Ef06.obj
+	$(LD) /NODEFAULTLIB  /NOLOGO -dll -out:$@ Ef06.obj $(LDLIB) Winscard.lib
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.lib
+	del *.exp

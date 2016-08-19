@@ -1,0 +1,10 @@
+	addHead("Set-Cookie", "mysession=234ssddssd ad; sfdsa=addsafa");
+        addHead("Set-Cookie", "hession=3");
+        addHead("Set-Cookie", "hisssion=1234287423");
+        addHead("Set-Cookie", "who session =  add  sfdfd");
+cookie:
+1、要用addHead()函数, Set-Cookie为名, 可以多个
+2、内容以'='号为界, 左边是cookie名称, 右边cookie内容(可以为空)
+3、请求中以Cookie为名称, 多个cookie在一个域中, 以"; "为界. 如：
+	Cookie: hession=; myssion=
+

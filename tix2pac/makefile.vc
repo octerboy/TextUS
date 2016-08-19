@@ -1,0 +1,25 @@
+# Title: Makefile(VC)
+# ID: Textus-tix2pac-Makefile-vc
+# Build: 
+#	B01:created by octerboy 2006/12/28, Gaungzhou
+
+include ..\Rules.basemod.vc
+CFLAGS  =  $(CFLAGS) -I..\baselib\include -I..\logdata\include -I..\unipac\include
+LDLIB = $(LDLIB) ..\baselib\libbase.lib
+AMOROBJS=X2pac.obj 
+
+all: tix2pac.dll
+
+X2pac.obj: X2pac.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=X2pac X2pac.cpp
+
+tix2pac.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="GB2312" ?>
+<root>
+<B2 provide ='2' offset='5' max_field='20' base='ISO8583:1987'>
+<!--	src='packet', 指明本模块向子节点传递PacketObj(本模块通常是最左节点), src='buffer', 向子节点传递TBuffer(本模块通常是最右边的节点)
+	packetFiled:, 指明本模块在收到PRO_UNIPAC时, 分析哪一个域, 或在收到DO_UNIPAC时, 生成哪一个域
+	offset:, 指明本模块中定义的域号+offset, 即为实际处理的域号
+	base:, 指明本模块所用的定义模板,目前有cups2.0 iso8583:1987
+--> 
+	<packet>
+		<field no='0' locate='ALLVAR' length='20' />
+		<field no='1' locate='RIGID' length='2'/>
+		<field no='2' locate='lterm'>
+			<term>是</term>
+		</field>
+		<field no='3' locate='lterm'>
+			<term>是</term>
+		</field>
+	</packet>
+<!-- packet在两种情况需要：1、对参考定义作适当修改, 2、无参考定义, 重新定义-->
+</B2>
+<B1 provide='packet' offset='0' base='ups2.0' maxium='20'>
+<!--	provide='packet', 指明本模块向子节点传递PacketObj(本模块通常是最左节点), provide='buffer', 向子节点传递TBuffer(本模块通常是最右边的节点). 
+	provide='0'(或是1~max_filed): 此项内容为不小于0的数字, 则意味着本模块只是中间分析,  指明本模块在收到PRO_UNIPAC时, 分析哪一个域, 或在收到DO_UNIPAC时, 生成哪一个域
+	offset:, 指明本模块中定义的域号+offset, 即为实际处理的域号
+	base:, 指明本模块所用的定义模板,目前有cups2.0 iso8583:1987
+--> 
+	<packet>
+		<field no='0' locate='ISOBITMAP'/>
+		<field no='1' locate='RIGID' length='4'/>
+		<field no='2' locate='lterm'>
+			<term>咐么</term>
+			<term>什么</term>
+		</field>
+		<field no='3' locate='ALLVAR' length='20' />
+		<field no='4' locate='ALLVAR' length='20' />
+		<field no='5' locate='RIGID' length='12' />
+		<field no='10' locate='RIGID' length='4' />
+	</packet>
+	<packet>
+		<field no='0' locate='ISOBITMAP'/>
+		<field no='1' locate='RIGID' length='4'/>
+		<field no='2' locate='lterm'>
+			<term>咐么</term>
+			<term>什么</term>
+		</field>
+		<field no='3' locate='ALLVAR' length='20' />
+		<field no='4' locate='ALLVAR' length='20' />
+	</packet>
+<!-- packet在两种情况需要：1、对参考定义作适当修改, 2、无参考定义, 重新定义-->
+</B1>
+<AutoPac provide='p' maxium='33' mapOnly='no'>
+	<!-- provide='packet':本对象有packet对象, 会向右传递, 默认为无
+		
+		maxium='33': 最大域号, 如果比下面的facio/sponte定义的小, 则会更改到下面定义的值;
+			此值在将是provide packet时的packet内的最大域号
+		mapOnly='yes': 仅仅作packet的域对应, 而没有传递动作; 否则, 当provide packet时向右传递, 
+									   无时向左传递
+				默认mapOnly='no'
+	-->
+	<facio offset='0' dstOffset='0' to='what'>
+		<!-- offset: 域号偏移量, 如果没有dstOffset, 则源与目的相同; dstOffset目的packet的域号偏移量 -->
+		<!-- to='Lfirst': 目标为来自左边的第一个packet -->
+		<!-- to='Lsecond': 目标为来自左边的第二个packet -->
+		<!-- to='Rfirst': 目标为向右边的第一个packet -->
+		<!-- to='Rsecond': 目标为向右边的第二个packet -->
+		<!-- from='Lfirst': 源packet为来自左边的第一个packet -->
+		<!-- from='Lsecond': 源packet为来自左边的第二个packet -->
+		<!-- from='Rfirst': 源packet为向右边的第一个packet -->
+		<!-- from='Rsecond': 源packet为向右边的第二个packet -->
+		<!-- 在每一个field中可以再设定, 默认from='Lfirst', to='Lsecod' -->
+		<field >
+			<from method='getval' no='-1' > 3357</from>
+			<!-- method='getval': 取域内的有效值,这是缺省值;
+				method='getraw': 取域原始值, 因此包括可能的长度值等
+				no = '1': 域号, 如果缺省或<0, 则取这里的常数
+			-->
+			<to no='1'/>
+			<!-- no < 0: 则不作赋值-->
+		</field>
+		<field >
+			<from> abcd</from>
+			<to no='2'/>
+		</field>
+		<field >
+			<from> ABDD</from>
+			<to no='3'/>
+		</field>
+		<field >
+			<from no='4' method='getraw'/>
+			<to no='4'/>
+		</field>
+	</facio>
+</AutoPac>
+</root>

@@ -1,0 +1,27 @@
+# Title: Makefile(VC)
+# ID: Textus-udp-Makefile-vc
+# Build: 
+#	B01:created by octerboy 2006/10/10, Gaungzhou
+
+include ..\Rules.basemod.vc
+CFLAGS =$(CFLAGS) -I..\logdata\include  -I..\baselib\include
+LDLIB =$(LDLIB) ..\baselib\libbase.lib Ws2_32.lib
+AMOROBJS=Udp.obj Udpuna.obj
+
+all: udp.dll
+
+Udp.obj: Udp.cpp
+	$(CC) $(CFLAGS) -DDEBUG Udp.cpp
+
+Udpuna.obj: Udpuna.cpp
+	$(CC) $(CFLAGS) -I..\sched\include -DNNDEBUG -DAMOR_CLS_TYPE=Udpuna Udpuna.cpp
+
+udp.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+        copy $@.* ..\release
+	
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

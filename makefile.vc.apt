@@ -1,0 +1,13 @@
+# Title: Makefile(VC)
+# ID: Textus-Makefile-vc
+# Build: B01:created by octerboy 2006/05/27
+include ./Rules.basemod.vc
+include ./Allmodules.apt
+CFLAGS  =  /W3 /O2 /c
+AMOROBJS=main.obj  wmain.obj
+
+sub_all:
+	vcbuild.bat $(DIRS)	
+
+clean:
+	vcclean.bat $(DIRS)	

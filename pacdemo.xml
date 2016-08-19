@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="gb2312" ?>
+<root tag="Module" path="./release/" sum="B1EAE4DDF88492DC7B7ADF8EF7B26353">
+    <![CDATA[<greeting>Hello, World!</greeting>]]>
+
+    <Module name="log2buff" sum="no" disable="no">
+        <Property>
+            <tail>\n</tail>
+            <log level="all" />
+        </Property>
+        <Log channel="yes">
+            <exclude level="all" />
+        </Log>
+        <Module name="tbufile" sum="no">
+            <Property show="stderr" file="tt.log" interval="3000" />
+            <Log>
+                <exclude level="all" />
+            </Log>
+        </Module>
+    </Module>
+    <Module name="ttyop" sum="no">
+        <!-- 这个ttyop只是为了产生一个tbuffer而已 -->
+        <Property tty="/dev/ttyS0" parity="even" baud="9600" size="8" stop_bit="1" />
+        <Log ID="-49">
+            <Exclude level="DEBUG" />
+        </Log>
+        <Aux tag="aux">
+            <aux name="tbufile" sum="no">
+                <Property clear="no" show="no" form="debugX" file="my.log" interval="-1" />
+                <Log>
+                    <exclude level="all" />
+                </Log>
+            </aux>
+        </Aux>
+        <Module name="unipac" disable="no" sum="no">
+            <Property provide="packet" offset="0" base="ISO8583:1987" maxium="128">
+                <packet>
+                    <field no="41" locate="RIGID" length="8" unit="nibble" />
+                    <field no="53" locate="RIGID" length="16" unit="nibble" />
+                    <field no="128" locate="RIGID" length="4" />
+                </packet>
+            </Property>
+            <Log ID="-47">
+                <exclude level="DEBUG" />
+            </Log>
+            <Module name="unifom" sum="no" disable="no">
+                <Property provide="nothing" offset="0" mapOnly="no">
+                    <sponte to="LSecond" from="LSecond">
+                        <convert>
+                            <source no="2" code="ASCII" />
+                            <destination no="2" code="BCD" />
+                        </convert>
+                        <convert>
+                            <source no="3" code="ASCII" />
+                            <destination no="3" code="BCD" />
+                        </convert>
+                        <convert>
+                            <source no="4" code="ASCII" />
+                            <destination no="4" code="BCD" />
+                        </convert>
+                        <convert>
+                            <source no="5" code="ASCII" />
+                            <destination no="5" code="BCD" />
+                        </convert>
+                        <convert>
+                            <source no="6" code="ASCII" />
+                            <destination no="6" code="BCD" />
+                        </convert>
+                        <convert>
+                            <source no="7" code="ASCII" />
+                            <destination no="7" code="BCD" />
+                        </convert>
+                        <convert>
+                            <source no="11" code="ASCII" />
+                            <destination no="11" code="BCD" />
+                        </convert>
+                        <convert>
+                            <source no="41" code="ASCII" />
+                            <destination no="41" code="BCD" />
+                        </convert>
+                        <convert>
+                            <source no="53" code="ASCII" />
+                            <destination no="53" code="BCD" />
+                        </convert>
+                        <convert>
+                            <source no="58" code="HEX" />
+                            <destination no="58" code="ANY" />
+                        </convert>
+                        <convert>
+                            <source no="70" code="ASCII" />
+                            <destination no="70" code="BCD" />
+                        </convert>
+                        <convert>
+                            <source no="128" code="HEX" />
+                            <destination no="128" code="ANY" />
+                        </convert>
+                    </sponte>
+                </Property>
+                <Log ID="-1997">
+                    <exclude level="DEBUG" />
+                </Log>
+                <Module name="jsport" sum="no" disable="no">
+                    <Property>
+                        <script file="test4.js" />
+                    </Property>
+                    <Log ID="-799">
+                        <Exclude level="DEBUG" />
+                    </Log>
+                </Module>
+            </Module>
+        </Module>
+    </Module>
+    <Attachment name="libbase" flag="GLOB" sum="no" />
+    <Attachment name="logdata" maxium="2" pid="y" sum="no" />
+    <Attachment name="auxiliary" sum="no" />
+    <Attachment name="js32" flag="GLOB" sum="no" />
+</root>

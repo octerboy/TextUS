@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="GB2312" ?>
+<root>
+<!-- 数据库访问接口 -->
+<DB in='first' out='second' offset='0' rowsCount="15" rowsFetched="17">
+<face in='first' out='second' offset='0' statement='test_proc' type='procedure'>
+	<reference field="0">100</reference>
+        <in field="2" type="char" name="@type"/>
+        <in field="3" type="Integer" name="@tot_sales"/>
+	<out field='4' type='Integer' length='4' name="@num_books"/>
+</face>
+<face in='first' out='second' offset='0' statement='select name from mytab' type='query'>
+	<reference field="0">200</reference>
+	<rowset param_pos="0" trace="12" chunk="1" endQuery="no" />
+	<out field='4' type='char' length='10' name="name"/>
+</face>
+        <face type="fetch">
+            <reference field="0">201</reference>
+            <rowset param_pos="0" trace="12" chunk="1" />
+        </face>
+<face in='first' out='second' offset='0' statement='fguo' type='function'>
+<!-- type: procedure(proc), function, sql -->
+<!-- statement: 存储过程名, 函数名, sql语句, 都与具体的数据库有关 -->
+<!-- 这里的out, in顺序即为存储过程等的参数顺序, 头一个参数指向错误代码, 下一个对于function指向返回值-->
+	<out field='10' type='char' length='4'/>
+	<out field ='1' type='char' length='4'/>
+	<in field ='1' type='char' length='4'/>
+	<in field ='1' type='char' length='4'/>
+	<ut field='2' type='char' length='8'/>
+</face>
+<face in='first' out='second' offset='0' statement='' type='fetch'>
+<!-- type: procedure(proc), function, sql -->
+<!-- statement: 存储过程名, 函数名, sql语句, 都与具体的数据库有关 -->
+	<in name='' field ='1' type='char'/>
+	<inout />
+	<out field='1' type='char' />
+	<out field='2' type='char' length='5'/>
+</face>
+</DB>
+</root>

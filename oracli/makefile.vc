@@ -1,0 +1,24 @@
+# Title: Makefile(VC)
+# ID: Textus-oracli-Makefile-vc
+# Build: B01:created by octerboy 2007/02/24, Panyu
+
+include ..\Rules.basemod.vc
+AMOROBJS=OraCli.obj 
+CFLAGS =$(CFLAGS) -I../logdata/include -I../dbport/include -I../unipac/include -I../baselib/include
+LDLIB = ..\baselib\libbase.lib $(LDLIB)
+
+all: oracli.dll
+
+OraCli.obj: OraCli.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) /Zi -DUSE_DYNAMIC_ORACLE -DAMOR_CLS_TYPE=OraCli OraCli.cpp
+
+oracli.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) /DEBUG -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

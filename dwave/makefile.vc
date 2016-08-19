@@ -1,0 +1,24 @@
+# Title: Makefile(VC)
+# ID: Textus-DWave-Makefile-vc
+# Build: B01:created by octerboy 2006/05/28, Gaungzhou
+
+include ..\Rules.basemod.vc
+CFLAGS  =  $(CFLAGS) -I..\baselib\include  -I..\logdata\include -I..\unipac\include
+LDLIB = ..\baselib\libbase.lib $(LDLIB)
+AMOROBJS=DWave.obj 
+
+all: dwave.dll
+
+DWave.obj: DWave.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=DWave DWave.cpp
+
+dwave.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB) NIDAQmx.lib
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del dwave.lib

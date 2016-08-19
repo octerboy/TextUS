@@ -1,0 +1,24 @@
+# Title: Makefile(VC)
+# ID: Textus-ToWay-Makefile-vc
+# Build: B01:created by octerboy 2016/04/09, Panyu
+
+include ..\Rules.basemod.vc
+CFLAGS  =  $(CFLAGS) -I..\baselib\include -I..\unipac\include -I..\logdata\include
+LDLIB = $(LDLIB) ..\baselib\libbase.lib
+AMOROBJS=Toway.obj
+
+all: toway.dll
+
+Toway.obj: ToWay.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=ToWay ToWay.cpp
+
+toway.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

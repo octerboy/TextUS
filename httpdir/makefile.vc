@@ -1,0 +1,24 @@
+# Title: Makefile(VC)
+# ID: Textus-httpdir-Makefile-vc
+# Build: 
+#	B01:created by octerboy 2006/05/28, Gaungzhou
+include ..\Rules.basemod.vc
+CFLAGS  =  $(CFLAGS) -I..\logdata\include -I..\baselib\include -I..\httpsrvhead\include
+LDLIB = $(LDLIB) ..\baselib\libbase.lib
+AMOROBJS=DirLet.obj 
+
+all: httpdir.dll
+
+DirLet.obj: DirLet.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=DirLet DirLet.cpp
+
+httpdir.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

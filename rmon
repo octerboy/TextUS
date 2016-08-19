@@ -1,0 +1,4 @@
+amor/ok monitor.xml 9 1
+amor/ok monitor.xml 6 3 36000
+rm -f lis_l.log
+./tus monitor.xml

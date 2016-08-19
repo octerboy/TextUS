@@ -1,0 +1,33 @@
+# ID: Textus-Amor-Makefile-vc
+# Titile: Makefile(VC)
+# Build: B01
+#	B01: created by octerboy 2005/06/10
+include ..\Rules.basemod.vc
+TiXML_DIR=..\tinyxml
+AMOROBJS=Animus.obj $(TiXML_DIR)\tinystr.obj $(TiXML_DIR)\tinyxmlerror.obj $(TiXML_DIR)\tinyxml.obj $(TiXML_DIR)\tinyxmlparser.obj
+#AMOROBJS=Animus.obj $(TiXML_DIR)\tinyxml.lib
+
+all: libanimus.dll ok.exe
+
+Animus.obj: Animus.cpp
+	$(CC) $(CFLAGS) -DNDEBUG -DTEXTUS_AMOR_STORAGE=__declspec(dllexport) -DTIXML_STORAGE=   Animus.cpp
+
+toOK.obj: toOK.cpp
+	$(CC) $(CFLAGS) -DTIXML_STORAGE=   toOK.cpp
+	$(_VC_MANIFEST_PRO)
+
+ok.exe: toOK.obj
+	$(LD) /NOLOGO /MANIFEST -out:$@ toOK.obj $(TiXML_DIR)\tinystr.obj $(TiXML_DIR)\tinyxmlerror.obj $(TiXML_DIR)\tinyxml.obj $(TiXML_DIR)\tinyxmlparser.obj msvcrt.lib kernel32.lib user32.lib
+	$(_VC_MANIFEST_PRO)
+
+libanimus.dll: $(AMOROBJS)
+	$(LD) /NODEFAULTLIB /NOLOGO /DEF:amor.def -dll -out:$@ $(AMOROBJS) msvcrt.lib kernel32.lib user32.lib
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+        copy $@.* ..\
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

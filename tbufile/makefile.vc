@@ -1,0 +1,24 @@
+# Title: Makefile(VC)
+# ID: Textus-Bu2File-Makefile-vc
+# Build
+#	B01:created by octerboy 2007/05/28
+include ..\Rules.basemod.vc
+CFLAGS = $(CFLAGS) -I..\baselib\include -I..\logdata\include
+LDLIB = ..\baselib\libbase.lib $(LDLIB)
+AMOROBJS=Bu2File.obj 
+
+all: tbufile.dll
+
+Bu2File.obj: Bu2File.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Bu2File Bu2File.cpp
+
+tbufile.dll: $(AMOROBJS)
+	$(LD) /NODEFAULTLIB  /NOLOGO -dll -out:$@ $(AMOROBJS) $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.lib
+	del *.exp

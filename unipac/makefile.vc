@@ -1,0 +1,24 @@
+# Title: Makefile(VC)
+# ID: Textus-unipac-Makefile-vc
+# Build: B01:created by octerboy 2006/05/28, Gaungzhou
+
+include ..\Rules.basemod.vc
+CFLAGS  = $(CFLAGS) -I..\baselib\include -I..\logdata\include -I..\unipac\include
+LDLIB = ..\baselib\libbase.lib $(LDLIB)
+AMOROBJS=Unipac.obj 
+
+all: unipac.dll
+
+Unipac.obj: Unipac.cpp cupsDef.h const_para.h iso8583-87.h
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Unipac Unipac.cpp
+
+unipac.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

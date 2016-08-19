@@ -1,0 +1,25 @@
+# Title: Makefile(VC)
+# ID: Textus-sched-Makefile-vc
+# Build: 
+#	B01:created by octerboy 2006/08/31, Gaungzhou
+
+include ..\Rules.basemod.vc
+CFLAGS  = $(CFLAGS) -I..\logdata\include  -I..\sched\include
+LDLIB = $(LDLIB) Ws2_32.lib
+AMOROBJS=Sched.obj 
+
+all: sched.dll
+
+Sched.obj: Sched.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Sched Sched.cpp
+
+sched.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

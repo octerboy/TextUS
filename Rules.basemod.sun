@@ -1,0 +1,15 @@
+#Makefile base rule, not for microsoft vc
+TEXTUS_DIR = $(HOME)/textus
+CC=CC
+CXX=CC
+LD=CC
+CFLAGS  = -g -erroff=%none -errtags=yes -c -Kpic -mt
+INCLUDE_DIR = -I$(TEXTUS_DIR)/tinyxml -I$(TEXTUS_DIR)/amor/include
+LDFLAGS = -G
+LDLIBS = -lc
+MAKE = make
+
+DEBUG_FLAG= -DNNDEBUG 
+
+LIBSOCKET= -lsocket -lnsl -lresolv
+

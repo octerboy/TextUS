@@ -1,0 +1,24 @@
+# Title: Makefile(VC)
+# ID: Textus-Holding-Makefile-vc
+# Build: 
+#	B01:created by octerboy 2006/11/02, Hebi(Henan)
+include ..\Rules.basemod.vc
+CFLAGS = $(CFLAGS) -I..\logdata\include -I..\baselib\include -I..\httpcookie\include
+LDLIB = ..\baselib\libbase.lib $(LDLIB) 
+AMOROBJS=Hold.obj 
+
+all: Holding.dll
+
+Hold.obj: Hold.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Hold Hold.cpp
+
+holding.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

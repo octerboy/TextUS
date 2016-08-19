@@ -1,0 +1,24 @@
+# Title: Makefile(VC)
+# ID: Textus-Obu-Makefile-vc
+# Build: B01:created by octerboy 2011/06/06, Panyu
+
+include ..\Rules.basemod.vc
+CFLAGS  =  $(CFLAGS)  -I..\baselib\include  -I..\logdata\include -I..\unipac\include /I "c:\openssl\include"
+LDLIB = ..\baselib\libbase.lib c:\openssl\lib\ssleay32.lib c:\openssl\lib\libeay32.lib $(LDLIB)
+AMOROBJS=Obu.obj 
+
+all: obu.dll
+
+Obu.obj: Obu.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Obu Obu.cpp
+
+obu.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

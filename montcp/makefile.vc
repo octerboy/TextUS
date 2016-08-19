@@ -1,0 +1,24 @@
+# Title: Makefile(VC)
+# ID: Textus-montcp-Makefile-vc
+# Build: B01:created by octerboy 2007/08/06, Gaungzhou
+
+include ..\Rules.basemod.vc
+CFLAGS  =  $(CFLAGS) -I..\baselib\include -I..\unipac\include -I..\logdata\include
+LDLIB = $(LDLIB) ..\baselib\libbase.lib Ws2_32.lib
+AMOROBJS=NetTcp.obj 
+
+all: montcp.dll
+
+NetTcp.obj: NetTcp.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=NetTcp NetTcp.cpp
+
+montcp.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

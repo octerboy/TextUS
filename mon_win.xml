@@ -1,0 +1,314 @@
+<?xml version="1.0" encoding="GB2312" ?>
+<root tag="Module" sum="2ED01276DB1C62F66A5106EB80DDCA97" path="./win_release/">
+    <![CDATA[<greeting>抓IP数据包</greeting>]]>
+
+    <Module name="log2buff" sum="no" disable="no">
+        <Property>
+            <tail>\n</tail>
+            <log level="all" />
+        </Property>
+        <Log channel="yes">
+            <exclude level="all" />
+        </Log>
+        <Module name="tbufile" sum="no">
+            <Property show="yes" file="lis_w.log" interval="-1" />
+            <Log>
+                <exclude level="all" />
+            </Log>
+            <Fly>
+                <sponte ordo="DMD_SET_ALARM" />
+            </Fly>
+        </Module>
+    </Module>
+    <Module name="signal" sum="no">
+        <Property>
+            <ignore name="SIGPIPE" />
+        </Property>
+    </Module>
+    <!-- TCP 监听                                -->
+    <Module name="tpcap" sum="no">
+        <Property device="192.168.3.162" />
+        <Trend>
+            <laeve ordo="END_SESSION" goon="no">
+                <owner ordo="DMD_END_SESSION" />
+            </laeve>
+        </Trend>
+        <Fly>
+            <sponte ordo="FD_SETRD" />
+            <sponte ordo="FD_SETWR" />
+            <sponte ordo="FD_CLRRD" />
+            <sponte ordo="FD_CLRWR" />
+        </Fly>
+        <Log ID="-78" alias="pcap">
+            <exclude level="DEBUG" />
+        </Log>
+        <Module name="unipac" sum="no" disable="no">
+            <!-- IP报文分析 -->
+            <Property provide="packet" offset="0" base="nothing" max="50">
+                <packet only="facio">
+                    <!-- 5域：IP版本 -->
+                    <field no="5" locate="rigid" length="1" />
+                    <field no="6" locate="rigid" length="1" />
+                    <!-- 7域：IP报文总长 -->
+                    <field no="7" locate="rigid" length="2" />
+                    <field no="8" locate="rigid" length="2" />
+                    <!-- 9域：Flags -->
+                    <field no="9" locate="rigid" length="1" />
+                    <!-- 10域：Fragment offset -->
+                    <field no="10" locate="rigid" length="1" />
+                    <field no="11" locate="rigid" length="1" />
+                    <!-- 12域：Protocol(TCP) -->
+                    <field no="12" locate="rigid" length="1">
+                        <match>\x06</match>
+                    </field>
+                    <field no="13" locate="rigid" length="2" />
+                    <!-- 14域：Source Address -->
+                    <field no="14" locate="rigid" length="4" />
+                    <!-- 15域：Destination Address -->
+                    <field no="15" locate="rigid" length="4" />
+                    <!-- 18域：Option+Data-->
+                    <field no="18" locate="toend" />
+                </packet>
+                <packet only="sponte" />
+            </Property>
+            <Log ID="-101">
+                <exclude level="DEBUG" />
+                <exclude level="WARNING" />
+            </Log>
+            <Module name="monip" sum="no" disable="no">
+                <Property version="5" length="7" data="18" />
+                <Log ID="-102">
+                    <exclude level="DEBUG" />
+                    <Exclude level="WARNING" />
+                </Log>
+                <Module name="unipac" sum="no" disable="no">
+                    <!-- TCP报文分析, 对18域进一步分析 -->
+                    <Property provide="18" offset="0" base="nothing">
+                        <packet only="facio">
+                            <!-- 20域：Source Port -->
+                            <field no="20" locate="rigid" length="2" />
+                            <!-- 21域：Destination Port -->
+                            <field no="21" locate="rigid" length="2" />
+                            <!-- 22域：Sequence number  -->
+                            <field no="22" locate="rigid" length="4" />
+                            <!-- 23域：Acknowledgment number  -->
+                            <field no="23" locate="rigid" length="4" />
+                            <!-- 24域：Data offset  -->
+                            <field no="24" locate="rigid" length="1" />
+                            <!-- 25域：Flags  -->
+                            <field no="25" locate="rigid" length="1" />
+                            <!-- 26域：Window  -->
+                            <field no="26" locate="rigid" length="2" />
+                            <!-- 27域：Checksum  -->
+                            <field no="27" locate="rigid" length="2" />
+                            <!-- 28域：Urgent pointer  -->
+                            <field no="28" locate="rigid" length="2" />
+                            <!-- 45域：Option+Data-->
+                            <field no="45" locate="toend" />
+                        </packet>
+                        <packet only="sponte" />
+                    </Property>
+                    <Log ID="-103">
+                        <exclude level="DEBUG" />
+                        <exclude level="WARNING" />
+                    </Log>
+                    <Module name="montcp" sum="no" disable="no">
+                        <!-- 监听设置, 其中 server_ip 和 server_port可以更改, 其它不要更改。 -->
+                        <Property source_ip="14" destination_ip="15" source_port="20" destination_port="21" offset="24" flags="25" data="45" direction="44" server_ip="122.0.64.53" server_port="80" simply="yes" lonely="no">
+                            <service ip="66.249.89.104" port="80" />
+                            <service ip="66.249.89.99" port="80" />
+                            <service ip="61.174.63.213" port="80" />
+                            <service ip="74.125.153.147" port="80" />
+                        </Property>
+                        <Multi radic="yes" seed="4" />
+                        <Log ID="-104">
+                            <exclude level="DEBUG" />
+                            <Exclude level="WARNING" />
+                        </Log>
+                        <Module name="unifom" sum="no" disable="no">
+                            <Property provide="nothing" offset="0" mapOnly="yes">
+                                <facio from="LFirst" to="LFirst">
+                                    <convert>
+                                        <source no="14" code="ip_addr_bin" />
+                                        <destination no="31" code="ip_addr_str" />
+                                    </convert>
+                                    <let destination="32">:</let>
+                                    <convert>
+                                        <source no="20" code="any" />
+                                        <destination no="33" code="HEX" />
+                                    </convert>
+                                    <let destination="34">-</let>
+                                    <convert>
+                                        <source no="15" code="ip_addr_bin" />
+                                        <destination no="35" code="ip_addr_str" />
+                                    </convert>
+                                    <let destination="36">:</let>
+                                    <convert>
+                                        <source no="21" code="any" />
+                                        <destination no="37" code="HEX" />
+                                    </convert>
+                                    <let destination="38">\x20</let>
+                                    <now destination="39" milli="yes">%y-%m-%d %H:%M:%S</now>
+                                    <let destination="40">\x20</let>
+                                    <convert>
+                                        <source no="22" code="any" />
+                                        <destination no="41" code="HEXCAP" />
+                                    </convert>
+                                    <let destination="42">\x20</let>
+                                </facio>
+                            </Property>
+                            <Log ID="-970">
+                                <exclude level="DEBUG" />
+                            </Log>
+                        </Module>
+                        <Module name="unipac" sum="no" disable="no">
+                            <!-- 输出数据合成  -->
+                            <Property provide="buffer" offset="0" base="nothing" inverse="yes">
+                                <packet only="facio">
+                                    <field no="31" locate="toend" />
+                                    <field no="32" locate="toend" />
+                                    <field no="33" locate="toend" />
+                                    <field no="34" locate="toend" />
+                                    <field no="35" locate="toend" />
+                                    <field no="38" locate="toend" />
+                                    <field no="39" locate="toend" />
+                                    <field no="40" locate="toend" />
+                                    <field no="41" locate="toend" />
+                                    <field no="42" locate="toend" />
+                                    <field no="45" locate="toend" />
+                                </packet>
+                            </Property>
+                            <Trend>
+                                <dextra ordo="END_SESSION" goon="yes">
+                                    <owner ordo="DMD_END_SESSION" />
+                                </dextra>
+                            </Trend>
+                            <Trend>
+                                <dextra ordo="SET_UNIPAC" goon="no">
+                                    <right_dextra />
+                                    <owner />
+                                </dextra>
+                            </Trend>
+                            <Log ID="-980">
+                                <exclude level="DEBUG" />
+                            </Log>
+                            <Relay />
+                            <Module name="tbufile" sum="no">
+                                <Property clear="no" show="yes" style="debug" file="d:\tmp\who_eoo.log" interval="-1" />
+                                <Log>
+                                    <exclude level="all" />
+                                </Log>
+                                <Fly>
+                                    <sponte ordo="DMD_SET_ALARM" />
+                                </Fly>
+                                <Ramify stop="yes">
+                                    <!-- 02: to Client, 即从服务端返回的, 01: to Server, 即客户端发出的数据 -->
+                                    <dextra packet="first" ordo="PRO_TBUF">
+                                        <field no="44">
+                                            <match>\x01</match>
+                                        </field>
+                                        <field no="35">
+                                            <match>122.0.64.53</match>
+                                        </field>
+                                    </dextra>
+                                </Ramify>
+                            </Module>
+                            <Module name="tbufile" sum="no">
+                                <Property clear="no" show="yes" style="debug" file="d:\tmp\who_eoo.log" interval="-1" />
+                                <!-- 交换TBUF位置 -->
+                                <Muto ordo="SET_TBUF" />
+                                <Log>
+                                    <exclude level="all" />
+                                </Log>
+                                <Ramify stop="yes">
+                                    <!-- 02: to Client, 即从服务端返回的, 01: to Server, 即客户端发出的数据 -->
+                                    <dextra packet="first" ordo="PRO_TBUF">
+                                        <field no="44">
+                                            <match>\x02</match>
+                                        </field>
+                                        <field no="31">
+                                            <match>122.0.64.53</match>
+                                        </field>
+                                    </dextra>
+                                </Ramify>
+                                <Fly>
+                                    <sponte ordo="DMD_SET_ALARM" />
+                                </Fly>
+                                <Trend>
+                                    <dextra ordo="PRO_TBUF" goon="no">
+                                        <laeve ordo="PRO_TBUF" />
+                                    </dextra>
+                                </Trend>
+                            </Module>
+                            <Module name="tbufile" sum="no">
+                                <Property clear="no" show="yes" style="debug" file="d:\tmp\who_cn.log" interval="-1" />
+                                <Log>
+                                    <exclude level="all" />
+                                </Log>
+                                <Fly>
+                                    <sponte ordo="DMD_SET_ALARM" />
+                                </Fly>
+                                <Ramify stop="yes">
+                                    <!-- 02: to Client, 即从服务端返回的, 01: to Server, 即客户端发出的数据 -->
+                                    <dextra packet="first" ordo="PRO_TBUF">
+                                        <field no="44">
+                                            <match>\x01</match>
+                                        </field>
+                                        <field no="35">
+                                            <match>61.174.63.213</match>
+                                        </field>
+                                    </dextra>
+                                </Ramify>
+                            </Module>
+                            <Module name="tbufile" sum="no">
+                                <Property clear="no" show="yes" style="debug" file="d:\tmp\who_cn.log" interval="-1" />
+                                <!-- 交换TBUF位置 -->
+                                <Muto ordo="SET_TBUF" />
+                                <Log>
+                                    <exclude level="all" />
+                                </Log>
+                                <Ramify stop="yes">
+                                    <!-- 02: to Client, 即从服务端返回的, 01: to Server, 即客户端发出的数据 -->
+                                    <dextra packet="first" ordo="PRO_TBUF">
+                                        <field no="44">
+                                            <match>\x02</match>
+                                        </field>
+                                        <field no="31">
+                                            <match>61.174.63.213</match>
+                                        </field>
+                                    </dextra>
+                                </Ramify>
+                                <Fly>
+                                    <sponte ordo="DMD_SET_ALARM" />
+                                </Fly>
+                                <Trend>
+                                    <dextra ordo="PRO_TBUF" goon="no">
+                                        <laeve ordo="PRO_TBUF" />
+                                    </dextra>
+                                </Trend>
+                            </Module>
+                        </Module>
+                    </Module>
+                    <!-- montcp 结束 -->
+                </Module>
+            </Module>
+        </Module>
+    </Module>
+    <Module name="sched" sum="no">
+        <Log ID="-1" alias="sched">
+            <exclude level="DEBUG" />
+        </Log>
+        <Fly where="end" />
+        <Property timer="10000" />
+    </Module>
+    <Attachment name="libbase" flag="GLOB" sum="no" />
+    <Attachment name="auxiliary" sum="no" />
+    <Attachment name="tversion" sum="no" />
+    <Attachment name="trend" sum="no" />
+    <Attachment name="relay" sum="no" />
+    <Attachment name="nostra" sum="no" />
+    <Attachment name="logdata" maxium="2" sum="no" />
+    <Attachment name="airline" sum="no" />
+    <Attachment name="ramify" sum="no" />
+    <Attachment name="pmuto" sum="no" />
+</root>

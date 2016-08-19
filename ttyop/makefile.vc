@@ -1,0 +1,23 @@
+# Title: Makefile(VC)
+# ID: Textus-tcpcli-Makefile-vc
+# Build: 
+#	B01:created by octerboy 2006/08/31, Gaungzhou
+include ..\Rules.basemod.vc
+CFLAGS =$(CFLAGS) -I..\logdata\include  -I..\baselib\include
+LDLIB =$(LDLIB) ..\baselib\libbase.lib Ws2_32.lib
+AMOROBJS=TTY.obj
+
+all: ttyop.dll
+
+TTY.obj: TTY.cpp
+	$(CC) $(CFLAGS) TTY.cpp -I..\sched\include -DNNDEBUG -DAMOR_CLS_TYPE=TTY.cpp
+
+ttyop.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+        copy $@.* ..\release
+	
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

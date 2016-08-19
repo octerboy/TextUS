@@ -1,0 +1,20 @@
+include ./Rules.basemod
+include ./Allmodules.apt
+
+all:
+	@for i in $(DIRS); \
+	do \
+	if [ -d "$$i" ]; then \
+		(cd $$i && $(MAKE) CC='${CXX}' all) || exit 1; \
+	fi; \
+	done;
+
+clean:
+	@for i in $(DIRS); \
+	do \
+	if [ -d "$$i" ]; then \
+		(cd $$i && echo "making clean in $$i..." && \
+		$(MAKE) clean) ; \
+	fi; \
+	done;
+	

@@ -1,0 +1,25 @@
+# Title: Makefile(VC)
+# ID: Textus-relay-Makefile-vc
+# Build: 
+#	B01:created by octerboy 2006/05/28, Gaungzhou
+
+include ..\Rules.basemod.vc
+CFLAGS  = $(CFLAGS) -I..\baselib\include
+LDLIB = ..\baselib\libbase.lib $(LDLIB)
+AMOROBJS=Relay.obj 
+
+all: relay.dll
+
+Relay.obj: Relay.cpp
+	$(CC) $(CFLAGS) -DNDEBUG -DAMOR_CLS_TYPE=Relay Relay.cpp
+
+relay.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

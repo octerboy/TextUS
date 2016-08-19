@@ -1,0 +1,2 @@
+对UniPac数据的通用特征判断
+1、在facio时, 对UniPac(好几个)进行通用特征判断( 使用dextra() ), 以决定是否调用owner(dextra的继续)

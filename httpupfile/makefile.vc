@@ -1,0 +1,25 @@
+# Title: Makefile(VC)
+# ID: Textus-httpupfile-Makefile-vc
+# Build: 
+#	B01:created by octerboy 2006/05/28, Gaungzhou
+
+include ..\Rules.basemod.vc
+CFLAGS  = $(CFLAGS) -I..\logdata\include -I..\baselib\include -I..\httpsrvhead\include
+LDLIB = ..\baselib\libbase.lib $(LDLIB)
+AMOROBJS=httpupfile.obj 
+
+all: httpupfile.dll
+
+HttpUpFile.obj: HttpUpFile.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=HttpUpFile HttpUpFile.cpp
+
+httpupfile.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

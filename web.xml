@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="gb2312" ?>
+<root tag="Module" path="./release/" sum="701A314FC41A7DCE307DD3ABC0C2FE56">
+    <![CDATA[<greeting>Hello, World!</greeting>]]>
+
+    <Module name="log2buff" sum="no" disable="no">
+        <Property>
+            <tail>\n</tail>
+            <log level="all" />
+        </Property>
+        <Log channel="yes">
+            <exclude level="all" />
+        </Log>
+        <Module name="tbufile" sum="no">
+            <Property show="yes" file="tt.log" interval="3000" />
+            <Log>
+                <exclude level="all" />
+            </Log>
+            <Fly>
+                <sponte ordo="DMD_SET_ALARM" />
+            </Fly>
+        </Module>
+    </Module>
+    <Module name="signal" sum="no">
+        <Property>
+            <ignore name="SIGPIPE" />
+            <ignore name="SIGCHLD" />
+        </Property>
+    </Module>
+    <Module name="tcpsrv" sum="no">
+        <Property Eth="eth0" port="8000" />
+        <!-- 这是TCP服务模块 -->
+        <Log ID="-2" alias="tcpsrv">
+            <exclude level="DEBUG" />
+        </Log>
+        <Trend>
+            <laeve ordo="END_SESSION" goon="no">
+                <owner ordo="DMD_END_SESSION" />
+                <sponte ordo="CMD_MAIN_EXIT" />
+            </laeve>
+            <facio ordo="END_SESSION" goon="no">
+                <next />
+                <sponte ordo="CMD_MAIN_EXIT" />
+            </facio>
+            <laeve ordo="FORKED_PARENT" goon="no">
+                <owner ordo="CMD_RELEASE_SESSION" />
+            </laeve>
+            <laeve ordo="FORKED_CHILD" goon="no">
+                <owner ordo="DMD_END_SERVICE" />
+            </laeve>
+        </Trend>
+        <Multi radic="yes" seed="2" maxium="2" />
+        <Fly Group="99">
+            <sponte ordo="FD_SETRD" />
+            <sponte ordo="FD_SETWR" />
+            <sponte ordo="FD_CLRRD" />
+            <sponte ordo="FD_CLRWR" />
+            <Sponte ordo="CMD_MAIN_EXIT" />
+        </Fly>
+        <Module name="httpsrvhead" sum="no">
+            <Property server="my server">
+                <method name="DD" />
+                <method name="FF" />
+                <method name="CC" />
+            </Property>
+            <Joint location="right" />
+            <Trend>
+                <laeve ordo="end_session" goon="no">
+                    <sponte />
+                </laeve>
+                <dextra ordo="end_session" goon="no">
+                    <owner ordo="dmd_end_session" />
+                </dextra>
+            </Trend>
+            <Log ID="-93">
+                <Exclude level="DEBUG" />
+            </Log>
+            <Relay />
+            <Module name="httpfile" sum="no">
+                <Property home="tinyxml/docs" default="index.html" security="no" gzip_ext="yes" />
+                <Property home="./" default="ut.htm" security="no" charset="gb2312" />
+                <Property home="tinyxml/docs" default="index.html" charset="ISO-8859-1" />
+                <Property home="/home/octerboy/samba-3.0.20pre1/docs/htmldocs" default="index.html" charset="gb2312" />
+                <Log ID="-12">
+                    <Exclude level="DEBUG" />
+                </Log>
+                <Trend>
+                    <sponte ordo="pro_tbuf" goon="no">
+                        <next />
+                        <sponte ordo="dmd_stop_next" />
+                    </sponte>
+                </Trend>
+            </Module>
+            <Module name="httpdir" sum="no">
+                <Property home="tinyxml/docs" charset="gb2312" />
+                <Log ID="-20">
+                    <Exclude level="DEBUG" />
+                </Log>
+                <Trend>
+                    <sponte ordo="pro_tbuf" goon="no">
+                        <next />
+                        <sponte ordo="dmd_stop_next" />
+                    </sponte>
+                </Trend>
+            </Module>
+            <Module name="httpnourl" sum="no">
+                <Property Redirect="/tfom.htm" />
+                <Log ID="-7" />
+            </Module>
+        </Module>
+    </Module>
+    <Module name="sched" sum="no">
+        <Property timer="1000" />
+        <Log ID="-1" alias="sched">
+            <exclude level="DEBUG" />
+        </Log>
+        <Fly Group="99" where="end" />
+    </Module>
+    <Attachment name="libbase" flag="GLOB" sum="no" />
+    <Attachment name="tversion" sum="no" />
+    <Attachment name="relay" sum="no" />
+    <Attachment name="nostra" sum="no" />
+    <Attachment name="auxiliary" sum="no" />
+    <Attachment name="logdata" maxium="2" pid="y" sum="no" />
+    <Attachment name="httpurlsw" sum="no" />
+    <Attachment name="ramify" sum="no" />
+    <Attachment name="joint" sum="no" />
+    <Attachment name="airline" sum="no" />
+    <Attachment name="trend" sum="no" />
+</root>

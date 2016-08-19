@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<SOAP-ENV:Envelope xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:s="http://www.w3.org/2001/XMLSchema" xmlns:s0="http://schemas.microsoft.com/sharepoint/soap/" xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:tm="http://microsoft.com/wsdl/mime/textMatching/" xmlns:mime="http://schemas.xmlsoap.org/wsdl/mime/" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<SOAP-ENV:Body>
+<AddResponse xmlns="http://schemas.microsoft.com/sharepoint/soap/">
+<result soapenc:arrayType='[1'>
+<o author='octerboy'/>
+</result>
+</AddReponse>
+</SOAP-ENV:Body>
+</SOAP-ENV:Envelope>
+

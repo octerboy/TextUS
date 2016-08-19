@@ -1,0 +1,7 @@
+#all modules name list here.
+DIRS= amor airline auxiliary complex cross \
+httpurlsw induco joint keep locker logdata \
+nostra pmuto ramify relay \
+thread trend version \
+nosuch
+

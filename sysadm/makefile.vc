@@ -1,0 +1,39 @@
+# Title: Makefile(VC)
+# ID: Textus-sysadm-Makefile-vc
+# Build: 
+#	B01:created by octerboy 2006/12/29, Gaungzhou
+
+include ..\Rules.basemod.vc
+CFLAGS  = $(CFLAGS) -I..\logdata\include 
+
+all: restart.dll getversions.dll systime.dll
+
+GetVer.obj: GetVer.cpp
+	$(CC) $(CFLAGS) -I..\httpsrvhead\include -DNNDEBUG -DAMOR_CLS_TYPE=GetVer GetVer.cpp
+
+getversions.dll: GetVer.obj
+	$(LD) $(LDFLAGS) -out:$@ GetVer.obj  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+Systime.obj: Systime.cpp
+	$(CC) $(CFLAGS) -I..\httpsrvhead\include -DNNDEBUG -DAMOR_CLS_TYPE=Systime Systime.cpp
+
+systime.dll: Systime.obj
+	$(LD) $(LDFLAGS) -out:$@ Systime.obj  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+Restart.obj: Restart.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -I..\httpsrvhead\include -DAMOR_CLS_TYPE=Restart Restart.cpp
+
+restart.dll: Restart.obj
+	$(LD) $(LDFLAGS) -out:$@ Restart.obj  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

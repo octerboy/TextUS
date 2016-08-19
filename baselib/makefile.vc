@@ -1,0 +1,26 @@
+# Titile: Makefile(VC)
+# ID: Textus-Baselib-Makefile-vc
+# Build: B01: created by octerboy 2006/05/28, ÓÚ·¬Ø®
+include ..\Rules.basemod.vc
+CFLAGS = /W3 /O2 /c -I.\include -DTEXTUS_AMOR_STORAGE=__declspec(dllexport) -I..\amor\include
+LDLIB = msvcrt.lib kernel32.lib
+AMOROBJS=TBuffer.obj BTool.obj
+
+all: libbase.dll
+
+BTool.obj:BTool.cpp
+	$(CC) $(CFLAGS) -DDEBUG BTool.cpp
+
+TBuffer.obj:TBuffer.cpp
+	$(CC) $(CFLAGS) TBuffer.cpp
+
+libbase.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

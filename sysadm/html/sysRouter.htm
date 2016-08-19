@@ -1,0 +1,475 @@
+<html>
+<head>
+<script type="text/javascript">
+
+var kinds_eth = new Array(0);
+var kinds_dst = new Array(0);
+var kinds_mask = new Array(0);
+var kinds_gw = new Array(0);
+var oldkinds_eth = new Array(0);
+var oldkinds_dst = new Array(0);
+var oldkinds_mask = new Array(0);
+var oldkinds_gw = new Array(0);
+var justSelect= -1;
+
+function display()
+{
+  var i ;
+  var xmlHttp;
+  var xmlDoc;
+  if ( navigator.appName == "Microsoft Internet Explorer" )
+  {
+	xmlHttp = new ActiveXObject("Msxml2.XMLHTTP");
+	xmlHttp.Open('GET', "/SystemRoute.xml", false);
+	xmlHttp.Send();
+	var xmlDoc = new ActiveXObject("Microsoft.XMLDOM");
+	xmlDoc.async="false";
+	xmlDoc.loadXML(xmlHttp.responseText);
+
+	if ( xmlDoc.parseError.errorCode != 0 )
+	{
+   		document.write("<br><font color=#FF0000 size=20><strong> &nbsp;&nbsp;&nbsp;&nbsp;出错!!</strong></font> &nbsp;读取XML文件出错.")
+
+	}
+  } else if ( navigator.appName == "Netscape" )
+  {
+	xmlHttp = new XMLHttpRequest();
+	xmlHttp.open("GET", "/SystemRoute.xml", false);
+	xmlHttp.send(null);
+	var parser=new DOMParser();
+	xmlDoc=parser.parseFromString(xmlHttp.responseText,"text/xml");
+  } else
+  {
+	alert(navigator.appName + " is not supported!");
+	return;
+  }
+
+	var routes = xmlDoc.documentElement.getElementsByTagName("route");
+	oldkinds_eth.length = 0;
+	kinds_eth.length = 0;
+	oldkinds_dst.legnth = 0;
+	kinds_dst.legnth = 0;
+	oldkinds_mask.length = 0;
+	kinds_mask.length = 0;
+	oldkinds_gw.length = 0;
+	kinds_gw.length = 0;
+	for ( i  = 0 ; i < routes.length; i++)
+	{
+		oldkinds_eth.length++;
+		kinds_eth.length++;
+		oldkinds_eth[i] = routes.item(i).getElementsByTagName("iface").item(0).firstChild.nodeValue;
+		kinds_eth[i] = oldkinds_eth[i];
+
+		oldkinds_dst.legnth++;
+		kinds_dst.legnth++;
+		oldkinds_dst[i] = routes.item(i).getElementsByTagName("destination").item(0).firstChild.nodeValue;
+		kinds_dst[i] = oldkinds_dst[i];
+
+		oldkinds_mask.length++;
+		kinds_mask.length++;
+		oldkinds_mask[i] = routes.item(i).getElementsByTagName("mask").item(0).firstChild.nodeValue;
+		kinds_mask[i] = oldkinds_mask[i];
+
+		oldkinds_gw.length++;
+		kinds_gw.length++;
+		oldkinds_gw[i] = routes.item(i).getElementsByTagName("gateway").item(0).firstChild.nodeValue;
+		kinds_gw[i] = oldkinds_gw[i];
+	}
+	initselects();
+
+	var k = 0, l =0;
+	
+	//取得本系统的接口与IP地址，并设定本连接所用的本地接口。		
+	var xmlHttp_1;
+	var xmlDoc_1;
+	if ( navigator.appName == "Microsoft Internet Explorer" )
+	{
+		xmlHttp_1 = new ActiveXObject("Msxml2.XMLHTTP");
+		xmlHttp_1.Open('GET', "/SystemNIC.xml", false);
+		xmlHttp_1.Send();
+		xmlDoc_1 = new ActiveXObject("Microsoft.XMLDOM");
+		xmlDoc_1.async="false";
+		xmlDoc_1.loadXML(xmlHttp_1.responseText);
+	} else if ( navigator.appName == "Netscape" )
+	{
+		xmlHttp_1 = new XMLHttpRequest();
+		xmlHttp_1.open("GET", "/SystemNIC.xml", false);
+		xmlHttp_1.send(null);
+		var parser=new DOMParser();
+		xmlDoc_1=parser.parseFromString(xmlHttp_1.responseText,"text/xml");
+	} else
+	{
+		alert(navigator.appName + " is not supported!");
+		return;
+	}
+
+	var myeths = xmlDoc_1.documentElement.getElementsByTagName("eth");
+	document.newform.route_link.options.length=0;
+
+	for ( k = 0; k < myeths.length ; k++ )
+	{
+		var ethA = "E" ;
+		var ethname = myeths.item(k).getElementsByTagName("iface").item(0).firstChild.nodeValue; 	
+		var ethip = myeths.item(k).getElementsByTagName("ip").item(0).firstChild.nodeValue; 	
+		if ( ethname == "eth0" )
+		{
+			ethA = "A";
+		} else if ( ethname == "eth1" )
+		{
+			ethA = "B";
+		} else if ( ethname == "eth2" )
+		{
+			ethA = "C";
+		} else if ( ethname == "eth3")
+		{
+			ethA = "D";
+		}
+
+		document.newform.route_link.options.length++;
+		document.newform.route_link.options[k].text="网络"+ethA+"("+ethip+")";
+		document.newform.route_link.options[k].value= ethname;
+	}
+	
+	document.newform.route_link.options.length++;
+	document.newform.route_link.options[document.newform.route_link.options.length-1].text = "任意";
+	document.newform.route_link.options[document.newform.route_link.options.length-1].value = "any";
+	document.newform.route_link.selectedIndex = 0;
+}
+
+
+
+function refresh()
+{
+   location.reload()
+}
+
+function isNumberString (InString,RefString)
+{
+if(InString.length==0) return (false);
+for (Count=0; Count < InString.length; Count++)  {
+	TempChar= InString.substring (Count, Count+1);
+	if (RefString.indexOf (TempChar, 0)==-1)  
+	return (false);
+}
+
+return (true);
+}
+
+function up()
+{
+   //建立对象
+   var root ="System";
+   var xmlNewDoc;
+   if ( navigator.appName == "Microsoft Internet Explorer" )
+   {
+	xmlNewDoc = new ActiveXObject("Microsoft.XMLDOM")
+	xmlNewDoc.loadXML('<?xml version="1.0" ?>'+'<'+root+'/>')
+   } else if ( navigator.appName == "Netscape" )
+   {
+	var parser=new DOMParser();
+ 	xmlNewDoc=parser.parseFromString('<?xml version="1.0" ?>'+'<'+root+'/>',"text/xml");
+   } else
+   {
+	alert(navigator.appName + " is not supported!");
+	return false;
+   }
+
+   var rootElement = xmlNewDoc.documentElement;
+   rootElement.setAttribute("content","route");
+   rootElement.setAttribute("action","setrequest");
+
+//创建新元素
+   for ( var i=0 ; i < kinds_eth.length; i++)
+   {
+	var route = xmlNewDoc.createElement("route");
+	var iface = xmlNewDoc.createElement("iface");
+	iface.appendChild(xmlNewDoc.createTextNode(kinds_eth[i]));
+
+	var dst = xmlNewDoc.createElement("destination");
+	dst.appendChild(xmlNewDoc.createTextNode(kinds_dst[i]));
+
+	var mask = xmlNewDoc.createElement("mask");
+	mask.appendChild(xmlNewDoc.createTextNode(kinds_mask[i]));
+
+	var gw = xmlNewDoc.createElement("gateway");
+	gw.appendChild(xmlNewDoc.createTextNode(kinds_gw[i]));
+	
+	route.appendChild(dst);
+	route.appendChild(gw);
+	route.appendChild(iface);
+	route.appendChild(mask);
+
+	xmlNewDoc.documentElement.appendChild(route);
+    }
+
+   //发送XML文档
+   var xmlHttp;
+   var xmlRcvDoc;
+   if ( navigator.appName == "Microsoft Internet Explorer" )
+   {
+	xmlHttp = new ActiveXObject("Msxml2.XMLHTTP");
+	xmlHttp.Open('POST', "/SystemSetRoute", false);
+	xmlHttp.Send(xmlNewDoc);
+	xmlRcvDoc = new ActiveXObject("Microsoft.XMLDOM");
+	xmlRcvDoc.async="false";
+	xmlRcvDoc.loadXML(xmlHttp.responseText);
+	if (xmlRcvDoc.parseError.errorCode != 0 )
+	{
+		document.write("<br>Error Code: ")
+		document.write(xmlRcvDoc.parseError.errorCode)
+		document.write("<br>Error Reason: ")
+		document.write(xmlRcvDoc.parseError.reason)
+		document.write("<br>Error Line: ")
+		document.write(xmlRcvDoc.parseError.line)
+		return false;
+	}
+   } else if ( navigator.appName == "Netscape" )
+   {
+ 	xmlHttp = new XMLHttpRequest();
+	xmlHttp.open('POST', "/SystemSetRoute", false);
+	xmlHttp.send(xmlNewDoc);
+	var parser=new DOMParser();
+	xmlRcvDoc=parser.parseFromString(xmlHttp.responseText,"text/xml");
+   } else 
+   {
+	alert(navigator.appName + " is not supported!");	
+	return false;
+    }
+
+   var rootElement01 = xmlRcvDoc.documentElement;
+   var result=rootElement01.getElementsByTagName("result").item(0).firstChild.nodeValue;
+   try {
+   	var description=rootElement01.getElementsByTagName("description").item(0).firstChild.nodeValue;
+   } catch (e) {}
+
+   if (result != "success")
+   {
+	alert(description);
+   }
+   else
+   {
+	alert("静态路由设置成功!");
+   }
+
+}
+
+function initselects() {
+	document.newform.delRouteTbl.options.length=0;
+	for (var i=0;i<kinds_eth.length;i++) {
+		var ethA = "E" ;
+		if ( kinds_eth[i] == "eth0" )
+		{
+			ethA = "A";
+		} else if ( kinds_eth[i] == "eth1" )
+		{
+			ethA = "B";
+		} else if ( kinds_eth[i] == "eth2" )
+		{
+			ethA = "C";
+		} else if ( kinds_eth[i] == "eth3")
+		{
+			ethA = "D";
+		}
+		document.newform.delRouteTbl.options.length++;
+		document.newform.delRouteTbl.options[i].text ="目标:" + kinds_dst[i] + "/" + kinds_mask[i] + " 网关:" + kinds_gw[i] + " 网口" + ethA; 
+		if ( justSelect == i ) 
+				document.thisForm.delRouteTbl.options[i].selected= true;
+
+	}
+	
+}
+
+function resetSubmit() {
+	kinds_eth.length= 0;
+	kinds_dst.length= 0;
+	kinds_mask.length= 0;
+	kinds_gw.length= 0;
+	for (var i=0;i<oldkinds_eth.length;i++) {
+		kinds_eth.length++;
+		kinds_eth[kinds_eth.length-1]= oldkinds_eth[i];
+
+		kinds_dst.length++;
+		kinds_dst[kinds_dst.length-1]= oldkinds_dst[i];
+
+		kinds_mask.length++;
+		kinds_mask[kinds_mask.length-1]= oldkinds_mask[i];
+
+		kinds_gw.length++;
+		kinds_gw[kinds_gw.length-1]= oldkinds_gw[i];
+	}
+	initselects();
+}
+
+function upRule() 
+{
+	var i = document.newform.delRouteTbl.selectedIndex;
+	var length = document.newform.delRouteTbl.length;
+	if ( length < 2 || i < 1 ) return;
+
+	var eth = kinds_eth[i-1];
+	var dst = kinds_dst[i-1];
+	var mask = kinds_mask[i-1];
+	var gw = kinds_gw[i-1];
+
+	kinds_eth[i-1] = kinds_eth[i];
+	kinds_eth[i] = eth;
+
+	kinds_dst[i-1] = kinds_dst[i];
+	kinds_dst[i] = dst;
+
+	kinds_mask[i-1] = kinds_mask[i];
+	kinds_mask[i] = mask;
+
+	kinds_gw[i-1] = kinds_gw[i];
+	kinds_gw[i] = gw;
+
+	justSelect = i-1;
+	initselects();
+}
+
+function downRule() 
+{
+	var i = document.newform.delRouteTbl.selectedIndex;
+	var length = document.newform.delRouteTbl.length;
+	if ( length < 2 || i > length-2 ) return;
+
+	var eth = kinds_eth[i+1];
+	var dst = kinds_dst[i+1];
+	var mask = kinds_mask[i+1];
+	var gw = kinds_gw[i+1];
+
+	kinds_eth[i+1] = kinds_eth[i];
+	kinds_eth[i] = eth;
+
+	kinds_dst[i+1] = kinds_dst[i];
+	kinds_dst[i] = dst;
+
+	kinds_mask[i+1] = kinds_mask[i];
+	kinds_mask[i] = mask;
+
+	kinds_gw[i+1] = kinds_gw[i];
+	kinds_gw[i] = gw;
+
+	justSelect = i+1;
+	initselects();
+}
+
+function doAddRoute() 
+{	
+	kinds_eth.length++;
+	kinds_dst.length++;
+	kinds_mask.length++;
+	kinds_gw.length++;
+	kinds_eth[kinds_eth.length-1] = document.newform.route_link.options[document.newform.route_link.selectedIndex].value;
+
+	kinds_dst[kinds_dst.length-1] = document.newform.dstNet.value;
+	kinds_mask[kinds_mask.length-1] = document.newform.dstMask.value;
+	kinds_gw[kinds_gw.length-1] = document.newform.dstGw.value ;
+	initselects();
+}
+
+function doDelRoute() 
+{
+	var i;
+	for ( i = document.newform.delRouteTbl.selectedIndex;
+		i < document.newform.delRouteTbl.length-1;
+		i++)
+	{
+		kinds_eth[i] = kinds_eth[i+1];
+		kinds_dst[i] = kinds_dst[i+1];
+		kinds_mask[i] = kinds_mask[i+1];
+		kinds_gw[i] = kinds_gw[i+1];
+	}
+
+	kinds_eth.length--;
+	kinds_dst.length--;
+	kinds_mask.length--;
+	kinds_gw.length--;
+
+	initselects();
+}
+
+
+</script>
+<link href="../css/os%201.css" rel="stylesheet" type="text/css">
+<meta http-equiv="Content-Type" content="text/html; charset=gb2312"><title>静态路由</title></head>
+<body bgcolor="#6696bc" background="../images/background.jpg" onload="display()">
+<form name="newform">
+<div align="center">
+<center>
+<table width="100%" border="0" cellpadding="0" cellspacing="0">
+    <tr> 
+      <td width="40" bgcolor="#CC0033"> <p align="center"><strong><img src="../images/fr02.gif" width="32" height="23"></strong></p></td>
+      <td width="85" valign="middle" bgcolor="#666666"> 
+        <div align="center"><strong><font color="#FFFFFF" size="3">静态路由</font></strong></div></td>
+      <td width="470"><div align="left"><img src="../images/dot.gif" width="1" height="1"></div></td>
+    </tr>
+  </table>
+</center>
+</div>
+  <table width="100%" border="0" align="center" cellpadding="1" cellspacing="0">
+    <tr> 
+      <td valign="top" bgcolor="#CC0033"> <p align="center"><img src="../images/dot.gif" width="1" height="1"></p></td>
+    </tr>
+  </table>
+  <table width="100%" border="0" align="center" cellspacing="0" bgcolor="#E6E6E6" class="p12">
+
+ 
+                <tr> 
+                    <td width="15%">　</td> 
+                    <td width="30%">　</td>   
+                    <td width="50%">　</td>   
+                </tr>   
+
+ 
+                <tr> 
+                    <td width="15%">&nbsp;</td> 
+                    <td width="30%">目的网络</td>   
+                    <td width="50%">子网掩码</td>   
+                </tr>   
+                <tr>   
+                    <td width="15%">
+                      <p align="right"><strong>&nbsp;增加路由</strong>&nbsp;</p>
+                    </td>    
+                    <td width="30%"><input type="text" size="22"    
+                    maxlength="15" name="dstNet"></td>    
+                    <td width="50%"><input type="text" size="22"    
+                    maxlength="15" name="dstMask"></td>    
+                </tr>    
+                <tr>    
+                    <td width="15%">&nbsp;</td>    
+                    <td width="30%">网关</td>   
+                    <td width="50%">网络接口</td>   
+                </tr>   
+                <tr>  
+                    <td width="15%">&nbsp;</td>   
+                    <td width="30%"><input type="text" size="22"   
+                    maxlength="15" name="dstGw"></td>   
+                    <td width="50%"><select name="route_link" size="1">   
+                        <option selected value="LAN">eth0(192.1.1.163)</option>
+                        <OPTION>WAN</OPTION>
+                      </select><FONT> <INPUT type="button" name="addRoute" value="增加" onClick="doAddRoute();"></font><FONT>&nbsp;    
+</font>    
+                    </td>    
+                </tr>   
+                <tr>    
+                    <td colspan="3" width="597">  
+                      <p align="center"><SELECT NAME="delRouteTbl" SIZE = 8 multiple>   
+</SELECT><INPUT type="button" name="delRoute" value="删除路由" onClick="doDelRoute();"> </p> 
+ </td>  
+                </tr>  
+    </table>  
+              <table width="100%" border="0" align="center" cellpadding="9" cellspacing="9" bgcolor="#E6E6E6" class="p12"> 
+    <tr>  
+      <td><div align="center">  
+          <input type="button" name="Submit" value="刷新" onClick="refresh()"> 
+          　　      
+          <input type="button" name="Submit2" value="修改" onClick="up()">     
+        </div></td>     
+    </tr>     
+  </table>     
+    
+    
+  </form>     
+</body>     
+</html>     

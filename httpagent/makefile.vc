@@ -1,0 +1,27 @@
+# Title: Makefile(VC)
+# ID: Textus-httpagent-Makefile-vc
+# Build: 
+#	B01:created by octerboy 2006/09/18, Gaungzhou
+include ..\Rules.basemod.vc
+CFLAGS  = $(CFLAGS)  -I..\logdata\include -I..\baselib\include -I..\httpsrvhead\include
+LDLIB = $(LDLIB) ..\baselib\libbase.lib
+AMOROBJS=httpagent.obj  DeHead.obj
+
+all: httpagent.dll
+
+DeHead.obj: DeHead.cpp tdate_parse.c
+	$(CC) $(CFLAGS)  -DDEBUG DeHead.cpp
+
+HttpAgent.obj: HttpAgent.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=HttpAgent HttpAgent.cpp
+
+httpagent.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

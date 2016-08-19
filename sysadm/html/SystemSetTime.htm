@@ -1,0 +1,162 @@
+<html>
+<head>
+<SCRIPT LANGUAGE=javascript >
+
+ var iCallID = 0; 
+ 
+ function Init()
+  {
+	service.useService("Personalize","pers");
+   	iCallID = service.pers.callService(getTimeResult, "getSysTime");
+  }
+  
+  function processResults(result)
+  {
+   // if there is an error, and the call came from the call() in init()
+   if(result.error)
+   {
+    // Pull the error information from the event.result.errorDetail properties
+    var xfaultcode   = result.errorDetail.code;
+    var xfaultstring = result.errorDetail.string;
+    var xfaultsoap   = result.errorDetail.raw;
+
+    // Add code to handle specific error codes here
+   	alert("错误　"+ xfaultcode   + " : " + xfaultstring );
+   	return;
+   }
+	alert("时间设置成功!");
+  }
+
+
+  function getTimeResult(result)
+  {
+   // if there is an error, and the call came from the call() in init()
+   if(result.error)
+   {
+    // Pull the error information from the event.result.errorDetail properties
+    var xfaultcode   = result.errorDetail.code;
+    var xfaultstring = result.errorDetail.string;
+    var xfaultsoap   = result.errorDetail.raw;
+
+    // Add code to handle specific error codes here
+   	alert("错误　"+ xfaultcode   + " : " + xfaultstring );
+   	return;
+   } 
+
+	document.forms[0].displayyear.value = result.value["year"];
+	document.forms[0].displaymonth.value = result.value["month"];
+	document.forms[0].displayday.value = result.value["day"];
+	document.forms[0].displayhour.value = result.value["hour"];
+	document.forms[0].displayminute.value = result.value["minute"];
+	document.forms[0].displaysecond.value = result.value["second"];
+  }
+
+
+function isNumberString (InString,RefString)
+{
+if(InString.length==0) return (false);
+for (Count=0; Count < InString.length; Count++)  {
+	TempChar= InString.substring (Count, Count+1);
+	if (RefString.indexOf (TempChar, 0)==-1)  
+	return (false);
+}
+
+return (true);
+}
+
+
+function setTime()
+{
+
+a=document.forms[0]
+//检测数据
+
+if ( isNumberString(a.displayyear.value,"1234567890")!=1 || a.displayyear.value.length!=4 || a.displayyear.value <=2000 ) {
+alert("\请输入正确的年份!!")
+return false;
+}
+if (isNumberString(a.displaymonth.value,"1234567890")!=1 || a.displaymonth.value<1 || a.displaymonth.value>12) {
+alert("\请输入正确的月份!!")
+return false;
+}
+if (isNumberString(a.displayday.value,"1234567890")!=1 || a.displayday.value<1 || a.displayday.value>31) {
+alert("\请输入正确的天数!!")
+return false;
+}
+if (isNumberString(a.displayhour.value,"1234567890")!=1 || a.displayhour.value<0 || a.displayhour.value>23) {
+alert("\请输入正确的时钟数!!")
+return false;
+}
+if (isNumberString(a.displayminute.value,"1234567890")!=1 || a.displayminute.value<0 || a.displayminute.value>59) {
+alert("\请输入正确的分钟数!!")
+return false;
+}
+if (isNumberString(a.displaysecond.value,"1234567890")!=1 || a.displaysecond.value<0 || a.displaysecond.value>59) {
+alert("\请输入正确的秒数!!")
+return false;
+}
+
+var year=a.displayyear.value ;
+var month=a.displaymonth.value; 
+var day=a.displayday.value;
+var hour=a.displayhour.value;
+var minute=a.displayminute.value;
+var second=a.displaysecond.value;
+
+   iCallID = service.pers.callService(processResults, "setSysTime", year,month,day,hour,minute, second);
+}
+
+
+function refresh()
+{
+   location.reload()
+}
+</SCRIPT>
+
+<link href="../css/os%201.css" rel="stylesheet" type="text/css">
+<meta http-equiv="Content-Type" content="text/html; charset=gb2312"><title>系统时间</title></head>
+<body bgcolor="#6696bc" background="../images/background.jpg" onload="Init()">
+  <div id="service" style="BEHAVIOR:url(/webservice.htc)"></div>
+<form>
+  <table width="100%" border="0" align="center" cellpadding="0" cellspacing="0">
+    <tr> 
+      <td width="30" bgcolor="#CC0033"> <p align="center"><strong><img src="../images/fr02.gif" width="32" height="23"></strong></p></td>
+      <td width="80" valign="middle" bgcolor="#666666"> 
+        <div align="center"><strong><font color="#FFFFFF" size="3">系统时间</font></strong></div></td>
+      <td><div align="left"><img src="../images/dot.gif" width="1" height="1"></div></td>
+    </tr>
+  </table>
+  <table width="100%" border="0" align="center" cellpadding="1" cellspacing="0">
+    <tr> 
+      <td valign="top" bgcolor="#CC0033"> <p align="center"><img src="../images/dot.gif" width="1" height="1"></p></td>
+    </tr>
+  </table>
+  <table width="100%" border="0" align="center" cellpadding="9" cellspacing="9" bgcolor="#E6E6E6" class="p12">
+    <tr> 
+      <td colspan="2"><strong>当前系统时间:</strong></td>
+    </tr>
+    <tr> 
+      <td width="25%"><div align="right"></div></td>
+      <td width="75%"> <input name="displayyear" type="text" size="6" maxlength="4">
+        年　 
+        <input name="displaymonth" type="text" size="3" maxlength="2">
+        月　　 
+        <input name="displayday" type="text" size="3" maxlength="2">
+        日<br> <br> <input name="displayhour" type="text" size="6" maxlength="2">
+        时　 
+        <input name="displayminute" type="text" size="3" maxlength="2">
+        分　　 
+        <input name="displaysecond" type="text" size="3" maxlength="2">
+        秒 </td>
+    </tr>
+    <tr> 
+      <td colspan="2"><div align="center"> 
+          <input type="button" name="Submit" value="刷新" onClick="refresh()">
+          　　 
+          <input type="button" name="Submit2" value="修改" onClick="setTime()">
+        </div></td>
+    </tr>
+  </table>
+</form>
+</body>
+</html>

@@ -1,0 +1,366 @@
+<html>
+<head>
+<script type="text/javascript">
+var kinds_eth = new Array(0);
+var kinds_dst = new Array(0);
+var kinds_mask = new Array(0);
+var kinds_gw = new Array(0);
+var vcan = "";
+var veth = "";
+var vip = "";
+var vid = "";
+ var dns = new Array(0);
+ var ethif = new Array(0);
+ var ip = new Array(0);
+ var mask = new Array(0);
+ var mac = new Array(0);
+ var gateway;
+
+ var versions = new Array(0);
+
+function display()
+{
+  var xmlHttp;
+  var xmlDoc;
+  if ( navigator.appName == "Microsoft Internet Explorer" )
+  {
+	xmlHttp = new ActiveXObject("Msxml2.XMLHTTP");
+	xmlHttp.Open('GET', "/SystemInfo.xml", false);
+	xmlHttp.Send();
+	xmlDoc = new ActiveXObject("Microsoft.XMLDOM");
+	xmlDoc.async="false";
+	xmlDoc.loadXML(xmlHttp.responseText);
+  } else if ( navigator.appName == "Netscape" )
+  {
+ 	xmlHttp = new XMLHttpRequest();
+	xmlHttp.open("GET", "/SystemInfo.xml", false);
+	xmlHttp.send(null);
+	var parser=new DOMParser();
+	xmlDoc=parser.parseFromString(xmlHttp.responseText,"text/xml");
+  } else 
+  {
+	alert(navigator.appName + " is not supported!");	
+	return;
+  }
+
+  var myeth = xmlDoc.getElementsByTagName("eth");
+
+  var len=0;
+  ethif.length = 0;
+  ip.length = 0;
+  mask.length = 0;
+  mac.length = 0;
+  for ( i = 0 ; i < myeth.length; i ++ )
+  {
+	ethname = myeth.item(i).getElementsByTagName("iface").item(0).firstChild.nodeValue;
+	if (ethname == "lo" )
+	{
+		continue;
+	}
+
+	ethif.length++;	
+	ethif[len] = ethname;
+
+	ip.length++;
+	ip[len] = myeth.item(i).getElementsByTagName("ip").item(0).firstChild.nodeValue;
+	mask.length++;
+	mask[len] = myeth.item(i).getElementsByTagName("mask").item(0).firstChild.nodeValue;
+	mac.length++;
+	mac[len] = myeth.item(i).getElementsByTagName("mac").item(0).firstChild.nodeValue;
+	len++;
+  }
+ 
+  var myroute = xmlDoc.getElementsByTagName("route");
+  for ( i = 0 ; i < myroute.length; i++)
+  {
+	var dest = myroute.item(i).getElementsByTagName("destination").item(0).firstChild.nodeValue;
+	if ( dest == "0.0.0.0" )
+	{
+  		gateway= myroute.item(i).getElementsByTagName("gateway").item(0).firstChild.nodeValue;
+		break;
+	}
+  }
+
+  var dnss = xmlDoc.getElementsByTagName("nameserver");
+  dns.length = 0;
+  len = 0;
+  for ( i = 0 ; i < dnss.length; i++)
+  {
+	dns.length++;
+	dns[len] = dnss.item(i).firstChild.nodeValue;
+	len++;
+  }
+
+  var vers = xmlDoc.getElementsByTagName("version");
+  versions.length = 0;
+  len = 0;
+  for ( i = 0 ; i < vers.length; i++)
+  {
+	versions.length++;
+	versions[len] = vers.item(i).firstChild.nodeValue;
+	len++;
+  }
+}
+
+function display2()
+{
+  var xmlHttp;
+  var xmlDoc;
+  if ( navigator.appName == "Microsoft Internet Explorer" )
+  {
+	xmlHttp = new ActiveXObject("Msxml2.XMLHTTP");
+	xmlHttp.Open('GET', "/SystemInfo.xml", false);
+	xmlHttp.Send();
+	xmlDoc = new ActiveXObject("Microsoft.XMLDOM");
+	xmlDoc.async="false";
+	xmlDoc.loadXML(xmlHttp.responseText);
+  } else if ( navigator.appName == "Netscape" )
+  {
+ 	xmlHttp = new XMLHttpRequest();
+	xmlHttp.open('GET', "/SystemInfo.xml", false)
+	xmlHttp.send(null);
+	var parser=new DOMParser();
+	xmlDoc=parser.parseFromString(xmlHttp.responseText,"text/xml");
+  } else 
+  {
+	alert(navigator.appName + " is not supported!");	
+	return;
+  }
+
+	var routes = xmlDoc.getElementsByTagName("route");
+	kinds_eth.length = 0;
+	kinds_dst.legnth = 0;
+	kinds_mask.length = 0;
+	kinds_gw.length = 0;
+	var len=0;
+	for ( i  = 0 ; i < routes.length; i++)
+	{
+		if (routes.item(i).getElementsByTagName("destination").item(0).firstChild.nodeValue == "0.0.0.0" || routes.item(i).getElementsByTagName("gateway").item(0).firstChild.nodeValue == "0.0.0.0" )
+		{
+			continue;
+		}
+		
+		kinds_eth.length++;
+		kinds_eth[len] = routes.item(i).getElementsByTagName("iface").item(0).firstChild.nodeValue;
+		
+		kinds_dst.legnth++;
+		kinds_dst[len] = routes.item(i).getElementsByTagName("destination").item(0).firstChild.nodeValue;
+
+		kinds_mask.length++;
+		kinds_mask[len] = routes.item(i).getElementsByTagName("mask").item(0).firstChild.nodeValue;
+
+		kinds_gw.length++;
+		kinds_gw[len] = routes.item(i).getElementsByTagName("gateway").item(0).firstChild.nodeValue;
+		len++;
+	}
+
+var xmlDoc2;
+  if ( navigator.appName == "Microsoft Internet Explorer" )
+  {
+	var xmlHttp2 = new ActiveXObject("Msxml2.XMLHTTP");
+	xmlHttp2.Open('GET', "/SystemVrrpd.xml", false)
+	xmlHttp2.Send()
+	xmlDoc2 = new ActiveXObject("Microsoft.XMLDOM")
+	xmlDoc2.async="false"
+	xmlDoc2.loadXML(xmlHttp2.responseText);
+/*
+	if ( xmlDoc2.parseError.errorCode != 0 )
+	{
+		document.write("<br><font color=#FF0000 size=20><strong> &nbsp;&nbsp;&nbsp;&nbsp;出错!!</strong></font> &nbsp;读取XML文件出错.")
+
+	}
+*/
+  } else if ( navigator.appName == "Netscape" )
+  {
+ 	xmlHttp = new XMLHttpRequest();
+	xmlHttp.open('GET', "/SystemVrrpd.xml", false);
+	xmlHttp.send(null);
+	var parser=new DOMParser();
+	xmlDoc2=parser.parseFromString(xmlHttp.responseText,"text/xml");
+  } else 
+  {
+	alert(navigator.appName + " is not supported!");	
+	return;
+  }
+	if ( !xmlDoc2.getElementsByTagName("vrrpd").item(0)) return;
+	vcan = xmlDoc2.getElementsByTagName("vrrpd").item(0).firstChild.nodeValue;
+	if ( vcan != "yes" ) 
+	{
+		return;
+	}
+
+	vip = xmlDoc2.getElementsByTagName("virtual_ip").item(0).firstChild.nodeValue;
+	veth = xmlDoc2.getElementsByTagName("interface").item(0).firstChild.nodeValue;
+	vid = xmlDoc2.getElementsByTagName("vid").item(0).firstChild.nodeValue;
+}
+</script>
+<link href="../css/os%201.css" rel="stylesheet" type="text/css">
+<meta http-equiv="Content-Type" content="text/html; charset=gb2312"><title>网络信息</title></head>
+<body bgcolor="#6696bc" background="../images/background.jpg" >
+<form>
+
+  <table width="100%" border="0" align="center" cellpadding="0" cellspacing="0">
+    <tr> 
+      <td width="30" bgcolor="#CC0033"> <p align="center"><strong><img src="../images/fr02.gif" width="32" height="23"></strong></p></td>
+      <td width="100" valign="middle" bgcolor="#666666"> 
+        <div align="center"><strong><font color="#FFFFFF" size="3">系统信息</font></strong></div></td>
+      <td><div align="left"><img src="../images/dot.gif" width="1" height="1"></div></td>
+    </tr>
+  </table>
+  <table width="100%" border="0" align="center" cellpadding="1" cellspacing="0">
+    <tr> 
+      <td valign="top" bgcolor="#CC0033"> <p align="center"><img src="../images/dot.gif" width="1" height="1"></p></td>
+    </tr>
+  </table>
+  
+ <script type="text/javascript">display();display2();</script>
+  <table width="100%" border="0" align="center" cellpadding="3" cellspacing="2" bgcolor="#E6E6E6" class="p12">
+    <tr> 
+            <td colspan="2"><strong>网络接口</strong></td>
+          </tr>
+          <tr>
+          <td width="10%"><div align="center">网口</div></td>
+          <td width="20%"><div align="center">IP 地址</div></td> 
+          <td width="20%"><div align="center">掩 码</div></td> 
+          <td width="20%"><div align="center">物理地址</div></td> 
+          </tr> 
+           
+<script type="text/javascript">
+    for ( var i = 0 ; i < ethif.length; i++ )
+    {
+	var ethA = "E" ;
+	if ( ethif[i] == "eth0" )
+	{
+		ethA = "A";
+	} else if ( ethif[i] == "eth1" )
+	{
+		ethA = "B";
+	} else if ( ethif[i] == "eth2" )
+	{
+		ethA = "C";
+	} else if ( ethif[i]== "eth3")
+	{
+		ethA = "D";
+	}
+	if ( ip[i] == vip && mask[i] == "255.255.255.255" ) continue;
+	document.write("<tr>");
+	document.write("<td width=\"10%\"><div align=\"center\">"+ethA+"</div></td>"); 
+	document.write("<td width=\"20%\" bgcolor=\"#CCCCCC\">"+ip[i] + "</td>");
+	document.write("<td width=\"20%\" bgcolor=\"#CCCCCC\">"+mask[i] + "</td>"); 
+	document.write("<td width=\"20%\" bgcolor=\"#CCCCCC\">"+mac[i] + "</td>");
+	document.write("</tr>");
+   }
+</script>
+</table>
+<script type="text/javascript">
+if ( kinds_gw.length > 0 )
+{
+  	document.write("<table width=\"100%\" border=\"0\" align=\"center\" cellpadding=\"3\" cellspacing=\"2\" bgcolor=\"#E6E6E6\" class=\"p12\">");
+	document.write("<tr><td colspan=\"2\"><strong>路由表</strong></td></tr>");
+	document.write("<tr>");
+	document.write("<td width=\"20%\"><div align=\"center\">目标地址</div></td>");
+	document.write("<td width=\"20%\"><div align=\"center\">掩 码</div></td>");
+	document.write("<td width=\"20%\"><div align=\"center\">网关</div></td>");
+	document.write("<td width=\"20%\"><div align=\"center\">经由网络</div></td>");
+	document.write("</tr>");
+	
+	for ( var i = 0 ; i < kinds_gw.length; i++ )
+	{
+		var ethA = "E";
+		if ( kinds_eth[i] == "eth0" )
+		{
+			ethA = "A";
+		} else if ( kinds_eth[i] == "eth1" )
+		{
+			ethA = "B";
+		} else if ( kinds_eth[i] == "eth2" )
+		{
+			ethA = "C";
+		} else if ( kinds_eth[i]== "eth3")
+		{
+			ethA = "D";
+		}
+		document.write("<tr>");
+		document.write("<td bgcolor=\"#CCCCCC\"><div align=\"center\">"+ kinds_dst[i] +"</div></td>");
+		document.write("<td bgcolor=\"#CCCCCC\"><div align=\"center\">"+ kinds_mask[i] +"</td>");
+		document.write("<td bgcolor=\"#CCCCCC\"><div align=\"center\">"+ kinds_gw[i] +"</td>");
+		document.write("<td bgcolor=\"#CCCCCC\"><div align=\"center\">网络"+ ethA +"</td>");
+		document.write("</tr>");
+	}
+	document.write("</table>");
+}
+
+if ( vcan == "yes" )
+{
+	var ethA = "E";
+	if ( veth == "eth0" )
+	{
+		ethA = "A";
+	} else if ( veth == "eth1" )
+	{
+		ethA = "B";
+	} else if ( veth == "eth2" )
+	{
+		ethA = "C";
+	} else if ( veth== "eth3")
+	{
+		ethA = "D";
+	}
+  	document.write("<table width=\"100%\" border=\"0\" align=\"center\" cellpadding=\"3\" cellspacing=\"2\" bgcolor=\"#E6E6E6\" class=\"p12\">");
+	document.write("<tr>"); 
+	document.write("<td colspan=\"2\"><strong>网络热备</strong></td>");
+	document.write("</tr>");
+
+	document.write("<tr>");
+	document.write("<td width=\"40%\"><div align=\"right\">热备机共同IP</div></td>"); 
+	document.write("<td width=\"20%\" bgcolor=\"#CCCCCC\">"+vip+"</td>");
+	document.write("<td width=\"40%\"><div align=\"center\"></div></td>");
+	document.write("</tr>");
+
+	document.write("<tr>");
+	document.write("<td width=\"40%\"><div align=\"right\">服务于</div></td> ");
+	document.write("<td width=\"20%\" bgcolor=\"#CCCCCC\">网络"+ethA+"</td>"); 
+	document.write("<td width=\"40%\"><div align=\"center\"></div></td>");
+	document.write("</tr>"); 
+
+	document.write("<tr>");
+	document.write("<td width=\"40%\"><div align=\"right\">热备机组ID</div></td>");
+	document.write("<td width=\"20%\" bgcolor=\"#CCCCCC\">"+vid+"</td>");
+	document.write("<td width=\"40%\"><div align=\"center\"></div></td>");
+	document.write("</tr>");
+	document.write("</table>");
+}
+</script>
+  <table width="100%" border="0" align="center" cellpadding="3" cellspacing="2" bgcolor="#E6E6E6" class="p12">
+  <tr> <td colspan="2"><strong>网络服务</strong></td></tr>       
+  <tr>
+	<td width="40%"><div align="right">默认网关</div></td> 
+	<td width="20%" bgcolor="#CCCCCC"><script type="text/javascript">document.write(gateway);</script></td><td width="40%"></td> 
+   </tr> 
+
+<script type="text/javascript">
+	for ( i = 0 ; i < dns.length; i++)
+	{
+		var t = i+1;
+		document.write("<tr><td width=\"40%\"><div align=\"right\">域名服务器"+t+"</div></td>");
+		document.write("<td width=\"20%\" bgcolor=\"#CCCCCC\">" + dns[i] + "</td><td width=\"40%\"></td></tr>");
+	}
+</script>
+  </table> 
+  <table width="100%" border="0" align="center" cellpadding="3" cellspacing="2" bgcolor="#E6E6E6" class="p12">
+  <tr> <td colspan="2"><strong>系统版本</strong></td></tr>       
+<script type="text/javascript">
+	for ( i = 1 ; i < versions.length; i++)
+	{
+		var t = i+1;
+		if ( versions[i].indexOf("UNION") >= 0 )
+		{
+			document.write("<tr><td width=\"15%\"><div align=\"right\"></div></td>");
+			document.write("<td width=\"40%\">" + versions[i] + "</td><td width=\"40%\"></td></tr>");
+		}
+	}
+</script>
+  </table> 
+  </form> 
+</body> 
+</html> 

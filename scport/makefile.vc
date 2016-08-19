@@ -1,0 +1,23 @@
+# Title: Makefile(VC)
+# ID: Textus-scport-Makefile-vc
+# Build
+#	B01:created by octerboy 2013/10/28
+include ..\Rules.basemod.vc
+CFLAGS =$(CFLAGS) -I$(TEXTUS_DIR)/logdata/include -I$(TEXTUS_DIR)/baselib/include
+AMOROBJS=ScPort.obj 
+
+all: scport.dll
+
+ScPort.obj: ScPort.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=ScPort ScPort.cpp
+
+scport.dll: ScPort.obj
+	$(LD) /NODEFAULTLIB  /NOLOGO -dll -out:$@ ScPort.obj $(LDLIB) Winscard.lib
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.lib
+	del *.exp

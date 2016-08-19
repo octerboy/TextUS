@@ -1,0 +1,37 @@
+# Title: Makefile(VC)
+# ID: Textus-Makefile-vc
+# Build: B01:created by octerboy 2006/05/27
+
+CFLAGS  =  /W3 /O2 /c
+CFLAGS2  = $(CFLAGS) -DTIXML_STORAGE=__declspec(dllexport)
+CC=cl
+LD=link
+AMOROBJS=xmltest.obj  tinystr.obj tinyxmlerror.obj tinyxml.obj tinyxmlparser.obj
+
+all: test.exe
+
+tinystr.obj: tinystr.cpp
+       $(CC) $(CFLAGS2) tinystr.cpp
+
+tinyxmlerror.obj: tinyxmlerror.cpp
+       $(CC) $(CFLAGS2) tinyxmlerror.cpp
+
+tinyxml.obj: tinyxml.cpp
+       $(CC) $(CFLAGS2) tinyxml.cpp
+
+tinyxmlparser.obj: tinyxmlparser.cpp
+       $(CC) $(CFLAGS2) tinyxmlparser.cpp
+
+xmltest.obj: xmltest.cpp
+       $(CC) $(CFLAGS) -DTIXML_STORAGE= xmltest.cpp
+
+test.exe: $(AMOROBJS)
+        $(LD) /NOLOGO -stack:6291456 -out:$@ $(AMOROBJS) kernel32.lib user32.lib
+        copy $@.* ..\release
+
+clean:
+        del *.obj
+	del *.exe
+	del *.exp
+	del *.lib
+	del *.dll.*

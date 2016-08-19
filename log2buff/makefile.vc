@@ -1,0 +1,24 @@
+# Title: Makefile(VC)
+# ID: Textus-L2Buffer-Makefile-vc
+# Build
+#	B01:created by octerboy 2007/05/28
+include ..\Rules.basemod.vc
+CFLAGS = $(CFLAGS) -I..\baselib\include -I..\logdata\include
+LDLIB = ..\baselib\libbase.lib $(LDLIB)
+AMOROBJS=L2Buffer.obj 
+
+all: log2buff.dll
+
+L2Buffer.obj: L2Buffer.cpp
+	$(CC) $(CFLAGS) -DNDEBUG -DAMOR_CLS_TYPE=L2Buffer L2Buffer.cpp
+
+log2buff.dll: $(AMOROBJS)
+	$(LD) /NODEFAULTLIB  /NOLOGO -dll -out:$@ $(AMOROBJS) $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.lib
+	del *.exp

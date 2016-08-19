@@ -1,0 +1,18 @@
+#Makefile base rule, for mac os x
+TEXTUS_DIR = $(HOME)/exp/textus
+CC=clang
+CXX=clang -lstdc++ -mmacosx-version-min=10.10
+LD=ld
+CFLAGS  = -g -c -O3 -mmacosx-version-min=10.10 
+INCLUDE_DIR = -I$(TEXTUS_DIR)/tinyxml -I$(TEXTUS_DIR)/amor/include -I//Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-migrator/sdk/MacOSX.sdk/usr/include
+LDFLAGS = -dylib -macosx_version_min 10.10 -L$(TEXTUS_DIR)/release
+ALONE_LDFLAGS = -dylib -macosx_version_min 10.10 
+#LDFLAGS = -dylib
+LDLIBS = -lanimus -lc -lstdc++ 
+ALONE_LDLIBS = -lc -lstdc++ 
+MAKE = make
+
+DEBUG_FLAG= -DNNDEBUG 
+
+LIBSOCKET= -lresolv
+

@@ -1,0 +1,9 @@
+#Makefile base rule, for microsoft vc
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib
+	del *.ilk
+	del *.pdb

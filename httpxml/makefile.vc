@@ -1,0 +1,25 @@
+# Title: Makefile(VC)
+# ID: Textus-httpxml-Makefile-vc
+# Build: 
+#	B01:created by octerboy 2006/08/31, Gaungzhou
+
+include ..\Rules.basemod.vc
+CFLAGS  = $(CFLAGS) -I..\logdata\include -I..\baselib\include -I..\httpsrvhead\include
+LDLIB = ..\baselib\libbase.lib $(LDLIB)
+AMOROBJS=HttpXML.obj 
+
+all: httpxml.dll
+
+HttpXML.obj: HttpXML.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=HttpXML HttpXML.cpp
+
+httpxml.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

@@ -1,0 +1,9 @@
+#ifndef TEXTUS_HOOK_H
+#define TEXTUS_HOOK_H
+#define TEXTUS_CREATE_AMOR _ZZXX_YYNodeErrorText
+#define TEXTUS_DESTROY_AMOR _ZAXX_YYNodeErrOrText
+#define TEXTUS_GET_VERSION _ZHXX_YYNodeErrORText
+#define TEXTUS_CREATE_AMOR_STR "_ZZXX_YYNodeErrorText"
+#define TEXTUS_DESTROY_AMOR_STR "_ZAXX_YYNodeErrOrText"
+#define TEXTUS_GET_VERSION_STR "_ZHXX_YYNodeErrORText"
+#endif

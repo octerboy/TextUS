@@ -1,0 +1,7 @@
+JDK_HOME=c:\j2sdk1.4.2_13
+JDK_BIN=$(JDK_HOME)\bin
+JC=$(JDK_BIN)\javac
+JCFLAGS= -encoding ISO-8859-1
+JR=$(JDK_BIN)\java
+JAR=$(JDK_BIN)\jar
+JH=$(JDK_BIN)\javah

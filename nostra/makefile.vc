@@ -1,0 +1,23 @@
+# Title: Makefile(VC)
+# ID: Textus-nostra-Makefile-vc
+# Build: 
+#	B01:created by octerboy 2006/05/28, Gaungzhou
+
+include ..\Rules.basemod.vc
+AMOROBJS=Nostra.obj 
+
+all: nostra.dll
+
+Nostra.obj: Nostra.cpp
+	$(CC) $(CFLAGS) -DNDEBUG -DAMOR_CLS_TYPE=Nostra Nostra.cpp
+
+nostra.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

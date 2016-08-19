@@ -1,0 +1,24 @@
+# Title: Makefile(VC)
+# ID: Textus-induco-Makefile-vc
+# Build: 
+#	B01:created by octerboy 2006/05/28, Gaungzhou
+
+include ..\Rules.basemod.vc
+CFLAGS  = $(CFLAGS) -I..\logdata\include 
+AMOROBJS=Induco.obj 
+
+all: induco.dll
+
+Induco.obj: Induco.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Induco Induco.cpp
+
+induco.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

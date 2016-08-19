@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="gb2312" ?>
+<root tag="Module" path="./release/" sum="40CE4F0366432F8A6F1C5E7EF5A9A594">
+    <![CDATA[<greeting>Hello, World!</greeting>]]>
+
+    <Module name="log2buff" sum="no" disable="no">
+        <Property>
+            <tail>\n</tail>
+            <log level="all" />
+        </Property>
+        <Log channel="yes">
+            <exclude level="all" />
+        </Log>
+        <Module name="tbufile" sum="no">
+            <Property show="no" file="tt.log" interval="3000" />
+            <Log>
+                <exclude level="all" />
+            </Log>
+            <Fly>
+                <sponte ordo="DMD_SET_ALARM" />
+            </Fly>
+        </Module>
+    </Module>
+    <Module name="jsport" sum="no" disable="no">
+        <Property>
+            <script file="test3.js" />
+        </Property>
+        <Log ID="-799">
+            <Exclude level="DEBUG" />
+        </Log>
+        <Module name="dbport" disable="no" sum="no">
+            <ExternalProperty document="dbface.xml">
+                <DB />
+            </ExternalProperty>
+            <Multi radic="yes" seed="4" />
+            <Log ID="-499">
+                <Exclude level="DEBUG" />
+            </Log>
+            <Module name="sybcli" sum="no">
+                <Property Interface="/op/sybase-11.9.2/interface">
+                    <connect server="SYBASE" user="sa" password="" />
+                </Property>
+                <Log ID="-789">
+                    <Exclude level="DEBUG" />
+                </Log>
+            </Module>
+        </Module>
+    </Module>
+    <Attachment name="js32" flag="GLOB" sum="no" />
+    <Attachment name="libbase" flag="GLOB" sum="no" />
+    <Attachment name="../../sybase/lib/libinsck" flag="GLOB" sum="no" />
+    <Attachment name="../../sybase/lib/libintl" flag="GLOB" sum="no" />
+    <Attachment name="../../sybase/lib/libcomn" flag="GLOB" sum="no" />
+    <Attachment name="../../sybase/lib/libcs" flag="GLOB" sum="no" />
+    <Attachment name="../../sybase/lib/libsybtcl" flag="GLOB" sum="no" />
+    <Attachment name="../../sybase/lib/libct" flag="GLOB" sum="no" />
+    <Attachment name="tversion" sum="no" />
+    <Attachment name="logdata" maxium="2" pid="y" sum="no" />
+    <Attachment name="nostra" sum="no" />
+</root>

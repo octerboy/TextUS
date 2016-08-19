@@ -1,0 +1,153 @@
+<html>
+<head>
+<script type="text/javascript">
+function refresh()
+{
+   location.reload()
+}
+function trim(s) {
+	while (s.substring(0,1) == ' ') 
+	{
+		s = s.substring(1,s.length);
+	}
+	while (s.substring(s.length-1,s.length) == ' ') {
+		s = s.substring(0,s.length-1);
+	}
+	return s;
+}
+
+function up()
+{
+	document.newform.destination.value = trim (document.newform.destination.value);
+	if ( document.newform.destination.value.length < 1 )
+	{
+		alert("请输入目的地址或域名!");
+		return false;
+	}
+
+   //建立对象
+   var root ="System";
+   var xmlNewDoc;
+   if ( navigator.appName == "Microsoft Internet Explorer" )
+   {
+	xmlNewDoc = new ActiveXObject("Microsoft.XMLDOM")
+	xmlNewDoc.loadXML('<?xml version="1.0" ?>'+'<'+root+'/>')
+   } else if ( navigator.appName == "Netscape" )
+   {
+	var parser=new DOMParser();
+ 	xmlNewDoc=parser.parseFromString('<?xml version="1.0" ?>'+'<'+root+'/>',"text/xml");
+   } else
+   {
+	alert(navigator.appName + " is not supported!");
+	return false;
+   }
+ 
+   var rootElement = xmlNewDoc.documentElement;
+   rootElement.setAttribute("content","diag");
+   rootElement.setAttribute("action","request");
+
+   //创建新元素
+   act = xmlNewDoc.createElement(document.newform.tool.options[document.newform.tool.selectedIndex].value);
+   act.appendChild(xmlNewDoc.createTextNode(document.newform.destination.value));
+
+   xmlNewDoc.documentElement.appendChild(act);
+
+   //发送XML文档
+   var xmlHttp;
+   var xmlRcvDoc;
+   if ( navigator.appName == "Microsoft Internet Explorer" )
+   {
+	xmlHttp = new ActiveXObject("Msxml2.XMLHTTP");
+	xmlHttp.Open('POST', "/SystemDiag", false);
+	xmlHttp.Send(xmlNewDoc);
+	xmlRcvDoc = new ActiveXObject("Microsoft.XMLDOM");
+	xmlRcvDoc.async="false";
+	xmlRcvDoc.loadXML(xmlHttp.responseText);
+	if (xmlRcvDoc.parseError.errorCode != 0 )
+	{
+		document.write("<br>Error Code: ")
+		document.write(xmlRcvDoc.parseError.errorCode)
+		document.write("<br>Error Reason: ")
+		document.write(xmlRcvDoc.parseError.reason)
+		document.write("<br>Error Line: ")
+		document.write(xmlRcvDoc.parseError.line)
+		return false;
+	}
+   } else if ( navigator.appName == "Netscape" )
+   {
+ 	xmlHttp = new XMLHttpRequest();
+	xmlHttp.open('POST', "/SystemDiag", false);
+	xmlHttp.send(xmlNewDoc);
+	var parser=new DOMParser();
+	xmlRcvDoc=parser.parseFromString(xmlHttp.responseText,"text/xml");
+   } else 
+   {
+	alert(navigator.appName + " is not supported!");	
+	return false;
+    }
+
+   var rootElement01 = xmlRcvDoc.documentElement;
+   var result = rootElement01.getElementsByTagName("result").item(0).firstChild.nodeValue;
+   try {
+	var description=rootElement01.getElementsByTagName("description");
+   } catch (e) {}
+
+   var disp = document.newform.tool.options[document.newform.tool.selectedIndex].value+" " +document.newform.destination.value + " " + "的结果如下：";
+	
+   for ( var i = 0 ; i < description.length; i++ )
+   {
+	disp += "\r\n"+description.item(i).firstChild.nodeValue; 
+   }
+   alert(disp);
+}
+
+</script>
+<link href="../css/os%201.css" rel="stylesheet" type="text/css">
+<meta http-equiv="Content-Type" content="text/html; charset=gb2312"><title>网络诊断</title></head>
+<body bgcolor="#6696bc" background="../images/background.jpg">
+<form name="newform">
+  <table width="100%" border="0" align="center" cellpadding="0" cellspacing="0">
+    <tr> 
+      <td width="33" bgcolor="#CC0033"> <p align="center"><strong><img src="../images/fr02.gif" width="32" height="23"></strong></p></td>
+      <td width="96" valign="middle" bgcolor="#666666"> 
+        <div align="center"><strong><font color="#FFFFFF" size="3">网络诊断</font></strong></div></td>
+      <td width="469"><div align="left"><img src="../images/dot.gif" width="1" height="1"></div></td>
+    </tr>
+  </table>
+  <table width="100%" border="0" align="center" cellpadding="1" cellspacing="0">
+    <tr> 
+      <td valign="top" bgcolor="#CC0033"> <p align="center"><img src="../images/dot.gif" width="1" height="1"></p></td>
+    </tr>
+  </table>
+  <table width="100%" border="0" align="center" cellpadding="2" cellspacing="1" bgcolor="#E6E6E6" class="p12">
+    <tr> 
+      <td>
+       　
+       </td>
+    </tr>
+    <tr> 
+      <td>
+       </td>
+    </tr>
+    <tr> 
+      <td>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 诊断工具<select size="1" name="tool"> 
+          <option value="ping" selected>ping</option>
+          <option value="dns">dns</option>
+          <option value="traceroute">traceroute</option>
+        </select><input type="text" name="destination" size="15"><input type="button" name="Submit" value="提交" onClick="up()">
+       </td>
+    </tr>
+    <tr> 
+      <td>
+       　
+       </td>
+    </tr>
+    <tr> 
+      <td>
+       </td>
+    </tr>
+  </table>
+</form>
+</body>
+</html>

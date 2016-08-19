@@ -1,0 +1,553 @@
+<?xml version="1.0" encoding="GB2312" ?>
+<root tag="Module" sum="0ECFD8B15B9CF51750790B633EE571F9" path="./release/">
+    <![CDATA[<greeting>科友公司数据库审计产品演示</greeting>]]>
+
+    <Module name="log2buff" sum="no" disable="no">
+        <Property>
+            <tail>\n</tail>
+            <log level="all" />
+        </Property>
+        <Log channel="yes">
+            <exclude level="all" />
+        </Log>
+        <Module name="tbufile" sum="no">
+            <PropertyExternal document="ex.xml">
+                <LogSet />
+            </PropertyExternal>
+            <Log>
+                <exclude level="all" />
+            </Log>
+            <Cross>
+                <sponte ordo="DMD_SET_ALARM" />
+            </Cross>
+        </Module>
+    </Module>
+    <Module name="signal" sum="no">
+        <Property>
+            <!ignore name="SIGPIPE" />
+        </Property>
+    </Module>
+    <!-- MYSQL 代理 -->
+    <Module name="tcpsrv" sum="no">
+        <PropertyExternal document="ex.xml">
+            <Agent />
+        </PropertyExternal>
+        <Trend>
+            <laeve ordo="END_SESSION" goon="no">
+                <owner ordo="DMD_END_SESSION" />
+            </laeve>
+        </Trend>
+        <Multi radic="yes" seed="1" maxium="20" />
+        <Cross>
+            <sponte ordo="FD_SETRD" />
+            <sponte ordo="FD_SETWR" />
+            <sponte ordo="FD_CLRRD" />
+            <sponte ordo="FD_CLRWR" />
+        </Cross>
+        <Log ID="-78" alias="tcpsrv">
+            <exclude level="DEBUG" />
+        </Log>
+        <Aux tag="aux">
+            <aux name="tbufile" sum="no">
+                <Property clear="no" show="yes" form="debug" file="my.log" interval="-1" />
+                <Log>
+                    <exclude level="all" />
+                </Log>
+                <Cross>
+                    <sponte ordo="DMD_SET_ALARM" />
+                </Cross>
+            </aux>
+        </Aux>
+        <Module name="tcpctrl" sum="no">
+            <Property server_ip="2" server_port="3" client_ip="6" client_port="7" />
+            <Log ID="-764">
+                <exclude level="DEBUG" />
+            </Log>
+            <Cross_3 where="end" />
+        </Module>
+        <Module name="dbsession" sum="no">
+            <Log ID="-766">
+                <Exclude level="DEBUG" />
+            </Log>
+            <Cross_11 where="end" />
+        </Module>
+        <Module name="slice" sum="no">
+            <!-- 报文长度分析, 这里假定头3个字节表明数据长度 -->
+            <Property length="hoctet:3" adjust="4" />
+            <Log ID="-85">
+                <exclude level="DEBUG" />
+            </Log>
+            <Trend>
+                <dextra ordo="END_SESSION" goon="yes">
+                    <owner ordo="DMD_END_SESSION" />
+                </dextra>
+            </Trend>
+            <Trend>
+                <dextra ordo="START_SESSION" goon="no">
+                    <next />
+                    <facio />
+                </dextra>
+            </Trend>
+            <Module name="unipac" sum="no" disable="no">
+                <!-- 登录报文响应分析 -->
+                <Property provide="packet" offset="0" base="nothing" buffer="refer">
+                    <packet>
+                        <!-- 帧分析中, 保留了4字节的头 -->
+                        <field no="0" locate="rigid" length="3" />
+                        <field no="7" locate="rigid" length="1">
+                            <match>\x02</match>
+                        </field>
+                        <!-- 8域: 对于错误信息置为0xff-->
+                        <field no="8" locate="rigid" length="1" />
+                        <!-- 9域: 对于错误信息, 表示错误代码 -->
+                        <field no="9" locate="rigid" length="2" />
+                        <!-- 10域: 错误信息 -->
+                        <field no="10" locate="toend" />
+                    </packet>
+                </Property>
+                <Log ID="-209">
+                    <exclude level="DEBUG" />
+                    <exclude level="WARNING" />
+                </Log>
+                <Trend>
+                    <dextra ordo="END_SESSION" goon="yes">
+                        <owner ordo="DMD_END_SESSION" />
+                    </dextra>
+                </Trend>
+                <!-- 交换TBUF位置 -->
+                <Muto ordo="SET_TBUF" />
+                <Ramify stop="no" inverse="yes">
+                    <!-- 第1 packet, 不存在0域表示初始的由服务端返回的登录响应报文  -->
+                    <dextra packet="first" ordo="PRO_TBUF">
+                        <field no="11" NOT="yes" />
+                    </dextra>
+                    <facio />
+                </Ramify>
+                <Trend>
+                    <sponte ordo="pro_tbuf" goon="no">
+                        <next />
+                        <sponte ordo="dmd_stop_next" />
+                    </sponte>
+                </Trend>
+                <Cross_9 where="end" />
+                <Module name="unifom" sum="no" disable="no">
+                    <Property provide="nothing" offset="0" mapOnly="yes">
+                        <facio to="LFirst" from="RFirst">
+                            <!-- 把用户名取过来 -->
+                            <let source="5" destination="5" />
+                            <!-- 把IP取过来 -->
+                            <let source="6" destination="6" />
+                            <!-- 11域置标志 -->
+                            <let destination="11">Logged</let>
+                            <!-- Message  -->
+                            <let source="10" destination="2" from="LFirst" />
+                        </facio>
+                    </Property>
+                    <Log ID="-1997">
+                        <exclude level="DEBUG" />
+                    </Log>
+                    <Cross_8 where="end" />
+                </Module>
+                <Module name="sqlpolicy" sum="no" disable="no">
+                    <!-- 这个所谓的策略控制模块实际上是不需要的， 这是仅作演示。
+				以后这个位置应该是一个数据库的通用访问模块(比如访问mysql或fastDB等),
+				通过设置一条语句, 这个模块就实现了对策略表的对访问，并取得相应的动作类型
+				 -->
+                    <Log ID="-109">
+                        <Exclude level="DEBUG" />
+                    </Log>
+                    <Ramify stop="no">
+                        <dextra packet="first">
+                            <field no="8">
+                                <match>\xff</match>
+                            </field>
+                        </dextra>
+                    </Ramify>
+                </Module>
+            </Module>
+            <Module name="unipac" sum="no" disable="no">
+                <!-- 针对登录的报文分析 -->
+                <Property provide="packet" offset="0" base="nothing" buffer="refer">
+                    <packet only="facio">
+                        <!-- 帧分析中, 保留了4字节的头 -->
+                        <field no="0" locate="rigid" length="4" />
+                        <!-- 1域：client_capabilities -->
+                        <field no="1" locate="rigid" length="4" />
+                        <!-- 2域：max_client_packet_length -->
+                        <field no="2" locate="rigid" length="4" />
+                        <!-- 3域：charset -->
+                        <field no="3" locate="rigid" length="4" />
+                        <!-- 4域：保留 -->
+                        <field no="4" locate="rigid" length="20" />
+                        <!-- 5域：user -->
+                        <field no="5" locate="lterm">
+                            <term>\x00</term>
+                        </field>
+                        <!-- 6域：passwd -->
+                        <field no="6" locate="HLVAR" length="32" />
+                    </packet>
+                    <packet only="sponte">
+                        <!-- 帧分析中, 保留了4字节的头 -->
+                        <field no="0" locate="rigid" length="4" />
+                        <!-- 1域: 对于错误信息置为0xff-->
+                        <field no="1" locate="rigid" length="1" />
+                        <!-- 2域: 对于错误信息, 表示错误代码 -->
+                        <field no="2" locate="rigid" length="2" />
+                        <!-- 3域: 错误信息 -->
+                        <field no="3" locate="toend" />
+                    </packet>
+                </Property>
+                <Log ID="-201">
+                    <exclude level="DEBUG" />
+                </Log>
+                <Trend>
+                    <dextra ordo="END_SESSION" goon="yes">
+                        <owner ordo="DMD_END_SESSION" />
+                    </dextra>
+                </Trend>
+                <Ramify stop="no" inverse="yes">
+                    <!-- 第2 packet, 不存在10域表示初始的由客户端发出的登录报文  -->
+                    <dextra packet="second" ordo="PRO_TBUF">
+                        <field no="5" NOT="yes" />
+                    </dextra>
+                    <facio />
+                </Ramify>
+                <Trend>
+                    <sponte ordo="pro_tbuf" goon="no">
+                        <next />
+                        <sponte ordo="dmd_stop_next" />
+                    </sponte>
+                </Trend>
+                <Module name="unifom" sum="no" disable="no">
+                    <!-- 记录登录用户名, manOlny=no, 后面再加数据库接口 -->
+                    <!-- 这里提供一个与每个TCP连接相应的packobj, 其中记录用户名、IP地址等 -->
+                    <Property provide="packet" offset="0" mapOnly="no" maxium="10">
+                        <facio from="LFirst" to="RFirst">
+                            <let to="LSecond" destination="5">1</let>
+                            <let source="5" destination="5" />
+                        </facio>
+                    </Property>
+                    <Log ID="-992">
+                        <exclude level="DEBUG" />
+                    </Log>
+                    <Cross_2>
+                        <facio ordo="SET_UNIPAC" to="laeve" stop="no" />
+                    </Cross_2>
+                    <Cross_3>
+                        <facio ordo="SET_UNIPAC" to="laeve" stop="no" />
+                    </Cross_3>
+                    <Cross_8>
+                        <facio ordo="SET_UNIPAC" to="laeve" stop="no" />
+                    </Cross_8>
+                    <Cross_11>
+                        <facio ordo="SET_UNIPAC" to="laeve" stop="no" />
+                    </Cross_11>
+                </Module>
+            </Module>
+            <!-- 登录报文分析结束 -->
+            <Module name="unipac" sum="no" disable="no">
+                <!-- 通讯数据基本分析 -->
+                <Property provide="packet" offset="0" base="nothing" buffer="refer" max="10">
+                    <packet only="facio">
+                        <!-- 帧分析中, 保留了4字节的头 -->
+                        <field no="0" locate="rigid" length="4" />
+                        <!-- 1域：ID类型, 如0x03: COM_QUERY -->
+                        <field no="1" locate="rigid" length="1" />
+                        <!-- 2域：对于 COM_QUERY, 就是如"select * from tab"这样的内容, 没有结束符 -->
+                        <field no="2" locate="toend" />
+                    </packet>
+                    <packet only="sponte">
+                        <!-- 帧分析中, 保留了4字节的头 -->
+                        <field no="0" locate="rigid" length="4" />
+                        <!-- 1域: 对于错误信息置为0xff-->
+                        <field no="1" locate="rigid" length="1" />
+                        <!-- 2域: 对于错误信息, 表示错误代码 -->
+                        <field no="2" locate="rigid" length="2" />
+                        <!-- 3域: 错误信息 -->
+                        <field no="3" locate="toend" />
+                    </packet>
+                </Property>
+                <Log ID="-101">
+                    <exclude level="DEBUG" />
+                </Log>
+                <Trend>
+                    <sponte ordo="pro_tbuf" goon="no">
+                        <next />
+                        <sponte ordo="dmd_stop_next" />
+                    </sponte>
+                </Trend>
+                <Module name="mysqlparse" sum="no" disable="no">
+                    <Property sql="2" command="3" object="4" />
+                    <Ramify stop="yes" continue="yes">
+                        <dextra packet="first">
+                            <field no="1">
+                                <match>\x03</match>
+                            </field>
+                        </dextra>
+                    </Ramify>
+                    <Log_External document="ex.xml">
+                        <ParseLog />
+                    </Log_External>
+                    <Module name="unifom" sum="no" disable="no">
+                        <Property provide="nothing" offset="0" mapOnly="yes">
+                            <facio to="LFirst" from="RFirst">
+                                <!-- 把用户名取过来 -->
+                                <let source="5" destination="5" />
+                                <!-- 把IP取过来 -->
+                                <let source="6" destination="6" />
+                            </facio>
+                        </Property>
+                        <Log ID="-993">
+                            <exclude level="DEBUG" />
+                        </Log>
+                        <Cross_2 where="end" />
+                    </Module>
+                    <Module name="sqlpolicy" sum="no" disable="no">
+                        <!-- 这个所谓的策略控制模块实际上是不需要的， 这是仅作演示。
+				以后这个位置应该是一个数据库的通用访问模块(比如访问mysql或fastDB等),
+				通过设置一条语句, 这个模块就实现了对策略表的对访问，并取得相应的动作类型
+				 -->
+                        <Log ID="-105">
+                            <Exclude level="DEBUG" />
+                        </Log>
+                    </Module>
+                </Module>
+            </Module>
+            <Module name="slice" sum="no">
+                <!-- 报文长度分析, 这里假定头3个字节表明数据长度 -->
+                <Property length="hoctet:3" adjust="4" inverse="yes" />
+                <Log ID="-65">
+                    <exclude level="DEBUG" />
+                </Log>
+                <Trend>
+                    <dextra ordo="END_SESSION" goon="yes">
+                        <owner ordo="DMD_END_SESSION" />
+                    </dextra>
+                </Trend>
+                <Trend>
+                    <dextra ordo="START_SESSION" goon="no">
+                        <next />
+                        <facio />
+                    </dextra>
+                </Trend>
+                <Cross_9>
+                    <sponte ordo="PRO_TBUF" to="facio" stop="no" />
+                </Cross_9>
+                <Module name="tbufchan" sum="no">
+                    <Property />
+                    <Trend>
+                        <dextra ordo="END_SESSION" goon="yes">
+                            <owner ordo="DMD_END_SESSION" />
+                        </dextra>
+                        <laeve ordo="END_SESSION" goon="yes">
+                            <owner ordo="DMD_END_SESSION" />
+                        </laeve>
+                    </Trend>
+                    <Log ID="-88">
+                        <exclude level="DEBUG" />
+                    </Log>
+                    <Module name="tcpcli" disable="no" sum="no">
+                        <PropertyExternal document="ex.xml">
+                            <MYSQL />
+                        </PropertyExternal>
+                        <Trend>
+                            <dextra ordo="END_SESSION" goon="no">
+                                <owner ordo="DMD_END_SESSION" />
+                            </dextra>
+                        </Trend>
+                        <Trend>
+                            <dextra ordo="START_SESSION" goon="no">
+                                <owner ordo="DMD_START_SESSION" />
+                            </dextra>
+                        </Trend>
+                        <Log ID="-30">
+                            <exclude level="DEBUG" />
+                        </Log>
+                        <Cross>
+                            <sponte ordo="FD_SETRD" />
+                            <sponte ordo="FD_SETWR" />
+                            <sponte ordo="FD_SETEX" />
+                            <sponte ordo="FD_CLRRD" />
+                            <sponte ordo="FD_CLRWR" />
+                            <sponte ordo="FD_CLREX" />
+                            <sponte ordo="DMD_SET_TIMER" />
+                            <sponte ordo="DMD_CLR_TIMER" />
+                        </Cross>
+                    </Module>
+                </Module>
+            </Module>
+        </Module>
+    </Module>
+    <!-- WebServer部分 -->
+    <Module name="tcpsrv" sum="no">
+        <PropertyExternal document="ex.xml">
+            <Web />
+        </PropertyExternal>
+        <!-- 这是TCP服务模块 -->
+        <Trend>
+            <laeve ordo="END_SESSION" goon="no">
+                <owner ordo="DMD_END_SESSION" />
+            </laeve>
+        </Trend>
+        <Multi radic="yes" seed="1" maxium="5" />
+        <Cross>
+            <sponte ordo="FD_SETRD" />
+            <sponte ordo="FD_SETWR" />
+            <sponte ordo="FD_CLRRD" />
+            <sponte ordo="FD_CLRWR" />
+        </Cross>
+        <Log ID="-2" alias="tcpsrv">
+            <exclude level="DEBUG" />
+        </Log>
+        <Aux tag="aux">
+            <aux name="tbufile" sum="no">
+                <Property clear="no" show="yes" interval="-1" />
+                <Log>
+                    <exclude level="all" />
+                </Log>
+                <Cross>
+                    <sponte ordo="DMD_SET_ALARM" />
+                </Cross>
+            </aux>
+        </Aux>
+        <Module name="tcpctrl" sum="no">
+            <Property>
+                <client certno="01" />
+            </Property>
+            <Log ID="-765">
+                <exclude level="DEBUG" />
+            </Log>
+        </Module>
+        <Module name="httpsrvhead" sum="no">
+            <Property server="Admin Server" />
+            <Trend>
+                <laeve ordo="END_SESSION" goon="no">
+                    <sponte />
+                </laeve>
+                <dextra ordo="END_SESSION" goon="no">
+                    <owner ordo="DMD_END_SESSION" />
+                    <sponte />
+                </dextra>
+            </Trend>
+            <Log ID="-3">
+                <exclude level="DEBUG" />
+            </Log>
+            <Relay />
+            <Module name="restart" sum="no">
+                <Property />
+                <Log ID="-12">
+                    <exclude level="DEBUG" />
+                </Log>
+                <Trend>
+                    <sponte ordo="pro_tbuf" goon="no">
+                        <next />
+                        <sponte ordo="dmd_stop_next" />
+                    </sponte>
+                </Trend>
+                <Cross>
+                    <sponte ordo="CMD_MAIN_EXIT" />
+                </Cross>
+                <URL>
+                    <match>/Restart</match>
+                </URL>
+            </Module>
+            <Module name="httpfile" sum="no">
+                <Property home="./htdocs" default="SystemSetTime.htm" security="yes" charset="gb2312" />
+                <Property home="../tinyxml/docs" security="yes" charset="gb2312" />
+                <Log ID="-12">
+                    <exclude level="DEBUG" />
+                    <exclude level="INFO" />
+                </Log>
+                <Trend>
+                    <sponte ordo="pro_tbuf" goon="no">
+                        <next />
+                        <sponte ordo="dmd_stop_next" />
+                    </sponte>
+                </Trend>
+            </Module>
+            <Module name="httpsrvbody" sum="no">
+                <Property />
+                <Relay stop="pass" />
+                <Log ID="-6">
+                    <exclude level="DEBUG" />
+                </Log>
+                <URL>
+                    <match>/SystemVersion</match>
+                    <match>/SystemTime.xml</match>
+                    <match>/UtCrypt.asmx</match>
+                </URL>
+                <Module name="httpxml" sum="no">
+                    <Property encode="GB2312" alone="no" />
+                    <Log ID="-35">
+                        <exclude level="DEBUG" />
+                    </Log>
+                    <Relay stop="pass" />
+                    <Module name="systime" sum="no">
+                        <Log ID="-117">
+                            <exclude level="DEBUG" />
+                        </Log>
+                        <URL case="no">
+                            <match>/SystemTime.xml</match>
+                        </URL>
+                    </Module>
+                    <Module name="getversions" sum="no">
+                        <Property />
+                        <Log ID="-139">
+                            <exclude level="DEBUG" />
+                        </Log>
+                        <Version get="yes" />
+                        <URL case="no">
+                            <match>/SystemVersion</match>
+                        </URL>
+                    </Module>
+                    <Module name="tsoap" sum="no">
+                        <PropertyExternal document="wsdl.xml" />
+                        <Log ID="-129">
+                            <exclude level="DEBUG" />
+                        </Log>
+                        <URL case="no">
+                            <match>/UtCrypt.asmx</match>
+                        </URL>
+                        <Relay stop="pass" />
+                        <Module name="systime" sum="no">
+                            <Log ID="-117">
+                                <exclude level="DEBUG" />
+                            </Log>
+                            <URL case="no" field="SOAPAction">
+                                <match>&quot;getSysTime&quot;</match>
+                                <match>&quot;setSysTime&quot;</match>
+                            </URL>
+                        </Module>
+                    </Module>
+                </Module>
+            </Module>
+            <Module name="httpnourl" sum="no">
+                <Property />
+                <Log ID="-98" />
+            </Module>
+        </Module>
+    </Module>
+    <Module name="sched" sum="no">
+        <Log ID="-1" alias="sched">
+            <exclude level="DEBUG" />
+        </Log>
+        <Cross where="end" />
+        <Property timer="10000" />
+    </Module>
+    <Attachment name="libbase" flag="GLOB" sum="no" />
+    <Attachment name="auxiliary" sum="no" />
+    <Attachment name="tversion" sum="no" />
+    <Attachment name="trend" sum="no" />
+    <Attachment name="relay" sum="no" />
+    <Attachment name="nostra" sum="no" />
+    <Attachment name="logdata" pid="y" maxium="2" sum="no" />
+    <Attachment name="cross" sum="no" />
+    <Attachment name="cross_2" tag="Cross_2" sum="no" />
+    <Attachment name="cross_3" tag="Cross_3" sum="no" />
+    <Attachment name="cross_8" tag="Cross_8" sum="no" />
+    <Attachment name="cross_9" tag="Cross_9" sum="no" />
+    <Attachment name="cross_11" tag="Cross_11" sum="no" />
+    <Attachment name="ramify" sum="no" />
+    <Attachment name="pmuto" sum="no" />
+    <Attachment name="httpurlsw" sum="no" />
+</root>

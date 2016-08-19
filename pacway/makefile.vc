@@ -1,0 +1,24 @@
+# Title: Makefile(VC)
+# ID: Textus-insway-Makefile-vc
+# Build: B01:created by octerboy 2016/08/15, Gaungzhou
+
+include ..\Rules.basemod.vc
+CFLAGS  =  $(CFLAGS) -I..\baselib\include -I..\unipac\include -I..\logdata\include -I$(OPENSSL_DIR)\include
+LDLIB = $(LDLIB) ..\baselib\libbase.lib $(OPENSSL_DIR)\lib\libeay32.lib $(OPENSSL_DIR)\lib\ssleay32.lib
+AMOROBJS=PacWay.obj 
+
+all: pacway.dll
+
+PacWay.obj: PacWay.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=PacWay PacWay.cpp
+
+pacway.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

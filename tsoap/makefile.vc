@@ -1,0 +1,30 @@
+# Title: Makefile(VC)
+# ID: Textus-tsoap-Makefile-vc
+# Build: 
+#	B01:created by octerboy 2006/10/13, Gaungzhou
+
+include ..\Rules.basemod.vc
+CFLAGS= $(CFLAGS) -I..\logdata\include -I..\httpsrvhead\include
+AMOROBJS=TSoap.obj Wsdl.obj Schema.obj
+
+all: tsoap.dll
+
+Wsdl.obj: Wsdl.cpp Array.h Wsdl.h
+	$(CC) $(CFLAGS) -DNNDEBUG Wsdl.cpp
+
+Schema.obj: Schema.cpp Array.h Wsdl.h
+	$(CC) $(CFLAGS) -DNNDEBUG Schema.cpp
+
+TSoap.obj: TSoap.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=TSoap TSoap.cpp
+
+tsoap.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

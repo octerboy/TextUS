@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="GB2312" ?>
+<root tag="Module" path="../lib/" sum="357A014831208A74">
+    <![CDATA[<greeting>试验用</greeting>]]>
+
+    <Module name="log2buff" sum="no" disable="no">
+        <Property>
+            <tail>\n</tail>
+            <log level="debug" />
+            <log level="info" />
+            <log level="err" />
+            <log level="warning" />
+            <log level="crit" />
+            <log level="emerg" />
+            <log level="alert" />
+            <log level="notice" />
+        </Property>
+        <Log channel="yes">
+            <exclude level="all" />
+        </Log>
+        <Module name="tbufile" sum="no">
+            <Property show="no" file="tty.log" interval="-3" />
+            <Log>
+                <exclude level="all" />
+            </Log>
+            <Cross>
+                <sponte ordo="DMD_SET_ALARM" />
+            </Cross>
+        </Module>
+    </Module>
+    <Module name="signal" disable="no" sum="no">
+        <Property>
+            <ignore name="SIGPIPE" />
+        </Property>
+    </Module>
+    <Module name="ttyop" sum="no">
+        <!-- 串口通信 -->
+        <ExternalProperty document="icadmin.xml">
+            <serial />
+        </ExternalProperty>
+        <Trend>
+            <laeve ordo="END_SESSION" goon="no">
+                <owner ordo="DMD_END_SESSION" />
+            </laeve>
+        </Trend>
+        <Cross>
+            <sponte ordo="FD_SETRD" />
+            <sponte ordo="FD_SETWR" />
+            <sponte ordo="FD_CLRRD" />
+            <sponte ordo="FD_CLRWR" />
+        </Cross>
+        <Log ID="-2" alias="ttyop">
+            <Exclude level="DEBUG" />
+        </Log>
+        <Module name="tbufile" sum="no">
+            <Property show="yes" form="debug" clear="no" />
+        </Module>
+        <Module name="nacframe" sum="no" disable="no">
+            <!-- NAC协议分析 -->
+            <Property tiemout="1" />
+            <Cross>
+                <sponte ordo="DMD_SET_TIMER" />
+                <sponte ordo="DMD_CLR_TIMER" />
+            </Cross>
+            <Log ID="-111">
+                <Exclude level="DEBUG" />
+            </Log>
+            <Module name="unipac" sum="no" disable="no">
+                <Property provide="packet" offset="0" base="nothing" maxium="150">
+                    <packet>
+                        <field no="1" locate="RIGID" length="1" />
+                        <field no="2" locate="RIGID" length="2" />
+                        <field no="3" locate="RIGID" length="2" />
+                        <!-- 这第4域是8583的消息类型 -->
+                        <field no="4" locate="RIGID" length="2" />
+                        <field no="5" locate="TOEND" length="999" />
+                    </packet>
+                </Property>
+                <Log ID="-11">
+                    <Exclude level="DEBUG" />
+                </Log>
+                <Module name="unifom" sum="no" disable="no">
+                    <Property provide="nothing" offset="0" mapOnly="yes">
+                        <facio from="LFirst" to="LSecond">
+                            <let source="1" destination="1" />
+                            <let source="2" destination="3" />
+                            <let source="3" destination="2" />
+                            <map source="4" destination="4">
+                                <!-- 8583的消息类型的请求与响应对应表 -->
+                                <with>
+                                    <from>\x02\x00</from>
+                                    <to>\x02\x01</to>
+                                </with>
+                                <with>
+                                    <from>\x8b\xaa</from>
+                                    <to>\x02\x00</to>
+                                </with>
+                            </map>
+                        </facio>
+                    </Property>
+                    <Log ID="-12">
+                        <Exclude level="DEBUG" />
+                    </Log>
+                </Module>
+                <Module name="unipac" sum="no" disable="no">
+                    <Property provide="5" offset="6" base="ISO8583:1987" />
+                    <Log ID="-13">
+                        <Exclude level="DEBUG" />
+                    </Log>
+                    <Aux tag="aux">
+                        <aux name="unifom" sum="no" disable="no">
+                            <PropertyExternal document="icadmin.xml">
+                                <Convert />
+                            </PropertyExternal>
+                            <Log ID="-20">
+                                <Exclude level="DEBUG" />
+                            </Log>
+                        </aux>
+                    </Aux>
+                    <Module name="dbport" sum="no" disable="no">
+                        <PropertyExternal document="icadmin.xml">
+                            <DBPort />
+                        </PropertyExternal>
+                        <Log ID="-21">
+                            <Exclude level="DEBUG" />
+                        </Log>
+                        <Module name="oracli" sum="no">
+                            <PropertyExternal document="icadmin.xml">
+                                <DB />
+                            </PropertyExternal>
+                            <Log ID="-22">
+                                <Exclude level="DEBUG" />
+                            </Log>
+                        </Module>
+                    </Module>
+                    <Module name="unifom" sum="no" disable="yes">
+                        <!-- 这里模拟返回数据 -->
+                        <Property provide="nothing" offset="6" mapOnly="no">
+                            <facio from="LFirst" to="LSecond">
+                                <let destination="2">\x99\x77\x88\x77\x35\x40\x32</let>
+                            </facio>
+                        </Property>
+                        <Log ID="-19">
+                            <Exclude level="DEBUG" />
+                        </Log>
+                    </Module>
+                </Module>
+            </Module>
+            <Module name="demo" sum="no" disable="yes">
+                <Property>
+                    <type>谁是</type>
+                </Property>
+                <Log ID="-222">
+                    <Exclude level="DEBUG" />
+                </Log>
+            </Module>
+        </Module>
+    </Module>
+    <Module name="sched" sum="no">
+        <Log ID="-1" alias="sched">
+            <exclude level="DEBUG" />
+        </Log>
+        <Cross where="end" />
+        <Property timer="1000" />
+    </Module>
+    <Attachment name="libbase" flag="GLOB" sum="no" />
+    <Attachment name="tversion" sum="no" />
+    <Attachment name="relay" sum="no" />
+    <Attachment name="nostra" sum="no" />
+    <Attachment name="auxiliary" sum="no" />
+    <Attachment name="logdata" maxium="2" sum="no" />
+    <Attachment name="httpurlsw" sum="no" />
+    <Attachment name="ramify" sum="no" />
+    <Attachment name="cross" sum="no" />
+    <Attachment name="joint" sum="no" />
+    <Attachment name="cross_2" tag="Cross_2" causation="yes" sum="no" />
+    <Attachment name="cross_3" tag="Cross_3" causation="yes" sum="no" />
+    <Attachment name="cross_4" tag="Cross_4" causation="yes" sum="no" />
+    <Attachment name="cross_5" tag="Cross_5" causation="yes" sum="no" />
+    <Attachment name="trend" sum="no" />
+</root>

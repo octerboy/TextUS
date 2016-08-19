@@ -1,0 +1,43 @@
+# Title: Makefile(VC)
+# ID: Textus-scport-Makefile-vc
+# Build
+#	B01:created by octerboy 2013/10/28
+include ..\Rules.basemod.vc
+CFLAGS =$(CFLAGS) -I$(TEXTUS_DIR)/logdata/include -I$(TEXTUS_DIR)/baselib/include
+AMOROBJS=ToR531.obj R531DeviceFunc.obj publicFunc.obj des.obj atr.obj
+
+all: tor531.dll
+
+ToR531.obj: ToR531.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=ToR531 ToR531.cpp
+
+FoR531.obj: ToR531.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DFOR_NET -DAMOR_CLS_TYPE=ToR531 ToR531.cpp
+
+R531DeviceFunc.obj:R531DeviceFunc.cpp 
+	$(CC) $(CFLAGS) R531DeviceFunc.cpp
+
+publicFunc.obj:publicFunc.cpp 
+	$(CC) $(CFLAGS) publicFunc.cpp
+
+des.obj:DES.cpp 
+	$(CC) $(CFLAGS) DES.cpp
+
+atr.obj:ATR.cpp 
+	$(CC) $(CFLAGS) ATR.cpp
+
+tor531.dll: ToR531.obj R531DeviceFunc.obj publicFunc.obj des.obj atr.obj
+	$(LD) /NODEFAULTLIB  /NOLOGO -dll -out:$@ $(AMOROBJS) $(LDLIB) setupapi.lib HID.LIB
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+for531.dll: FoR531.obj R531DeviceFunc.obj publicFunc.obj des.obj atr.obj
+	$(LD) /NODEFAULTLIB  /NOLOGO -dll -out:$@ $(AMOROBJS) $(LDLIB) setupapi.lib HID.LIB
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del t*.lib
+	del *.exp

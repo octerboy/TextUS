@@ -1,0 +1,24 @@
+# Title: Makefile(VC)
+# ID: Textus-unifom-Makefile-vc
+# Build: B01:created by octerboy 2006/05/28, Gaungzhou
+
+include ..\Rules.basemod.vc
+CFLAGS  =  $(CFLAGS) -I..\baselib\include -I..\unipac\include -I..\logdata\include
+LDLIB = $(LDLIB) ..\baselib\libbase.lib
+AMOROBJS=Unifom.obj 
+
+all: unifom.dll
+
+Unifom.obj: Unifom.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Unifom Unifom.cpp
+
+unifom.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

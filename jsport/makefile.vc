@@ -1,0 +1,24 @@
+# Title: Makefile(VC)
+# ID: Textus-Dummy-Makefile-vc
+# Build: B01:created by octerboy 2006/05/28, Gaungzhou
+
+include ..\Rules.basemod.vc
+CFLAGS  =  $(CFLAGS) -I..\logdata\include -I..\baselib\include -I..\unipac\include -I..\..\js\src -I..\..\js\src\Debug
+LDLIB = ..\baselib\libbase.lib ..\..\js\src\Debug\js32.lib $(LDLIB)
+AMOROBJS = JSPort.obj
+
+all: jsport.dll
+
+JSPort.obj:JSPort.cpp function.c
+	$(CC) $(CFLAGS) -DXP_WIN=1 $(DEBUG_FLAG)  -DAMOR_CLS_TYPE=JSPort JSPort.cpp
+
+jsport.dll: JSPort.obj
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB) 
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

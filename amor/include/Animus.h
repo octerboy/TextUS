@@ -1,0 +1,97 @@
+/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+ * All rights reserved.
+ *
+ * This file is part of the TextUS.
+ *
+ * See the file "license.terms" for information on usage and redistribution
+ * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+ */
+
+/**
+ Title: The class definition of Animus
+ Build: created by octerboy, 2006/03/10, Shenyang
+ $Header: /textus/amor/include/Animus.h 27    10-12-11 21:07 Octerboy $
+ $Date: 10-12-11 21:07 $
+ $Revision: 27 $
+*/
+
+/* $NoKeywords: $ */
+
+#ifndef ANIMUS_H
+#define ANIMUS_H
+#ifndef TINLINE 
+#define TINLINE inline
+#endif
+#include "Aptus.h"
+
+class TEXTUS_AMOR_STORAGE Animus: public Aptus {
+public:
+	/* from Aptus class definition */
+	void ignite(TiXmlElement *wood);	
+	void ignite_t (TiXmlElement *wood, TiXmlElement *tag) { return; }
+	TINLINE bool facio(Amor::Pius *);
+	TINLINE bool facio_n(Amor::Pius *, unsigned int);
+	bool to_dextra(Amor::Pius *, unsigned int);
+	TINLINE bool sponte( Amor::Pius *);
+	TINLINE bool sponte_n( Amor::Pius *, unsigned int);
+	Amor *clone();
+	Aptus *clone_p(Aptus *);
+
+	bool dextra(Amor::Pius *, unsigned int);	/* it will call the child node */
+	bool laeve( Amor::Pius *pius, unsigned int);	/* it will be called by the child node */
+
+	Animus();
+	~Animus();
+
+	/* this class special definition */
+	static char ver_buf[128];	/* version infomation */
+	char module_tag[128];		/* often is "Module" */
+
+	struct  Aptus_Positor  {		/* the structure of Aptus extension module */
+		Aptus* (*genero)();		/* the function pointer to create Aptus object */
+		void (*casso)(Aptus *);		/* the function pointer to destroy Aptus object */
+		TiXmlElement *carbo;
+		const char *tag;		/* the tag of xml element for load module */
+		int must;			/* should ignite() */
+		inline  Aptus_Positor () {
+			genero =0;
+			casso  =0;
+			carbo =0;
+			tag = 0;
+			must = 0;
+		}
+	};
+			
+	static struct Aptus_Positor *positor ; 
+	static unsigned int num_extension;	/* the number of Aptus extension modules. -1: Not loadded */
+	static bool pst_added;			/* false: not load the aptus yet */
+
+	int refer_count;
+	void info(Amor::Pius &);
+	void destroy_right();
+	
+	Aptus **consors;		/* the array of Aptus objects */
+	unsigned int num_real_ext;		/* the number of Aptus objects and index of positor */
+
+private:
+	void tolero(const char*);	/* load Amor module */
+	void emunio(const char*);	/* Load Aptus extension module */
+	inline void scratch(Aptus * dst);
+	inline bool need(Aptus * dst);
+	
+	Aptus **cons_spo;
+	unsigned int num_spo;
+	
+	Aptus **cons_fac;
+	unsigned int num_fac;
+
+	Aptus **cons_lae;
+	unsigned int num_lae;
+
+	Aptus **cons_dex;
+	unsigned int num_dex;	
+
+	bool isTunnel;
+	void *other;
+};
+#endif

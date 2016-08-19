@@ -1,0 +1,4 @@
+amor/ok dver.xml 9 1
+amor/ok dver.xml 6 3 36000
+rm -f tt.log
+./tus dver.xml

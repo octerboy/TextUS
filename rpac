@@ -1,0 +1,4 @@
+amor/ok pacdemo.xml 9 1
+amor/ok pacdemo.xml 6 3 36000
+rm -f tt.log
+./tus pacdemo.xml

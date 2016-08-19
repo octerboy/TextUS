@@ -1,0 +1,25 @@
+# Title: Makefile(VC)
+# ID: Textus-thread-Makefile-vc
+# Build: 
+#	B01:created by octerboy 2006/05/28, Gaungzhou
+
+include ..\Rules.basemod.vc
+CFLAGS  = $(CFLAGS) -I..\baselib\include
+LDLIB = ..\baselib\libbase.lib $(LDLIB)
+AMOROBJS=Thread.obj 
+
+all: thread.dll
+
+Thread.obj: Thread.cpp
+	$(CC) $(CFLAGS) -DNDEBUG -DAMOR_CLS_TYPE=Thread Thread.cpp
+
+thread.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

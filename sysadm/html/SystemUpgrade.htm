@@ -1,0 +1,90 @@
+<html>
+<head>
+<script type="text/javascript">
+
+function trim(s) {
+  while (s.substring(0,1) == ' ') {
+    s = s.substring(1,s.length);
+  }
+  while (s.substring(s.length-1,s.length) == ' ') {
+    s = s.substring(0,s.length-1);
+  }
+  return s;
+}
+
+
+function doSubmit() 
+{ 
+	result = confirm ("确认所有数据！");
+	if(!result)
+	{
+		return false;
+	}
+	
+	document.newform.md5.value = trim(document.newform.md5.value);
+	
+	return true;
+}
+</script>
+
+<link href="../css/os%201.css" rel="stylesheet" type="text/css">
+<meta http-equiv="Content-Type" content="text/html; charset=gb2312"><title>系统升级</title></head>
+<body bgcolor="#6696bc" background="../images/background.jpg" >
+<div align="center"> 
+  <form name="newform" enctype="multipart/form-data" method="post" action="/SystemUpgrade">
+    <div align="left">
+    <table width="80%" border="0" cellpadding="0" cellspacing="0">
+      <tr> 
+        <td width="30" bgcolor="#CC0033"> <p align="center"><strong><img src="../images/fr02.gif" width="32" height="23"></strong></p></td>
+        <td width="80" valign="middle" bgcolor="#666666">
+<div align="center"><strong><font color="#FFFFFF" size="3">系统升级</font></strong></div></td>
+        <td><div align="left"><img src="../images/dot.gif" width="1" height="1"></div></td>
+      </tr>
+    </table>
+    </div>
+    <table width="100%" border="0" align="center" cellpadding="1" cellspacing="0">
+      <tr> 
+        <td valign="top" bgcolor="#CC0033"> <p align="center"><img src="../images/dot.gif" width="1" height="1"></p></td>
+      </tr>
+    </table>
+    <table width="100%" border="0" cellpadding="5" cellspacing="0" bordercolor="#FF0000" bgcolor="#E6E6E6" class="p12">
+     <!--
+      <tr>
+	<td height="25" width="71"> <div align="right">名称</div></td>
+	<td height="25" width="458"> <select name="caname_list" id="caname_list" size="1" > 
+        <option>--新增--</option> 
+        &nbsp; </select> 新名称 <input type="text" name="caname" size="7">   
+ </td>   
+      </tr>
+      -->   <input type="hidden" name="caname" size="7" type="hidden" value="root"> 
+      <tr>   
+        <td colspan="3"><b>系统映像</b></td>  
+      </tr>  
+      <tr>   
+        <td width="15%">
+          <p align="right">映像文件</p>
+        </td>  
+        <td width="60%"><input name="upimage" type="file" id="upimage" value="">  
+          &nbsp;  
+ </td>  
+        <td rowspan="2">一旦文件上传成功，整个系统立即被更新，你需要立即关闭系统电源并再次开启，新系统即开始运行。  
+ </td>  
+      </tr>  
+      <tr>   
+        <td width="15%">
+          <p align="right">MD5校验</p>
+        </td>  
+        <td width="60%"><input type="text" name="md5" id="md5" size="39" value=""> </td>  
+      </tr>  
+      <tr>   
+        <td width="15%">&nbsp;</td>  
+        <td colspan="2">  
+          <input type="Submit" name="Submit" value="提交" onClick ="return doSubmit();"></td>  
+      </tr>  
+    </table>  
+  </form>   
+  
+</div>  
+  
+</body>  
+</html>  

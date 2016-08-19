@@ -1,0 +1,25 @@
+# Title: Makefile(VC)
+# ID: Textus-URead-Makefile-vc
+# Build
+#	B01:created by octerboy 2014/01/10
+include ..\Rules.basemod.vc
+CFLAGS =$(CFLAGS) -I$(TEXTUS_DIR)/logdata/include 
+LDLIB = $(LDLIB)
+AMOROBJS=URead.obj 
+
+all: uread.dll
+
+URead.obj: URead.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=URead URead.cpp
+
+uread.dll: URead.obj
+	$(LD) /NODEFAULTLIB  /NOLOGO -dll -out:$@ uread.obj $(LDLIB)
+
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del to*.dll.*
+	del to*.lib
+	del *.exp

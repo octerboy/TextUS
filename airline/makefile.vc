@@ -1,0 +1,24 @@
+# Title: Makefile(VC)
+# ID: Textus-Air-Makefile-vc
+# Build:
+#	B01:created by octerboy 2006/05/28, Panyu in Gaungzhou
+include ..\Rules.basemod.vc
+CFLAGS  = $(CFLAGS) -I..\baselib\include
+LDLIB = ..\baselib\libbase.lib $(LDLIB)
+AMOROBJS=Air.obj 
+
+all: airline.dll 
+
+Air.obj: Air.cpp
+	$(CC) $(CFLAGS) -DNDEBUG -DAMOR_CLS_TYPE=Air Air.cpp
+
+airline.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

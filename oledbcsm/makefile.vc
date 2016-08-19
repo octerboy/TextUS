@@ -1,0 +1,20 @@
+# Title: Makefile(VC)
+# ID: Textus-oledbCsm-Makefile-vc
+# Build: B01:created by octerboy 2007/02/24, Panyu
+
+include ..\Rules.basemod.vc
+AMOROBJS=Consumer.obj 
+CFLAGS =$(CFLAGS) -I$(TEXTUS_DIR)/logdata/include -I$(TEXTUS_DIR)/dbport/include -I$(TEXTUS_DIR)/unipac/include -I$(TEXTUS_DIR)/baselib/include
+LDLIB = $(TEXTUS_DIR)\baselib\libbase.lib uuid.lib oleaut32.lib ole32.lib oledb.lib msdasc.lib $(LDLIB)
+
+all: oledbcsm.dll
+
+Consumer.obj: Consumer.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) /Zi -DAMOR_CLS_TYPE=Consumer Consumer.cpp
+
+oledbcsm.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) /DEBUG -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+include ..\Rules.other.vc

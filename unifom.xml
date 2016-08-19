@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="GB2312" ?>
+<Property provide="packet" offset="0" mapOnly="no" maxium="50">
+
+                        <facio from="LFirst" to="RFirst">
+                            <!-- 指令格式转换-->
+                            <convert>
+                                <!--1域: 指令 -->
+                                <source no="1" code="ANY" />
+                                <destination no="1" code="HEXCAP" />
+                            </convert>
+                            <!-- 格式转换后，某些特别指令对应表-->
+                            <map from="RFirst" source="1" destination="1">
+                                <with>
+                                    <from>10</from>
+                                    <to>1A</to>
+                                </with>
+                            </map>
+
+                            <!-- 为了准确判别返回T型指令的格式, 设定原请求命令码  -->
+                            <let to="LSecond" source="1" destination="40" />
+                            <!-- 通道号原值返回 -->
+                            <let to="LSecond" source="0" destination="0" />
+
+                            <convert>
+                                <!--4域: 银行主密索引号 -->
+                                <source no="4" code="BCD" />
+                                <destination no="4" code="ASCII" />
+                            </convert>
+
+                            <convert>
+                                <!--5域: 银行主密索引号 -->
+                                <source no="5" code="BCD" />
+                                <destination no="5" code="ASCII" />
+                            </convert>
+
+                            <convert>
+                                <!--10域: 银行主密索引号 -->
+                                <source no="10" code="BCD" />
+                                <destination no="10" code="ASCII" />
+                            </convert>
+
+	<!-- type: after, 后补; before, 前补; length='0' 则将其补成长度偶数 -->
+	<fill source='1' destination = '10' length='10' character='0' method='after'/>
+
+	<!-- 无format则以32位整数表示秒数 -->
+	<now destination = '10' format='%T%D'/>
+                            <convert>
+                                <!--18域: 待校验的CVV -->
+                                <source no="18" code="BCDF" />
+                                <destination no="18" code="ASCII" />
+                            </convert>
+                        </facio>
+
+                        <!-- T型指令响应 -->
+                        <sponte from="RSecond" to="LSecond">
+                            <map source="2" destination="1" only="sponte">
+                                <with>
+                                    <!-- 一般都是0A返回-->
+                                    <from>00</from>
+                                    <to>\x0A</to>
+                                </with>
+                                <with>
+                                    <!-- 错误返回0E -->
+                                    <from />
+                                    <to>\x0E</to>
+                                </with>
+                            </map>
+                            <convert>
+                                <!-- 错误码转换-->
+                                <source no="2" code="HEX" />
+                                <destination no="41" code="ANY" />
+                            </convert>
+                        </sponte>
+
+                        <both from="LFirst" to="RFirst">
+                            <convert>
+                                <source no="7" code="ANY" />
+                                <destination no="7" code="HEXCAP" />
+                            </convert>
+                            <convert>
+                                <source no="8" code="ANY" />
+                                <destination no="8" code="HEXCAP" />
+                            </convert>
+                            <convert>
+                                <!--20域: 银行密钥密文,数据密钥密文 -->
+                                <source no="20" code="ANY" />
+                                <destination no="20" code="HEXCAP" />
+                            </convert>
+                            <convert>
+                                <source no="22" code="ANY" />
+                                <destination no="22" code="HEXCAP" />
+                            </convert>
+                            <convert>
+                                <source no="24" code="ANY" />
+                                <destination no="24" code="HEXCAP" />
+                            </convert>
+                            <convert>
+                                <source no="26" code="ANY" />
+                                <destination no="26" code="HEXCAP" />
+                            </convert>
+                            <convert>
+                                <source no="28" code="ANY" />
+                                <destination no="28" code="HEXCAP" />
+                            </convert>
+                            <convert>
+                                <source no="30" code="ANY" />
+                                <destination no="30" code="HEXCAP" />
+                            </convert>
+                            <convert>
+                                <source no="32" code="ANY" />
+                                <destination no="32" code="HEXCAP" />
+                            </convert>
+                        </both>
+                    </Property>

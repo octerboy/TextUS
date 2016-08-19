@@ -1,0 +1,67 @@
+# Title: Makefile
+# ID: Textus-JvmPort-makefile-vc
+# Build:
+#	B01:created by octerboy 2007/11/16, Guangzhou
+
+include ..\Rules.basemod.vc
+AMOROBJS=JvmPort.obj 
+
+include ..\Rules.java.win
+LDLIB2 = ..\baselib\libbase.lib $(LDLIB) $(JDK_HOME)\lib\jvm.lib
+
+PACDIR = jetus\jvmport
+PACPATH = jetus.jvmport.
+
+CFLAGS  = $(CFLAGS) -I..\baselib\include -I..\logdata\include -I..\unipac\include -I$(JDK_HOME)\include -I$(JDK_HOME)\include\win32
+
+all:jvmport.dll $(PACDIR)\Pius.class $(PACDIR)\Amor.class $(PACDIR)\TBuffer.class $(PACDIR)\PacketData.class $(PACDIR)\TiXML.class
+
+JvmPort.obj: JvmPort.cpp
+	$(CC) $(CFLAGS) $(INCLUDE_DIR) -I..\unipac\include $(DEBUG_FLAG) -DAMOR_CLS_TYPE=JvmPort JvmPort.cpp
+
+jvmport.dll: JvmPort.obj
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB2)
+        copy $@.* ..\release
+
+$(PACDIR)\Amor.class: Amor.java
+	$(JC) Amor.java 
+	move /Y Amor.class $(PACDIR)
+	$(JH) $(PACPATH)Amor
+	$(JAR) cvf jvmport.jar jetus
+	copy jvmport.jar ..\release
+
+$(PACDIR)\Pius.class:Pius.java
+	$(JC) Pius.java 
+	move /Y Pius.class $(PACDIR)
+	$(JAR) cvf jvmport.jar jetus
+	copy jvmport.jar ..\release
+
+$(PACDIR)\TBuffer.class:TBuffer.java
+	$(JC) TBuffer.java
+	move /Y TBuffer.class $(PACDIR)
+	$(JH) $(PACPATH)TBuffer
+	$(JAR) cvf jvmport.jar jetus
+	copy jvmport.jar ..\release
+
+$(PACDIR)\PacketData.class:PacketData.java
+	$(JC) PacketData.java
+	move /Y PacketData.class $(PACDIR)
+	$(JH) $(PACPATH)PacketData
+	$(JAR) cvf jvmport.jar jetus
+	copy jvmport.jar ..\release
+
+$(PACDIR)\TiXML.class:TiXML.java
+	$(JC) TiXML.java
+	move /Y TiXML.class $(PACDIR)
+	$(JH) $(PACPATH)TiXML
+	$(JAR) cvf jvmport.jar jetus
+	copy jvmport.jar ..\release
+
+jv.exe:jv.c
+	cl -I$(JDK_HOME)\include -I$(JDK_HOME)\include\win32 jv.c $(JDK_HOME)\lib\jvm.lib
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

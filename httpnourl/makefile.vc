@@ -1,0 +1,23 @@
+# Title: Makefile(VC)
+# ID: Textus-NourlLet-Makefile-vc
+# Build: B01:created by octerboy 2006/05/28, Gaungzhou
+
+include ..\Rules.basemod.vc
+CFLAGS  =  $(CFLAGS) -I..\logdata\include -I..\httpsrvhead\include
+AMOROBJS=NourlLet.obj 
+
+all: httpnourl.dll
+
+NourlLet.obj: NourlLet.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=NourlLet NourlLet.cpp
+
+httpnourl.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

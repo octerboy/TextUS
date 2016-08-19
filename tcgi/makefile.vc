@@ -1,0 +1,24 @@
+# Title: Makefile(VC)
+# ID: Textus-tcgi-Makefile-vc
+# Build: 
+#	B01:created by octerboy 2007/03/17, Panyu
+
+include ..\Rules.basemod.vc
+CFLAGS =$(CFLAGS) -I..\logdata\include  -I..\baselib\include -I..\sched\include -I..\unipac\include
+LDLIB =$(LDLIB) ..\baselib\libbase.lib
+
+all: tcgi.dll
+
+TCgi.obj: TCgi.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=TCgi TCgi.cpp
+
+tcgi.dll: TCgi.obj
+	$(LD) $(LDFLAGS) -out:$@ TCgi.obj  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+	
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

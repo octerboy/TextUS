@@ -1,0 +1,326 @@
+<?xml version="1.0" encoding="gb2312" ?>
+<root tag="Module" path="./release/" sum="7C9D5EE33085B83DC9003FE1B3BEFED3">
+    <![CDATA[<greeting>Hello, World!</greeting>]]>
+
+    <Module name="log2buff" sum="no" disable="no">
+        <Property>
+            <tail>\n</tail>
+            <log level="all" />
+        </Property>
+        <Log channel="yes">
+            <exclude level="all" />
+        </Log>
+        <Module name="tbufile" sum="no">
+            <Property show="no" file="tt.log" interval="3000" />
+            <Log>
+                <exclude level="all" />
+            </Log>
+            <Fly>
+                <sponte ordo="DMD_SET_ALARM" />
+            </Fly>
+        </Module>
+    </Module>
+    <Module name="signal" sum="no">
+        <Property>
+            <ignore name="SIGPIPE" />
+            <ignore name="SIGCHLD" />
+        </Property>
+    </Module>
+    <Module name="tcpsrv" sum="no">
+        <Property Eth="eth0" port="7000" />
+        <!-- 这是TCP服务模块 -->
+        <Joint />
+        <Log ID="-92" alias="tcpsrv">
+            <Exclude level="DEBUG" />
+        </Log>
+        <Trend>
+            <laeve ordo="END_SESSION" goon="no">
+                <owner ordo="DMD_END_SESSION" />
+            </laeve>
+        </Trend>
+        <Multi radic="yes" seed="2" maxium="2" />
+        <Fly Group="99">
+            <sponte ordo="FD_SETRD" />
+            <sponte ordo="FD_SETWR" />
+            <sponte ordo="FD_CLRRD" />
+            <sponte ordo="FD_CLRWR" />
+        </Fly>
+        <Module name="tcpctrl" sum="no">
+            <Property>
+                <client certno="01" />
+            </Property>
+            <Log ID="-766">
+                <Exclude level="DEBUG" />
+            </Log>
+            <Fly group="peer" where="end" cause="yes" />
+        </Module>
+    </Module>
+    <Module name="tcpsrv" sum="no">
+        <Property Eth="eth0" port="6606" />
+        <!-- 这是TCP服务模块 -->
+        <Log ID="-2" alias="tcpsrv">
+            <Exclude level="DEBUG" />
+        </Log>
+        <Trend>
+            <laeve ordo="END_SESSION" goon="no">
+                <owner ordo="DMD_END_SESSION" />
+                <sponte ordo="CMD_MAIN_EXIT" />
+            </laeve>
+            <facio ordo="END_SESSION" goon="no">
+                <next />
+                <sponte ordo="CMD_MAIN_EXIT" />
+            </facio>
+            <laeve ordo="FORKED_PARENT" goon="no">
+                <owner ordo="CMD_RELEASE_SESSION" />
+            </laeve>
+            <laeve ordo="FORKED_CHILD" goon="no">
+                <owner ordo="DMD_END_SERVICE" />
+            </laeve>
+        </Trend>
+        <Multi radic="yes" seed="2" maxium="2" />
+        <Fly Group="99">
+            <sponte ordo="FD_SETRD" />
+            <sponte ordo="FD_SETWR" />
+            <sponte ordo="FD_CLRRD" />
+            <sponte ordo="FD_CLRWR" />
+            <Sponte ordo="CMD_MAIN_EXIT" />
+        </Fly>
+        <Module name="tcpctrl" sum="no">
+            <Property>
+                <client certno="01" />
+            </Property>
+            <Log ID="-766">
+                <Exclude level="DEBUG" />
+            </Log>
+        </Module>
+        <Module name="process" disable="yes" sum="no">
+            <Property ordo="new_session" maxium="10" />
+            <Log ID="-1079">
+                <Exclude level="DEBUG" />
+            </Log>
+        </Module>
+        <Module name="httpsrvhead" sum="no">
+            <Property server="my server">
+                <method name="DD" />
+                <method name="FF" />
+                <method name="CC" />
+            </Property>
+            <Joint location="right" />
+            <Trend>
+                <laeve ordo="end_session" goon="no">
+                    <sponte />
+                </laeve>
+                <dextra ordo="end_session" goon="no">
+                    <owner ordo="dmd_end_session" />
+                </dextra>
+            </Trend>
+            <Log ID="-93">
+                <Exclude level="DEBUG" />
+            </Log>
+            <Relay />
+            <Module name="httpauth" sum="no" disable="no">
+                <!-- 这是http服务认证 -->
+                <Property enable="yes" file="http.usr" realm="keyou.cn" />
+                <Log ID="-4">
+                    <Exclude level="DEBUG" />
+                </Log>
+                <Trend>
+                    <sponte ordo="pro_http_head" goon="no">
+                        <next />
+                        <sponte ordo="DMD_STOP_NEXT" />
+                    </sponte>
+                </Trend>
+            </Module>
+            <Module name="httpfile" sum="no">
+                <Property home="tinyxml/docs" default="index.html" security="no" gzip_ext="yes" />
+                <Property home="./" default="ut.htm" security="no" charset="gb2312" />
+                <Property home="tinyxml/docs" default="index.html" charset="ISO-8859-1" />
+                <Property home="/home/octerboy/samba-3.0.20pre1/docs/htmldocs" default="index.html" charset="gb2312" />
+                <Log ID="-12">
+                    <Exclude level="DEBUG" />
+                </Log>
+                <Trend>
+                    <sponte ordo="pro_tbuf" goon="no">
+                        <next />
+                        <sponte ordo="dmd_stop_next" />
+                    </sponte>
+                </Trend>
+            </Module>
+            <Module name="httpdir" sum="no">
+                <Property home="tinyxml/docs" charset="gb2312" />
+                <Log ID="-20">
+                    <Exclude level="DEBUG" />
+                </Log>
+                <Trend>
+                    <sponte ordo="pro_tbuf" goon="no">
+                        <next />
+                        <sponte ordo="dmd_stop_next" />
+                    </sponte>
+                </Trend>
+            </Module>
+            <Module name="httpsrvbody" sum="no">
+                <Property />
+                <Relay stop="pass" />
+                <Trend>
+                    <sponte ordo="PRO_HTTP_RESPONSE" goon="no">
+                        <next />
+                        <sponte ordo="dmd_stop_next" />
+                    </sponte>
+                </Trend>
+                <Log ID="-6">
+                    <Exclude level="DEBUG" />
+                </Log>
+                <Module name="httpform" sum="no">
+                    <Log ID="-33">
+                        <Exclude level="DEBUG" />
+                    </Log>
+                </Module>
+                <Module name="httpxml" sum="no">
+                    <Property />
+                    <Log ID="-33">
+                        <Exclude level="DEBUG" />
+                    </Log>
+                    <Trend>
+                        <sponte ordo="PRO_HTTP_RESPONSE" goon="no">
+                            <next />
+                            <sponte ordo="dmd_stop_next" />
+                        </sponte>
+                    </Trend>
+                    <Relay stop="pass" />
+                    <Module name="tsoap" sum="no" disable="no">
+                        <ExternalProperty document="wsdl.xml" />
+                        <Log ID="-129">
+                            <Exclude level="DEBUG" />
+                        </Log>
+                        <URL>
+                            <match>/Cacu.asmx</match>
+                            <match>/SystemVersion</match>
+                            <match>/SystemInfo</match>
+                            <match>/SystemRoute</match>
+                            <match case="yes">/SystemTime</match>
+                        </URL>
+                        <Trend>
+                            <sponte ordo="PRO_HTTP_RESPONSE" goon="no">
+                                <next />
+                                <sponte ordo="dmd_stop_next" />
+                            </sponte>
+                        </Trend>
+                        <Relay stop="pass" />
+                        <!-- 取得系统与模块的版本 -->
+                        <Module name="getversions" sum="no">
+                            <Property />
+                            <Log ID="-139">
+                                <Exclude level="DEBUG" />
+                            </Log>
+                            <Version get="yes" />
+                            <URL case="no">
+                                <match field="SOAPAction">&quot;sysadm/version&quot;</match>
+                                <match case="yes">/SystemVersion</match>
+                            </URL>
+                        </Module>
+                        <!-- 取得系统的网络接口、路由、DNS设置 -->
+                        <Module name="sysinfo" sum="no">
+                            <Property />
+                            <Log ID="-139">
+                                <Exclude level="DEBUG" />
+                            </Log>
+                            <URL case="no">
+                                <match field="SOAPAction">&quot;sysadm/sysinfo&quot;</match>
+                                <match field="SOAPAction">&quot;sysadm/setsysinfo&quot;</match>
+                                <match case="yes">/SystemInfo</match>
+                            </URL>
+                        </Module>
+                        <!-- 取得/设置系统的路由表 -->
+                        <Module name="sysroute" sum="no">
+                            <Property />
+                            <Log ID="-139">
+                                <Exclude level="DEBUG" />
+                            </Log>
+                            <URL case="no">
+                                <match field="SOAPAction">&quot;sysadm/sysroute&quot;</match>
+                                <match case="yes">/SystemRoute</match>
+                            </URL>
+                        </Module>
+                        <!-- 取得/设置系统时间 -->
+                        <Module name="systime" sum="no">
+                            <Property />
+                            <Log ID="-139">
+                                <Exclude level="DEBUG" />
+                            </Log>
+                            <URL case="no">
+                                <match field="SOAPAction">&quot;sysadm/systime&quot;</match>
+                                <match case="yes">/SystemTime</match>
+                            </URL>
+                        </Module>
+                        <module name="tix2pac">
+                            <Property />
+                            <Log ID="-140">
+                                <Exclude level="DEBUG" />
+                            </Log>
+                            <URL case="no" field="SOAPAction" ordo="154">
+                                <match>&quot;sjl06/get&quot;</match>
+                                <match>&quot;sjl06/conv&quot;</match>
+                            </URL>
+                        </module>
+                        <Module name="httpnourl" sum="no">
+                            <Property Redirect="/tfom.htm" />
+                            <Log ID="-96" />
+                        </Module>
+                    </Module>
+                    <Module name="restart" sum="no">
+                        <Property redirect="/index.html" />
+                        <Log ID="-118">
+                            <Exclude level="DEBUG" />
+                        </Log>
+                        <Fly>
+                            <sponte ordo="3" />
+                        </Fly>
+                        <URL>
+                            <match case="no">/SystemRestart</match>
+                        </URL>
+                    </Module>
+                </Module>
+                <Module name="httpupfile" sum="no">
+                    <Property />
+                    <Log ID="-122">
+                        <Exclude level="DEBUG" />
+                    </Log>
+                    <Relay stop="pass" />
+                    <Module name="systime" sum="no">
+                        <Log ID="-119">
+                            <Exclude level="DEBUG" />
+                        </Log>
+                        <URL>
+                            <match>/SystemUpgradeiii</match>
+                        </URL>
+                    </Module>
+                </Module>
+                <module name="httpnourl">
+                    <Log ID="-9" />
+                    <Property Redirect="/tfom.htm" />
+                </module>
+            </Module>
+            <Module name="httpnourl" sum="no">
+                <Property Redirect="/tfom.htm" />
+                <Log ID="-7" />
+            </Module>
+        </Module>
+    </Module>
+    <Module name="sched" sum="no">
+        <Property timer="1000" />
+        <Log ID="-1" alias="sched">
+            <exclude level="DEBUG" />
+        </Log>
+        <Fly Group="99" where="end" />
+    </Module>
+    <Attachment name="tversion" sum="no" />
+    <Attachment name="relay" sum="no" />
+    <Attachment name="nostra" sum="no" />
+    <Attachment name="auxiliary" sum="no" />
+    <Attachment name="logdata" maxium="2" pid="y" sum="no" />
+    <Attachment name="httpurlsw" sum="no" />
+    <Attachment name="ramify" sum="no" />
+    <Attachment name="joint" sum="no" />
+    <Attachment name="airline" sum="no" />
+    <Attachment name="trend" sum="no" />
+</root>

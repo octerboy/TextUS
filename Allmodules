@@ -1,0 +1,22 @@
+#all modules name list here.
+DIRS= tinyxml amor baselib airline auxiliary \
+balance complex \
+dbport dummy formauth grate \
+holding \
+htmlsift httpagent httpauth httpcookie \
+httpdigest httpdir httpfile httpform httpnourl \
+httpsrvbody httpsrvhead httpupfile httpurlsw httpxml \
+induco joint keep locker log2buff logdata \
+monip montcp \
+nacframe nostra \
+pipe pmuto process ramify relay \
+sched sequence signal slice sslcli sslsrv sslvcert \
+tbufchan tbufile \
+tcgi tcpcli tcpctrl tcpsrv \
+thread tix2pac trend tsoap \
+unifom unipac version \
+jsport jvmport \
+oracli \
+sysadm tpcap ttyop \
+nosuch
+

@@ -1,0 +1,24 @@
+# Title: Makefile(VC)
+# ID: Textus-httpfile-Makefile-vc
+# Build: 
+#	B01:created by octerboy 2006/05/28, Gaungzhou
+
+include ..\Rules.basemod.vc
+CFLAGS  = $(CFLAGS)  -I..\logdata\include -I..\baselib\include -I..\httpsrvhead\include
+LDLIB = $(LDLIB) ..\baselib\libbase.lib
+AMOROBJS=FileLet.obj 
+
+all: httpfile.dll
+
+FileLet.obj: FileLet.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=FileLet FileLet.cpp
+
+httpfile.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  oldnames.lib $(LDLIB)
+        copy $@.* ..\release
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

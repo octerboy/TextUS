@@ -1,0 +1,4 @@
+amor/ok demo.xml 9 1
+amor/ok demo.xml 6 3 36000
+rm -f tt.log
+./tus demo.xml

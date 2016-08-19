@@ -1,0 +1,24 @@
+# Title: Makefile(VC)
+# ID: Textus-Locker-Makefile-vc
+# Build:
+#	B01:created by octerboy 2006/05/28, Panyu in Gaungzhou
+include ..\Rules.basemod.vc
+CFLAGS = -I..\baselib\include $(CFLAGS)
+AMOROBJS=Locker.obj 
+LDLIB = ..\baselib\libbase.lib $(LDLIB) 
+
+all: locker.dll 
+
+Locker.obj: Locker.cpp
+	$(CC) $(CFLAGS) -DNDEBUG -DAMOR_CLS_TYPE=Locker Locker.cpp
+
+locker.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

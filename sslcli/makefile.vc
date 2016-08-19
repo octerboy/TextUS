@@ -1,0 +1,27 @@
+# Title: Makefile(VC)
+# ID: Textus-sslcli-Makefile-vc
+# Build: B01:created by octerboy 2009/08/21, Guangzhou
+
+include ..\Rules.basemod.vc
+CFLAGS  =  $(CFLAGS) -I..\baselib\include -I../logdata\include -I$(OPENSSL_DIR)\include  
+LDLIB = $(LDLIB) ..\baselib\libbase.lib $(OPENSSL_DIR)\lib\libeay32.lib $(OPENSSL_DIR)\lib\ssleay32.lib
+AMOROBJS=SSLcli.obj SSLcliuna.obj
+
+all:sslcli.dll
+
+SSLcli.obj: SSLcli.cpp
+	$(CC) $(CFLAGS) $(INCLUDE_DIR) $(DEBUG_FLAG) SSLcli.cpp
+
+SSLcliuna.obj: SSLcliuna.cpp
+	$(CC) $(CFLAGS) $(INCLUDE_DIR) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=SSLcliuna SSLcliuna.cpp
+
+sslcli.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

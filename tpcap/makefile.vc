@@ -1,0 +1,24 @@
+# Title: Makefile(VC)
+# ID: Textus-tpcap-Makefile-vc
+# Build: B01:created by octerboy 2006/05/28, Gaungzhou
+
+include ..\Rules.basemod.vc
+CFLAGS  =  $(CFLAGS) -I..\baselib\include -I..\unipac\include -I..\logdata\include
+LDLIB = $(LDLIB) ..\baselib\libbase.lib  Ws2_32.lib
+AMOROBJS=TWCap.obj 
+
+all: tpcap.dll
+
+TWCap.obj: TWCap.cpp
+	$(CC) $(CFLAGS)  -I..\sched\include -DNNDEBUG -DAMOR_CLS_TYPE=TWCap TWCap.cpp
+
+tpcap.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib
