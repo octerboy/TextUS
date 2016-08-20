@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -8,7 +8,7 @@
  */
 
 /**
- Title:The public interface of application module 
+ Title:The public interface of textus module
  Build: Created by octerboy 2005/6/9
  $Date: 12-04-04 16:50 $
  $Revision: 19 $
@@ -41,8 +41,14 @@ public:
 
 	/* Amor objects communicate by Pius object */
 	struct Pius {
-		TEXTUS_ORDO ordo;	/* the type of inidc */
-		void *indic;	/* data pointer for any type */
+		 TEXTUS_ORDO ordo;	/* the type of inidc */
+		 TEXTUS_ORDO subdo;	/* the sub type of inidc */
+		 void *indic;	/* data pointer for any type */
+		 inline Pius()
+		 {
+			subdo = 0;
+			ordo = -1;
+		 }
 	};
 
 	virtual bool facio( Pius *) = 0 ;
