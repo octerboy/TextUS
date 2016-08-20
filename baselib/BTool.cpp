@@ -15,11 +15,9 @@
 #define TEXTUS_MODTIME  "$Date: 13-09-12 14:26 $"
 #define TEXTUS_BUILDNO  "$Revision: 24 $"
 /* $NoKeywords: $ */
-//#include "version_1.c"
-#include "Notitia.h"
+#include "casecmp.h"
 #include "BTool.h"
 #include "textus_string.h"
-#include "casecmp.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -203,128 +201,6 @@ bool  BTool::putaddr ( const char* filename, const char*key, const char* split, 
  	return true;
 }
 
-void BTool::get_textus_ordo(unsigned long *ordop, const char *comm_str)
-{
-	if ( !ordop || !comm_str  )
-		return;
-	
-#define WHAT_ORDO(X,Y) if ( comm_str && strcasecmp(comm_str, #X) == 0 ) Y = Notitia::X 
-#define GET_ORDO(Y) 	\
-	Y = Notitia::TEXTUS_RESERVED;	\
-	WHAT_ORDO(WINMAIN_PARA , Y); \
-	WHAT_ORDO(CMD_MAIN_EXIT , Y); \
-	WHAT_ORDO(CLONE_ALL_READY , Y); \
-	WHAT_ORDO(CMD_GET_OWNER , Y); \
-	WHAT_ORDO(WHO_AM_I, Y); \
-	WHAT_ORDO(LOG_EMERG , Y); \
-	WHAT_ORDO(LOG_ALERT , Y); \
-	WHAT_ORDO(LOG_CRIT , Y); \
-	WHAT_ORDO(LOG_ERR , Y); \
-	WHAT_ORDO(LOG_WARNING , Y); \
-	WHAT_ORDO(LOG_NOTICE , Y); \
-	WHAT_ORDO(LOG_INFO , Y); \
-	WHAT_ORDO(LOG_DEBUG , Y); \
-	WHAT_ORDO(FAC_LOG_EMERG , Y); \
-	WHAT_ORDO(FAC_LOG_ALERT , Y); \
-	WHAT_ORDO(FAC_LOG_CRIT , Y); \
-	WHAT_ORDO(FAC_LOG_ERR , Y); \
-	WHAT_ORDO(FAC_LOG_WARNING , Y); \
-	WHAT_ORDO(FAC_LOG_NOTICE , Y); \
-	WHAT_ORDO(FAC_LOG_INFO , Y); \
-	WHAT_ORDO(FAC_LOG_DEBUG , Y); \
-	WHAT_ORDO(CMD_GET_VERSION , Y); \
-	WHAT_ORDO(CMD_GET_PIUS , Y); \
-	WHAT_ORDO(DMD_CONTINUE_SELF , Y); \
-	WHAT_ORDO(DMD_STOP_NEXT , Y); \
-	WHAT_ORDO(DMD_CONTINUE_NEXT , Y); \
-	WHAT_ORDO(CMD_ALLOC_IDLE , Y); \
-	WHAT_ORDO(CMD_FREE_IDLE , Y); \
-	WHAT_ORDO(DMD_CLONE_OBJ , Y); \
-	WHAT_ORDO(CMD_INCR_REFS , Y); \
-	WHAT_ORDO(CMD_DECR_REFS , Y); \
-	WHAT_ORDO(JUST_START_THREAD , Y); \
-	WHAT_ORDO(FINAL_END_THREAD , Y); \
-	WHAT_ORDO(NEW_SESSION , Y); \
-	WHAT_ORDO(END_SERVICE , Y); \
-	WHAT_ORDO(CMD_RELEASE_SESSION , Y); \
-	WHAT_ORDO(CHANNEL_TIMEOUT , Y); \
-	WHAT_ORDO(CMD_NEW_SERVICE , Y); \
-	WHAT_ORDO(START_SERVICE , Y); \
-	WHAT_ORDO(DMD_END_SERVICE , Y); \
-	WHAT_ORDO(DMD_BEGIN_SERVICE , Y); \
-	WHAT_ORDO(END_SESSION , Y); \
-	WHAT_ORDO(DMD_END_SESSION , Y); \
-	WHAT_ORDO(START_SESSION , Y); \
-	WHAT_ORDO(DMD_START_SESSION , Y); \
-	WHAT_ORDO(SET_TBUF , Y); \
-	WHAT_ORDO(PRO_TBUF , Y); \
-	WHAT_ORDO(GET_TBUF , Y); \
-	WHAT_ORDO(ERR_FRAME_LENGTH , Y); \
-	WHAT_ORDO(ERR_FRAME_TIMEOUT , Y); \
-	WHAT_ORDO(FD_SETRD , Y); \
-	WHAT_ORDO(FD_SETWR , Y); \
-	WHAT_ORDO(FD_SETEX , Y); \
-	WHAT_ORDO(FD_CLRRD , Y); \
-	WHAT_ORDO(FD_CLRWR , Y); \
-	WHAT_ORDO(FD_CLREX , Y); \
-	WHAT_ORDO(FD_PRORD , Y); \
-	WHAT_ORDO(FD_PROWR , Y); \
-	WHAT_ORDO(FD_PROEX , Y); \
-	WHAT_ORDO(TIMER , Y); \
-	WHAT_ORDO(DMD_SET_TIMER , Y); \
-	WHAT_ORDO(DMD_CLR_TIMER , Y); \
-	WHAT_ORDO(DMD_SET_ALARM , Y); \
-	WHAT_ORDO(PRO_HTTP_HEAD , Y); \
-	WHAT_ORDO(CMD_HTTP_GET , Y); \
-	WHAT_ORDO(CMD_HTTP_SET , Y); \
-	WHAT_ORDO(CMD_GET_HTTP_HEADBUF , Y); \
-	WHAT_ORDO(CMD_GET_HTTP_HEADOBJ , Y); \
-	WHAT_ORDO(CMD_SET_HTTP_HEAD , Y); \
-	WHAT_ORDO(PRO_HTTP_REQUEST , Y); \
-	WHAT_ORDO(PRO_HTTP_RESPONSE , Y); \
-	WHAT_ORDO(HTTP_Request_Complete , Y); \
-	WHAT_ORDO(HTTP_Response_Complete , Y); \
-	WHAT_ORDO(HTTP_Request_Cleaned , Y); \
-	WHAT_ORDO(GET_COOKIE , Y); \
-	WHAT_ORDO(SET_COOKIE , Y); \
-	WHAT_ORDO(SET_TINY_XML , Y); \
-	WHAT_ORDO(PRO_TINY_XML , Y); \
-	WHAT_ORDO(PRO_SOAP_HEAD , Y); \
-	WHAT_ORDO(PRO_SOAP_BODY , Y); \
-	WHAT_ORDO(ERR_SOAP_FAULT , Y); \
-	WHAT_ORDO(CMD_GET_FD , Y); \
-	WHAT_ORDO(CMD_SET_PEER , Y); \
-	WHAT_ORDO(CMD_GET_PEER , Y); \
-	WHAT_ORDO(CMD_GET_SSL , Y); \
-	WHAT_ORDO(CMD_GET_CERT_NO , Y); \
-	WHAT_ORDO(SET_WEIGHT_POINTER , Y); \
-	WHAT_ORDO(COMPLEX_PIUS , Y); \
-	WHAT_ORDO(CMD_FORK , Y); \
-	WHAT_ORDO(FORKED_PARENT , Y); \
-	WHAT_ORDO(FORKED_CHILD , Y); \
-	WHAT_ORDO(NEW_HOLDING , Y); \
-	WHAT_ORDO(AUTH_HOLDING , Y); \
-	WHAT_ORDO(HAS_HOLDING , Y); \
-	WHAT_ORDO(CMD_SET_HOLDING , Y); \
-	WHAT_ORDO(CMD_CLR_HOLDING , Y); \
-	WHAT_ORDO(CLEARED_HOLDING , Y); \
-	WHAT_ORDO(SET_UNIPAC , Y); \
-	WHAT_ORDO(PRO_UNIPAC , Y); \
-	WHAT_ORDO(ERR_UNIPAC_COMPOSE , Y); \
-	WHAT_ORDO(ERR_UNIPAC_RESOLVE , Y); \
-	WHAT_ORDO(ERR_UNIPAC_INFO, Y); \
-	WHAT_ORDO(MULTI_UNIPAC_END,Y); \
-	WHAT_ORDO(CMD_SET_DBFACE , Y); \
-	WHAT_ORDO(CMD_SET_DBCONN , Y); \
-	WHAT_ORDO(CMD_DBFETCH , Y); \
-	WHAT_ORDO(CMD_GET_DBFACE , Y); \
-	WHAT_ORDO(CMD_DB_CANCEL , Y); \
-	WHAT_ORDO(PRO_DBFACE , Y); \
-	if ( Y == Notitia::TEXTUS_RESERVED && comm_str && atoi(comm_str) >= 0) 	\
-		Y = atoi(comm_str);
-
-	GET_ORDO((*ordop));
-}
 
 unsigned int BTool::unescape( const char *s, unsigned char *t)
 {
