@@ -32,8 +32,5 @@ public:
 
 	/* Remove "\" escapes from s..., to t...., return the length of t */
 	static unsigned int unescape( const char *s, unsigned char *t);
-
-	/* 从comm_str中 获得 ordo */
-	static void get_textus_ordo(unsigned long *ordop, const char *comm_str);
 };
 #endif
