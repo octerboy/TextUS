@@ -15,7 +15,7 @@ ok:$(AMOROBJS) toOK.cpp
 
 libanimus.so:$(AMOROBJS) Animus.o
 	${LD} $(ALONE_LDFLAGS) -o $@ $^ $(ALONE_LDLIBS) 
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o
