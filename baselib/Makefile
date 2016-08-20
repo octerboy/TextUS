@@ -16,7 +16,7 @@ TBuffer.o:TBuffer.cpp
 
 libbase.so:$(AMOROBJS)
 	$(LD) $(ALONE_LDFLAGS) -o $@ $^ $(ALONE_LDLIBS)
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o
