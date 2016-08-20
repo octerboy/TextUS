@@ -73,7 +73,21 @@ public:
 	Aptus **consors;		/* the array of Aptus objects */
 	unsigned int num_real_ext;		/* the number of Aptus objects and index of positor */
 
+	struct Branch {			/* branch, a node will accept only a pius which has an ordo & sub if it matches */
+		TEXTUS_ORDO ordo;	/* if a pius.ordo == ordo, the node only accept it when the pius.subdo==sub (>0) */
+		int sub;
+		bool accept;
+		inline Branch() {
+			ordo = -1;
+			sub = 0;
+			accept = true;
+		};
+	};
+	struct Branch *branch;
+	unsigned int  bran_num;
+
 private:
+	void stipes(const char*);	/* set branch according to pius */
 	void tolero(const char*);	/* load Amor module */
 	void emunio(const char*);	/* Load Aptus extension module */
 	inline void scratch(Aptus * dst);

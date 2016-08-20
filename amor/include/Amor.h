@@ -42,11 +42,12 @@ public:
 	/* Amor objects communicate by Pius object */
 	struct Pius {
 		 TEXTUS_ORDO ordo;	/* the type of inidc */
-		 TEXTUS_ORDO subdo;	/* the sub type of inidc */
-		 void *indic;	/* data pointer for any type */
+		 int sub;		/* the sub type of inidc */
+		 void *indic;		/* data pointer for any type */
 		 inline Pius()
 		 {
-			subdo = 0;
+			sub = 0;
+			indic = 0;
 			ordo = -1;
 		 }
 	};
