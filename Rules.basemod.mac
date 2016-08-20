@@ -1,5 +1,6 @@
 #Makefile base rule, for mac os x
-TEXTUS_DIR = $(HOME)/exp/textus
+TEXTUS_DIR = $(HOME)/Tasks/textus/code
+RELEASE_DIR = $(HOME)/lib
 CC=clang
 CXX=clang -lstdc++ -mmacosx-version-min=10.10
 LD=ld
@@ -15,4 +16,5 @@ MAKE = make
 DEBUG_FLAG= -DNNDEBUG 
 
 LIBSOCKET= -lresolv
+_POST_RPO_SUB = cp $@ $(RELEASE_DIR)
 
