@@ -285,6 +285,54 @@ void Animus::tolero(const char *ext_mod)
 	return ;
 }
 
+ /* get branches */
+void Animus::stipes(const char *bran_tag)
+{
+	TiXmlElement *aps;
+	const char *dex_tag="dextra", *lae_tag="laeve";
+	int index = 0;
+	unsigned char block[8];
+
+	bran_num = 0;
+	/* how many of pius accept? bran_num. */
+	for (aps= carbo->FirstChildElement(dex_tag);
+		aps; aps = aps->NextSiblingElement(dex_tag) )
+	{
+			bran_num++;
+	}
+
+	for (aps= carbo->FirstChildElement(lae_tag);
+		aps; aps = aps->NextSiblingElement(lae_tag) )
+	{
+			bran_num++;
+	}
+	WBUG3("%s has %d Modules.", carbo->Attribute("name")==(const char*)0 ? carbo->Value(): carbo->Attribute("name"), mod_num);
+	if ( bran_num == 0 )
+		return;
+	branch = new struct Branch[bran_num];
+	
+	index = 0;
+	for (aps= carbo->FirstChildElement(dex_tag);
+		aps; aps = aps->NextSiblingElement(dex_tag) )
+	{
+		branch[index].ordo = Notitia::get_ordo(aps->Attribute("ordo"));			
+		if ( aps->Attribute("sub"))
+			branch[index].sub = atoi(aps->Attribute("sub"));			
+		index++;
+	}
+
+	for (aps= carbo->FirstChildElement(lae_tag);
+		aps; aps = aps->NextSiblingElement(lae_tag) )
+	{
+		branch[index].ordo = Notitia::get_ordo(aps->Attribute("ordo"));			
+		if ( aps->Attribute("sub"))
+			branch[index].sub = atoi(aps->Attribute("sub"));			
+		index++;
+	}
+
+	return ;
+}
+
 struct Other_ext {
 	TEXTUS_ORDO dex_skip_do, lae_skip_do, fac_skip_do, spo_skip_do;
 	inline Other_ext () {
@@ -325,7 +373,8 @@ void Animus::ignite(TiXmlElement *cfg)
 			owner->ignite(carbo->FirstChildElement("Property"));
 	}
 
-	tolero(module_tag); /* Just load modules, owner not genrated yet */
+	tolero(module_tag); /* Just load modules, owner not generated yet */
+	stipes("Stipes"); /* obtain branches */
 		
 	for (l = 0 ; l < duco_num; l++)
 		compactor[l]->ignite(compactor[l]->carbo);
@@ -564,6 +613,8 @@ Animus::Animus()
 	canAccessed = true;	/* it is not usefull although */
 	isTunnel = true;	/* if a owner does not proccess a pius, the pius wiil be passed through. */
 	other = new struct Other_ext;
+	branch = 0;
+	bran_num = 0;
 }
 
 void Animus::destroy_right()
@@ -599,6 +650,7 @@ Animus::~Animus()
 	if ( cons_lae ) 	delete []cons_lae;
 	if ( cons_dex ) 	delete []cons_dex;
 	if ( other )		delete (struct Other_ext *) other;
+	if ( branch )		delete (struct Branch *) branch;
 }
 
 /* owner call this function */
@@ -774,7 +826,8 @@ static  int go(char *xml_file, Amor::Pius &para)
 	char ver_str[64];
 	char scmid_str[64];
 
-	Amor::Pius ready = {Notitia::IGNITE_ALL_READY, 0};
+	Amor::Pius ready;
+	ready.ordo = Notitia::IGNITE_ALL_READY;
 
 #define GETAPRK(X,Y)				\
 	p = (char*)X;				\
@@ -827,7 +880,8 @@ END:
 extern "C" TEXTUS_AMOR_STORAGE int textus_animus_start(int argc, char *argv[])
 {
 	void *ps[3];
-	Amor::Pius para = {Notitia::MAIN_PARA, 0};
+	Amor::Pius para;
+	para.ordo = Notitia::MAIN_PARA;
 	ps[0] = &argc;
 	ps[1] = argv;
 	ps[2] = 0;
