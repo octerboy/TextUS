@@ -19,9 +19,6 @@
 
 #ifndef ANIMUS_H
 #define ANIMUS_H
-#ifndef TINLINE 
-#define TINLINE inline
-#endif
 #include "Aptus.h"
 
 class TEXTUS_AMOR_STORAGE Animus: public Aptus {
@@ -29,11 +26,11 @@ public:
 	/* from Aptus class definition */
 	void ignite(TiXmlElement *wood);	
 	void ignite_t (TiXmlElement *wood, TiXmlElement *tag) { return; }
-	TINLINE bool facio(Amor::Pius *);
-	TINLINE bool facio_n(Amor::Pius *, unsigned int);
+	bool facio(Amor::Pius *);
+	bool facio_n(Amor::Pius *, unsigned int);
 	bool to_dextra(Amor::Pius *, unsigned int);
-	TINLINE bool sponte( Amor::Pius *);
-	TINLINE bool sponte_n( Amor::Pius *, unsigned int);
+	bool sponte( Amor::Pius *);
+	bool sponte_n( Amor::Pius *, unsigned int);
 	Amor *clone();
 	Aptus *clone_p(Aptus *);
 
@@ -77,10 +74,12 @@ public:
 		TEXTUS_ORDO ordo;	/* if a pius.ordo == ordo, the node only accept it when the pius.subdo==sub (>0) */
 		int sub;
 		bool accept;
+		bool is_fac;
 		inline Branch() {
 			ordo = -1;
-			sub = 0;
+			sub = -1;
 			accept = true;
+			is_fac = true;
 		};
 	};
 	struct Branch *branch;
@@ -106,6 +105,7 @@ private:
 	unsigned int num_dex;	
 
 	bool isTunnel;
-	void *other;
+	//void *other;
+	inline bool branch_pro(Amor::Pius *pius, int act);
 };
 #endif

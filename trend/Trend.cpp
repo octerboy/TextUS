@@ -27,7 +27,6 @@
 /* $NoKeywords: $ */
 
 #include "Notitia.h"
-#include "BTool.h"
 #include "Aptus.h"
 #include "textus_string.h"
 #include "casecmp.h"
@@ -215,8 +214,9 @@ void Trend::get_conie (TiXmlElement *c_ele, Conie &cie)
 	const char *comm_str;
 	TiXmlElement *act_ele;
 	int i,od;
-	comm_str = c_ele->Attribute("ordo");
-	BTool::get_textus_ordo(&cie.ordo, comm_str);
+	//comm_str = c_ele->Attribute("ordo");
+	//BTool::get_textus_ordo(&cie.ordo, comm_str);
+	cie.ordo = Notitia::get_ordo(c_ele->Attribute("ordo"));
 	od = 0;
 	c_ele->QueryIntAttribute("sub_ordo", &od);	
 	if (od > 0 ) 
@@ -282,11 +282,13 @@ void Trend::get_conie (TiXmlElement *c_ele, Conie &cie)
 			continue;
 
 		cie.actions[i].dir = here_dir;
-		comm_str = act_ele->Attribute("ordo");
-		BTool::get_textus_ordo(&cie.actions[i].ordo, comm_str);
+		//comm_str = act_ele->Attribute("ordo");
+		//BTool::get_textus_ordo(&cie.actions[i].ordo, comm_str);
+		cie.actions[i].ordo = Notitia::get_ordo(act_ele->Attribute("ordo"));
 
-		comm_str = act_ele->Attribute("vordo");
-		BTool::get_textus_ordo(&cie.actions[i].vordo, comm_str);
+		//comm_str = act_ele->Attribute("vordo");
+		//BTool::get_textus_ordo(&cie.actions[i].vordo, comm_str);
+		cie.actions[i].vordo = Notitia::get_ordo(act_ele->Attribute("vordo"));
 		
 		here_dir = NONE_DIR;
 		comm_str = act_ele->Attribute("vdir");
@@ -526,6 +528,7 @@ void Trend::doact(Action &act, DIRECT dir, Amor::Pius *ori, int from)
 		break;
 
 	case SKIP:	/* 将略过所设的ordo */
+		/*
 		tmpps.indic = &ori->ordo;
 		switch ( dir )
 		{
@@ -549,6 +552,7 @@ void Trend::doact(Action &act, DIRECT dir, Amor::Pius *ori, int from)
 			break;
 		}
 		aptus->sponte(&tmpps);
+		*/
 		break;
 	default:
 		break;
@@ -569,7 +573,8 @@ Trend::Conie* Trend::match(Condition *cond, Amor::Pius *pius)
 
 Amor::Pius* Trend::getP(Action &act)
 {
-	Amor::Pius t_p = {Notitia::CMD_GET_PIUS, 0};
+	Amor::Pius t_p;
+	t_p.ordo = Notitia::CMD_GET_PIUS;
 	Amor::Pius *sub_ps = 0;
 
 	switch ( act.vordo)

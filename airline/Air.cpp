@@ -20,11 +20,10 @@
 #define TEXTUS_BUILDNO  "$Revision: 3 $"
 /* $NoKeywords: $ */
 
+#include "casecmp.h"
 #include "Notitia.h"
-#include "BTool.h"
 #include "Aptus.h"
 #include "textus_string.h"
-#include "casecmp.h"
 
 typedef struct _Array {
 	void **filius;
@@ -249,11 +248,13 @@ protected:
 			spo_ele = sz_ele->FirstChildElement("sponte"); i = 0;
 			for( ; spo_ele; spo_ele = spo_ele->NextSiblingElement("sponte"), i++ )
 			{
-				comm_str = spo_ele->Attribute("ordo");
-				BTool::get_textus_ordo(&fly_spo[i].ordo, comm_str);
+				//comm_str = spo_ele->Attribute("ordo");
+				//Notitia::get_textus_ordo(&fly_spo[i].ordo, comm_str);
+				fly_spo[i].ordo = Notitia::get_ordo(spo_ele->Attribute("ordo"));
 
-				comm_str = spo_ele->Attribute("another");
-				BTool::get_textus_ordo(&fly_spo[i].another.ordo, comm_str);
+				//comm_str = spo_ele->Attribute("another");
+				//Notitia::get_textus_ordo(&fly_spo[i].another.ordo, comm_str);
+				fly_spo[i].another.ordo = Notitia::get_ordo(spo_ele->Attribute("another"));
 	
 				comm_str = spo_ele->Attribute("to");
 				if ( comm_str && strcasecmp(comm_str, "FACIO") == 0 ) 
@@ -281,11 +282,13 @@ protected:
 			fac_ele = sz_ele->FirstChildElement("facio"); i = 0;
 			for(; fac_ele; fac_ele = fac_ele->NextSiblingElement("facio"), i++ )
 			{
-				comm_str = fac_ele->Attribute("ordo");
-				BTool::get_textus_ordo(&fly_fac[i].ordo, comm_str);
+				//comm_str = fac_ele->Attribute("ordo");
+				//Notitia::get_textus_ordo(&fly_fac[i].ordo, comm_str);
+				fly_fac[i].ordo = Notitia::get_ordo(fac_ele->Attribute("ordo"));
 
-				comm_str = fac_ele->Attribute("another");
-				BTool::get_textus_ordo(&fly_fac[i].another.ordo, comm_str);
+				//comm_str = fac_ele->Attribute("another");
+				//Notitia::get_textus_ordo(&fly_fac[i].another.ordo, comm_str);
+				fly_fac[i].another.ordo = Notitia::get_ordo(fac_ele->Attribute("another"));
 
 				comm_str = fac_ele->Attribute("to");
 				if ( comm_str && strcasecmp(comm_str, "SPONTE") == 0 ) 

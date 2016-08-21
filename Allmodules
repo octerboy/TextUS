@@ -1,6 +1,6 @@
 #all modules name list here.
-DIRS= tinyxml amor baselib airline auxiliary \
-balance complex \
+DIRS= tinyxml amor baselib ajpfwd airline auxiliary \
+balance \
 dbport dummy formauth grate \
 holding \
 htmlsift httpagent httpauth httpcookie \

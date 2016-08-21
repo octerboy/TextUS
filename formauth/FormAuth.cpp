@@ -251,7 +251,7 @@ bool FormAuth::facio( Amor::Pius *pius)
 
 bool FormAuth::sponte( Amor::Pius *pius) 
 { 
-	Amor::Pius set_hold = {Notitia::CMD_SET_HOLDING, 0};
+	Amor::Pius set_hold;
 	int len;
 	int ind;
 	char pass[VAL_MAX];
@@ -259,6 +259,7 @@ bool FormAuth::sponte( Amor::Pius *pius)
 	char *p;
 	int lenu, lens, i;
 
+	set_hold.ordo = Notitia::CMD_SET_HOLDING;
 	switch ( pius->ordo )
 	{
 	case Notitia::PRO_UNIPAC:	/* 这是认证返回 */

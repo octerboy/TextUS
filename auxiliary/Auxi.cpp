@@ -19,7 +19,7 @@
 /* $NoKeywords: $ */
 
 #include "Aptus.h"
-#include "BTool.h"
+//#include "BTool.h"
 #include "Notitia.h"
 #include "Animus.h"
 #include "textus_string.h"
@@ -126,7 +126,8 @@ void Auxi::ignite_t (TiXmlElement *cfg, TiXmlElement *aux_ele)
 		comm_str = o_ele->Attribute("ordo");
 		if ( comm_str )
 		{
-			BTool::get_textus_ordo(&(gCFG->oes[i].ordo), comm_str);
+			//BTool::get_textus_ordo(&(gCFG->oes[i].ordo), comm_str);
+			gCFG->oes[i].ordo = Notitia::get_ordo(comm_str);
 			if ( gCFG->oes[i].ordo != Notitia::TEXTUS_RESERVED )
 				i++;
 		}
@@ -183,8 +184,10 @@ Amor *Auxi::clone()
 
 bool Auxi::facio(Amor::Pius *pius)
 {
-	Amor::Pius ready ={Notitia::IGNITE_ALL_READY, 0};
-	Amor::Pius ready2 ={Notitia::CLONE_ALL_READY, 0};
+	Amor::Pius ready, ready2;
+
+	ready.ordo =Notitia::IGNITE_ALL_READY;
+	ready2.ordo = Notitia::CLONE_ALL_READY;
 
 	switch ( pius->ordo ) 
 	{

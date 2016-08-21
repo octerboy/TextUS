@@ -20,7 +20,6 @@
 
 #include "Amor.h"
 #include "Notitia.h"
-#include "BTool.h"
 #include <stdarg.h>
 
 #define BALANCEINLINE inline
@@ -89,7 +88,8 @@ void Balance::ignite(TiXmlElement *cfg)
 	while(b_ele)
 	{
 		broad_str = b_ele->Attribute("ordo");
-		BTool::get_textus_ordo(&(broad_ordos[i]), broad_str);
+		//BTool::get_textus_ordo(&(broad_ordos[i]), broad_str);
+		broad_ordos[i] = Notitia::get_ordo(broad_str);
 		i++;
 		b_ele = b_ele->NextSiblingElement("broad");
 	}

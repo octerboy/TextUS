@@ -435,7 +435,7 @@ bool DBPort::facio( Amor::Pius *pius)
 
 			aptus->facio(pius);
 		} else {
-			WBUG("facio SET_TBUF null");
+			WBUG("facio SET_UNIPAC null");
 		}
 		break;
 

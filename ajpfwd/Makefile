@@ -12,7 +12,7 @@ Ajpfwd.o:Ajpfwd.cpp
 	
 ajpfwd.so: Ajpfwd.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o
