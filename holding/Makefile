@@ -11,8 +11,8 @@ Hold.o: Hold.cpp
 	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Hold -o $@ Hold.cpp
 	
 holding.so: Hold.o
-	${LD} $(LDFLAGS)  -o $@ $^ $(LDLIBS) -lbase
-	cp $@ ../release
+	${LD} $(LDFLAGS)  -o $@ $^ $(LDLIBS)
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o

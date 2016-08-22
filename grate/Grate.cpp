@@ -17,13 +17,13 @@
 #define TEXTUS_BUILDNO  "$Revision: 2 $"
 /* $NoKeywords: $ */
 
-#include "Notitia.h"
 #include "TBuffer.h"
 #include "BTool.h"
 #include "casecmp.h"
 #include "PacData.h"
 #include "textus_string.h"
 #include "Amor.h"
+#include "Notitia.h"
 #include <time.h>
 #include <ctype.h>
 #include <stdarg.h>

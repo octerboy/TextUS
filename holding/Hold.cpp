@@ -18,9 +18,8 @@
 /* $NoKeywords: $ */
 
 #include "SetCookie.h"
-#include "Notitia.h"
-#include "BTool.h"
 #include "Amor.h"
+#include "Notitia.h"
 #include "casecmp.h"
 #include "textus_string.h"
 #include <stdlib.h>
@@ -73,7 +72,7 @@ private:
 	};
 	
 	struct G_CFG {
-		TEXTUS_ORDO event;
+		TEXTUS_ORDO event_do;
 		const char *sname;	/* cookie变量名 */
 		int snlen;		/* sname的长度 */
 		const char *path;
@@ -108,9 +107,10 @@ private:
 			else
 				expired = 30;
 
-			event = Notitia::PRO_HTTP_HEAD;
-			comm_str = cfg->Attribute("event");
-			BTool::get_textus_ordo(&event, comm_str);
+			event_do = Notitia::PRO_HTTP_HEAD;
+			//comm_str = cfg->Attribute("event");
+			//BTool::get_textus_ordo(&event, comm_str);
+			event_do = Notitia::get_ordo (cfg->Attribute("event"));
 
 			comm_str = cfg->Attribute("many");
 			if (  comm_str && atoi(comm_str) > 0)
@@ -214,20 +214,24 @@ bool Hold::facio( Amor::Pius *pius)
 	int i;
 	char cienm[VAL_MAX+10];
 	char *name = 0, *val =0 , *domain = 0;
-	Amor::Pius new_hold  = {Notitia::NEW_HOLDING, 0};
-	Amor::Pius auth_hold  = {Notitia::AUTH_HOLDING, 0};
-	Amor::Pius has_hold = {Notitia::HAS_HOLDING, 0};
-	Amor::Pius clr_hold = {Notitia::CLEARED_HOLDING, 0};
-	Amor::Pius timer = {Notitia::DMD_SET_TIMER, this};
-	void *info[3];
-	Amor::Pius ck={Notitia::GET_COOKIE,&info};
-	Amor::Pius dm={Notitia::GET_DOMAIN,0};
+	Amor::Pius new_hold, auth_hold, has_hold, clr_hold, timer, ck, dm;
 	time_t now;
-
+	void *info[3];
 	assert(pius);
-	if ( pius->ordo == gCFG->event)
+
+	new_hold.ordo = Notitia::NEW_HOLDING;
+	auth_hold.ordo = Notitia::AUTH_HOLDING;
+	has_hold.ordo = Notitia::HAS_HOLDING;
+	clr_hold.ordo = Notitia::CLEARED_HOLDING;
+	timer.ordo = Notitia::DMD_SET_TIMER;
+	timer.indic = this;
+	ck.ordo = Notitia::GET_COOKIE;
+	ck.indic = &info;
+	dm.ordo =Notitia::GET_DOMAIN;
+
+	if ( pius->ordo == gCFG->event_do)
 	{
-		WBUG("facio Notitia::%lu", gCFG->event);
+		WBUG("facio Notitia::%lu", gCFG->event_do);
 		if ( !gCFG->sname )
 			goto END;
 
@@ -363,7 +367,10 @@ int* Hold::addSession( char *domain)
 	int i;
 	char cienm[VAL_MAX+10];
 	struct SetCookie kie;
-	Amor::Pius cook = {Notitia::SET_COOKIE, &kie};
+	Amor::Pius cook ;
+	//Amor::Pius cook = {Notitia::SET_COOKIE, &kie};
+	cook.ordo = Notitia::SET_COOKIE;
+	cook.indic = &kie;
 
 	for ( i = 0 ; i < gCFG->seNum && gCFG->sess[i].status != IDLE; i++ );
 

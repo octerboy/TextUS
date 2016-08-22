@@ -4,7 +4,6 @@
 #	B01:created by octerboy 2006/11/02, Hebi(Henan)
 include ..\Rules.basemod.vc
 CFLAGS = $(CFLAGS) -I..\logdata\include -I..\baselib\include -I..\httpcookie\include
-LDLIB = ..\baselib\libbase.lib $(LDLIB) 
 AMOROBJS=Hold.obj 
 
 all: Holding.dll
