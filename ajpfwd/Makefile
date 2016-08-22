@@ -3,7 +3,7 @@
 # Build:
 #	B01:created by octerboy 2016/03/09, Guangzhou
 include ../Rules.basemod
-INCLUDE_DIR  += -I../baselib/include -I../logdata/include -I../httpsrvhead/include -I../unipac/include
+INCLUDE_DIR  += -I../baselib/include -I../logdata/include -I../httpsrvhead/include -I../unipac/include -I../httpsrvhead
 
 all:ajpfwd.so
 

@@ -3,7 +3,7 @@
 # Build: 
 #	B01:created by octerboy 2006/09/18, Gaungzhou
 include ..\Rules.basemod.vc
-CFLAGS  = $(CFLAGS)  -I..\logdata\include -I..\baselib\include -I..\httpsrvhead\include -I..\unipac\include
+CFLAGS  = $(CFLAGS)  -I..\logdata\include -I..\baselib\include -I..\httpsrvhead\include -I..\unipac\include -I..\httpsrvhead
 LDLIB = $(LDLIB) ..\baselib\libbase.lib
 AMOROBJS=ajpfwd.obj
 
