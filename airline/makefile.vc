@@ -4,7 +4,6 @@
 #	B01:created by octerboy 2006/05/28, Panyu in Gaungzhou
 include ..\Rules.basemod.vc
 CFLAGS  = $(CFLAGS) -I..\baselib\include
-LDLIB = ..\baselib\libbase.lib $(LDLIB)
 AMOROBJS=Air.obj 
 
 all: airline.dll 

@@ -4,7 +4,6 @@
 #	B01:created by octerboy 2006/06/07, ÓÚ·¬Ø®
 include ..\Rules.basemod.vc
 CFLAGS = $(CFLAGS) -I..\baselib\include
-LDLIB = ..\baselib\libbase.lib $(LDLIB)
 AMOROBJS=Auxi.obj
 
 all: auxiliary.dll
