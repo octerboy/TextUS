@@ -291,7 +291,6 @@ void Animus::stipes(const char *bran_tag)
 	TiXmlElement *aps, *bran_ele;
 	const char *dex_tag="dextra", *lae_tag="laeve";
 	int index = 0;
-	unsigned char block[8];
 
 	#define IS_BRAN(x) strcasecmp(x, "accept_dextra") ==0  \
 		|| strcasecmp(x, "reject_dextra") ==0 \
@@ -852,7 +851,7 @@ LAST:
 inline bool Animus::branch_pro( Amor::Pius *pius, int dir)
 {
 	bool can, ord_match;
-	int i;
+	unsigned int i;
 	can = true;
 	ord_match=false;
 	for ( i = 0; i < bran_num; i++ )
@@ -1019,7 +1018,8 @@ extern "C" TEXTUS_AMOR_STORAGE int textus_animus_winstart(HINSTANCE hInst, HINST
 {
 	char *xmlfile, *p;
 	void *ps[5];
-	Amor::Pius para = {Notitia::WINMAIN_PARA, 0};
+	Amor::Pius para;
+	para.ordo = Notitia::WINMAIN_PARA;
 	ps[0] = hInst;
 	ps[1] = hPrev;
 	ps[2] = cmd;

@@ -27,11 +27,9 @@ xmltest.obj: xmltest.cpp
 
 test.exe: $(AMOROBJS)
         $(LD) /NOLOGO -stack:6291456 -out:$@ $(AMOROBJS) kernel32.lib user32.lib
-        copy $@.* ..\release
 
 clean:
-        del *.obj
+	del *.obj
 	del *.exe
 	del *.exp
 	del *.lib
-	del *.dll.*
