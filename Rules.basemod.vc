@@ -1,5 +1,5 @@
 #Makefile base rule, for microsoft vc
-TEXTUS_DIR = $(HOMEPATH)\proj\textus
+TEXTUS_DIR = $(HOMEPATH)\Tasks\textus
 CFLAGS  = /W3 /O2 /c -D_MT -I$(TEXTUS_DIR)\tinyxml -I$(TEXTUS_DIR)\amor\include 
 #CFLAGS  = /W3 /O2 /c -I$(TEXTUS_DIR)\tinyxml -I$(TEXTUS_DIR)\amor\include 
 CC=cl
