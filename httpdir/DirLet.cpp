@@ -38,8 +38,8 @@
 #define	ISMYDIR(x) (S_ISDIR(x))
 #endif
 
-#include "Notitia.h"
 #include "Amor.h"
+#include "Notitia.h"
 #include "TBuffer.h"
 #include "casecmp.h"
 #include "textus_string.h"

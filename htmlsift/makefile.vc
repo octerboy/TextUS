@@ -4,7 +4,6 @@
 #	B01:created by octerboy 2006/05/28, Gaungzhou
 include ..\Rules.basemod.vc
 CFLAGS  = $(CFLAGS) -I..\logdata\include -I..\baselib\include -I..\httpsrvhead\include
-LDLIB = $(LDLIB) ..\baselib\libbase.lib
 AMOROBJS=Sift.obj 
 
 all: htmlsift.dll

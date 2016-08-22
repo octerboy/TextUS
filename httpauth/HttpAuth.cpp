@@ -18,9 +18,9 @@
 #define TEXTUS_BUILDNO  "$Revision: 18 $"
 /* $NoKeywords: $ */
 
+#include "Amor.h"
 #include "BTool.h"
 #include "Notitia.h"
-#include "Amor.h"
 #include "TBuffer.h"
 #include "textus_string.h"
 
@@ -81,7 +81,8 @@ bool HttpAuth::facio( Amor::Pius *pius)
 	TBuffer **tb;
 	//int ind;
 	assert(pius);
-	Amor::Pius set_hold = {Notitia::CMD_SET_HOLDING, 0};
+	Amor::Pius set_hold;
+	set_hold.ordo = Notitia::CMD_SET_HOLDING;
 
 	switch ( pius->ordo )
 	{

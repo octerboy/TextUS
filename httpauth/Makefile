@@ -12,7 +12,7 @@ HttpAuth.o:HttpAuth.cpp
 
 httpauth.so: HttpAuth.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o

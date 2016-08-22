@@ -21,7 +21,7 @@ digcalc.o:digcalc.c
 
 httpdigest.so: Digest.o digcalc.o tools.o md5.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o

@@ -30,8 +30,8 @@
 #include <errno.h>
 #include <stdarg.h>
 
-#include "Notitia.h"
 #include "Amor.h"
+#include "Notitia.h"
 #include "TBuffer.h"
 #include "textus_string.h"
 #include "casecmp.h"

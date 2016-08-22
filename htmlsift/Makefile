@@ -12,7 +12,7 @@ Sift.o: Sift.cpp
 	
 htmlsift.so: Sift.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS)
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o

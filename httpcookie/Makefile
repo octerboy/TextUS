@@ -12,7 +12,7 @@ HttpCookie.o: HttpCookie.cpp
 	
 httpcookie.so: HttpCookie.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS)
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o

@@ -19,10 +19,9 @@
 /* $NoKeywords: $ */
 
 #include "SetCookie.h"
-#include "Notitia.h"
 #include "Amor.h"
+#include "Notitia.h"
 #include "textus_string.h"
-
 #include <stdarg.h>
 #include <stdlib.h>
 #include <time.h>
@@ -31,7 +30,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #endif
-
 
 #define  BUF_MAX 512
 class HttpCookie: public Amor

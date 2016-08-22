@@ -3,14 +3,14 @@
 # Build: 
 #	B01:created by octerboy 2006/09/18, Gaungzhou
 include ..\Rules.basemod.vc
-CFLAGS  = $(CFLAGS)  -I..\logdata\include -I..\baselib\include -I..\httpsrvhead\include
-LDLIB = $(LDLIB) ..\baselib\libbase.lib
+CFLAGS  = $(CFLAGS)  -I..\logdata\include -I..\baselib\include -I..\httpsrvhead\include -I..\httpsrvhead
 AMOROBJS=httpagent.obj  DeHead.obj
+LDLIB = $(LDLIB) ..\baselib\libbase.lib
 
 all: httpagent.dll
 
-DeHead.obj: DeHead.cpp tdate_parse.c
-	$(CC) $(CFLAGS)  -DDEBUG DeHead.cpp
+DeHead.obj: ..\httpsrvhead\DeHead.cpp ..\httpsrvhead\tdate_parse.c
+	$(CC) $(CFLAGS)  -DDEBUG ..\httpsrvhead\DeHead.cpp
 
 HttpAgent.obj: HttpAgent.cpp
 	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=HttpAgent HttpAgent.cpp

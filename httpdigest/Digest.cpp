@@ -18,9 +18,8 @@
 #define TEXTUS_BUILDNO  "$Revision: 3 $"
 /* $NoKeywords: $ */
 
-#include "BTool.h"
-#include "Notitia.h"
 #include "Amor.h"
+#include "Notitia.h"
 #include "TBuffer.h"
 #include "PacData.h"
 #include "casecmp.h"
@@ -240,10 +239,12 @@ bool Digest::facio( Amor::Pius *pius)
 
 bool Digest::sponte( Amor::Pius *pius) 
 { 
-	Amor::Pius set_hold = {Notitia::CMD_SET_HOLDING, 0};
+	Amor::Pius set_hold;
 	int len;
 	int ind;
 	char pass[VAL_MAX];
+
+	set_hold.ordo = Notitia::CMD_SET_HOLDING;
 
 	switch ( pius->ordo )
 	{
