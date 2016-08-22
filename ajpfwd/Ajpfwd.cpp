@@ -17,9 +17,9 @@
 #define TEXTUS_BUILDNO  "$Revision: 2 $"
 /* $NoKeywords: $ */
 
+#include "Amor.h"
 #include "casecmp.h"
 #include "Notitia.h"
-#include "Amor.h"
 #include "DeHead.h"
 #include "PacData.h"
 #include <time.h>

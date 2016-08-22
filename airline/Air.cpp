@@ -20,9 +20,9 @@
 #define TEXTUS_BUILDNO  "$Revision: 3 $"
 /* $NoKeywords: $ */
 
+#include "Aptus.h"
 #include "casecmp.h"
 #include "Notitia.h"
-#include "Aptus.h"
 #include "textus_string.h"
 
 typedef struct _Array {

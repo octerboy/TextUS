@@ -202,6 +202,6 @@ enum HERE_ORDO {
 
 	TEXTUS_RESERVED =-1	/* reserved */
 };
-	unsigned long get_ordo(const char *comm_str);
+	TEXTUS_AMOR_STORAGE unsigned long get_ordo(const char *comm_str);
 };
 #endif
