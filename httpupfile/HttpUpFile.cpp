@@ -18,9 +18,9 @@
 #define TEXTUS_BUILDNO  "$Revision: 8 $"
 /* $NoKeywords: $ */
 
+#include "Amor.h"
 #include "Notitia.h"
 #include "TBuffer.h"
-#include "Amor.h"
 #include "textus_string.h"
 
 #include <time.h>

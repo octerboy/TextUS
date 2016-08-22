@@ -13,7 +13,7 @@ HttpXML.o:HttpXML.cpp
 	
 httpxml.so: HttpXML.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o

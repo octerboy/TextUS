@@ -16,8 +16,8 @@
 #define TEXTUS_BUILDNO  "$Revision: 42 $"
 /* $NoKeywords: $ */
 
-#include "Notitia.h"
 #include "Amor.h"
+#include "Notitia.h"
 #include "casecmp.h"
 #include "TBuffer.h"
 #include "DeHead.h"

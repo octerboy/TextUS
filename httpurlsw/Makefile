@@ -13,7 +13,7 @@ Urlsw.o:Urlsw.cpp
 
 httpurlsw.so:$(AMOROBJS)
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o

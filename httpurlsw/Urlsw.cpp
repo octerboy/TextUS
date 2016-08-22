@@ -96,8 +96,9 @@ void Urlsw::ignite_t (TiXmlElement *cfg, TiXmlElement *url_ele)
 	WBUG("prius %p, aptus %p, cfg %p", prius, aptus, cfg);
 	if ( !url_ele) return;
 
-	comm_str = url_ele->Attribute("ordo");
-	BTool::get_textus_ordo(&concerned, comm_str);
+	//comm_str = url_ele->Attribute("ordo");
+	//BTool::get_textus_ordo(&concerned, comm_str);
+	concerned = Notitia::get_ordo(url_ele->Attribute("ordo"));
 
 	g_field = url_ele->Attribute("field");
 
