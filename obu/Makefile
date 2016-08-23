@@ -12,7 +12,7 @@ Obu.o:Obu.cpp
 
 obu.so: Obu.o 
 	${LD} $(LDFLAGS) -o $@ $^  $(LDLIBS)
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o

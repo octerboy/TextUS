@@ -15,8 +15,8 @@ Tcpsrvuna.o:Tcpsrvuna.cpp
 
 tcpsrv.so: Tcpsrv.o Tcpsrvuna.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LIBSOCKET) $(LDLIBS) -lbase
-	cp $@ ../release
-	
+	$(_POST_RPO_SUB)
+
 clean:
 	rm *.o
 	rm *.so

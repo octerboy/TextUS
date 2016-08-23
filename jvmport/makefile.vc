@@ -21,41 +21,41 @@ JvmPort.obj: JvmPort.cpp
 
 jvmport.dll: JvmPort.obj
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB2)
-        copy $@.* ..\release
+	$(_POST_RPO_SUB)
 
 $(PACDIR)\Amor.class: Amor.java
 	$(JC) Amor.java 
 	move /Y Amor.class $(PACDIR)
 	$(JH) $(PACPATH)Amor
 	$(JAR) cvf jvmport.jar jetus
-	copy jvmport.jar ..\release
+	copy jvmport.jar $(RELEASE_DIR)
 
 $(PACDIR)\Pius.class:Pius.java
 	$(JC) Pius.java 
 	move /Y Pius.class $(PACDIR)
 	$(JAR) cvf jvmport.jar jetus
-	copy jvmport.jar ..\release
+	copy jvmport.jar $(RELEASE_DIR)
 
 $(PACDIR)\TBuffer.class:TBuffer.java
 	$(JC) TBuffer.java
 	move /Y TBuffer.class $(PACDIR)
 	$(JH) $(PACPATH)TBuffer
 	$(JAR) cvf jvmport.jar jetus
-	copy jvmport.jar ..\release
+	copy jvmport.jar $(RELEASE_DIR)
 
 $(PACDIR)\PacketData.class:PacketData.java
 	$(JC) PacketData.java
 	move /Y PacketData.class $(PACDIR)
 	$(JH) $(PACPATH)PacketData
 	$(JAR) cvf jvmport.jar jetus
-	copy jvmport.jar ..\release
+	copy jvmport.jar $(RELEASE_DIR)
 
 $(PACDIR)\TiXML.class:TiXML.java
 	$(JC) TiXML.java
 	move /Y TiXML.class $(PACDIR)
 	$(JH) $(PACPATH)TiXML
 	$(JAR) cvf jvmport.jar jetus
-	copy jvmport.jar ..\release
+	copy jvmport.jar $(RELEASE_DIR)
 
 jv.exe:jv.c
 	cl -I$(JDK_HOME)\include -I$(JDK_HOME)\include\win32 jv.c $(JDK_HOME)\lib\jvm.lib

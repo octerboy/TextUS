@@ -12,8 +12,8 @@ MiniDB.o:MiniDB.cpp
 	${CC} ${CFLAGS} -DNDEBUG -o $@ $^
 
 miniDB.so: MiniDB.o 
-	g++ -shared -o $@ $^  -lfastdb_r -lpthread
-	cp $@ ../release
+	${LD} $(LDFLAGS) -o $@ $^  -lfastdb_r -lpthread
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o

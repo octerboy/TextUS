@@ -15,7 +15,7 @@ Tcpcliuna.o:Tcpcliuna.cpp
 
 tcpcli.so: Tcpcli.o Tcpcliuna.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LIBSOCKET) $(LDLIBS) -lbase
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 	
 clean:
 	rm *.o

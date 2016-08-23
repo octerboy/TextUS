@@ -12,7 +12,7 @@ VCert.o:VCert.cpp
 
 sslvcert.so: VCert.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase  -lcrypto -lssl
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o

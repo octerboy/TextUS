@@ -7,7 +7,7 @@ L2Buffer.o:L2Buffer.cpp
 
 log2buff.so: L2Buffer.o
 	$(LD) $(LDFLAGS) -o $@ $^  $(LDLIBS) -lbase
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.so

@@ -18,8 +18,8 @@
 #define TEXTUS_BUILDNO  "$Revision: 5 $"
 /* $NoKeywords: $ */
 
-#include "Notitia.h"
 #include "Amor.h"
+#include "Notitia.h"
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #define CERT_MAX 10

@@ -18,10 +18,10 @@
 #define TEXTUS_BUILDNO  "$Revision: 3 $"
 /* $NoKeywords: $ */
 
+#include "Amor.h"
 #include "SSLcli.h"
 #include "Notitia.h"
 #include "TBuffer.h"
-#include "Amor.h"
 #include "casecmp.h"
 #ifndef TINLINE
 #define TINLINE inline

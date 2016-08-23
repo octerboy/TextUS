@@ -14,7 +14,7 @@ JSPort.o:JSPort.cpp function.c
 
 jsport.so: JSPort.o 
 	${LD} $(LDFLAGS) -o $@ $^  $(LDLIBS)
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o

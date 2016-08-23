@@ -19,8 +19,8 @@
 /* $NoKeywords: $ */
 
 #include "Aptus.h"
-#include "TBuffer.h"
 #include "BTool.h"
+#include "TBuffer.h"
 #include "Notitia.h"
 #include "PacData.h"
 
@@ -225,7 +225,7 @@ bool Ramify::getPacDef(RDef &rd, TiXmlElement *fds_ele)
 
 	has_sub = false;
 	fds_ele->QueryIntAttribute("cycle", &rd.cycle);
-	BTool::get_textus_ordo(&rd.ordo, fds_ele->Attribute("ordo"));
+	rd.ordo = Notitia::get_ordo(fds_ele->Attribute("ordo"));
 
 	/* 先看一下有多少个域判断集 */
 	fset_ele = fds_ele->FirstChildElement("fields"); fset_num = 0;

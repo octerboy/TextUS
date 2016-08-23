@@ -15,7 +15,7 @@ SSLcliuna.o:SSLcliuna.cpp
 
 sslcli.so: SSLcli.o SSLcliuna.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lcrypto -lssl -lbase
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o

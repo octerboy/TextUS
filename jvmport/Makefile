@@ -16,41 +16,41 @@ JvmPort.o: JvmPort.cpp
 
 jvmport.so: JvmPort.o 
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS)
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 $(PACDIR)/Amor.class:Amor.java
 	${JC} $^
 	mv Amor.class $(PACDIR)
 	${JH} $(PACPATH)Amor
 	${JAR} cvf jvmport.jar jetus
-	cp jvmport.jar ../release
+	cp jvmport.jar $(RELEASE_DIR)
 
 $(PACDIR)/Pius.class:Pius.java
 	${JC} $^
 	mv Pius.class $(PACDIR)
 	${JAR} cvf jvmport.jar jetus
-	cp jvmport.jar ../release
+	cp jvmport.jar $(RELEASE_DIR)
 
 $(PACDIR)/TBuffer.class:TBuffer.java
 	${JC} $^
 	mv TBuffer.class $(PACDIR)
 	${JH} $(PACPATH)TBuffer
 	${JAR} cvf jvmport.jar jetus
-	cp jvmport.jar ../release
+	cp jvmport.jar $(RELEASE_DIR)
 
 $(PACDIR)/PacketData.class:PacketData.java
 	${JC} $^
 	mv PacketData.class $(PACDIR)
 	${JH} $(PACPATH)PacketData
 	${JAR} cvf jvmport.jar jetus
-	cp jvmport.jar ../release
+	cp jvmport.jar $(RELEASE_DIR)
 
 $(PACDIR)/TiXML.class: TiXML.java
 	${JC} $^
 	mv TiXML.class $(PACDIR)
 	${JH} $(PACPATH)TiXML
 	${JAR} cvf jvmport.jar jetus
-	cp jvmport.jar ../release
+	cp jvmport.jar $(RELEASE_DIR)
 
 jv:jv.c
 	gcc $(INCLUDE_DIR) jv.c -o jv -L../release/ -ljvm

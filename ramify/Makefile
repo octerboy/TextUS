@@ -13,7 +13,7 @@ Ramify.o:Ramify.cpp
 
 ramify.so:$(AMOROBJS)
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o

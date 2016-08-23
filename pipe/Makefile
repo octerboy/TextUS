@@ -12,7 +12,7 @@ Pipe.o:Pipe.cpp
 
 pipe.so:Pipe.o
 	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 	
 clean:
 	rm *.o

@@ -12,7 +12,7 @@ PacWay.o: PacWay.cpp
 	
 pacway.so: PacWay.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lcrypto -lbase
-	cp $@ $(HOME)/lib
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o

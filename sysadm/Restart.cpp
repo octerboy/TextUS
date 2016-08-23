@@ -18,8 +18,8 @@
 #define TEXTUS_BUILDNO  "$Revision: 3 $"
 /* $NoKeywords: $ */
 
-#include "Notitia.h"
 #include "Amor.h"
+#include "Notitia.h"
 #include "textus_string.h"
 #include <time.h>
 #include <stdarg.h>

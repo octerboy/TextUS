@@ -17,9 +17,8 @@
 /* $NoKeywords: $ */
 
 #include "BTool.h"
-
-#include "Notitia.h"
 #include "Amor.h"
+#include "Notitia.h"
 #include "textus_string.h"
 #include <sys/socket.h>
 #include <netinet/in.h>

@@ -17,9 +17,10 @@
 #include "version_1.c"
 /* $NoKeywords: $ */
 
+#include "Amor.h"
 #include "BTool.h"
 #include <assert.h>
-#include "wlog.h"
+
 
 #define SLOG(Z) { Amor::Pius log_pius; \
 		log_pius.ordo = Notitia::LOG_##Z; \
@@ -30,8 +31,9 @@
 #include "Udp.h"
 #include "Notitia.h"
 #include "Describo.h"
-#include "Amor.h"
+
 #include "textus_string.h"
+
 
 #define UDPINLINE inline
 class Udpuna: public Amor
@@ -62,6 +64,7 @@ private:
 	UDPINLINE void rw_pro(Amor::Pius *);
 	UDPINLINE void parent_pro();
 	UDPINLINE void deliver(Notitia::HERE_ORDO aordo);
+	#include "wlog.h"
 };
 
 void Udpuna::ignite(TiXmlElement *cfg)

@@ -15,7 +15,7 @@ Udpuna.o:Udpuna.cpp
 
 udp.so: Udp.o Udpuna.o
 	$(LD) $(LDFLAGS) -o $@ $^ $(LIBSOCKET) $(LDLIBS)
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 	
 clean:
 	rm *.o

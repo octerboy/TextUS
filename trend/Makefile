@@ -14,7 +14,7 @@ Trend.o:Trend.cpp
 
 trend.so:$(AMOROBJS)
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o

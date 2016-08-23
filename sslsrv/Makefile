@@ -15,7 +15,7 @@ SSLsrvuna.o:SSLsrvuna.cpp
 
 sslsrv.so: SSLsrv.o SSLsrvuna.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase -lcrypto -lssl
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o

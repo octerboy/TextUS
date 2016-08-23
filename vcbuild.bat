@@ -4,7 +4,7 @@
 if "%1" == "nosuch" goto end
 if NOT exist "%1" goto next
 cd %1
-nmake -fmakefile.vc
+if  exist makefile.vc nmake -fmakefile.vc
 cd ..
 :next
 shift

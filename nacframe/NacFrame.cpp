@@ -18,10 +18,10 @@
 #define TEXTUS_BUILDNO  "$Revision: 4 $"
 /* $NoKeywords: $ */
 
+#include "Amor.h"
 #include "Notitia.h"
 #include "TBuffer.h"
 #include "BTool.h"
-#include "Amor.h"
 #include "casecmp.h"
 #include <time.h>
 #include <stdarg.h>

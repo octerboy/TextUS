@@ -28,23 +28,23 @@ netrs.o:netrs.cpp
 
 getversions.so: GetVer.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS)
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 sysinfo.so: SysStat.o netrs.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS)
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 sysroute.so: Route.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS)
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 systime.so: Systime.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS)
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 restart.so: Restart.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS)
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o

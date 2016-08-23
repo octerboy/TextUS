@@ -16,9 +16,10 @@
 #define TEXTUS_BUILDNO  "$Revision: 5 $"
 /* $NoKeywords: $ */
 
-#include "Notitia.h"
-#include "TBuffer.h"
 #include "Amor.h"
+#include "Notitia.h"
+#include "casecmp.h"
+#include "TBuffer.h"
 #include <stdarg.h>
 #define SEQUEINLINE inline
 class Seque: public Amor

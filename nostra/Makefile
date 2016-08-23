@@ -13,7 +13,7 @@ Nostra.o:Nostra.cpp
 
 nostra.so:$(AMOROBJS)
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS)
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o

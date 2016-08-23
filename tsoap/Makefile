@@ -9,9 +9,6 @@ TiXML_DIR=../tinyxml
 
 all:tsoap.so test
 
-test.o:  test.cpp Array.h Wsdl.h
-	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG) -o $@  test.cpp
-	
 Wsdl.o: Wsdl.cpp Array.h Wsdl.h
 	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG) -o $@ Wsdl.cpp
 
@@ -23,13 +20,7 @@ TSoap.o: TSoap.cpp
 
 tsoap.so: TSoap.o Wsdl.o Schema.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS)
-	cp $@ ../release
-
-test: test.o  Wsdl.o Schema.o $(TiXML_DIR)/tinystr.o $(TiXML_DIR)/tinyxmlerror.o $(TiXML_DIR)/tinyxmlparser.o $(TiXML_DIR)/tinyxml.o
-	$(CXX) -o $@ $^
-
-test2: test.o
-	$(CXX) -o $@ $^
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o

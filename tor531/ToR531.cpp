@@ -1,7 +1,7 @@
 // ToR531.cpp : 定义 DLL 的初始化例程。
 //
-#include "Notitia.h"
 #include "Amor.h"
+#include "Notitia.h"
 #include "casecmp.h"
 #include "textus_string.h"
 #include <stdio.h>

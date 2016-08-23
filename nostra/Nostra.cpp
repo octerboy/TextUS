@@ -125,7 +125,8 @@ void Nostra::ignite_t (TiXmlElement *cfg, TiXmlElement *nos_ele)
 
 bool Nostra::facio( Amor::Pius *pius)
 {
-	Amor::Pius ready2 ={Notitia::CLONE_ALL_READY, 0};	
+	Amor::Pius ready2;	
+	ready2.ordo =Notitia::CLONE_ALL_READY;
 	switch(pius->ordo)
 	{
 	case Notitia::IGNITE_ALL_READY:
@@ -151,7 +152,10 @@ bool Nostra::facio( Amor::Pius *pius)
 bool Nostra::sponte_n (Amor::Pius *pius, unsigned int from)
 {
 	int here_num;
-	Amor::Pius ready2 ={Notitia::CLONE_ALL_READY, 0};	
+	Amor::Pius ready2;
+	Amor::Pius cln_ps;
+	ready2.ordo =Notitia::CLONE_ALL_READY;
+	cln_ps.ordo =Notitia::DMD_CLONE_OBJ;
 
 	switch(pius->ordo)
 	{
@@ -237,8 +241,7 @@ bool Nostra::sponte_n (Amor::Pius *pius, unsigned int from)
 				ans->info(ready2);
 		} else if( ((Aptus*)aptus)->prius) 	/* 本aptus不是根,所以向左边传 */
 		{
-			Amor::Pius tmp = { Notitia::DMD_CLONE_OBJ, 0};
-			((Aptus*)aptus)->prius->sponte(&tmp);	/* 不用laeve(), 直接调用父节点 */
+			((Aptus*)aptus)->prius->sponte(&cln_ps);	/* 不用laeve(), 直接调用父节点 */
 		}	
 
 		/* 再找空闲实例 */

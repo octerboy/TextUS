@@ -12,7 +12,7 @@ OraCli.o: OraCli.cpp
 	
 oracli.so: OraCli.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS)
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o

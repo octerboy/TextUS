@@ -19,7 +19,6 @@
 /* $NoKeywords: $ */
 
 #include "Aptus.h"
-#include "BTool.h"
 #include "Notitia.h"
 #if !defined(_WIN32)
 #include <pthread.h>
@@ -127,9 +126,10 @@ void Thread::ignite_t (TiXmlElement *cfg, TiXmlElement *cf_ele)
 			shouldInfo = true;
 	}
 
-#define WHORDO(Y, Z) \
+//#define WHORDO(Y, Z) \
 	comm_str = cf_ele->Attribute(Z);	\
 		BTool::get_textus_ordo(&Y, comm_str);	
+#define WHORDO(Y, Z) Y = Notitia::get_ordo(cf_ele->Attribute(Z));
 
 	WHORDO(lae_do, "sponte");
 	WHORDO(dex_do, "facio");

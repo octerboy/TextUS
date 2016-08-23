@@ -13,13 +13,13 @@ Locker.o:Locker.cpp
 
 locker.so:$(AMOROBJS)
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lpthread -lbase
-	cp $@ ../release
-	cp $@ ../release/locker_2.so
-	cp $@ ../release/locker_3.so
-	cp $@ ../release/locker_4.so
-	cp $@ ../release/locker_5.so
-	cp $@ ../release/locker_6.so
-	cp $@ ../release/locker_7.so
+	$(_POST_RPO_SUB)
+	$(_POST_RPO_SUB)/locker_2.so
+	$(_POST_RPO_SUB)/locker_3.so
+	$(_POST_RPO_SUB)/locker_4.so
+	$(_POST_RPO_SUB)/locker_5.so
+	$(_POST_RPO_SUB)/locker_6.so
+	$(_POST_RPO_SUB)/locker_7.so
 
 clean:
 	rm *.o

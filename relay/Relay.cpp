@@ -95,8 +95,10 @@ void Relay::ignite_t (TiXmlElement *cfg, TiXmlElement *rel_ele)
 			how_pius = VIRTUAL;
 	}
 
-	comm_str = ct_ele->Attribute("vordo");
-	BTool::get_textus_ordo(&vps.ordo, comm_str);
+	//comm_str = ct_ele->Attribute("vordo");
+	//BTool::get_textus_ordo(&vps.ordo, comm_str);
+	vps.ordo = Notitia::get_ordo(ct_ele->Attribute("vordo"));
+
 
 END_CFG:
 	canAccessed = true;	/* 至此可以认为此应用模块需要Relay */
@@ -207,7 +209,9 @@ bool Relay::facio( Amor::Pius *pius)
 inline void Relay::leftgo()
 {
 	void *ps[3];
-	Amor::Pius c_p ={ Notitia::DMD_CONTINUE_NEXT, ps};
+	Amor::Pius c_p;
+	c_p.ordo =Notitia::DMD_CONTINUE_NEXT;
+	c_p.indic = ps;
 
 	if ( !prius)
 		return;
@@ -219,8 +223,9 @@ inline void Relay::leftgo()
 
 inline Amor::Pius* Relay::getP()
 {
-	Amor::Pius t_p = {Notitia::CMD_GET_PIUS, 0};
+	Amor::Pius t_p;
 	Amor::Pius *sub_ps = 0;
+	t_p.ordo = Notitia::CMD_GET_PIUS;
 
 	switch ( how_pius)
 	{

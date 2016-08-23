@@ -9,7 +9,7 @@ httpsrvbody httpsrvhead httpupfile httpurlsw httpxml \
 induco joint keep locker log2buff logdata \
 monip montcp \
 nacframe nostra \
-pipe pmuto process ramify relay \
+pacway pipe pmuto process ramify relay \
 sched sequence signal slice sslcli sslsrv sslvcert \
 tbufchan tbufile \
 tcgi tcpcli tcpctrl tcpsrv \

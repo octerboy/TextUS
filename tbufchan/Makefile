@@ -12,7 +12,7 @@ TBufChan.o: TBufChan.cpp
 	
 tbufchan.so: TBufChan.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o

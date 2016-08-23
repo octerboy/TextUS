@@ -12,8 +12,8 @@ TCgi.o:TCgi.cpp
 
 tcgi.so: TCgi.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase
-	cp $@ ../release
-	
+	$(_POST_RPO_SUB)
+
 clean:
 	rm *.o
 	rm *.so

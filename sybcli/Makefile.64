@@ -11,9 +11,9 @@ SybCli.o: SybCli.cpp
 	${CC} ${CFLAGS} -DSYB_LP64 $(INCLUDE_DIR) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=SybCli -o $@ $^ 
 	
 sybcli.so: SybCli.o
-	#${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -L$(SYBASE)/OCS-15_0/lib -lct -lcs -lsybtcl -lcomn -lintl -linsck -ldl -lc
-	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) 
-	cp $@ ../release
+	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -L$(SYBASE)/OCS-15_0/lib -lct -lcs -lsybtcl -lcomn -lintl -linsck -ldl -lc
+	#${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) 
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o

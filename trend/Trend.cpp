@@ -26,8 +26,8 @@
 #endif
 /* $NoKeywords: $ */
 
-#include "Notitia.h"
 #include "Aptus.h"
+#include "Notitia.h"
 #include "textus_string.h"
 #include "casecmp.h"
 
@@ -55,10 +55,6 @@ protected:
 
 	typedef struct _Action {
 		TEXTUS_ORDO ordo;	/* 特别动作ordo, -1表示使用原有Pius */
-		int offset_od;	/* 动作ordo的分类偏移, 
-					如果 >0, 则将此左移NOTITIA_SUB_OFFSET (20)位 就是要的实际值了
-					如果 <0, 则将原的ordo去掉分类偏移
-					*/
 		TEXTUS_ORDO vordo;	/* 对于ordo为CMD_CONTINUE_NEXT的, 
 				vordo设定了(void(*)*indic)[1]指向Pius的ordo;
 				vordo若为CMD_GET_PIUS, 则寻找另一个Pius
@@ -69,7 +65,6 @@ protected:
 				*/
 		inline _Action () {
 			ordo = Notitia::TEXTUS_RESERVED;
-			offset_od = 0;
 			dir = STILL;
 			vdir = STILL;
 		};
@@ -213,17 +208,8 @@ void Trend::get_conie (TiXmlElement *c_ele, Conie &cie)
 {
 	const char *comm_str;
 	TiXmlElement *act_ele;
-	int i,od;
-	//comm_str = c_ele->Attribute("ordo");
-	//BTool::get_textus_ordo(&cie.ordo, comm_str);
+	int i;
 	cie.ordo = Notitia::get_ordo(c_ele->Attribute("ordo"));
-	od = 0;
-	c_ele->QueryIntAttribute("sub_ordo", &od);	
-	if (od > 0 ) 
-	{
-		//对于被抓条件，sub_ordo不为0, 则加上偏移值
-		cie.ordo = cie.ordo | (od << NOTITIA_SUB_OFFSET);
-	}
 
 	comm_str = c_ele->Attribute("goon");
 	if ( comm_str )  
@@ -276,33 +262,21 @@ void Trend::get_conie (TiXmlElement *c_ele, Conie &cie)
 		WHATDIR(OWNER)
 		WHATDIR(NEXT)
 		WHATDIR(STILL)
-		WHATDIR(SKIP)
 
 		if ( here_dir == NONE_DIR )
 			continue;
 
 		cie.actions[i].dir = here_dir;
-		//comm_str = act_ele->Attribute("ordo");
-		//BTool::get_textus_ordo(&cie.actions[i].ordo, comm_str);
 		cie.actions[i].ordo = Notitia::get_ordo(act_ele->Attribute("ordo"));
-
-		//comm_str = act_ele->Attribute("vordo");
-		//BTool::get_textus_ordo(&cie.actions[i].vordo, comm_str);
 		cie.actions[i].vordo = Notitia::get_ordo(act_ele->Attribute("vordo"));
 		
 		here_dir = NONE_DIR;
-		comm_str = act_ele->Attribute("vdir");
+		comm_str = act_ele->Attribute("vdir");  //vdir is here_dir, facio .. etc., here_dir is assigned to vdir
 		WHATDIR(FACIO)
 		WHATDIR(SPONTE)
 		WHATDIR(DEXTRA)
 		WHATDIR(LAEVE)
 		cie.actions[i].vdir = here_dir;
-
-		od = 0 ;
-		act_ele->QueryIntAttribute("sub_ordo", &od); //实际动作时, 加分类偏移
-		if ( od != 0 )
-			cie.actions[i].offset_od = od;	
-
 		i++;
 	}
 }
@@ -413,17 +387,6 @@ void Trend::doact(Action &act, DIRECT dir, Amor::Pius *ori, int from)
 		
 		isO = false;
 
-	} else if ( act.offset_od > 0 ) 	//分类偏移, 比如同为PRO_UNIPAC, 一个是向dbport的,另一个是向unipac并最后向tcpcli的, 要分开。
-	{	
-		ano_ps.ordo = ori->ordo | (act.offset_od << NOTITIA_SUB_OFFSET);
-		ano_ps.indic = ori->indic;
-		isO = false;
-
-	} else if ( act.offset_od < 0 ) 	//分类偏移, 比如同为PRO_UNIPAC, 一个是向dbport的,另一个是向unipac并最后向tcpcli的, 要分开。
-	{	
-		ano_ps.ordo = ori->ordo & ~(NOTITIA_SUB_FLAG);	//去掉原来的分类偏移
-		ano_ps.indic = ori->indic;
-		isO = false;
 	} else 
 		isO = true;
 
@@ -527,33 +490,6 @@ void Trend::doact(Action &act, DIRECT dir, Amor::Pius *ori, int from)
 	case STILL:	/* 什么都不干 */
 		break;
 
-	case SKIP:	/* 将略过所设的ordo */
-		/*
-		tmpps.indic = &ori->ordo;
-		switch ( dir )
-		{
-		case DEXTRA:
-			tmpps.ordo = Notitia::SET_DEXTRA_SKIP;
-			break;
-
-		case FACIO:
-			tmpps.ordo = Notitia::SET_FACIO_SKIP;
-			break;
-
-		case LAEVE:
-			tmpps.ordo = Notitia::SET_LAEVE_SKIP;
-			break;
-
-		case SPONTE:
-			tmpps.ordo = Notitia::SET_SPONTE_SKIP;
-			break;
-	
-		default:
-			break;
-		}
-		aptus->sponte(&tmpps);
-		*/
-		break;
 	default:
 		break;
 	}
