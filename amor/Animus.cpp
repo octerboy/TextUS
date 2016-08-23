@@ -802,7 +802,7 @@ inline bool Animus::facio_n(Amor::Pius *pius, unsigned int from)
 	return to_dextra (pius, 0);
 }
 
-inline bool Animus::to_dextra(Amor::Pius *pius, unsigned int from)
+bool Animus::to_dextra(Amor::Pius *pius, unsigned int from)
 {
 	unsigned int i;
 	Aptus **tor;

@@ -11,7 +11,7 @@ OraCli.o: OraCli.cpp
 	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG) -DUSE_DYNAMIC_ORACLE -DAMOR_CLS_TYPE=OraCli -o $@ $^ 
 	
 oracli.so: OraCli.o
-	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS)
+	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase
 	$(_POST_RPO_SUB)
 
 clean:

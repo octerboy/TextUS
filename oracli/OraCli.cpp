@@ -25,6 +25,7 @@
 #include "textus_string.h"
 #include "DBFace.h"
 #include "PacData.h"
+#include <stdarg.h>
 #if defined( USE_DYNAMIC_ORACLE )
 #include "ora_api.h"
 #include "textus_load_mod.h"
@@ -112,7 +113,7 @@ void OraCli::ignite(TiXmlElement *cfg)
 {
 	bool inThread =true;
 	const char *ip, *port, *svcname;
-	char *default_port = "1521";
+	const char *default_port = "1521";
 	TiXmlElement *con_ele;
 
 	const char *comm_str;
@@ -398,7 +399,7 @@ INLINE int OraCli::handle()
 	unsigned int defNum, bindNum;
 
 	retnum = 0;
-	if ( face->num < 0 )	/* 至少得定义状态值 */
+	if ( face->num == 0 )	/* 至少得定义状态值 */
 		return retnum;
 
 	cRowsObtained = 0;
@@ -476,7 +477,7 @@ INLINE int OraCli::handle()
 			default:
 				break;
 			}
-			if ( blen < 0 ) blen = 0;
+			//if ( blen < 0 ) blen = 0;
 			oTotal += blen;
 		}
 		snd_pac->grant(oTotal);	/* 扩张出足够的空间 */

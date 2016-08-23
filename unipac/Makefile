@@ -13,7 +13,7 @@ Unipac.o: Unipac.cpp cupsDef.h const_para.h iso8583-87.h
 	
 unipac.so: Unipac.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o

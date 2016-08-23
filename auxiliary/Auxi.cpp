@@ -19,7 +19,6 @@
 /* $NoKeywords: $ */
 
 #include "Aptus.h"
-//#include "BTool.h"
 #include "Notitia.h"
 #include "Animus.h"
 #include "textus_string.h"

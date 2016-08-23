@@ -565,7 +565,7 @@ bool Ramify::laeve(Amor::Pius *pius, unsigned int from)
 			goon.indic = gpius;;
 			gpius[0] = this->owner;
 			gpius[1] = pius;
-			gpius[2] = (void *) (gCFG->inverse ? 0x1: 0x0);	/* 这与relay模块相应, inverse (0x1) 情况下,
+			gpius[2] = (gCFG->inverse ? (void*)0x1: (void*)0x0);	/* 这与relay模块相应, inverse (0x1) 情况下,
 									relay 或以laeve方式调用下一个邻节点,
 									否则是以dextra方式调用.
 									*/

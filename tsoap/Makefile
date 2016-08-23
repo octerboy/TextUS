@@ -7,7 +7,7 @@ include ../Rules.basemod
 INCLUDE_DIR  +=  -I../logdata/include -I../httpsrvhead/include
 TiXML_DIR=../tinyxml
 
-all:tsoap.so test
+all:tsoap.so
 
 Wsdl.o: Wsdl.cpp Array.h Wsdl.h
 	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG) -o $@ Wsdl.cpp

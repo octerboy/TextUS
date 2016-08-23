@@ -23,14 +23,7 @@ Systime.o: Systime.cpp
 Restart.o: Restart.cpp
 	${CC} ${CFLAGS} -I../httpsrvhead/include $(INCLUDE_DIR) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Restart -o $@ $^
 
-netrs.o:netrs.cpp
-	${CC} ${CFLAGS} $(INCLUDE_DIR) -o $@ $^
-
 getversions.so: GetVer.o
-	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS)
-	$(_POST_RPO_SUB)
-
-sysinfo.so: SysStat.o netrs.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS)
 	$(_POST_RPO_SUB)
 
@@ -43,6 +36,13 @@ systime.so: Systime.o
 	$(_POST_RPO_SUB)
 
 restart.so: Restart.o
+	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS)
+	$(_POST_RPO_SUB)
+
+netrs.o:netrs.cpp
+	${CC} ${CFLAGS} $(INCLUDE_DIR) -o $@ $^
+
+sysinfo.so: SysStat.o netrs.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS)
 	$(_POST_RPO_SUB)
 

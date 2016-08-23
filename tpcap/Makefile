@@ -12,7 +12,7 @@ TPCap.o: TPCap.cpp
 	
 tpcap.so: TPCap.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS)
-	cp $@ ../release
+	$(_POST_RPO_SUB)
 
 clean:
 	rm *.o

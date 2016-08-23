@@ -1967,7 +1967,7 @@ struct CmdBase:public Condition  {
 				if ( len_format ) 
 					TEXTUS_SPRINTF(tmp, len_format, strlen(head_buf)/2);
 				else 
-					TEXTUS_SPRINTF(tmp, "%02d", strlen(head_buf)/2);
+					TEXTUS_SPRINTF(tmp, "%02lu", strlen(head_buf)/2);
 				sv_set.put_still("me.head_length",tmp);
 			}
 
@@ -1988,7 +1988,7 @@ struct CmdBase:public Condition  {
 				if ( len_format ) 
 					TEXTUS_SPRINTF(tmp, len_format, strlen(body_buf)/2);
 				else 
-					TEXTUS_SPRINTF(tmp, "%02d", strlen(body_buf)/2);
+					TEXTUS_SPRINTF(tmp, "%02lu", strlen(body_buf)/2);
 				sv_set.put_still("me.body_length",tmp);
 			}
 
@@ -2146,13 +2146,13 @@ struct CmdBase:public Condition  {
 				if ( len_format ) 
 					TEXTUS_SPRINTF(tmp, len_format, strlen(cmd_buf)/2);
 				else 
-					TEXTUS_SPRINTF(tmp, "%03d", strlen(cmd_buf)/2);
+					TEXTUS_SPRINTF(tmp, "%03lu", strlen(cmd_buf)/2);
 				sv_set.put_still("me.command_length",tmp);
 
 				if ( len_format ) 
 					TEXTUS_SPRINTF(tmp, len_format, strlen(cmd_buf)/2+8);
 				else 
-					TEXTUS_SPRINTF(tmp, "%03d", strlen(cmd_buf)/2+8);
+					TEXTUS_SPRINTF(tmp, "%03lu", strlen(cmd_buf)/2+8);
 				sv_set.put_still("me.mac_length",tmp);
 			}
 
@@ -3249,7 +3249,7 @@ void PacWay::handle_pac()
 			goto HERE_END;
 		}
 		/* 制卡任务开始  */
-		if ( cur_def->flow_md )
+		if ( cur_def->flow_md[0] )
 			mess.snap[Pos_FlowPrint].input( cur_def->flow_md, strlen(cur_def->flow_md));
 
 		/* 寻找变量集中所有动态的, 看看是否有start_pos和get_length的, 根据定义赋值到mess中 */

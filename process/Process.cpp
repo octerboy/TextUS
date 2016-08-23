@@ -21,7 +21,6 @@
 #include "Amor.h"
 #include "Notitia.h"
 #include "casecmp.h"
-#include "BTool.h"
 #include <assert.h>
 #include <time.h>
 #if !defined(_WIN32)
@@ -131,9 +130,12 @@ public:
 
 			fac_do = spo_do = another = Notitia::TEXTUS_RESERVED;
 			current = ACT_NONE;
-			BTool::get_textus_ordo(&fac_do, c->Attribute("facio"));
-			BTool::get_textus_ordo(&spo_do, c->Attribute("sponte"));
-			BTool::get_textus_ordo(&another, c->Attribute("ordo"));
+			//BTool::get_textus_ordo(&fac_do, c->Attribute("facio"));
+			//BTool::get_textus_ordo(&spo_do, c->Attribute("sponte"));
+			//BTool::get_textus_ordo(&another, c->Attribute("ordo"));
+			fac_do = Notitia::get_ordo(c->Attribute("facio"));
+			spo_do = Notitia::get_ordo(c->Attribute("sponte"));
+			another = Notitia::get_ordo(c->Attribute("ordo"));
 		
 			if ( another > 0 )
 				fac_do = spo_do = another;
