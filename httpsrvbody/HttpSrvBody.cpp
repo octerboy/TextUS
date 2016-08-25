@@ -953,15 +953,15 @@ Pro_FRM_DATA:
 		switch (sock.stat_code)
 		{
 		case STATUS_CODE_PROTOCOL_ERROR:
-			sprintf((char*)&msg[2], "websocket protocol error");
+			TEXTUS_SNPRINTF((char*)&msg[2], sizeof(msg)-3, "websocket protocol error");
 			break;
 
 		case STATUS_CODE_MESSAGE_TOO_LARGE:
-			sprintf((char*)&msg[2], "websocket message too large");
+			TEXTUS_SNPRINTF((char*)&msg[2], sizeof(msg)-3, "websocket message too large");
 			break;
 
 		default:
-			sprintf((char*)&msg[2], "websocket closed");
+			TEXTUS_SNPRINTF((char*)&msg[2], sizeof(msg)-3, "websocket closed");
 			break;
 		}
 		sock.reset();
@@ -988,10 +988,12 @@ HTTPSRVINLINE void HttpSrvBody::sndSocket(unsigned char op_code, unsigned char *
 			*p++ = 126; 		//mask is 0, no mask
 		} else { 
 			*p++ = 127; 		////mask is 0, no mask
+#if (intsizeof > 32)
 			*p++ = (msg_length >> (7*8))  & 0xFF; 
 			*p++ = (msg_length >> (6*8))  & 0xFF;
 			*p++ = (msg_length >> (5*8))  & 0xFF;
 			*p++ = (msg_length >> (4*8))  & 0xFF;
+#endif
 			*p++ = (msg_length >> (3*8))  & 0xFF;
 			*p++ = (msg_length >> (2*8))  & 0xFF;
 		} 

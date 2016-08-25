@@ -3,8 +3,8 @@
 # Build: 
 #	B01:created by octerboy 2006/05/28, Gaungzhou
 include ..\Rules.basemod.vc
-CFLAGS  = $(CFLAGS) -I..\logdata\include -I..\baselib\include -I..\httpsrvhead\include
-LDLIB = $(LDLIB) ..\baselib\libbase.lib 
+CFLAGS  = $(CFLAGS) -I..\logdata\include -I..\baselib\include -I..\httpsrvhead\include  -I$(OPENSSL_DIR)\include  
+LDLIB = $(LDLIB) ..\baselib\libbase.lib $(OPENSSL_DIR)\lib\libeay32.lib $(OPENSSL_DIR)\lib\ssleay32.lib
 AMOROBJS=httpsrvbody.obj 
 
 all: httpsrvbody.dll
