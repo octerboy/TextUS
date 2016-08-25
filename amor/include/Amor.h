@@ -48,7 +48,7 @@ public:
 		 void *indic;		/* data pointer for any type */
 		 inline Pius()
 		 {
-			sub = 0;
+			sub = 0;	//0: is reserved. It should not be for any branch.
 			indic = 0;
 			ordo = -1;
 		 }

@@ -17,14 +17,14 @@ toOK.obj: toOK.cpp
 	$(_VC_MANIFEST_PRO)
 
 ok.exe: toOK.obj
-	$(LD) /NOLOGO /MANIFEST -out:$@ toOK.obj $(TiXML_DIR)\tinystr.obj $(TiXML_DIR)\tinyxmlerror.obj $(TiXML_DIR)\tinyxml.obj $(TiXML_DIR)\tinyxmlparser.obj msvcrt.lib kernel32.lib user32.lib
+	$(LD) /NOLOGO /MANIFEST /subsystem:Console -out:$@ toOK.obj $(TiXML_DIR)\tinystr.obj $(TiXML_DIR)\tinyxmlerror.obj $(TiXML_DIR)\tinyxml.obj $(TiXML_DIR)\tinyxmlparser.obj 
 	$(_VC_MANIFEST_PRO)
 
 libanimus.dll: $(AMOROBJS)
 	$(LD) /NODEFAULTLIB /NOLOGO /DEF:amor.def -dll -out:$@ $(AMOROBJS) msvcrt.lib kernel32.lib user32.lib
 	$(_VC_MANIFEST_PRO)
 	$(_POST_RPO_SUB)
-        copy $@.* ..\
+    copy $@.* ..\
 
 clean:
 	del *.obj
