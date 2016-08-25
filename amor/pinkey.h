@@ -28,7 +28,7 @@ static  int pinkeys[3][64] = {
 	}
 };
 
-static  unsigned char sum_file_vector[8] = {9,75,1,139,4,5,6,99 };
+static  unsigned char sum_file_vector[8] = {9,44,88,13,7,5,6,36 };
 
 #define ObtainHex(s, X)   ( (s) > 9 ? (s)-10+X :(s)+'0')
 #define Obtainx(s)   ObtainHex(s, 'a')
