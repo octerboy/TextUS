@@ -988,7 +988,7 @@ HTTPSRVINLINE void HttpSrvBody::sndSocket(unsigned char op_code, unsigned char *
 			*p++ = 126; 		//mask is 0, no mask
 		} else { 
 			*p++ = 127; 		////mask is 0, no mask
-#if (intsizeof > 32)
+#if defined(__LP64__) || defined(_M_X64) || defined(__amd64__)
 			*p++ = (msg_length >> (7*8))  & 0xFF; 
 			*p++ = (msg_length >> (6*8))  & 0xFF;
 			*p++ = (msg_length >> (5*8))  & 0xFF;
