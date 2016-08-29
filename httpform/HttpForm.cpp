@@ -123,7 +123,7 @@ bool HttpForm::facio( Amor::Pius *pius)
 		method  = getHeadInt("Method");	
 		query = (char*) 0;
 		q_len = 0;
-		if (  method == 0  || method == 1) /* GET or HEAD method */
+		if (  method == 2  || method == 3) /* GET or HEAD method */
 		{
 			query = getHead("Query");	
 			if ( query) q_len = strlen(query);
