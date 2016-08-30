@@ -871,7 +871,7 @@ inline bool Animus::branch_pro( Amor::Pius *pius, int dir)
 				break;
 			} 
 
-			if ( pius->sub == branch[i].sub ) 
+			if ( pius->subor == branch[i].sub ) 
 			{
 				can = branch[i].accept;
 				break;
