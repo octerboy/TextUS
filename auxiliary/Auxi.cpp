@@ -183,10 +183,9 @@ Amor *Auxi::clone()
 
 bool Auxi::facio(Amor::Pius *pius)
 {
-	Amor::Pius ready, ready2;
+	Amor::Pius ready = {Notitia::IGNITE_ALL_READY,0,0};
 
-	ready.ordo =Notitia::IGNITE_ALL_READY;
-	ready2.ordo = Notitia::CLONE_ALL_READY;
+	Amor::Pius ready2 = {Notitia::CLONE_ALL_READY,0,0};
 
 	switch ( pius->ordo ) 
 	{

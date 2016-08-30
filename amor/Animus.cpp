@@ -897,8 +897,7 @@ static  int go(char *xml_file, Amor::Pius &para)
 	char ver_str[64];
 	char scmid_str[64];
 
-	Amor::Pius ready;
-	ready.ordo = Notitia::IGNITE_ALL_READY;
+	Amor::Pius ready = {Notitia::IGNITE_ALL_READY, 0, 0};
 
 #define GETAPRK(X,Y)				\
 	p = (char*)X;				\
@@ -951,8 +950,7 @@ END:
 extern "C" TEXTUS_AMOR_STORAGE int textus_animus_start(int argc, char *argv[])
 {
 	void *ps[3];
-	Amor::Pius para;
-	para.ordo = Notitia::MAIN_PARA;
+	Amor::Pius para = {Notitia::MAIN_PARA, 0, 0};
 	ps[0] = &argc;
 	ps[1] = argv;
 	ps[2] = 0;
@@ -1018,8 +1016,7 @@ extern "C" TEXTUS_AMOR_STORAGE int textus_animus_winstart(HINSTANCE hInst, HINST
 {
 	char *xmlfile, *p;
 	void *ps[5];
-	Amor::Pius para;
-	para.ordo = Notitia::WINMAIN_PARA;
+	Amor::Pius para = {Notitia::WINMAIN_PARA, 0, 0};
 	ps[0] = hInst;
 	ps[1] = hPrev;
 	ps[2] = cmd;
