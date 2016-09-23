@@ -94,14 +94,49 @@ private:
 		unsigned char data[128];
 	};
 
+	struct Sock_Pro_Def{
+		const char *name;		//WebSocket协议的名称
+		int sub;				//WebSocket各协议所对应的sub_ordo
+	};
+
 	struct G_CFG
 	{
 		long max_sock_len;
 
+		int sock_num;	//WebSocket协议的数目
+		struct Sock_Pro_Def *sock_pro_def;
+
 		inline G_CFG() {
 			max_sock_len = 8192;
-		};	
-		inline ~G_CFG() { };
+			sock_num = 0;
+			sock_pro_def = 0;
+		};
+
+		inline ~G_CFG() { 
+			if ( sock_pro_def) delete[] sock_pro_def;
+			sock_num = 0;
+			sock_pro_def = 0;
+		};
+
+		inline void prop(TiXmlElement *cfg)
+		{
+			TiXmlElement *var_ele;
+			const char *vn="WebSocket";
+			int i;
+
+			sock_num = 0;
+			for (var_ele = cfg->FirstChildElement(vn); var_ele; var_ele = var_ele->NextSiblingElement(vn)) 
+				sock_num++;
+			if (sock_num == 0) return ;
+
+			sock_pro_def =  new struct Sock_Pro_Def[sock_num];
+
+			for (i = 0, var_ele = cfg->FirstChildElement(vn); var_ele; var_ele = var_ele->NextSiblingElement(vn),i++) 
+			{
+				sock_pro_def[i].name = var_ele->Attribute("name");
+				var_ele->QueryIntAttribute("sub_ordo", &(sock_pro_def[i].sub));
+			}
+		};
 	};
 
 	struct G_CFG *gCFG;  
@@ -157,6 +192,7 @@ private:
 		}
 	} Websock;
 	Websock sock;
+	int cur_sub_ordo;	//本实例ordo子类型，在TBUFFER中设定
 
 	typedef struct _Chunko {
 					/* 很多情况下, 一个chunk一次读完, 所以都处于初始值 */
@@ -194,15 +230,15 @@ private:
 void HttpSrvBody::ignite(TiXmlElement *cfg)
 {
 	const char *iscopy_str = cfg->Attribute("proxy");
+	if ( iscopy_str && stricmp(iscopy_str,"yes") == 0)
+		isProxy = true;
+
 	if ( !gCFG ) 
 	{
 		gCFG = new struct G_CFG();
 		has_config = true;
-	}
-
-	if ( iscopy_str && strcmp(iscopy_str,"yes") == 0)
-		isProxy = true;
-		
+		gCFG->prop(cfg);
+	}	
 }
 
 bool HttpSrvBody::facio( Amor::Pius *pius)
@@ -232,7 +268,7 @@ bool HttpSrvBody::facio( Amor::Pius *pius)
 		{	/* look for websocket  */
 			if ( !lookSocket() )
 			{
-				deliver(Notitia::PRO_HTTP_HEAD); //可能是什么古怪协议
+				deliver(Notitia::PRO_HTTP_HEAD); //可能是什么古怪协议,发个HEAD消息，让后续模块处理。
 			 } else {
 				WBUG("WebSocket begin....");
 			}
@@ -434,6 +470,7 @@ void HttpSrvBody::reset()
 
 	isSocket = false;
 	lastSocket = false;
+	cur_sub_ordo = 0;
 	sock.reset();
 }
 
@@ -632,8 +669,13 @@ HTTPSRVINLINE void HttpSrvBody::outjs(const char *in)
 HTTPSRVINLINE bool HttpSrvBody::lookSocket()
 {
 	const char *conn, *upg, *socKey;
+	const char *protocol;
+	int i;
+	bool has_pro;
+
 	conn = getHead("Connection");	
 	isSocket = false;	//假定开始不是socket
+	has_pro= false;
 	if ( conn && strcasecmp(conn, "Upgrade") == 0 )
 	{
 		upg = getHead("Upgrade");
@@ -653,7 +695,7 @@ HTTPSRVINLINE bool HttpSrvBody::lookSocket()
 				addHead("Sec-WebSocket-Versiont", "13");
 				goto S_END;
 			}
-			isSocket = true;
+			
 			if ( !lastSocket )
 			{
 				aptus->facio(&set_buf_pius);	//上次不是Websocket, 而这次是, 就重设缓冲区
@@ -664,27 +706,42 @@ HTTPSRVINLINE bool HttpSrvBody::lookSocket()
 			SHA1_Update(&c,WEBSOCKET_GUID,WEBSOCKET_GUID_LEN);
 			SHA1_Final(&(md[0]),&c);
 			BTool::base64_encode(md2, md, SHA_DIGEST_LENGTH);
-			setStatus(101);
-			setHead("Title", "Switching Protocols");
-			setHead("Connection", "Upgrade");
-			addHead("Upgrade", "websocket");
-			addHead("Sec-WebSocket-Accept", md2);
 			sock.reset();
 			sock.neo_frame();
-S_END:
-			if (getHead("Sec-WebSocket-Protocol") ) 
+
+			protocol = getHead("Sec-WebSocket-Protocol");
+			if (protocol) 
 			{
-				deliver(Notitia::PRO_WEBSock_HEAD);	
+				for ( i =0 ; i < gCFG->sock_num; i++)
+				{
+					if (strcmp(protocol, gCFG->sock_pro_def[i].name) ==0 ) //这样简单不行, protocol是用逗号隔开的，要形成一个数组。
+					{
+						cur_sub_ordo = gCFG->sock_pro_def[i].sub;
+						break;
+					}
+				}
+				if ( i == gCFG->sock_num )	//未找到相应协议
+				{
+					setStatus(400);
+					has_pro = false;
+				} else {		//已定义已有协议
+					setStatus(101);
+					setHead("Title", "Switching Protocols");
+					setHead("Connection", "Upgrade");
+					addHead("Upgrade", "websocket");
+					addHead("Sec-WebSocket-Accept", md2);
+					addHead("Sec-WebSocket-Protocol", gCFG->sock_pro_def[i].name);
+					has_pro = true;
+				}
 				/*
-				addHead("Sec-WebSocket-Protocol", "insway");
-				local_pius.ordo = Notitia::PRO_HTTP_HEAD;
-				aptus->sponte(&local_pius);
 				sndSocket(OPCODE_TEXT, (unsigned char*)"Oway-123", 8);
 				*/
-			} else {
-				local_pius.ordo = Notitia::PRO_HTTP_HEAD;
-				aptus->sponte(&local_pius);
 			}
+			isSocket = true;
+S_END:
+			local_pius.ordo = Notitia::PRO_HTTP_HEAD;
+			aptus->sponte(&local_pius);
+			if ( has_pro ) deliver(Notitia::PRO_WEBSock_HEAD);	
 		}
 	}
 
