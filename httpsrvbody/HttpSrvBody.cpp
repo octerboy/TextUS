@@ -397,7 +397,7 @@ REAL_OUTPUT:		snd_buf->input((unsigned char*)res_cmd->valStr, len);
 		head_outed = true;	/* 置一下标志, 表示已经HEAD处理, 在处理RESPONSE时不再处理 */
 		aptus->sponte(pius);	/* 转向httpsrvhead */
 		break;
-
+#ifdef NOOOOOO
 	case Notitia::PRO_WEBSock_HEAD :	/* 响应的WebSocket头已经准备好 */
 		WBUG("sponte PRO_WEBSock_HEAD");
 		if (!session ) break;
@@ -405,6 +405,7 @@ REAL_OUTPUT:		snd_buf->input((unsigned char*)res_cmd->valStr, len);
 		local_pius.ordo = Notitia::PRO_HTTP_HEAD;
 		aptus->sponte(&local_pius);	/* 转向httpsrvhead */
 		break;
+#endif
 
 	case Notitia::PRO_HTTP_RESPONSE:	/* HTTP响应已备 */
 		WBUG("sponte PRO_HTTP_RESPONSE");
@@ -748,7 +749,7 @@ HTTPSRVINLINE bool HttpSrvBody::lookSocket()
 S_END:
 			local_pius.ordo = Notitia::PRO_HTTP_HEAD;
 			aptus->sponte(&local_pius);
-			if ( has_pro ) deliver(Notitia::PRO_WEBSock_HEAD);	
+			if ( has_pro ) deliver(Notitia::WebSock_Start);	
 		}
 	}
 
