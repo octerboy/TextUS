@@ -14,7 +14,7 @@ toway.o:ToWay.cpp
 	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=ToWay -o $@ $^ 
 	
 toway.so: toway.o md5.o
-	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS)
+	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase
 	cp $@ ../release
 
 clean:
