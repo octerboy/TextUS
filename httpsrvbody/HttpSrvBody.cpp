@@ -230,7 +230,7 @@ private:
 void HttpSrvBody::ignite(TiXmlElement *cfg)
 {
 	const char *iscopy_str = cfg->Attribute("proxy");
-	if ( iscopy_str && stricmp(iscopy_str,"yes") == 0)
+	if ( iscopy_str && strcasecmp(iscopy_str,"yes") == 0)
 		isProxy = true;
 
 	if ( !gCFG ) 
@@ -449,12 +449,15 @@ HttpSrvBody::HttpSrvBody()
 	rcv_buf = 0;
 	snd_buf = 0;
 	local_pius.indic = 0;
+	local_pius.subor = 0;
 	isProxy = false;
 	set_buf_pius.indic = &sock.hitb[0];
 	set_buf_pius.ordo = Notitia::SET_TBUF;
+	set_buf_pius.subor = 0;
 
 	set_pre_buf_pius.indic = &left_tb[0];
 	set_pre_buf_pius.ordo = Notitia::SET_TBUF;
+	set_pre_buf_pius.subor = 0;
 	gCFG = 0;
 
 	reset();
@@ -503,6 +506,10 @@ HTTPSRVINLINE void HttpSrvBody::deliver(Notitia::HERE_ORDO aordo)
 	Amor::Pius tmp_pius;
 	tmp_pius.ordo = aordo;
 	WBUG("deliver Notitia::%d", aordo);
+	if ( aordo == Notitia::PRO_TBUF ) 
+		tmp_pius.subor = cur_sub_ordo;
+	else
+		tmp_pius.subor = 0;
 	aptus->facio(&tmp_pius);
 	return ;
 }
@@ -1026,6 +1033,7 @@ Pro_FRM_DATA:
 		WBUG("will terminate websocket");
 		tmp_pius.ordo = Notitia::END_SESSION;
 		tmp_pius.indic = 0;
+		tmp_pius.subor = 0;
 		aptus->sponte(&tmp_pius);
 	}
 }
