@@ -18,10 +18,10 @@
 #define TEXTUS_BUILDNO  "$Revision: 40 $"
 /* $NoKeywords: $ */
 
+#include "Amor.h"
 #include "Notitia.h"
 #include "md5.h"
 #include <stdarg.h>
-#include "Amor.h"
 #include "TBuffer.h"
 #include "BTool.h"
 #include "casecmp.h"
@@ -79,7 +79,7 @@ public:
 	struct TokenList {
 		char token[32];
 		ToWay *reader;	//指向ToReader
-		ToWay *control;	//控制者, 最初为0, REQUEST就设置, WEB_HEAD时再设置, 如果中断就以此为据从队列中取出.
+		ToWay *control;	//控制者, 最初为0, WebSock_Start时设置. 如果还在pools，没有连到指令服务器, 终端中断就以此为据从队列中取出.
 		struct TokenList *prev, *next;
 
 		inline TokenList () {
@@ -149,10 +149,6 @@ public:
 		};
 	} *aone;
 
-	static struct TokenList pools;
-	static struct TokenList idle;
-	
-	static long token_num ;
 
 	ToWay *to_reader;
 	ToWay *from_way;
@@ -164,6 +160,10 @@ private:
 	Amor::Pius local_pius;
 
 	struct G_CFG {
+		struct TokenList pools;
+		struct TokenList idle;
+		long token_num ;
+
 		enum Work_Mode work_mode;
 		struct TokenList *token_db;
 		int token_many;
@@ -210,7 +210,6 @@ private:
 
 #include <assert.h>
 
-long ToWay::token_num=0 ;
 void ToWay::ignite(TiXmlElement *prop)
 {
 	int i;
@@ -222,7 +221,7 @@ void ToWay::ignite(TiXmlElement *prop)
 		gCFG->prop(prop);
 		for ( i = 0; i < gCFG->token_many; i++)
 		{
-			idle.put(&gCFG->token_db[i]);
+			gCFG->idle.put(&(gCFG->token_db[i]));
 		}
 	}
 }
@@ -278,6 +277,7 @@ bool ToWay::facio( Amor::Pius *pius)
 
 	switch ( pius->ordo )
 	{
+#ifdef NOOOOOO
 	case Notitia::PRO_HTTP_REQUEST:
 		WBUG("facio PRO_HTTP_REQUEST");
 		if ( gCFG->work_mode != ToReader )
@@ -291,25 +291,25 @@ bool ToWay::facio( Amor::Pius *pius)
 			output(" ", 1);
 			goto AUTH_BACK_END2;
 		}
-		aone = idle.fetch();
+		aone = gCFG->idle.fetch(); //在ignite时，idle就预置了充分的数量
 		if ( !aone )
 		{
 			output(" ", 1);
 			goto AUTH_BACK_END2;
 		}
 
-		if ( token_num == 0 ) 
+		if ( gCFG->token_num == 0 ) 
 		{
 		#if defined(_WIN32) && (_MSC_VER < 1400 )
 			_ftime(&now);
 		#else
 			ftime(&now);
 		#endif
-			token_num = now.time & 0xFFFF;
+			gCFG->token_num = now.time & 0xFFFF;
 		} else {
-			token_num++;
+			gCFG->token_num++;
 		}
-		TEXTUS_SPRINTF(msg, "%ld", token_num);
+		TEXTUS_SPRINTF(msg, "%ld", gCFG->token_num);
 	
 		MD5Init (&Md5Ctx);
 		MD5Update (&Md5Ctx, msg, strlen(msg));
@@ -318,7 +318,7 @@ bool ToWay::facio( Amor::Pius *pius)
 		memcpy(aone->token, "iway-", 5);
 		byte2hex(md, 8, &(aone->token[5]));
 		aone->token[TOKEN_LEN] = 0;
-		pools.put(aone);
+		gCFG->pools.put(aone);
 		aone->reader = 0;
 		aone->control = this;
 		output(aone->token, TOKEN_LEN);
@@ -326,16 +326,48 @@ bool ToWay::facio( Amor::Pius *pius)
 AUTH_BACK_END2:
 		local_pius.ordo = Notitia::PRO_HTTP_HEAD;
 		aptus->sponte(&local_pius);
-
 		break;
+#endif
 
-	case Notitia::PRO_WEBSock_HEAD:
-		WBUG("facio PRO_WEBSock_HEAD");
+	case Notitia::WebSock_Start:
+		WBUG("facio WeBSock_Start");
 		if ( gCFG->work_mode != ToReader )
 		{
 			WLOG(ERR,"Not ToReader for PRO_WEBSock_HEAD");
 			break;
 		}
+		aone = gCFG->idle.fetch(); //在ignite时，idle就预置了充分的数量
+		if ( !aone )
+		{
+			way_down();
+			break;
+		}
+
+		if ( gCFG->token_num == 0 ) 
+		{
+		#if defined(_WIN32) && (_MSC_VER < 1400 )
+			_ftime(&now);
+		#else
+			ftime(&now);
+		#endif
+			gCFG->token_num = now.time & 0xFFFF;
+		} else {
+			gCFG->token_num++;
+		}
+		TEXTUS_SPRINTF(msg, "%ld", gCFG->token_num);
+	
+		MD5Init (&Md5Ctx);
+		MD5Update (&Md5Ctx, msg, strlen(msg));
+		MD5Update (&Md5Ctx, "9289Cd1L+!#", 11);
+		MD5Final ((char*)&md[0], &Md5Ctx); 
+		memcpy(aone->token, "iway-", 5);
+		byte2hex(md, 8, &(aone->token[5]));
+		aone->token[TOKEN_LEN] = 0;
+		gCFG->pools.put(aone);	//放进pools，等着指令服务器连接时从中找出来, 按token
+		aone->reader = this; //这就是reader了
+		aone->control = this;	//如果还在pools，insway没有来连接, 而这个reader断了, 就以此从pools中取出来, 还到idle中。
+
+#ifdef NOOOOOO	//这一段以前的，留纪念
 		protocol = getHead("Sec-WebSocket-Protocol");
 		if (protocol && memcmp(protocol, "iway-", 5) == 0 && strlen(protocol) == TOKEN_LEN ) 
 		{
@@ -353,6 +385,11 @@ AUTH_BACK_END2:
 			local_pius.ordo = Notitia::PRO_HTTP_HEAD;
 			aptus->sponte(&local_pius);
 		} 
+#endif
+		snd_buf->input((unsigned char*)&(aone->token[0]), TOKEN_LEN);
+		local_pius.ordo = Notitia::PRO_TBUF;
+		local_pius.indic = 0;
+		aptus->sponte(&local_pius);
 		break;
 
 	case Notitia::PRO_TBUF:	
@@ -375,7 +412,7 @@ AUTH_BACK_END2:
 				p++;
 				if ( (rcv_buf->point - rcv_buf->base - 1) ==  TOKEN_LEN )
 				{
-					found = pools.fetch(p);
+					found = gCFG->pools.fetch(p);
 					if ( found )
 					{
 						to_reader = found->reader ;
@@ -385,7 +422,7 @@ AUTH_BACK_END2:
 							/* 建立了通路, found就用不着了 */
 							found->reader = 0;
 							found->control = 0;
-							idle.put(found);
+							gCFG->idle.put(found);
 							msg[1] = '0';
 							sprintf(&msg[2],"%s\n", "OK");
 						} else {
@@ -446,12 +483,12 @@ AUTH_BACK_END2:
 		{
 			while ( true)
 			{
-				aone = pools.fetch(this);
+				aone = gCFG->pools.fetch(this);
 				if ( !aone) 
 					break;
 				aone->reader = 0;
 				aone->control = 0;
-				idle.put(aone);
+				gCFG->idle.put(aone);
 			}
 		
 			if ( from_way )
