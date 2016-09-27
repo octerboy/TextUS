@@ -18,33 +18,41 @@
 #define TEXTUS_BUILDNO  "$Revision: 24 $"
 /* $NoKeywords: $ */
 
-#include "Aptus.h"
+#include "Amor.h"
 #include "BTool.h"
 #include "Notitia.h"
 #include "textus_string.h"
+#include "casecmp.h"
 #include <time.h>
 #include <stdarg.h>
 
-class Urlsw: public Aptus {
+class Urlsw: public Amor{
 public:
-	void ignite_t (TiXmlElement *wood, TiXmlElement *);
-	Amor *clone();
 
+	void ignite(TiXmlElement *cfg);	
+	bool facio( Pius *);
+	bool sponte( Pius *);
+
+	Amor *clone();
 	Urlsw();
 	~Urlsw();
+
 	bool dextra(Amor::Pius *, unsigned int);
 	bool laeve(Amor::Pius *, unsigned int);
 
-	int p_num;	/* 路径数 */
+	int p_num;	/* 路径数, 也即多少个匹配项 */
 	struct MPath {
 		char *val;	
 		bool nocase;	/* 不区分大小写, 默认为否, 即"S.xml"与"s.xml"是不同的 */
-		const char *head_field;
+		const char *head_field;	//HTTP头的域, 如果为空, 则取path
+		int subor;		//匹配后, 所分配的子ordo
 	};
 	MPath *paths;	/* 路径数组, 所指向空间也包括具体的内容 */
 	const char *url;	/* URI */
 	
 	TEXTUS_ORDO concerned;	//关心的ordo
+	int cur_subor;	//当前所用子ordo
+
 	bool catchLae;
 	
 	Amor::Pius stop;
@@ -54,11 +62,8 @@ public:
 	inline void dexHandle(Amor::Pius *, unsigned int from);
 	inline void laeHandle(Amor::Pius *, unsigned int from);
 #include "httpsrv_obj.h"
-#include "tbug.h"
+#include "wlog.h"
 };
-
-#include "casecmp.h"
-#include "textus_string.h"
 
 Urlsw::Urlsw()
 {
@@ -85,7 +90,7 @@ Urlsw::~Urlsw()
 	}
 }
 
-void Urlsw::ignite_t (TiXmlElement *cfg, TiXmlElement *url_ele)
+void Urlsw::ignite(TiXmlElement *cfg)
 {	
 	const char *comm_str, *g_field;
 	TiXmlElement *p_ele;
@@ -93,26 +98,18 @@ void Urlsw::ignite_t (TiXmlElement *cfg, TiXmlElement *url_ele)
 	char *p=(char*)0;
 	bool g_case;
 
-	WBUG("prius %p, aptus %p, cfg %p", prius, aptus, cfg);
-	if ( !url_ele) return;
-
 	//comm_str = url_ele->Attribute("ordo");
 	//BTool::get_textus_ordo(&concerned, comm_str);
-	concerned = Notitia::get_ordo(url_ele->Attribute("ordo"));
+	concerned = Notitia::get_ordo(cfg->Attribute("ordo"));
 
-	g_field = url_ele->Attribute("field");
+	g_field = cfg->Attribute("field");
 
-	comm_str = url_ele->Attribute("case");
+	comm_str = cfg->Attribute("case");
 	if ( comm_str && strcasecmp(comm_str, "no") == 0 )
 		g_case = true;
 	else
 		g_case = false;
 
-	comm_str = url_ele->Attribute("laeve");
-	if ( comm_str && strcasecmp(comm_str, "yes") == 0 )
-		catchLae = true;
-	else
-		catchLae = false;
 
 	p_ele = url_ele->FirstChildElement("match"); p_num = 0; p_len = 0;
 	while(p_ele)
@@ -281,5 +278,4 @@ bool Urlsw::canMatch()
 	return match;
 }
 
-#define TEXTUS_APTUS_TAG { 'U', 'R', 'L', 0};
 #include "hook.c"
