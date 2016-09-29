@@ -37,12 +37,9 @@ public:
 	Urlsw();
 	~Urlsw();
 
-	bool dextra(Amor::Pius *, unsigned int);
-	bool laeve(Amor::Pius *, unsigned int);
-
 	int p_num;	/* 路径数, 也即多少个匹配项 */
 	struct MPath {
-		char *val;	
+		const char *val;	//从xml文件中得到的要匹配的值
 		bool nocase;	/* 不区分大小写, 默认为否, 即"S.xml"与"s.xml"是不同的 */
 		const char *head_field;	//HTTP头的域, 如果为空, 则取path
 		int subor;		//匹配后, 所分配的子ordo
@@ -53,14 +50,8 @@ public:
 	TEXTUS_ORDO concerned;	//关心的ordo
 	int cur_subor;	//当前所用子ordo
 
-	bool catchLae;
-	
-	Amor::Pius stop;
-
 	bool isPoineer;
 	inline bool canMatch();
-	inline void dexHandle(Amor::Pius *, unsigned int from);
-	inline void laeHandle(Amor::Pius *, unsigned int from);
 #include "httpsrv_obj.h"
 #include "wlog.h"
 };
@@ -69,13 +60,10 @@ Urlsw::Urlsw()
 {
 	p_num = 0;
 	paths = 0;
-	url = (char*) 0;
+	url = (const char*) 0;
 
-	stop.ordo = Notitia::DMD_STOP_NEXT;
-	stop.indic = 0;
 	isPoineer = false;
 	concerned = Notitia::TEXTUS_RESERVED;
-	catchLae = false;
 }
 
 Urlsw::~Urlsw()
@@ -84,7 +72,6 @@ Urlsw::~Urlsw()
 	{
 		if ( paths)
 		{
-			delete[] paths[0].val;
 			delete[] paths;
 		}
 	}
@@ -98,8 +85,6 @@ void Urlsw::ignite(TiXmlElement *cfg)
 	char *p=(char*)0;
 	bool g_case;
 
-	//comm_str = url_ele->Attribute("ordo");
-	//BTool::get_textus_ordo(&concerned, comm_str);
 	concerned = Notitia::get_ordo(cfg->Attribute("ordo"));
 
 	g_field = cfg->Attribute("field");
@@ -111,13 +96,12 @@ void Urlsw::ignite(TiXmlElement *cfg)
 		g_case = false;
 
 
-	p_ele = url_ele->FirstChildElement("match"); p_num = 0; p_len = 0;
+	p_ele = cfg->FirstChildElement("match"); p_num = 0; p_len = 0;
 	while(p_ele)
 	{
 		comm_str = p_ele->GetText();
 		if ( comm_str )
 		{
-			p_len += strlen(comm_str)+1;
 			p_num++;
 		}
 		p_ele = p_ele->NextSiblingElement("match");
@@ -125,16 +109,11 @@ void Urlsw::ignite(TiXmlElement *cfg)
 
 	if ( p_num > 0 )
 	{
-		need_dex = true;
-		canAccessed = true;
 		paths = new struct MPath [sizeof(struct MPath)*p_num];
-		p =  new char[p_len];
-		memset(p, 0, p_len);
-		need_lae = catchLae;
 	}
 
 	WBUG("this p_num %d\n", p_num);
-	p_ele = url_ele->FirstChildElement("match"); m = 0;
+	p_ele = cfg->FirstChildElement("match"); m = 0;
 	while(p_ele)
 	{
 		comm_str = p_ele->GetText();
@@ -142,6 +121,7 @@ void Urlsw::ignite(TiXmlElement *cfg)
 		{
 			const char *c_str;
 			c_str = p_ele->Attribute("case");
+
 			if ( c_str && strcasecmp(c_str, "no") == 0 )
 				paths[m].nocase = true;
 			else if ( c_str && strcasecmp(c_str, "yes") == 0 )
@@ -150,10 +130,11 @@ void Urlsw::ignite(TiXmlElement *cfg)
 				paths[m].nocase = g_case;
 
 			if ( !(paths[m].head_field = p_ele->Attribute("field")))
-				paths[m].head_field = g_field;	/* 此若不指明HTTP头的域则取全局 */
-			paths[m].val = p;
-			TEXTUS_STRCPY(p, comm_str);
-			p += strlen(comm_str)+1;
+				paths[m].head_field = g_field;	/* 此若不指明HTTP头的域则取cfg设定的 */
+
+			paths[m].subor = 0;
+			p_ele->QueryIntAttribute("subor", &(paths[m].subor));
+			paths[m].val = comm_str;
 			m++;
 		}
 		p_ele = p_ele->NextSiblingElement("match");
@@ -166,82 +147,55 @@ Amor *Urlsw::clone()
 {	
 	Urlsw *child = 0;
 	child = new Urlsw();
-	Aptus::inherit( (Aptus*)child );
 	child->p_num =  p_num;
 	child->paths =  paths;
 	child->concerned = concerned;
-	child->catchLae = catchLae;
 	
 	return  (Amor*)child;
 }
 
-bool Urlsw::laeve(Amor::Pius *pius, unsigned int from)
+bool Urlsw::sponte(Amor::Pius *pius)
 {
 	if ( concerned == pius->ordo)
-		laeHandle(pius, from);
-	else
-		return false;
-	return true;
+		pius->subor = cur_subor;
+	return false;
 }
 
-bool Urlsw::dextra(Amor::Pius *pius, unsigned int from)
+bool Urlsw::facio(Amor::Pius *pius)
 {
 	switch (pius->ordo)
 	{
 	case Notitia::PRO_HTTP_HEAD:	/* HTTP请求HEAD */
-		WBUG("Urlsw dextra PRO_HTTP_HEAD owner is %p", owner);
-#ifndef NDEBUG 
+		WBUG("Urlsw facio PRO_HTTP_HEAD");
 		goto HANDLEPRO;
-#endif
+
 	case Notitia::PRO_HTTP_REQUEST:	/* HTTP请求 */
-		WBUG("Urlsw dextra PRO_HTTP_REQUEST owner is %p", owner);
-#ifndef NDEBUG 
+		WBUG("Urlsw facio PRO_HTTP_REQUEST");
 		goto HANDLEPRO;
-#endif
+
 	case Notitia::PRO_TINY_XML:	/* XML请求 */
-		WBUG("Urlsw dextra PRO_TINY_XML owner is %p", owner);
-#ifndef NDEBUG 
+		WBUG("Urlsw dextra PRO_TINY_XML");
 		goto HANDLEPRO;
-#endif
+
 	case Notitia::PRO_SOAP_HEAD:	/* SOAP请求HEAD */
-		WBUG("Urlsw dextra PRO_SOAP_HEAD owner is %p", owner);
-#ifndef NDEBUG 
+		WBUG("Urlsw facio PRO_SOAP_HEAD");
 		goto HANDLEPRO;
-#endif
+
 	case Notitia::PRO_SOAP_BODY:	/* SOAP请求BODY */
-		WBUG("Urlsw dextra PRO_SOAP_BODY owner is %p", owner);
-#ifndef NDEBUG 
-	HANDLEPRO:
-#endif
-		dexHandle(pius, from);
+		WBUG("Urlsw facio PRO_SOAP_BODY");
+
+HANDLEPRO:
+	if ( canMatch() ) 
+		pius->subor = cur_subor;
 		break;
 			
 	default:
-		if ( concerned == pius->ordo)
-			dexHandle(pius, from);
-		else
-			return false;
+		WBUG("Urlsw facio Notitia:%d", concerned);
+		if ( concerned == pius->ordo && canMatch() ) 
+			pius->subor = cur_subor;
+		break;
 	}
-	return true;
-}
-
-void Urlsw::dexHandle(Amor::Pius *pius, unsigned int from)
-{
-	if ( canMatch())
-	{
-		WBUG("Urlsw dextra matched for owner %p", owner );
-		((Aptus *) aptus)->dextra(pius, from+1);/* 继续完成对本owner的访问,不影响其它Assistant */
-		if( prius)  prius->laeve(&stop, 0) ;	/* 终止对下一个节点的访问 */
-	}
-}
-
-void Urlsw::laeHandle(Amor::Pius *pius, unsigned int from)
-{
-	if ( canMatch())
-	{
-		WBUG("Urlsw laeve matched for owner %p", owner );
-		((Aptus *) aptus)->laeve(pius, from+1);/* 继续完成对本owner的访问,不影响其它Assistant */
-	}
+	return false;
 }
 
 bool Urlsw::canMatch()
@@ -249,11 +203,12 @@ bool Urlsw::canMatch()
 	bool match;
 	int i;
 	const char *head_val;
+	int retor = -1;
 
 	match = false;
 	for (i = 0; i <p_num && !match ; i++)
 	{
-		WBUG("dextra head_field %s for owner %p, match %s", paths[i].head_field=0?"Path":paths[i].head_field, owner, paths[i].val );
+		WBUG("match head_field %s, match %s", paths[i].head_field=0?"Path":paths[i].head_field, paths[i].val );
 		if ( paths[i].head_field)
 		{
 			head_val = getHead( (char*) paths[i].head_field);
@@ -266,13 +221,18 @@ bool Urlsw::canMatch()
 		if ( !head_val ) 
 			continue;
 
-		WBUG("dextra head value %s", head_val );
+		WBUG("match head value %s", head_val );
 		if ( paths[i].nocase )
 		{
 			match = ( strcasecmp(head_val, paths[i].val ) == 0 );
 		}  else {
 			match = ( strcmp(head_val, paths[i].val ) == 0 );
 		} 
+		if (match ) 
+		{
+			cur_subor =  paths[i].subor;
+			break;
+		}
 	}
 
 	return match;
