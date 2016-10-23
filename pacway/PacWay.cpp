@@ -183,20 +183,14 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 		}
 		void set () {	};
 	};
-	
-#define Pos_UID 0 
-#define Pos_CardNo 1 
-#define Pos_FlowPrint 2 
-#define Pos_SysTime 3 
-#define Pos_Fixed_Next 4  //下一个动态变量的位置, 也是为脚本自定义动态变量的第1个位置
+
+/* 包括SysTime这样的变量，都由外部函数计算，所以这里只保留脚本指纹数据 */	
+#define Pos_FlowPrint 1 
+#define Pos_TotalIns 2 
+#define Pos_Fixed_Next 3  //下一个动态变量的位置, 也是为脚本自定义动态变量的第1个位置
 
 	struct PVar: public PVarBase 
 	{
-		int sub_num;	//子变量数, 子变量只限于常数
-	#define VAR_SUB_NUM 16
-		int sub_len[VAR_SUB_NUM];	//子变量内容长度组，最大16个
-		const char *sub_val[VAR_SUB_NUM];//子变量内容, 最大16个
-
 		int start_pos;		//从输入报文中, 什么位置开始
 		int get_length;		//取多少长度的值
 		int source_fld_no;	//来源域号。
@@ -260,39 +254,17 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 			var_ele->QueryIntAttribute("start", &(start_pos));
 			var_ele->QueryIntAttribute("length", &(get_length));
 
-			for ( i = 0, sub_num=0; i < VAR_SUB_NUM; i++)
-			{
-				char att_name[16];
-				TEXTUS_SPRINTF(att_name , "para%d", i);
-				sub_val[i] = var_ele->Attribute(att_name);
-				if ( !sub_val[i] ) break;
-				sub_len[i] = strlen (sub_val[i]);
-				sub_num++;
-			}
-
-			if ( strcasecmp(nm, "$uid" ) == 0 ) 
-			{
-				dynamic_pos = Pos_UID ;
-				kind = VAR_UID;
-			}
-
-			if ( strcasecmp(nm, "$cardno" ) == 0 ) 
-			{
-				dynamic_pos = Pos_CardNo ;
-				kind = VAR_CardNo;
-			}
-
 			if ( strcasecmp(nm, "$ink" ) == 0 ) 
 			{
 				dynamic_pos = Pos_FlowPrint;
 				kind = VAR_FlowPrint;
 			}
-
-			if ( strcasecmp(nm, "$now" ) == 0 ) 
+			if ( strcasecmp(nm, "$total" ) == 0 ) 
 			{
-				dynamic_pos = Pos_SysTime;
-				kind = VAR_SysTime;
+				dynamic_pos = Pos_TotalIns;
+				kind = VAR_TotalIns;
 			}
+
 			if ( kind != VAR_None) goto P_RET; //已有定义，不再看这个Dynamic, 以上定义都与Dynamic相同处理
 
 			dy = var_ele->Attribute("dynamic");
@@ -357,6 +329,12 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 				val[len] = 0;
 			}
 		};
+		void input(int iv)
+		{
+			TEXTUS_SPRINTF(val, "%d", iv);
+			c_len = sizeof(iv);
+			val[c_len] = 0;
+		};
 	};
 
 	struct MK_Session {		//记录一个制卡过程中的各种临时数据
@@ -391,10 +369,8 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 			{
 				snap[i].index = i;
 			}
-			snap[Pos_UID].kind = VAR_UID;
-			snap[Pos_CardNo].kind = VAR_CardNo;
 			snap[Pos_FlowPrint].kind = VAR_FlowPrint;
-			snap[Pos_SysTime].kind = VAR_SysTime;
+			snap[Pos_TotalIns].kind = VAR_TotalIns;
 			reset();
 		};
 
@@ -431,11 +407,14 @@ struct PVar_Set {
 	struct PVar *vars;
 	int many;
 	int dynamic_at;
+	char var_nm[16];
 	PVar_Set () 
 	{
 		vars = 0;
 		many = 0;
-		dynamic_at = Pos_Fixed_Next; //0,等 已经给$uid等动态占了
+		dynamic_at = Pos_Fixed_Next; //0,等 已经给$FlowPrint等占了
+		memcpy(var_nm, "Variable", 8);
+		var_nm[8] = 0;
 	};
 
 	~PVar_Set () 
@@ -444,11 +423,17 @@ struct PVar_Set {
 		vars = 0;
 		many = 0;
 	};
+	bool is_var(const char *nm)
+	{
+		if (nm  && strlen(nm) == 8 && memcmp(nm, var_nm, 8) == 0 )
+			return true;
+		return false;
+	}
 
 	void defer_vars(TiXmlElement *map_root, TiXmlElement *icc_root=0) //分析一下变量定义
 	{
 		TiXmlElement *var_ele, *i_ele;
-		const char *vn="Variable", *nm;
+		const char *vn = &var_nm[0], *nm;
 		bool had_nm;
 		int vmany ;
 
@@ -652,10 +637,8 @@ struct PVar_Set {
 		return (dynamic_at-1);
 	};
 };
-
-enum Command_Type { INS_None = 0, OP_FeedCard=1, OP_OutCard=2, OP_Prompt=3, 
-		INS_Plain = 4, INS_ExtAuth = 5, INS_DesMac=6, INS_Mac=7, INS_ProRst=8, INS_Call=9, INS_GpKmc = 10,
-		INS_Charge=11, INS_LoadInit=12, INS_Debit=13, INS_HSM = 14 };
+/* 指令分两种，一种是从报文定义而来，即INS_Ori，还有一种是从INS_Ori的组合而来，即INS_User */
+enum Command_Type { INS_None = 0, INS_Ori=1, INS_User=2};
 	 
 struct DyList {
 	char *con;
@@ -732,6 +715,7 @@ struct SwBase {
 		};
 	} ;
 
+/* 下面这段匹配应该是不需要变的 */
 struct MatchDst {	//匹配目标
 	struct PVar *dst;
 	const char *con_dst;
@@ -1164,6 +1148,7 @@ struct CmdBase:public Condition  {
 		};
 	};
 
+/* 外部函数调用， 应该不变*/
 	struct CallFun: public Condition {
 		const char *lib_nm, *fun_nm;
 		TiXmlElement *component;	//指令文档中的第一个component元素
@@ -1271,6 +1256,7 @@ struct CmdBase:public Condition  {
 			return ret;
 		};
 	};
+/* 外部函数定义结束*/
 
 	struct Base_Command {		//基础指令定义，只包括两种。　用于子序列，指令数少，所以不需要order了。
 		enum Command_Type type;	//类型, 不用union类型, 
@@ -2267,7 +2253,7 @@ struct CmdBase:public Condition  {
 		};
 	};
 
-	struct ICC_Command {		//一般指令定义
+	struct User_Command {		//INS_User指令定义
 		int order;
 		enum Command_Type type;	//类型, 不用union类型, 真不知道如何调用这个构造函数
 			struct PlainIns plain;
@@ -2437,7 +2423,7 @@ struct CmdBase:public Condition  {
 	};
 
 	struct INS_Set {	
-		struct ICC_Command *instructions;
+		struct User_Command *instructions;
 		int many;
 		INS_Set () 
 		{
@@ -2451,62 +2437,48 @@ struct CmdBase:public Condition  {
 			instructions = 0;
 			many = 0;
 		};
+		bool is_ins(const char *nm, TiXmlElement *map_root, struct PVar_Set *var_set)
+		{
+			bool ret = true;
+			TiXmlElement *sub_serial, *spro;
+			if ( is_var(nm) ) return false;
+			sub_serial = map_root->FirstChildElement(nm); 
+			if ( !sub_serial ) 
+				return false;
+			spro = sub_serial->FirstChildElement("Pro");
+			if ( !spro ) 
+				return false;
+
+			return true;
+			
+		};
 
 		void put_inses(TiXmlElement *root, struct PVar_Set *var_set, TiXmlElement *map_root)
 		{
 			TiXmlElement *icc_ele;
 			int mor, cor, vmany, refny, i ;
-			bool has_prompt = false;
-			bool fed = false;
-
-			/* 分析一下5种IC卡操作 */
-			if (root->Attribute("prompt") )
-			{
-				if (strcasecmp(root->Attribute("prompt"), "yes") == 0 )
-					has_prompt = true;
-			}
-
-			if (root->Attribute("feed") )
-			{
-				if (strcasecmp(root->Attribute("feed"), "yes") == 0 )
-					fed = true;
-			}
-			#define IS_INS(x) strcasecmp(x, "Command") ==0  \
-					|| strcasecmp(x, "ExtAuth") ==0 \
-					|| strcasecmp(x, "DesMac") ==0 \
-					|| strcasecmp(x, "DesFile") ==0 \
-					|| strcasecmp(x, "Load") ==0 \
-					|| strcasecmp(x, "Scp02Kmc") ==0 \
-					|| strcasecmp(x, "LoadInit") ==0 \
-					|| strcasecmp(x, "Debit") ==0 \
-					|| strcasecmp(x, "HMS") ==0 \
-					|| strcasecmp(x, "Call") ==0 \
-					|| strcasecmp(x, "Reset") ==0 \
-					|| strcasecmp(x, "PMac") ==0
 
 			icc_ele= root->FirstChildElement(); refny = 0;
 			while(icc_ele)
 			{
 				if ( icc_ele->Value() )
 				{
-					if ( IS_INS(icc_ele->Value()) )
+					if ( is_ins(icc_ele->Value(), map_root, var_set) )
 					refny++;
 				}
 				icc_ele = icc_ele->NextSiblingElement();
 			}
 			//初步确定变量数
-			many = refny +  10;	//考虑提示操作, 进出卡
-			instructions = new struct ICC_Command[many];
+			many = refny ;
+			instructions = new struct User_Command[many];
 			vmany = 0;
-			if ( has_prompt ) { instructions[vmany].set(OP_Prompt, many); vmany++; } //提示总指令数
-			if ( fed ) { instructions[vmany].set(OP_FeedCard); vmany++; }
 			
 			icc_ele= root->FirstChildElement(); mor = 0;i = 0;
 			while(icc_ele)
 			{
 				if ( icc_ele->Value() )
 				{
-					if ( IS_INS(icc_ele->Value()) )
+					if ( is_ins(icc_ele->Value(), map_root, var_set) )
 					{
 						cor = 0;
 						icc_ele->QueryIntAttribute("order", &(cor)); 
@@ -2519,28 +2491,19 @@ struct CmdBase:public Condition  {
 				ICC_NEXT:
 				icc_ele = icc_ele->NextSiblingElement();
 			}
-			if ( fed) 
-				instructions[vmany].set(OP_OutCard); 	//最后一条指令是出卡, 或者是空, 让mk_hand方便一些.
-			else
-				instructions[vmany].set(INS_None); 
-
-			vmany++;
-			if ( has_prompt ) { instructions[0].set(OP_Prompt, i); } //提示总指令数
-
-			if ( vmany > many ) printf("bug!!__ ins_many prior %d less than post %d\n", many, vmany);
 			many = vmany; //最后再更新一次指令数
 		};
 	};	
-	/* 指令集定义结束 */
+	/* User_Command指令集定义结束 */
 	
 	struct  Personal_Def	//个人化定义
 	{
-		TiXmlDocument doc_c;	//IC指令定义；
+		TiXmlDocument doc_c;	//User_Command指令定义；
 		TiXmlElement *c_root;	
-		TiXmlDocument doc_k;	//密码机密钥定义索引
+		TiXmlDocument doc_k;	//map：Variable定义，子序列定义
 		TiXmlElement *k_root;
 
-		TiXmlDocument doc_v;	//传输密钥等变量定义
+		TiXmlDocument doc_v;	//其它Variable定义
 		TiXmlElement *v_root;
 		
 		struct PVar_Set person_vars;
@@ -2655,7 +2618,7 @@ struct CmdBase:public Condition  {
 		}
 	};
 	
-	struct PersonDef_Set {	//个人化定义集合
+	struct PersonDef_Set {	//User_Command集合之集合
 		int num_icp;
 		struct Personal_Def *icp_def;
 		int max_snap_num;
@@ -3249,6 +3212,7 @@ void PacWay::handle_pac()
 			goto HERE_END;
 		}
 		/* 制卡任务开始  */
+		mess.snap[Pos_FlowTotal].input( cur_def->ins_all.many);
 		if ( cur_def->flow_md[0] )
 			mess.snap[Pos_FlowPrint].input( cur_def->flow_md, strlen(cur_def->flow_md));
 
@@ -3623,7 +3587,7 @@ bool PacWay::mk_hand(MK_Mode mmode)
 	char tmp[64], desc[64];
 	
 	struct DyVar *dvr=0;
-	struct ICC_Command *ins;
+	struct User_Command *ins;
 	struct TermOPBase *wbase ;
 	char *p, *q, *r;
 	unsigned long p_len, q_len, r_len;

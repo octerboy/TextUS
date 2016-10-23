@@ -1134,6 +1134,9 @@ unsigned long Notitia::get_ordo(const char *comm_str)
 	WHAT_ORDO(HTTP_Request_Cleaned , Y); \
 	WHAT_ORDO(GET_COOKIE , Y); \
 	WHAT_ORDO(SET_COOKIE , Y); \
+	WHAT_ORDO(GET_DOMAIN , Y); \
+	WHAT_ORDO(HTTP_ASKING , Y); \
+	WHAT_ORDO(WebSock_Start , Y); \
 	WHAT_ORDO(SET_TINY_XML , Y); \
 	WHAT_ORDO(PRO_TINY_XML , Y); \
 	WHAT_ORDO(PRO_SOAP_HEAD , Y); \
