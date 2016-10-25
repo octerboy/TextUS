@@ -2255,6 +2255,9 @@ struct CmdBase:public Condition  {
 
 	struct User_Command {		//INS_User指令定义
 		int order;
+		struct ComplexSubSerial *complex;
+		int comp_num;
+
 		enum Command_Type type;	//类型, 不用union类型, 真不知道如何调用这个构造函数
 			struct PlainIns plain;
 			struct HsmIns hsm;
@@ -2300,7 +2303,7 @@ struct CmdBase:public Condition  {
 			}
 		};
 
-		int  set ( TiXmlElement *ele, struct PVar_Set *vrset, TiXmlElement *map_root) //返回对IC的指令数
+		int  set ( TiXmlElement *ele, struct PVar_Set *vrset, TiXmlElement *map_root, struct ComplexSubSerial *pool) //返回对IC的指令数
 		{
 			ele->QueryIntAttribute("order", &order);
 			
@@ -2425,65 +2428,103 @@ struct CmdBase:public Condition  {
 	struct INS_Set {	
 		struct User_Command *instructions;
 		int many;
+		struct ComplexSubSerial *comp_pool;
 		INS_Set () 
 		{
 			instructions= 0;
 			many = 0;
+			comp_pool = 0;
 		};
 
 		~INS_Set () 
 		{
 			if (instructions ) delete []instructions;
+			if (comp_pool ) delete []comp_pool;
 			instructions = 0;
 			many = 0;
 		};
-		bool is_ins(const char *nm, TiXmlElement *map_root, struct PVar_Set *var_set)
+
+		int is_ins(TiXmlElement *app_ele, TiXmlElement *map_root, struct PVar_Set *var_set)
 		{
-			bool ret = true;
-			TiXmlElement *sub_serial, *spro;
-			if ( is_var(nm) ) return false;
+			TiXmlElement *sub_serial, *spro, *me, *pri;
+			const char *pri_nm;
+			const char *nm = app_ele->Value();
+			int c_num  =1;
+
+			if ( var_set->is_var(nm)) return 0;
+
 			sub_serial = map_root->FirstChildElement(nm); 
 			if ( !sub_serial ) 
-				return false;
+				return 0;
+			
+			me = sub_serial->FirstChildElement("Me");			
+			pri_nm = me->Attribute("primary");
+			if ( pri_nm)
+			{
+				if ( app_ele->Attribute(pri_nm))
+					c_num = 1;
+				else 
+				{
+					for( 	pri = app_ele->FirstChildElement(pri_nm); 
+						pri_ele; 
+						pri = pri->NextSiblingElement(pri_nm) )
+					{
+						c_num++;
+					}
+				}
+			} else 
+				c_num = 1;
+
 			spro = sub_serial->FirstChildElement("Pro");
 			if ( !spro ) 
-				return false;
+				return 0;
 
-			return true;
+			return c_num;
 			
 		};
 
 		void put_inses(TiXmlElement *root, struct PVar_Set *var_set, TiXmlElement *map_root)
 		{
 			TiXmlElement *icc_ele;
-			int mor, cor, vmany, refny, i ;
+			int mor, cor, vmany, refny, i, comp_num, i_num ;
 
 			icc_ele= root->FirstChildElement(); refny = 0;
+			comp_num = 0;
 			while(icc_ele)
 			{
 				if ( icc_ele->Value() )
 				{
-					if ( is_ins(icc_ele->Value(), map_root, var_set) )
-					refny++;
+					i = is_ins(icc_ele, map_root, var_set) )
+					if ( i > 0 )
+					{
+						refny++;
+						comp_num += i;
+						
+					}
 				}
 				icc_ele = icc_ele->NextSiblingElement();
 			}
 			//初步确定变量数
 			many = refny ;
 			instructions = new struct User_Command[many];
+			comp_pool = new struct ComplexSubSerial[comp_num];
 			vmany = 0;
 			
 			icc_ele= root->FirstChildElement(); mor = 0;i = 0;
+			comp_num = 0;
+			i_num = 0;
 			while(icc_ele)
 			{
 				if ( icc_ele->Value() )
 				{
-					if ( is_ins(icc_ele->Value(), map_root, var_set) )
+					i = is_ins(icc_ele, map_root, var_set) )
+					comp_num += i;
+					if ( i > 0 )
 					{
 						cor = 0;
 						icc_ele->QueryIntAttribute("order", &(cor)); 
 						if ( cor <= mor ) goto ICC_NEXT;	//order不符合顺序的，略过
-						i += instructions[vmany].set(icc_ele, var_set, map_root);
+						i_num += instructions[vmany].set(icc_ele, var_set, map_root, &comp_pool[comp_num-i]);
 						mor = cor;
 						vmany++;
 					}
