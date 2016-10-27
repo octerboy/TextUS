@@ -1371,7 +1371,12 @@ struct CmdBase:public Condition  {
 
 		TiXmlDocument var_doc;
 		TiXmlElement *var_root;
+
 		struct PVar_Set sv_set;	//局域变量集, 只有对DesMac之类的才有
+
+		TiXmlElement *sub_serial;
+		TiXmlElement *spro;
+		TiXmlElement *me;
 
 		ComplexSubSerial()
 		{
@@ -2306,17 +2311,16 @@ struct CmdBase:public Condition  {
 		//	}
 		//};
 
-		int  set ( TiXmlElement *app_ele, struct PVar_Set *vrset, TiXmlElement *map_root, struct ComplexSubSerial *pool) //返回对IC的指令数
+		int  set_sub( TiXmlElement *app_ele, struct PVar_Set *vrset, TiXmlElement *sub_serial, struct ComplexSubSerial *pool) //返回对IC的指令数
 		{
 			TiXmlElement *sub_serial, *spro, *me, *pri;
 			const char *pri_nm;
-			const char *nm = app_ele->Value();
 			int comp_num , ret_ic;
 
 			complex = pool;
 			app_ele->QueryIntAttribute("order", &order);
 
-			sub_serial = map_root->FirstChildElement(nm); //前面已经分析过了, 这里肯定不为NULL,nm就是Command之类的。
+			//前面已经分析过了, 这里肯定不为NULL,nm就是Command之类的。 sub_serial 
 			me = sub_serial->FirstChildElement("Me");
 			pri_nm = me->Attribute("primary");
 			if ( pri_nm)
@@ -2324,21 +2328,27 @@ struct CmdBase:public Condition  {
 				if ( app_ele->Attribute(pri_nm))
 				{
 					/* pro_analyze 根据变量名, 也就是属性名或元素内容, 去找到实际真正的变量内容(必须是参考变量)。变量内容中指定了Pro等 */
-					comp_num = 1;
+					complex[0].me = me;
+					complex[0].sub_serial = sub_serial;
 					ret_ic = complex[0].pro_analyze(app_ele->Attribute(pri_nm));
+					comp_num = 1;
 				} else 
 				{
 					for( pri = app_ele->FirstChildElement(pri_nm), comp_num = 0; 
 						pri_ele; 
 						pri = pri->NextSiblingElement(pri_nm) )
 					{
-						ret_ic = complex[0].pro_analyze(key->GetText());
+						complex[0].me = me;
+						complex[0].sub_serial = sub_serial;
+						ret_ic = complex[comp_num].pro_analyze(key->GetText()); //多个可选，指令数算最后一个
 						comp_num++;
 					}
 				}
 			} else {
-				c_num = 1;
+				complex[0].me = me;
+				complex[0].sub_serial = sub_serial;
 				ret_ic = complex[0].pro_analyze(0);
+				comp_num = 1;
 			}
 
 			return ret_ic;
@@ -2482,12 +2492,12 @@ struct CmdBase:public Condition  {
 			many = 0;
 		};
 
-		int is_ins(TiXmlElement *app_ele, TiXmlElement *map_root, struct PVar_Set *var_set)
+		TiXmlElement *yes_ins(TiXmlElement *app_ele, TiXmlElement *map_root, struct PVar_Set *var_set, int &c_num)
 		{
 			TiXmlElement *sub_serial, *spro, *me, *pri;
 			const char *pri_nm;
 			const char *nm = app_ele->Value();
-			int c_num  =1;
+			c_num  =1;
 
 			if ( var_set->is_var(nm)) return 0;
 
@@ -2517,13 +2527,12 @@ struct CmdBase:public Condition  {
 			if ( !spro ) 
 				return 0;
 
-			return c_num;
-			
+			return sub_serial;
 		};
 
 		void put_inses(TiXmlElement *root, struct PVar_Set *var_set, TiXmlElement *map_root)
 		{
-			TiXmlElement *icc_ele;
+			TiXmlElement *icc_ele, *sub;
 			int mor, cor, vmany, refny, i, comp_num, i_num ;
 
 			icc_ele= root->FirstChildElement(); refny = 0;
@@ -2532,8 +2541,7 @@ struct CmdBase:public Condition  {
 			{
 				if ( icc_ele->Value() )
 				{
-					i = is_ins(icc_ele, map_root, var_set) )
-					if ( i > 0 )
+					if (yes_ins(icc_ele, map_root, var_set, i) )
 					{
 						refny++;
 						comp_num += i;
@@ -2555,14 +2563,14 @@ struct CmdBase:public Condition  {
 			{
 				if ( icc_ele->Value() )
 				{
-					i = is_ins(icc_ele, map_root, var_set) )
-					comp_num += i;
-					if ( i > 0 )
+					sub = is_ins(icc_ele, map_root, var_set,i) )
+					if ( sub)
 					{
 						cor = 0;
 						icc_ele->QueryIntAttribute("order", &(cor)); 
 						if ( cor <= mor ) goto ICC_NEXT;	//order不符合顺序的，略过
-						i_num += instructions[vmany].set(icc_ele, var_set, map_root, &comp_pool[comp_num-i]);
+						i_num += instructions[vmany].set_sub(icc_ele, var_set, sub, &comp_pool[comp_num]);
+						comp_num += i;
 						mor = cor;
 						vmany++;
 					}
