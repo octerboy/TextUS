@@ -1515,12 +1515,15 @@ struct CmdBase:public Condition  {
 			}
 		};
 
-		virtual int set ( TiXmlElement *ele, struct PVar_Set *var_set, TiXmlElement *map_root, const char *entry_nm)
-		{
-			return 0;
-		};
+		//virtual int set ( TiXmlElement *ele, struct PVar_Set *var_set, TiXmlElement *map_root, const char *entry_nm)
+		//{
+		//	return 0;
+		//};
 
-		virtual void  get_current(MK_Session *sess, struct PVar_Set *var_set) { };
+		//virtual void  get_current(MK_Session *sess, struct PVar_Set *var_set) { };
+		int pro_analyze( TiXmlElement *app_ele, struct PVar_Set *var_set, TiXmlElement *map_root, const char *pkey_nm)
+		{
+		};
 	};
 
 	struct ChargeIns: public ComplexSubSerial {			//充值综合指令
@@ -2258,170 +2261,205 @@ struct CmdBase:public Condition  {
 		struct ComplexSubSerial *complex;
 		int comp_num;
 
-		enum Command_Type type;	//类型, 不用union类型, 真不知道如何调用这个构造函数
-			struct PlainIns plain;
-			struct HsmIns hsm;
-			struct CallFun fun;
+		//enum Command_Type type;	//类型, 不用union类型, 真不知道如何调用这个构造函数
+		//	struct PlainIns plain;
+		//	struct HsmIns hsm;
+		//	struct CallFun fun;
 
-			int auth_num;
-			struct ExtAuthIns *auth;
-			struct ComplexSubSerial *complex;
+		//	int auth_num;
+		//	struct ExtAuthIns *auth;
+		//	struct ComplexSubSerial *complex;
 
-			/* -------- 对终端基本操作 ----------*/
-			struct PromptOp prompt;
-			struct FeedCardOp fcard;
-			struct OutCardOp ocard;
-			struct ProRstOp pro_rst;
-			/* -------- 对终端基本操作 ----------*/
+		//	/* -------- 对终端基本操作 ----------*/
+		//	struct PromptOp prompt;
+		//	struct FeedCardOp fcard;
+		//	struct OutCardOp ocard;
+		//	struct ProRstOp pro_rst;
+		//	/* -------- 对终端基本操作 ----------*/
 
-		void set (Command_Type mtype, int cent)
+		//void set (Command_Type mtype, int cent)
+		//{
+		//	order = -1;
+		//	type = mtype;
+		//	if ( type == OP_Prompt )
+		//	{
+		//		prompt.set(cent);
+		//	}
+		//};
+		//void set (Command_Type mtype)
+		//{
+		//	order = -1;
+		//	type = mtype;
+		//	switch (mtype)
+		//	{
+		//		/* -------- 对终端基本操作 ----------*/
+		//		case OP_FeedCard:
+		//			fcard.set();
+		//			break;
+
+		//		case OP_OutCard:
+		//			ocard.set();
+		//			break;
+
+		//		default:
+		//			break;
+		//	}
+		//};
+
+		int  set ( TiXmlElement *app_ele, struct PVar_Set *vrset, TiXmlElement *map_root, struct ComplexSubSerial *pool) //返回对IC的指令数
 		{
-			order = -1;
-			type = mtype;
-			if ( type == OP_Prompt )
+			TiXmlElement *sub_serial, *spro, *me, *pri;
+			const char *pri_nm;
+			const char *nm = app_ele->Value();
+			int comp_num , ret_ic;
+
+			complex = pool;
+			app_ele->QueryIntAttribute("order", &order);
+
+			sub_serial = map_root->FirstChildElement(nm); //前面已经分析过了, 这里肯定不为NULL,nm就是Command之类的。
+			me = sub_serial->FirstChildElement("Me");
+			pri_nm = me->Attribute("primary");
+			if ( pri_nm)
 			{
-				prompt.set(cent);
-			}
-		};
-		void set (Command_Type mtype)
-		{
-			order = -1;
-			type = mtype;
-			switch (mtype)
-			{
-				/* -------- 对终端基本操作 ----------*/
-				case OP_FeedCard:
-					fcard.set();
-					break;
-
-				case OP_OutCard:
-					ocard.set();
-					break;
-
-				default:
-					break;
-			}
-		};
-
-		int  set ( TiXmlElement *ele, struct PVar_Set *vrset, TiXmlElement *map_root, struct ComplexSubSerial *pool) //返回对IC的指令数
-		{
-			ele->QueryIntAttribute("order", &order);
-			
-			if ( strcasecmp(ele->Value(), "Command") == 0 ) 
-			{
-				type = INS_Plain;
-				plain.set(ele, vrset);
-				return 1;
-			};
-
-			if ( strcasecmp(ele->Value(), "HSM") == 0 ) 
-			{
-				type = INS_HSM;
-				hsm.set(ele ,vrset);
-				return 0;
-			};
-
-			if ( strcasecmp(ele->Value(), "Call") == 0 ) 
-			{
-				type = INS_Call;
-				fun.set(ele ,vrset);
-				return 0;
-			};
-
-			if ( strcasecmp(ele->Value(), "ExtAuth") == 0 ) 
-			{
-				TiXmlElement *key;
-				int i,j;
-				const char *tag="key";
-
-				i = 0;
-				key =  ele->FirstChildElement(tag);	
-				while ( key )
+				if ( app_ele->Attribute(pri_nm))
 				{
-					if ( key->GetText() )
-					{
-						i++;
-					}
-					key = key->NextSiblingElement(tag);
-				}
-				auth_num = i;
-				auth = new struct ExtAuthIns[auth_num];
-
-				i = 0; j = 0;
-				key =  ele->FirstChildElement(tag);	
-				while ( key )
+					/* pro_analyze 根据变量名, 也就是属性名或元素内容, 去找到实际真正的变量内容(必须是参考变量)。变量内容中指定了Pro等 */
+					comp_num = 1;
+					ret_ic = complex[0].pro_analyze(app_ele->Attribute(pri_nm));
+				} else 
 				{
-					if ( key->GetText() )
+					for( pri = app_ele->FirstChildElement(pri_nm), comp_num = 0; 
+						pri_ele; 
+						pri = pri->NextSiblingElement(pri_nm) )
 					{
-						j += auth[i].set(ele, vrset, map_root, "ExtAuth", key);
-						i++;
+						ret_ic = complex[0].pro_analyze(key->GetText());
+						comp_num++;
 					}
-					key = key->NextSiblingElement(tag);
 				}
+			} else {
+				c_num = 1;
+				ret_ic = complex[0].pro_analyze(0);
+			}
 
-				type = INS_ExtAuth;
-				return j;
-			};
+			return ret_ic;
 
-			if ( strcasecmp(ele->Value(), "DesMac") == 0 ) 
-			{
-				type = INS_DesMac;
-				complex = new struct DesMacIns;
-				return complex->set(ele, vrset, map_root, "DesMac");
-			};
 
-			if ( strcasecmp(ele->Value(), "DesFile") == 0 ) 
-			{
-				type = INS_DesMac;
-				complex = new struct DesMacIns;
-				return complex->set(ele, vrset, map_root, "DesMac");
-			};
+			//
+			//if ( strcasecmp(ele->Value(), "Command") == 0 ) 
+			//{
+			//	type = INS_Plain;
+			//	plain.set(ele, vrset);
+			//	return 1;
+			//};
 
-			if ( strcasecmp(ele->Value(), "PMac") == 0 ) 
-			{
-				type = INS_Mac;
-				complex = new struct  MacIns;
-				return complex->set(ele, vrset, map_root, "PMac");
-			};
+			//if ( strcasecmp(ele->Value(), "HSM") == 0 ) 
+			//{
+			//	type = INS_HSM;
+			//	hsm.set(ele ,vrset);
+			//	return 0;
+			//};
 
-			if ( strcasecmp(ele->Value(), "Load") == 0 ) 
-			{
-				type = INS_Charge;
-				complex = new struct  ChargeIns;
-				return complex->set(ele, vrset, map_root, "Load");
-			};
+			//if ( strcasecmp(ele->Value(), "Call") == 0 ) 
+			//{
+			//	type = INS_Call;
+			//	fun.set(ele ,vrset);
+			//	return 0;
+			//};
 
-			if ( strcasecmp(ele->Value(), "Scp02Kmc") == 0 ) 
-			{
-				type = INS_GpKmc;
-				complex = new struct  ChargeIns;
-				return complex->set(ele, vrset, map_root, "Scp02Kmc");
-			};
+			//if ( strcasecmp(ele->Value(), "ExtAuth") == 0 ) 
+			//{
+			//	TiXmlElement *key;
+			//	int i,j;
+			//	const char *tag="key";
 
-			if ( strcasecmp(ele->Value(), "LoadInit") == 0 ) 
-			{
-				type = INS_LoadInit;
-				complex = new struct LoadInitIns;
-				return complex->set(ele, vrset, map_root, "LoadInit");
-			};
+			//	i = 0;
+			//	key =  ele->FirstChildElement(tag);	
+			//	while ( key )
+			//	{
+			//		if ( key->GetText() )
+			//		{
+			//			i++;
+			//		}
+			//		key = key->NextSiblingElement(tag);
+			//	}
+			//	auth_num = i;
+			//	auth = new struct ExtAuthIns[auth_num];
 
-			if ( strcasecmp(ele->Value(), "Debit") == 0 ) 
-			{
-				type = INS_Debit;
-				complex = new struct DebitIns;
-				return complex->set(ele, vrset, map_root, "Debit");
-			};
+			//	i = 0; j = 0;
+			//	key =  ele->FirstChildElement(tag);	
+			//	while ( key )
+			//	{
+			//		if ( key->GetText() )
+			//		{
+			//			j += auth[i].set(ele, vrset, map_root, "ExtAuth", key);
+			//			i++;
+			//		}
+			//		key = key->NextSiblingElement(tag);
+			//	}
 
-			if ( strcasecmp(ele->Value(), "Reset") == 0 ) 
-			{
-				type = INS_ProRst;
-				complex = new struct ResetIns;
-				pro_rst.set();
-				return complex->set(ele, vrset, map_root, "Reset");
-			};
+			//	type = INS_ExtAuth;
+			//	return j;
+			//};
 
-			type = INS_None;
-			return 0;
+			//if ( strcasecmp(ele->Value(), "DesMac") == 0 ) 
+			//{
+			//	type = INS_DesMac;
+			//	complex = new struct DesMacIns;
+			//	return complex->set(ele, vrset, map_root, "DesMac");
+			//};
+
+			//if ( strcasecmp(ele->Value(), "DesFile") == 0 ) 
+			//{
+			//	type = INS_DesMac;
+			//	complex = new struct DesMacIns;
+			//	return complex->set(ele, vrset, map_root, "DesMac");
+			//};
+
+			//if ( strcasecmp(ele->Value(), "PMac") == 0 ) 
+			//{
+			//	type = INS_Mac;
+			//	complex = new struct  MacIns;
+			//	return complex->set(ele, vrset, map_root, "PMac");
+			//};
+
+			//if ( strcasecmp(ele->Value(), "Load") == 0 ) 
+			//{
+			//	type = INS_Charge;
+			//	complex = new struct  ChargeIns;
+			//	return complex->set(ele, vrset, map_root, "Load");
+			//};
+
+			//if ( strcasecmp(ele->Value(), "Scp02Kmc") == 0 ) 
+			//{
+			//	type = INS_GpKmc;
+			//	complex = new struct  ChargeIns;
+			//	return complex->set(ele, vrset, map_root, "Scp02Kmc");
+			//};
+
+			//if ( strcasecmp(ele->Value(), "LoadInit") == 0 ) 
+			//{
+			//	type = INS_LoadInit;
+			//	complex = new struct LoadInitIns;
+			//	return complex->set(ele, vrset, map_root, "LoadInit");
+			//};
+
+			//if ( strcasecmp(ele->Value(), "Debit") == 0 ) 
+			//{
+			//	type = INS_Debit;
+			//	complex = new struct DebitIns;
+			//	return complex->set(ele, vrset, map_root, "Debit");
+			//};
+
+			//if ( strcasecmp(ele->Value(), "Reset") == 0 ) 
+			//{
+			//	type = INS_ProRst;
+			//	complex = new struct ResetIns;
+			//	pro_rst.set();
+			//	return complex->set(ele, vrset, map_root, "Reset");
+			//};
+
+			//type = INS_None;
+			//return 0;
 		};
 	};
 
