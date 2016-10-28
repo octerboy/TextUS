@@ -1374,14 +1374,18 @@ struct CmdBase:public Condition  {
 
 		struct PVar_Set sv_set;	//局域变量集, 只有对DesMac之类的才有
 
-		TiXmlElement *sub_serial;
+		TiXmlElement *usr_def_serial;	//MAP文档中，对用户指令的定义
 		TiXmlElement *spro;
 		TiXmlElement *me;
+		struct PVar_Set *g_var_set;
 
 		ComplexSubSerial()
 		{
 			var_root = 0;
 			si_set = 0;
+			usr_def_serial = 0;
+			spro = 0;
+			me = 0;
 		};
 		
 		virtual ~ComplexSubSerial()
@@ -1526,9 +1530,64 @@ struct CmdBase:public Condition  {
 		//};
 
 		//virtual void  get_current(MK_Session *sess, struct PVar_Set *var_set) { };
-		int pro_analyze( TiXmlElement *app_ele, struct PVar_Set *var_set, TiXmlElement *map_root, const char *pkey_nm)
+		int pro_analyze( const char *ref_nm)
 		{
+			TiXmlAttribute *att; 
+			struct PVar *ref_var;
+			const char *pro_nm;
+			char buf[512];		//实际内容, 常数内容
+			char pro_nm[128];
+			int len;
+
+			TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s", "Pro");
+			if ( ref_nm )
+			{
+				ref_var = g_var_set->one_still(ref_nm, buf, len);	//找到已定义参考变量的
+				if ( ref_var )
+				{
+						if ( ref_var && ref_var->me_ele->Attribute("pro") ) //参考变量的pro属性指示子序列的变体名
+						{
+							TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s%s", "Pro", ref_var->me_ele->Attribute("pro"));						
+						}
+						
+						for ( att = ref->FirstAttribute(); att; att = att->Next())
+						{
+							if ( strcmp(att->Name(), "pro") == 0 
+								||  strcmp(att->Name(), "name") == 0 
+								|| strcmp(att->Name(), "desc") == 0  
+								|| strcmp(att->Name(), "dynamic") == 0  )
+								continue;
+							//把其它属性加到本地变量集中 sv_set
+							
+						}
+				}
+			}
+
+			spro = usr_def_serial->FirstChildElement(pro_nm);				
+
+
+
+					for ( i = 1; i <= VAR_SUB_NUM; i++)		//各种子变量值给赋上，都当作静态
+					{
+						TEXTUS_SPRINTF(att_name, "para%d", i);
+						at_val = ref_var->me_ele->Attribute(att_name);
+						if ( !at_val ) continue;		//没有子变量，看下一个
+								
+						TEXTUS_SPRINTF(att_name, "me.%s.para%d", loc_rf_nm, i); //局域变量
+						vr_tmp = var_set->one_still(at_val, buf, len);	//at_val是个变量, 可能是动态
+						if ( vr_tmp && vr_tmp->kind <= VAR_Dynamic ) 
+						{	//变量若是动态, 如卡号, 则在这里设为动态, 并指向该位置
+							loc_var = sv_set.look(att_name);
+							loc_var->dynamic_pos = vr_tmp->dynamic_pos;
+							loc_var->kind = vr_tmp->kind;
+						} else 
+							sv_set.put_still(att_name, buf, len);
+					}
+					at_val = ref_var->me_ele->Attribute("location");	//参考变量中有位置属性
+					TEXTUS_SPRINTF(att_name, "me.%s.location", loc_rf_nm);
+					sv_set.put_still(att_name, at_val);
 		};
+
 	};
 
 	struct ChargeIns: public ComplexSubSerial {			//充值综合指令
@@ -2313,7 +2372,7 @@ struct CmdBase:public Condition  {
 
 		int  set_sub( TiXmlElement *app_ele, struct PVar_Set *vrset, TiXmlElement *sub_serial, struct ComplexSubSerial *pool) //返回对IC的指令数
 		{
-			TiXmlElement *sub_serial, *spro, *me, *pri;
+			TiXmlElement *sub_serial, *me, *pri;
 			const char *pri_nm;
 			int comp_num , ret_ic;
 
@@ -2329,7 +2388,8 @@ struct CmdBase:public Condition  {
 				{
 					/* pro_analyze 根据变量名, 也就是属性名或元素内容, 去找到实际真正的变量内容(必须是参考变量)。变量内容中指定了Pro等 */
 					complex[0].me = me;
-					complex[0].sub_serial = sub_serial;
+					complex[0].usr_def_serial = sub_serial;
+					complex[0].g_var_set = vrset;
 					ret_ic = complex[0].pro_analyze(app_ele->Attribute(pri_nm));
 					comp_num = 1;
 				} else 
@@ -2338,15 +2398,17 @@ struct CmdBase:public Condition  {
 						pri_ele; 
 						pri = pri->NextSiblingElement(pri_nm) )
 					{
-						complex[0].me = me;
-						complex[0].sub_serial = sub_serial;
-						ret_ic = complex[comp_num].pro_analyze(key->GetText()); //多个可选，指令数算最后一个
+						complex[comp_num].me = me;
+						complex[comp_num].usr_def_serial = sub_serial;
+						complex[comp_num].g_var_set = vrset;
+						ret_ic = complex[comp_num].pro_analyze(key->GetText()); //多个可选，指令数就计最后一个
 						comp_num++;
 					}
 				}
 			} else {
 				complex[0].me = me;
-				complex[0].sub_serial = sub_serial;
+				complex[0].usr_def_serial = sub_serial;
+				complex[0].g_var_set = vrset;
 				ret_ic = complex[0].pro_analyze(0);
 				comp_num = 1;
 			}
@@ -2494,14 +2556,14 @@ struct CmdBase:public Condition  {
 
 		TiXmlElement *yes_ins(TiXmlElement *app_ele, TiXmlElement *map_root, struct PVar_Set *var_set, int &c_num)
 		{
-			TiXmlElement *sub_serial, *spro, *me, *pri;
+			TiXmlElement *sub_serial, *me, *pri;
 			const char *pri_nm;
 			const char *nm = app_ele->Value();
 			c_num  =1;
 
 			if ( var_set->is_var(nm)) return 0;
 
-			sub_serial = map_root->FirstChildElement(nm); 
+			sub_serial = map_root->FirstChildElement(nm); //找到子系列
 			if ( !sub_serial ) 
 				return 0;
 			
@@ -2522,10 +2584,6 @@ struct CmdBase:public Condition  {
 				}
 			} else 
 				c_num = 1;
-
-			spro = sub_serial->FirstChildElement("Pro");
-			if ( !spro ) 
-				return 0;
 
 			return sub_serial;
 		};
