@@ -196,7 +196,7 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 		int source_fld_no;	//来源域号。
 		int dest_fld_no;	//目的域号, 
 
-		TiXmlElement *me_ele;	/* 自身, 其子元素包括两种可能: 1.函数变量表, 
+		TiXmlElement *self_ele;	/* 自身, 其子元素包括两种可能: 1.函数变量表, 
 					2.一个指令序列, 在指令子元素分析时, 如发现一个用到的变量中, 有子序列时, 把这些指令嵌入。
 				*/
 
@@ -212,7 +212,7 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 			source_fld_no = -1;
 			dest_fld_no = -1;
 			dynamic_pos = -1;	//非动态类
-			me_ele = 0;
+			self_ele = 0;
 		};
 
 		void put_still(const char *val, unsigned int len=0)
@@ -235,7 +235,7 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 			const char *p, *dy, *nm;
 			int i;
 			kind = VAR_None;
-			me_ele = var_ele;
+			self_ele = var_ele;
 
 			nm = var_ele->Attribute("name");
 			if ( !nm ) return 0;
@@ -1366,25 +1366,25 @@ struct CmdBase:public Condition  {
 	};
 
 	struct ComplexSubSerial: public SwBase, public Condition {
-		struct INS_SubSet *si_set;	//子序列
 		TiXmlElement *sub_ins_entry;	//MAP文档的子序列元素
 
 		TiXmlDocument var_doc;
 		TiXmlElement *var_root;
 
-		struct PVar_Set sv_set;	//局域变量集, 只有对DesMac之类的才有
+		TiXmlElement *usr_def_entry;	//MAP文档中，对用户指令的定义
+		TiXmlElement *sub_pro;		//实际使用的指令序列，在相同用户指令名下，可能有不同的序列
+		TiXmlElement *me;		//局域变量说明
 
-		TiXmlElement *usr_def_serial;	//MAP文档中，对用户指令的定义
-		TiXmlElement *spro;
-		TiXmlElement *me;
-		struct PVar_Set *g_var_set;
+		struct INS_SubSet *si_set;	//子序列
+		struct PVar_Set *g_var_set;	//全局变量集
+		struct PVar_Set sv_set;	//局域变量集, 只有对DesMac之类的才有
 
 		ComplexSubSerial()
 		{
 			var_root = 0;
 			si_set = 0;
-			usr_def_serial = 0;
-			spro = 0;
+			usr_def_entry = 0;
+			sub_pro = 0;
 			me = 0;
 		};
 		
@@ -1444,7 +1444,7 @@ struct CmdBase:public Condition  {
 					for ( i = 1; i <= VAR_SUB_NUM; i++)		//各种子变量值给赋上，都当作静态
 					{
 						TEXTUS_SPRINTF(att_name, "para%d", i);
-						at_val = ref_var->me_ele->Attribute(att_name);
+						at_val = ref_var->self_ele->Attribute(att_name);
 						if ( !at_val ) continue;		//没有子变量，看下一个
 								
 						TEXTUS_SPRINTF(att_name, "me.%s.para%d", loc_rf_nm, i); //局域变量
@@ -1457,7 +1457,7 @@ struct CmdBase:public Condition  {
 						} else 
 							sv_set.put_still(att_name, buf, len);
 					}
-					at_val = ref_var->me_ele->Attribute("location");	//参考变量中有位置属性
+					at_val = ref_var->self_ele->Attribute("location");	//参考变量中有位置属性
 					TEXTUS_SPRINTF(att_name, "me.%s.location", loc_rf_nm);
 					sv_set.put_still(att_name, at_val);
 				}
@@ -1468,9 +1468,9 @@ struct CmdBase:public Condition  {
 		void get_entry(struct PVar *ref_var, TiXmlElement *map_root, const char *entry_nm)
 		{
 			char pro_nm[128];
-			if ( ref_var && ref_var->me_ele->Attribute("pro") ) //pro指示子序列的变体名
+			if ( ref_var && ref_var->self_ele->Attribute("pro") ) //pro指示子序列的变体名
 			{
-				TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s%s", entry_nm, ref_var->me_ele->Attribute("pro"));
+				TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s%s", entry_nm, ref_var->self_ele->Attribute("pro"));
 				sub_ins_entry = map_root->FirstChildElement(pro_nm);
 			} else 
 				sub_ins_entry = map_root->FirstChildElement(entry_nm);
@@ -1530,62 +1530,137 @@ struct CmdBase:public Condition  {
 		//};
 
 		//virtual void  get_current(MK_Session *sess, struct PVar_Set *var_set) { };
-		int pro_analyze( const char *ref_nm)
+
+
+		/* 局域变量名根据protect所指向的元素属性名而变, 这样自然, 不用para1,para2之类的。 
+			vnm: 是一个变量名，如果在全局表中查不到，则当作变量内容
+			mid_num：是Me中指定的,是子元素或primay属性所指定的，局域变量名为: me.mid_num.xx
+		*/
+
+		struct PVar *set_loc_ref_var(struct PVar *ref_var, const char *mid_nm)
+		{
+			TiXmlAttribute *att; 
+			char loc_v_nm[128];
+
+			for ( att = var_ele->FirstAttribute(); att; att = att->Next())
+			{
+				if ( strcmp(att->Name(), "pro") == 0 
+					|| strcmp(att->Name(), "name") == 0 
+					|| strcmp(att->Name(), "desc") == 0  
+					|| strcmp(att->Name(), "from") == 0  
+					|| strcmp(att->Name(), "start") == 0  
+					|| strcmp(att->Name(), "length") == 0  
+					|| strcmp(att->Name(), "to") == 0  
+					|| strcmp(att->Name(), "dynamic") == 0  )
+					continue;
+
+				//把其它属性加到本地变量集中 sv_set
+				TEXTUS_SPRINTF(loc_v_name, "me.%s.%s", mid_nm, att->name()); 
+				sv_set.put_still(loc_v_name, att->Value());
+			}
+			return ref_var;
+		};
+
+		struct PVar *set_loc_ref_var(const char *vnm, const char *mid_nm)
+		{
+			struct PVar *ref_var;
+			char buf[512];		//实际内容, 常数内容
+			char loc_v_nm[128];
+			int len;
+			struct PVar *ref_var;
+
+			ref_var = g_var_set->one_still(vnm, buf, len);	//找到已定义参考变量的
+			if ( ref_var)
+			{
+				set_loc_ref_var(ref_var, mid_nm);
+			}
+
+			if ( len > 0 )
+			{
+				TEXTUS_SPRINTF(loc_v_name, "me.%s", mid_nm); 
+				sv_set.put_still(loc_v_name, buf, len);
+			}
+		};
+
+		//ref_vnm是一个参考变量名, 如$Main之类的. 根据这个$Main从全局变量集找到相应的定义。
+		int pro_analyze( const char *pri_vnm, TiXmlElement *cmd_ele )
 		{
 			TiXmlAttribute *att; 
 			struct PVar *ref_var;
 			const char *pro_nm;
-			char buf[512];		//实际内容, 常数内容
 			char pro_nm[128];
-			int len;
+			char lv_nm[128];
+			TiXmlElement *loc_v_ele;
 
+			sv_set.defer_vars(usr_def_entry); //局域变量定义完全还在那个自定义中
 			TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s", "Pro");
-			if ( ref_nm )
+			if ( pri_vnm )
 			{
-				ref_var = g_var_set->one_still(ref_nm, buf, len);	//找到已定义参考变量的
+				ref_var = set_loc_ref_var(pri_vnm, me->Attribute("primary"));
 				if ( ref_var )
 				{
-						if ( ref_var && ref_var->me_ele->Attribute("pro") ) //参考变量的pro属性指示子序列的变体名
-						{
-							TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s%s", "Pro", ref_var->me_ele->Attribute("pro"));						
-						}
-						
-						for ( att = ref->FirstAttribute(); att; att = att->Next())
-						{
-							if ( strcmp(att->Name(), "pro") == 0 
-								||  strcmp(att->Name(), "name") == 0 
-								|| strcmp(att->Name(), "desc") == 0  
-								|| strcmp(att->Name(), "dynamic") == 0  )
-								continue;
-							//把其它属性加到本地变量集中 sv_set
-							
-						}
+					if (ref_var->self_ele->Attribute("pro") ) //参考变量的pro属性指示子序列的变体名
+					{
+						TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s%s", "Pro", ref_var->me_ele->Attribute("pro"));						
+					}
 				}
 			}
 
-			spro = usr_def_serial->FirstChildElement(pro_nm);				
+			sub_pro = usr_def_entry->FirstChildElement(pro_nm);	//定位实际的子系列
+			/* 分析Me元素, app_ele，从而设定更多的sv_set内容...... */
+			for (	loc_v_ele= me->FirstChildElement(); 
+				loc_v_ele; 
+				loc_v_ele = loc_v_ele->NextSiblingElement())
+			{
+				const char *tag;
+				TiXmlElement *body;	//用户指令的第一个body元素
 
+				tag = loc_v_ele->Value();
+				if ( !tag ) continue;
+				//先将Me的各个子元素当作用户指令的属性名，
+				set_loc_ref_var(app_ele->Attribute(loc_v_ele->Value()), loc_v_ele->Value());
+				TEXTUS_SNPRINTF(lv_nm, sizeof(lv_nm), "me.%s", tag);
 
-
-					for ( i = 1; i <= VAR_SUB_NUM; i++)		//各种子变量值给赋上，都当作静态
-					{
-						TEXTUS_SPRINTF(att_name, "para%d", i);
-						at_val = ref_var->me_ele->Attribute(att_name);
-						if ( !at_val ) continue;		//没有子变量，看下一个
-								
-						TEXTUS_SPRINTF(att_name, "me.%s.para%d", loc_rf_nm, i); //局域变量
-						vr_tmp = var_set->one_still(at_val, buf, len);	//at_val是个变量, 可能是动态
-						if ( vr_tmp && vr_tmp->kind <= VAR_Dynamic ) 
-						{	//变量若是动态, 如卡号, 则在这里设为动态, 并指向该位置
-							loc_var = sv_set.look(att_name);
-							loc_var->dynamic_pos = vr_tmp->dynamic_pos;
-							loc_var->kind = vr_tmp->kind;
-						} else 
-							sv_set.put_still(att_name, buf, len);
+				//然后当作用户指令的子元素
+				body =  cmd_ele->FirstChildElement(tag); 
+				while ( body ) 
+				{
+					vr_tmp= g_var_set->all_still(body, tag_body, body_buf, body_len, n_ele);
+					body = n_ele;
+					if ( !vr_tmp ) 		//还是常数, 这里应该结束了
+					{	
+						if (body) printf("%s body !!!!!!!!!!\n", tag);	//这不应该
+						continue;
 					}
-					at_val = ref_var->me_ele->Attribute("location");	//参考变量中有位置属性
-					TEXTUS_SPRINTF(att_name, "me.%s.location", loc_rf_nm);
-					sv_set.put_still(att_name, at_val);
+					
+					if ( vr_tmp->kind == VAR_Refer )
+					{
+						ek_var = vr_tmp;		//参考变量, 多个也可, 以后从1开始
+						set_loc_ref_var(vr_tmp, me->Attribute("imply"));
+					} else if ( vr_tmp->kind <= VAR_Dynamic )
+					{
+						body_dynamic = true;		//动态啦
+					}
+				} 
+
+				if ( body_dynamic ) 
+				{
+					vr_tmp = sv_set.look(lv_nm);
+					vr_tmp->dynamic_pos = var_set->get_neo_dynamic_pos();	//动态变量位置
+					vr_tmp->kind = VAR_Dynamic;
+					body_dy_pos = vr_tmp->dynamic_pos;
+				} else {
+					sv_set.put_still(lv_nm,body_buf);
+				}
+			}
+
+
+			set_condition ( cmd_ele, g_var_set, &sv_set);
+			if ( !sub_pro ) 	//没有子序列入口, 
+				return 0;
+			if (!si_set)
+				si_set = new struct INS_SubSet();
+			return si_set->put_inses(spro, g_var_set, &sv_set); //返回子序列指令数
 		};
 
 	};
@@ -2386,11 +2461,11 @@ struct CmdBase:public Condition  {
 			{
 				if ( app_ele->Attribute(pri_nm))
 				{
-					/* pro_analyze 根据变量名, 也就是属性名或元素内容, 去找到实际真正的变量内容(必须是参考变量)。变量内容中指定了Pro等 */
+					/* pro_analyze 根据变量名, 去找到实际真正的变量内容(必须是参考变量)。变量内容中指定了Pro等 */
 					complex[0].me = me;
-					complex[0].usr_def_serial = sub_serial;
+					complex[0].usr_def_entry = sub_serial;
 					complex[0].g_var_set = vrset;
-					ret_ic = complex[0].pro_analyze(app_ele->Attribute(pri_nm));
+					ret_ic = complex[0].pro_analyze(app_ele->Attribute(pri_nm),app_ele);
 					comp_num = 1;
 				} else 
 				{
@@ -2399,17 +2474,17 @@ struct CmdBase:public Condition  {
 						pri = pri->NextSiblingElement(pri_nm) )
 					{
 						complex[comp_num].me = me;
-						complex[comp_num].usr_def_serial = sub_serial;
+						complex[comp_num].usr_def_entry = sub_serial;
 						complex[comp_num].g_var_set = vrset;
-						ret_ic = complex[comp_num].pro_analyze(key->GetText()); //多个可选，指令数就计最后一个
+						ret_ic = complex[comp_num].pro_analyze(key->GetText(), app_ele); //多个可选，指令数就计最后一个
 						comp_num++;
 					}
 				}
 			} else {
 				complex[0].me = me;
-				complex[0].usr_def_serial = sub_serial;
+				complex[0].usr_def_entry = sub_serial;
 				complex[0].g_var_set = vrset;
-				ret_ic = complex[0].pro_analyze(0);
+				ret_ic = complex[0].pro_analyze(0,app_ele);
 				comp_num = 1;
 			}
 
@@ -2621,7 +2696,7 @@ struct CmdBase:public Condition  {
 			{
 				if ( icc_ele->Value() )
 				{
-					sub = is_ins(icc_ele, map_root, var_set,i) )
+					sub = yes_ins(icc_ele, map_root, var_set,i) )
 					if ( sub)
 					{
 						cor = 0;
