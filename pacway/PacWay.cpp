@@ -1148,6 +1148,38 @@ struct CmdBase:public Condition  {
 		};
 	};
 
+	struct PacIns: public CmdBase 
+	{	/* 基本报文指令 */
+		int subor;
+
+		/* set, 这是指令集的调用. 如果是DesMac的子序列, 有局域变量集, 就是o_set了;
+		   如果在大指令集的Command, 则没有o_set,子序列是变量要求的. 
+		 */
+		void set ( TiXmlElement *ele, struct PVar_Set *var_set, struct PVar_Set *o_set=0)
+		{
+			struct PVar *vr_tmp;
+			const char *p;
+			slot = '0';
+
+			set_cmd (ele, var_set, o_set);
+			p = ele->Attribute("slot");
+			if ( p )
+			{
+				slot = (unsigned char) p[0];
+			} else if (o_set) { //看局域变量有没有
+				vr_tmp = o_set->look("me.slot", 0);
+				if ( vr_tmp )	//应该是有的
+				{
+					if ( vr_tmp->c_len > 0 )
+					{
+						slot = atoi(vr_tmp->content);
+					}
+				}
+			}
+			allow_sw(ele, o_set);	//看可允许的SW
+		};
+	};
+
 /* 外部函数调用， 应该不变*/
 	struct CallFun: public Condition {
 		const char *lib_nm, *fun_nm;
@@ -1260,8 +1292,7 @@ struct CmdBase:public Condition  {
 
 	struct Base_Command {		//基础指令定义，只包括两种。　用于子序列，指令数少，所以不需要order了。
 		enum Command_Type type;	//类型, 不用union类型, 
-		struct PlainIns *plain_p;
-		struct HsmIns *hsm_p;
+		struct PacIns *pac_p;
 		struct CallFun *fun_p;
 
 		int  set ( TiXmlElement *ele, struct PVar_Set *vrset,  struct PVar_Set *o_set) //返回IC指令数
@@ -1272,96 +1303,19 @@ struct CmdBase:public Condition  {
 			fun_p = 0;
 			type = INS_None;
 			
-
-			if ( strcasecmp(ele->Value(), "icc") == 0 ) 
-			{
-				type = INS_Plain;
-				plain_p = new struct PlainIns;
-				plain_p->set(ele ,vrset, o_set);
-				ret = 1;
-			};
-
-			if ( strcasecmp(ele->Value(), "hsm") == 0 ) 
-			{
-				type = INS_HSM;
-				hsm_p = new struct HsmIns;
-				hsm_p->set(ele ,vrset, o_set);
-				ret = 0;
-			};
-
 			if ( strcasecmp(ele->Value(), "call") == 0 ) 
 			{
 				type = INS_Call;
 				fun_p = new struct CallFun;
 				fun_p->set(ele ,vrset, o_set);
-				ret = 0;
+				return 0;
 			};
+
+			/* 接下去，找insdef.xml, 获得事个报文定义
+			ele->Value(), 从insdef.xml 中相同的, 
+			*/
+
 			return ret;
-		};
-	};
-
-	struct INS_SubSet {
-		struct Base_Command *instructions;
-		int many;
-		INS_SubSet () 
-		{
-			instructions= 0;
-			many = 0;
-		};
-
-		~INS_SubSet () 
-		{
-			if (instructions ) delete []instructions;
-			instructions = 0;
-			many = 0;
-		};
-
-		int put_inses(TiXmlElement *root, struct PVar_Set *var_set, struct PVar_Set *o_set) //返回子序列IC指令数
-		{
-			TiXmlElement *b_ele;
-			int which, refny=0, icc_num=0 ;
-
-			/* 分析一下２种操作 */
-
-			#define IS_SUBINS(x) strcasecmp(x, "icc") ==0  \
-					|| strcasecmp(x, "call") ==0  \
-					|| strcasecmp(x, "hsm") ==0
-
-			if ( !root ) return 0;
-			b_ele= root->FirstChildElement(); refny = 0;
-			while(b_ele)
-			{
-				if ( b_ele->Value() )
-				{
-					if ( IS_SUBINS(b_ele->Value()) )
-						refny++;
-				}
-				b_ele = b_ele->NextSiblingElement();
-			}
-			//确定变量数
-			if ( refny ==0 )
-				goto S_End;
-
-			many = refny;
-			instructions = new struct Base_Command[many];
-			which = 0;
-
-			b_ele= root->FirstChildElement(); 
-			icc_num = 0;
-			while(b_ele)
-			{
-				if ( b_ele->Value() )
-				{
-					if ( IS_SUBINS(b_ele->Value()) )
-					{
-						icc_num += instructions[which].set(b_ele, var_set, o_set);
-						which++;
-					}
-				}
-				b_ele = b_ele->NextSiblingElement();
-			}
-		S_End:
-			return icc_num;
 		};
 	};
 
@@ -1375,25 +1329,27 @@ struct CmdBase:public Condition  {
 		TiXmlElement *sub_pro;		//实际使用的指令序列，在相同用户指令名下，可能有不同的序列
 		TiXmlElement *me;		//局域变量说明
 
-		struct INS_SubSet *si_set;	//子序列
 		struct PVar_Set *g_var_set;	//全局变量集
 		struct PVar_Set sv_set;	//局域变量集, 只有对DesMac之类的才有
+
+		struct Base_Command *instructions;
+		int many;
 
 		ComplexSubSerial()
 		{
 			var_root = 0;
-			si_set = 0;
 			usr_def_entry = 0;
 			sub_pro = 0;
 			me = 0;
+			instructions = 0;
+			many = 0;
 		};
 		
-		virtual ~ComplexSubSerial()
+		~ComplexSubSerial()
 		{
-			if ( si_set )  {
-				delete si_set;
-				si_set = 0;
-			}
+			if (instructions ) delete []instructions;
+			instructions = 0;
+			many = 0;
 		};
 
 		int defer_sub_serial(TiXmlElement *ele, TiXmlElement *root, struct PVar_Set *all_set, struct PVar_Set *sub_set=0)
@@ -1658,6 +1614,44 @@ struct CmdBase:public Condition  {
 			set_condition ( cmd_ele, g_var_set, &sv_set);
 			if ( !sub_pro ) 	//没有子序列入口, 
 				return 0;
+
+			TiXmlElement *b_ele;
+			int which, refny=0, icc_num=0 ;
+
+			b_ele= spro->FirstChildElement(); refny = 0;
+			while(b_ele)
+			{
+				if ( b_ele->Value() )	//直接拿一个元素就当基本指令了
+				{
+					refny++;
+				}
+				b_ele = b_ele->NextSiblingElement();
+			}
+			//确定变量数
+			if ( refny ==0 )
+				goto S_End;
+
+			many = refny;
+			instructions = new struct Base_Command[many];
+			which = 0;
+
+			b_ele= spro->FirstChildElement(); 
+			icc_num = 0;
+			while(b_ele)
+			{
+				if ( b_ele->Value() )
+				{
+					if ( IS_SUBINS(b_ele->Value()) )
+					{
+						icc_num += instructions[which].set(b_ele, var_set, o_set);
+						which++;
+					}
+				}
+				b_ele = b_ele->NextSiblingElement();
+			}
+		S_End:
+			return icc_num;
+
 			if (!si_set)
 				si_set = new struct INS_SubSet();
 			return si_set->put_inses(spro, g_var_set, &sv_set); //返回子序列指令数
