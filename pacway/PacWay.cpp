@@ -23,7 +23,6 @@
 #include "casecmp.h"
 #include "textus_string.h"
 #include "textus_load_mod.h"
-#include "insext.h"
 
 #include <stdlib.h>
 #include <time.h>
@@ -104,6 +103,9 @@ unsigned short SW_OK=0x9000;	//SW1 SW2 = 9000, ÕâÃ´×ö, ¿ÉÄÜÔÚÆäËü»úÆ÷ÉÏ, Ë³Ğò²»Ò
 char err_global_str[128]={0};
 /* ×ó±ß×´Ì¬, ¿ÕÏĞ, µÈ×ÅĞÂÇëÇó, ³õÊ¼»¯ÖĞ, ÖÆ¿¨ÖĞ */
 enum LEFT_STATUS { LT_IDLE = 0, LT_INITING = 2, LT_MKING = 3};
+
+enum Var_Type {VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_Dynamic = 10, VAR_Refer=11, VAR_Constant=98,  VAR_None=99};
+
 
 /* ÓÒ±ß×´Ì¬, ¿ÕÏĞ, ICÖ¸Áî·¢³ö, HSMÖ¸Áî·¢³ö, ÖÕ¶Ë²âÊÔÖĞ */
 enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, RT_TERM_FEED=4, 
@@ -189,8 +191,16 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 #define Pos_TotalIns 2 
 #define Pos_Fixed_Next 3  //ÏÂÒ»¸ö¶¯Ì¬±äÁ¿µÄÎ»ÖÃ, Ò²ÊÇÎª½Å±¾×Ô¶¨Òå¶¯Ì¬±äÁ¿µÄµÚ1¸öÎ»ÖÃ
 
-	struct PVar: public PVarBase 
+	struct PVar
 	{
+		Var_Type kind;
+		const char *name;	//À´×ÔÓÚdocÎÄµµ
+		int n_len;		//Ãû³Æ³¤¶È
+
+		char content[512];	//±äÁ¿ÄÚÈİ. Õâ¸öÄÚÈİÓëÏÂÃæµÄÄÚÈİÒ»°ã²»»áÍ¬Ê±ÓĞ
+		int c_len;			//ÄÚÈİ³¤¶È
+		int dynamic_pos;	//¶¯Ì¬±äÁ¿Î»ÖÃ, -1±íÊ¾¾²Ì¬
+
 		int start_pos;		//´ÓÊäÈë±¨ÎÄÖĞ, Ê²Ã´Î»ÖÃ¿ªÊ¼
 		int get_length;		//È¡¶àÉÙ³¤¶ÈµÄÖµ
 		int source_fld_no;	//À´Ô´ÓòºÅ¡£
@@ -198,7 +208,7 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 
 		TiXmlElement *self_ele;	/* ×ÔÉí, Æä×ÓÔªËØ°üÀ¨Á½ÖÖ¿ÉÄÜ: 1.º¯Êı±äÁ¿±í, 
 					2.Ò»¸öÖ¸ÁîĞòÁĞ, ÔÚÖ¸Áî×ÓÔªËØ·ÖÎöÊ±, Èç·¢ÏÖÒ»¸öÓÃµ½µÄ±äÁ¿ÖĞ, ÓĞ×ÓĞòÁĞÊ±, °ÑÕâĞ©Ö¸ÁîÇ¶Èë¡£
-				*/
+					*/
 
 		PVar () {
 			kind = VAR_None;	//Æğ³õÈÏÎª·Ç±äÁ¿
@@ -309,8 +319,13 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 	};
 
 	struct DyVar: public DyVarBase {	//¶¯Ì¬±äÁ¿
+		Var_Type kind;	//¶¯Ì¬ÀàĞÍ, 
+		int index;	//Ë÷Òı, Ò²¾ÍÊÇÏÂ±êÖµ
+		int c_len;
+		char val[512];	//±äÁ¿ÄÚÈİ. ËæÊ±¸üĞÂ, ×ã¹»¿Õ¼äÀ²
+
 		int dest_fld_no;	//Ä¿µÄÓòºÅ, 
-		struct PVar *def_var;
+		struct PVar *def_var;	//ÎÄ¼şÖĞ¶¨ÒåµÄ±äÁ¿
 
 		DyVar () {
 			kind = VAR_None;
@@ -640,17 +655,6 @@ struct PVar_Set {
 /* Ö¸Áî·ÖÁ½ÖÖ£¬Ò»ÖÖÊÇ´Ó±¨ÎÄ¶¨Òå¶øÀ´£¬¼´INS_Ori£¬»¹ÓĞÒ»ÖÖÊÇ´ÓINS_OriµÄ×éºÏ¶øÀ´£¬¼´INS_User */
 enum Command_Type { INS_None = 0, INS_Ori=1, INS_User=2};
 	 
-struct DyList {
-	char *con;
-	int len;
-	int dy_pos;
-	DyList ()
-	{
-		con  =0;
-		len = 0;
-		dy_pos = -1;
-	};
-};
 
 struct SwBase {
 	unsigned short another_sw;	//³ıÁË9000Ö®Íâ£¬ ÁíÒ»¸ö¿ÉÔÊĞíµÄsw1sw2
@@ -703,17 +707,6 @@ struct SwBase {
 		return true;
 	};
 };
-
-	struct PlainReply {
-		int dynamic_pos;	//¶¯Ì¬±äÁ¿Î»ÖÃ, -1±íÊ¾¾²Ì¬
-		int start;
-		int length;
-		PlainReply () {
-			dynamic_pos = -1;
-			start =1;
-			length = 500;
-		};
-	} ;
 
 /* ÏÂÃæÕâ¶ÎÆ¥ÅäÓ¦¸ÃÊÇ²»ĞèÒª±äµÄ */
 struct MatchDst {	//Æ¥ÅäÄ¿±ê
@@ -905,28 +898,68 @@ struct Condition {	//Ò»¸öÖ¸ÁîµÄÆ¥ÅäÁĞ±í, °üÀ¨Ìõ¼şÓë½á¹ûµÄÆ¥Åä
 	};
 };
 
-struct CmdBase:public Condition  {
+struct DyList {
+	char *con;
+	int len;
+	int dy_pos;
+	DyList ()
+	{
+		con  =0;
+		len = 0;
+		dy_pos = -1;
+	};
+};
+
+struct CmdSnd {
+	int fld_no;	//·¢ËÍµÄÓòºÅ
 	int dy_num;
 	struct DyList *dy_list;
 	bool dynamic ;		//ÊÇ·ñ¶¯Ì¬
-	
-	const char *tag;
-	TiXmlElement *component;	//Ö¸ÁîÎÄµµÖĞµÄµÚÒ»¸öcomponentÔªËØ
-
 	char cmd_buf[2048];
 	int cmd_len;
-	struct PlainReply *vres;	//ÏìÓ¦Ëù´æ·ÅµÄ±äÁ¿×é
-	int reply_num;
 
-	CmdBase () {
-		dy_num = 0;
-		dy_list = 0;
-		vres = 0;
-		reply_num = 0;
-		dynamic = false;
+	const char *tag;
+	TiXmlElement *component;	//Ö¸ÁîÎÄµµÖĞµÄµÚÒ»¸öcomponentÔªËØ
+};
+
+struct CmdRcv {
+	int fld_no;	//½ÓÊÕµÄÓòºÅ, ÓĞ¶à¸ö½ÓÊÕ¶¨Òå£¬Ã¿¸öÖ»¶¨ÒåÒ»¸ö±äÁ¿.ËùÒÔ£¬ÓĞ¶à¸ö¶¨Òå£¬Ö¸ÏòÍ¬Ò»¸öÓò¡£
+	int dyna_pos;	//¶¯Ì¬±äÁ¿Î»ÖÃ, -1±íÊ¾¾²Ì¬
+	int start;
+	int length;
+	char *must_con;
+	int must_con_len;
+
+	const char *tag;//±ÈÈç£º reply, sw
+	CmdRcv () {
+		dyna_pos = -1;
+		start =1;
+		length = 500;
+		must_con = 0;
+		must_con_len = 0;
+	};
+};
+
+struct PacIns:public Condition  {
+	int subor;	//Ö¸Ê¾Ö¸Áî±¨ÎÄËÍ¸øÄÄÒ»¸öÏÂ¼¶Ä£¿é
+
+	struct CmdSnd *snd_lst;
+	int snd_num;
+
+	struct CmdRcv *rcv_lst;
+	int rcv_num;
+
+	PacIns() 
+	{
+		snd_num = 0;
+		snd_lst = 0;
+		rcv_lst = 0;
+		rcv_num = 0;
+		subor = 0;
 	};
 
 	void  get_current( char *buf, int &len, MK_Session *sess)
+	void  get_current( PacketObj *snd_pac, MK_Session *sess)
 	{	/* È¡ÊµÊ±µÄÖ¸ÁîÄÚÈİ */
 		int i;
 		struct DyVar *dvr;
@@ -1051,6 +1084,8 @@ struct CmdBase:public Condition  {
 	};
 
 	void pro_response(char *res_buf, int rlen,  struct MK_Session *mess)
+	/* ±¾Ö¸Áî´¦ÀíÏìÓ¦±¨ÎÄ£¬Æ¥Åä±ØĞëµÄÄÚÈİ */
+	bool pro_response(PacketObj *snd_pac,  struct MK_Session *mess)
 	{
 		int ii;
 		
@@ -1077,249 +1112,7 @@ struct CmdBase:public Condition  {
 	};
 };
 
-	struct PlainIns: public SwBase, public CmdBase 
-	{	/* »ù±¾ICÖ¸Áî */
-		unsigned char slot;	//¿¨²Û, Ä¬ÈÏ'0',ÓÃ»§¿¨
-
-		/* set, ÕâÊÇÖ¸Áî¼¯µÄµ÷ÓÃ. Èç¹ûÊÇDesMacµÄ×ÓĞòÁĞ, ÓĞ¾ÖÓò±äÁ¿¼¯, ¾ÍÊÇo_setÁË;
-		   Èç¹ûÔÚ´óÖ¸Áî¼¯µÄCommand, ÔòÃ»ÓĞo_set,×ÓĞòÁĞÊÇ±äÁ¿ÒªÇóµÄ. 
-		 */
-		void set ( TiXmlElement *ele, struct PVar_Set *var_set, struct PVar_Set *o_set=0)
-		{
-			struct PVar *vr_tmp;
-			const char *p;
-			slot = '0';
-
-			set_cmd (ele, var_set, o_set);
-			p = ele->Attribute("slot");
-			if ( p )
-			{
-				slot = (unsigned char) p[0];
-			} else if (o_set) { //¿´¾ÖÓò±äÁ¿ÓĞÃ»ÓĞ
-				vr_tmp = o_set->look("me.slot", 0);
-				if ( vr_tmp )	//Ó¦¸ÃÊÇÓĞµÄ
-				{
-					if ( vr_tmp->c_len > 0 )
-					{
-						slot = atoi(vr_tmp->content);
-					}
-				}
-			}
-			allow_sw(ele, o_set);	//¿´¿ÉÔÊĞíµÄSW
-		};
-	};
-
-	struct HsmIns: public CmdBase
-	{
-		int fail_retry_num;	//Ê§°ÜÖØÊÔ´ÎÊı£¬Ä¬ÈÏÎª£°
-		const char *location;	//HSM´úÂë, ÄÄÒ»Ì¨?
-		const char *ok_ans_head;
-		int ok_ans_head_len;
-
-		const char *err_head;
-		int err_head_len;
-
-		void set ( TiXmlElement *ele, struct PVar_Set *var_set, struct PVar_Set *loc_v=0)
-		{
-			const char *p, *q;
-			location = 0;
-
-			set_cmd (ele, var_set, loc_v);
-			if ( (p = ele->Attribute("location")) )	//p¿ÉÄÜÖ¸ÏòÒ»¸ö¾ÖÓò±äÁ¿Ãû: me.location, me.key.para9µÈ
-			{
-				if ( loc_v)
-				{
-					if ( (q=loc_v->get_value(p)) )
-						location = q;	
-				} else 
-					location = p;
-			}
-
-			ok_ans_head = ele->Attribute("response");
-			ok_ans_head_len = 0;
-			if (ok_ans_head ) ok_ans_head_len = strlen(ok_ans_head);
-
-			err_head = ele->Attribute("error");
-			err_head_len = 0;
-			if (err_head ) err_head_len = strlen(err_head);
-
-			fail_retry_num = 0;
-			ele->QueryIntAttribute("retry", &fail_retry_num);
-		};
-	};
-
-	struct PacIns: public CmdBase 
-	{	/* »ù±¾±¨ÎÄÖ¸Áî */
-		int subor;
-
-		/* set, ÕâÊÇÖ¸Áî¼¯µÄµ÷ÓÃ. Èç¹ûÊÇDesMacµÄ×ÓĞòÁĞ, ÓĞ¾ÖÓò±äÁ¿¼¯, ¾ÍÊÇo_setÁË;
-		   Èç¹ûÔÚ´óÖ¸Áî¼¯µÄCommand, ÔòÃ»ÓĞo_set,×ÓĞòÁĞÊÇ±äÁ¿ÒªÇóµÄ. 
-		 */
-		void set ( TiXmlElement *ele, struct PVar_Set *var_set, struct PVar_Set *o_set=0)
-		{
-			struct PVar *vr_tmp;
-			const char *p;
-			slot = '0';
-
-			set_cmd (ele, var_set, o_set);
-			p = ele->Attribute("slot");
-			if ( p )
-			{
-				slot = (unsigned char) p[0];
-			} else if (o_set) { //¿´¾ÖÓò±äÁ¿ÓĞÃ»ÓĞ
-				vr_tmp = o_set->look("me.slot", 0);
-				if ( vr_tmp )	//Ó¦¸ÃÊÇÓĞµÄ
-				{
-					if ( vr_tmp->c_len > 0 )
-					{
-						slot = atoi(vr_tmp->content);
-					}
-				}
-			}
-			allow_sw(ele, o_set);	//¿´¿ÉÔÊĞíµÄSW
-		};
-	};
-
-/* Íâ²¿º¯Êıµ÷ÓÃ£¬ Ó¦¸Ã²»±ä*/
-	struct CallFun: public Condition {
-		const char *lib_nm, *fun_nm;
-		TiXmlElement *component;	//Ö¸ÁîÎÄµµÖĞµÄµÚÒ»¸öcomponentÔªËØ
-
-		TMODULE ext_mod;
-		IWayCallType call;
-
-		int pv_many;	//
-		struct PVarBase **paras; //±äÁ¿Ö¸ÕëÊı×é
-		int max_snap;
-		struct DyVarBase **snaps;
-		CallFun () {
-			lib_nm = 0;
-			fun_nm = 0;
-			ext_mod = 0;
-			call = 0;
-			pv_many = 0;
-			paras = 0;
-			max_snap = 0;
-			snaps = 0;
-		};
-
-		void set ( TiXmlElement *ele, struct PVar_Set *var_set, struct PVar_Set *loc_v=0)
-		{
-			TiXmlElement *var_ele;
-			const char *vn="parameter";
-			struct PVar *vr_tmp;
-			const char *p;
-			int i;
-
-			ext_mod = 0;
-			call = 0;
-			lib_nm = ele->Attribute("library");
-			fun_nm = ele->Attribute("function");
-			if ( !lib_nm || !fun_nm ) 
-			{
-				TEXTUS_SPRINTF(err_global_str, "function (%s) or libray (%s) is empty!", fun_nm, lib_nm);
-				return ;
-			}
-			ext_mod =TEXTUS_LOAD_MOD(lib_nm, 0);
-			if ( ext_mod ) 
-			{
-				TEXTUS_GET_ADDR(ext_mod, fun_nm, call, IWayCallType);
-			} else {
-				TEXTUS_SPRINTF(err_global_str, "Load libray (%s) failed!", lib_nm);
-				return ;
-			}
-			if ( !call )
-			{
-				TEXTUS_SPRINTF(err_global_str, "Load function (%s) of libray (%s) failed!", fun_nm, lib_nm);
-				return ;
-			}
-
-			i = 0;
-			for (var_ele = ele->FirstChildElement(vn); var_ele; var_ele = var_ele->NextSiblingElement(vn) ) 
-				i++;
-
-			paras = new struct PVarBase*[i];
-			i = 0;
-			for (var_ele = ele->FirstChildElement(vn); var_ele; var_ele = var_ele->NextSiblingElement(vn) ) 
-			{
-				p = var_ele->GetText();
-				if (p )
-				{
-					vr_tmp = var_set->look(p, loc_v);
-					if (vr_tmp )
-					{
-						paras[i] = vr_tmp;
-					} else {
-						paras[i] = new struct PVar;
-						paras[i]->kind = VAR_Constant;	//ÈÏÎªÊÇÎŞÃû³£Êı
-						paras[i]->c_len = squeeze(p, paras[i]->content);
-					}
-					i++;
-				}
-			}
-			pv_many = i;	//×îºóÔÙ¸üĞÂÒ»´Î±äÁ¿Êı
-			set_condition ( ele, var_set, loc_v);
-		};
-
-		int callfun(struct MK_Session *mess)
-		{
-			int i, ret = 1;
-			if ( !snaps ) {	
-				/* ½«messÖĞµÄ¶¯Ì¬±äÁ¿, ´«¸øº¯Êı¡£ 
-				messµÄ¶¯Ì¬±äÁ¿Êı, ÊÇËùÓĞÅäÖÃÖĞËùÄÜ¶¨ÒåµÄ×î´óÊı. ËùÒÔ, ÔÚ¶¨Òå½×¶Î, ÎŞ·¨ÖªµÀ×îÖÕµÄÊı.
-				Òò´Ë, ÔÚÔËĞĞÊ±, ·ÖÅä¿Õ¼ä.
-				ÎªÊ²Ã´²»½«messÖ±½Ó´«¸øº¯Êı?
-				ÎªÁËÖ»½«¶¯Ì¬Á¿µÄ»ù±¾ĞÅÏ¢´«¸øº¯Êı,
-				*/
-				max_snap = mess->snap_num;	
-				snaps = new struct DyVarBase*[max_snap];
-			}
-			if ( valid_condition(mess) )
-			{
-				for ( i = 0; i < mess->snap_num; i++ )
-					snaps[i] = &mess->snap[i];
-				ret = this->call(mess->snap_num, snaps, pv_many, paras);
-				if ( ret == 0 ) 
-					ret = 1;
-				else
-					ret = -1;
-			}
-
-			return ret;
-		};
-	};
-/* Íâ²¿º¯Êı¶¨Òå½áÊø*/
-
-	struct Base_Command {		//»ù´¡Ö¸Áî¶¨Òå£¬Ö»°üÀ¨Á½ÖÖ¡£¡¡ÓÃÓÚ×ÓĞòÁĞ£¬Ö¸ÁîÊıÉÙ£¬ËùÒÔ²»ĞèÒªorderÁË¡£
-		enum Command_Type type;	//ÀàĞÍ, ²»ÓÃunionÀàĞÍ, 
-		struct PacIns *pac_p;
-		struct CallFun *fun_p;
-
-		int  set ( TiXmlElement *ele, struct PVar_Set *vrset,  struct PVar_Set *o_set) //·µ»ØICÖ¸ÁîÊı
-		{
-			int ret = 0;
-			plain_p = 0;
-			hsm_p = 0;
-			fun_p = 0;
-			type = INS_None;
-			
-			if ( strcasecmp(ele->Value(), "call") == 0 ) 
-			{
-				type = INS_Call;
-				fun_p = new struct CallFun;
-				fun_p->set(ele ,vrset, o_set);
-				return 0;
-			};
-
-			/* ½ÓÏÂÈ¥£¬ÕÒinsdef.xml, »ñµÃÊÂ¸ö±¨ÎÄ¶¨Òå
-			ele->Value(), ´Óinsdef.xml ÖĞÏàÍ¬µÄ, 
-			*/
-
-			return ret;
-		};
-	};
-
-	struct ComplexSubSerial: public SwBase, public Condition {
+	struct ComplexSubSerial: public Condition {
 		TiXmlElement *sub_ins_entry;	//MAPÎÄµµµÄ×ÓĞòÁĞÔªËØ
 
 		TiXmlDocument var_doc;
@@ -1330,9 +1123,9 @@ struct CmdBase:public Condition  {
 		TiXmlElement *me;		//¾ÖÓò±äÁ¿ËµÃ÷
 
 		struct PVar_Set *g_var_set;	//È«¾Ö±äÁ¿¼¯
-		struct PVar_Set sv_set;	//¾ÖÓò±äÁ¿¼¯, Ö»ÓĞ¶ÔDesMacÖ®ÀàµÄ²ÅÓĞ
+		struct PVar_Set sv_set;		//¾ÖÓò±äÁ¿¼¯, Ö»ÓĞ¶ÔDesMacÖ®ÀàµÄ²ÅÓĞ
 
-		struct Base_Command *instructions;
+		struct PacIns *instructions;
 		int many;
 
 		ComplexSubSerial()
@@ -1632,7 +1425,7 @@ struct CmdBase:public Condition  {
 				goto S_End;
 
 			many = refny;
-			instructions = new struct Base_Command[many];
+			instructions = new struct PacIns[many];
 			which = 0;
 
 			b_ele= spro->FirstChildElement(); 
@@ -1652,9 +1445,6 @@ struct CmdBase:public Condition  {
 		S_End:
 			return icc_num;
 
-			if (!si_set)
-				si_set = new struct INS_SubSet();
-			return si_set->put_inses(spro, g_var_set, &sv_set); //·µ»Ø×ÓĞòÁĞÖ¸ÁîÊı
 		};
 
 	};
