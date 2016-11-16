@@ -939,7 +939,7 @@ struct CmdRcv {
 		must_con_len = 0;
 	};
 };
-
+struct ComplexSubSerial;
 struct PacIns:public Condition  {
 	int subor;	//指示指令报文送给哪一个下级模块
 
@@ -948,6 +948,7 @@ struct PacIns:public Condition  {
 
 	struct CmdRcv *rcv_lst;
 	int rcv_num;
+	struct ComplexSubSerial *comp;	//如果这个不为0, 则返回此值，指示调度器调用一个子过程。
 
 	PacIns() 
 	{
@@ -956,10 +957,16 @@ struct PacIns:public Condition  {
 		rcv_lst = 0;
 		rcv_num = 0;
 		subor = 0;
+		comp = 0;
 	};
 
+	struct ComplexSubSerial *set_snd( PacketObj *snd_pac, int &bor, MK_Session *sess)
+	{
+		/* ..... */
+		bor = subor;
+		return comp;
+	};
 	void  get_current( char *buf, int &len, MK_Session *sess)
-	void  get_current( PacketObj *snd_pac, MK_Session *sess)
 	{	/* 取实时的指令内容 */
 		int i;
 		struct DyVar *dvr;
