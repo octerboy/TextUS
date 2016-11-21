@@ -1,3 +1,4 @@
+/* 这个不再使用了 */
 /* 制卡指令定义文件中的各种变量 */
 enum Var_Type {VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_Dynamic = 10, VAR_Refer=11, VAR_Constant=98,  VAR_None=99};
 
