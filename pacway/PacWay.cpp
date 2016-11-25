@@ -1120,14 +1120,13 @@ struct PacIns:public Condition  {
 };
 
 	struct ComplexSubSerial: public Condition {
-		TiXmlElement *sub_ins_entry;	//MAP文档的子序列元素
+		TiXmlElement *sub_ins_entry;	//MAP文档的子序列元素，可能不用了。
 
 		TiXmlDocument var_doc;
 		TiXmlElement *var_root;
 
 		TiXmlElement *usr_def_entry;	//MAP文档中，对用户指令的定义
-		TiXmlElement *sub_pro;		//实际使用的指令序列，在相同用户指令名下，可能有不同的序列
-		TiXmlElement *me;		//局域变量说明
+		TiXmlElement *sub_pro;			//实际使用的指令序列，在相同用户指令名下，可能有不同的序列,可能usr_def_entry相同, 而sub_pro不同。
 
 		struct PVar_Set *g_var_set;	//全局变量集
 		struct PVar_Set sv_set;		//局域变量集, 只有对DesMac之类的才有
@@ -1298,7 +1297,7 @@ struct PacIns:public Condition  {
 			TiXmlAttribute *att; 
 			char loc_v_nm[128];
 
-			for ( att = var_ele->FirstAttribute(); att; att = att->Next())
+			for ( att = ref_var->self_ele->FirstAttribute(); att; att = att->Next())
 			{
 				if ( strcmp(att->Name(), "pro") == 0 
 					|| strcmp(att->Name(), "name") == 0 
@@ -1310,7 +1309,7 @@ struct PacIns:public Condition  {
 					|| strcmp(att->Name(), "dynamic") == 0  )
 					continue;
 
-				//把其它属性加到本地变量集中 sv_set
+				//把其它属性加到本地变量集 sv_set
 				TEXTUS_SPRINTF(loc_v_name, "me.%s.%s", mid_nm, att->name()); 
 				sv_set.put_still(loc_v_name, att->Value());
 			}
@@ -1323,7 +1322,7 @@ struct PacIns:public Condition  {
 			char buf[512];		//实际内容, 常数内容
 			char loc_v_nm[128];
 			int len;
-			struct PVar *ref_var;
+			struct PVar *ref_var = 0;
 
 			ref_var = g_var_set->one_still(vnm, buf, len);	//找到已定义参考变量的
 			if ( ref_var)
@@ -1331,11 +1330,12 @@ struct PacIns:public Condition  {
 				set_loc_ref_var(ref_var, mid_nm);
 			}
 
-			if ( len > 0 )
+			if ( len > 0 )	//找到的全局变量可能有内容，加到本地中。
 			{
 				TEXTUS_SPRINTF(loc_v_name, "me.%s", mid_nm); 
 				sv_set.put_still(loc_v_name, buf, len);
 			}
+			return ref_var;
 		};
 
 		//ref_vnm是一个参考变量名, 如$Main之类的. 根据这个$Main从全局变量集找到相应的定义。
@@ -1348,24 +1348,24 @@ struct PacIns:public Condition  {
 			char lv_nm[128];
 			TiXmlElement *loc_v_ele;
 
-			sv_set.defer_vars(usr_def_entry); //局域变量定义完全还在那个自定义中
+			sv_set.defer_vars(usr_def_entry); //局域变量定义完全还在那个自定义中，cmd_ele中找me.sw之类, 要做......
+
 			TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s", "Pro");
-			if ( pri_vnm )
+			if ( pri_vnm ) //如果有主参考变量, 就即根据这个主参考变量中找到相应的sub_pro, pri_vnm就是$Main之类的。
 			{
-				ref_var = set_loc_ref_var(pri_vnm, me->Attribute("primary"));
+				ref_var = set_loc_ref_var(pri_vnm, usr_def_entry->Attribute("primary")); //primary属性指明protect之类的, 实际上就是me.protect这样的东西。
 				if ( ref_var )
 				{
 					if (ref_var->self_ele->Attribute("pro") ) //参考变量的pro属性指示子序列的变体名
 					{
-						TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s%s", "Pro", ref_var->me_ele->Attribute("pro"));						
+						TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s%s", "Pro", ref_var->self_ele->Attribute("pro"));						
 					}
 				}
 			}
 
 			sub_pro = usr_def_entry->FirstChildElement(pro_nm);	//定位实际的子系列
-			/* 分析Me元素, app_ele，从而设定更多的sv_set内容...... */
-			for (	loc_v_ele= me->FirstChildElement(); 
-				loc_v_ele; 
+			/* 分析Me元素, app_ele，从而设定更多的sv_set内容......, 这里要改了，怎么怎么弄？....... */
+			for (loc_v_ele= me->FirstChildElement(); loc_v_ele; 
 				loc_v_ele = loc_v_ele->NextSiblingElement())
 			{
 				const char *tag;
@@ -2236,46 +2236,52 @@ struct PacIns:public Condition  {
 		//	}
 		//};
 
-		int  set_sub( TiXmlElement *app_ele, struct PVar_Set *vrset, TiXmlElement *sub_serial, struct ComplexSubSerial *pool) //返回对IC的指令数
+		int  set_sub( TiXmlElement *app_ele, struct PVar_Set *vrset, TiXmlElement *sub_serial) //返回对IC的指令数
 		{
-			TiXmlElement *sub_serial, *me, *pri;
+			TiXmlElement *pri;
 			const char *pri_nm;
-			int comp_num , ret_ic;
+			int ret_ic, i;
 
-			complex = pool;
 			app_ele->QueryIntAttribute("order", &order);
 
 			//前面已经分析过了, 这里肯定不为NULL,nm就是Command之类的。 sub_serial 
-			me = sub_serial->FirstChildElement("Me");
-			pri_nm = me->Attribute("primary");
+			pri_nm = sub_serial->Attribute("primary");
 			if ( pri_nm)
 			{
 				if ( app_ele->Attribute(pri_nm))
 				{
 					/* pro_analyze 根据变量名, 去找到实际真正的变量内容(必须是参考变量)。变量内容中指定了Pro等 */
-					complex[0].me = me;
-					complex[0].usr_def_entry = sub_serial;
-					complex[0].g_var_set = vrset;
-					ret_ic = complex[0].pro_analyze(app_ele->Attribute(pri_nm),app_ele);
 					comp_num = 1;
-				} else 
-				{
+					complex = new struct ComplexSubSerial;
+					complex->usr_def_entry = sub_serial;
+					complex->g_var_set = vrset;
+					ret_ic = complex->pro_analyze(app_ele->Attribute(pri_nm),app_ele);
+					
+				} else {
 					for( pri = app_ele->FirstChildElement(pri_nm), comp_num = 0; 
 						pri_ele; 
 						pri = pri->NextSiblingElement(pri_nm) )
 					{
-						complex[comp_num].me = me;
-						complex[comp_num].usr_def_entry = sub_serial;
-						complex[comp_num].g_var_set = vrset;
-						ret_ic = complex[comp_num].pro_analyze(key->GetText(), app_ele); //多个可选，指令数就计最后一个
 						comp_num++;
+					}
+					complex = new struct ComplexSubSerial[comp_num];
+
+					for( pri = app_ele->FirstChildElement(pri_nm), i = 0; 
+						pri_ele; 
+						pri = pri->NextSiblingElement(pri_nm) )
+					{
+						complex[i].usr_def_entry = sub_serial;
+						complex[i].g_var_set = vrset;
+						ret_ic = complex[i].pro_analyze(key->GetText(), app_ele); //多个可选，指令数就计最后一个
+						i++;
 					}
 				}
 			} else {
-				complex[0].me = me;
-				complex[0].usr_def_entry = sub_serial;
-				complex[0].g_var_set = vrset;
-				ret_ic = complex[0].pro_analyze(0,app_ele);
+				comp_num = 1;
+				complex = new struct ComplexSubSerial;
+				complex->usr_def_entry = sub_serial;
+				complex->g_var_set = vrset;
+				ret_ic = complex->pro_analyze(0,app_ele);
 				comp_num = 1;
 			}
 
@@ -2420,7 +2426,7 @@ struct PacIns:public Condition  {
 			many = 0;
 		};
 
-		TiXmlElement *yes_ins(TiXmlElement *app_ele, TiXmlElement *map_root, struct PVar_Set *var_set, int &c_num)
+		TiXmlElement *yes_ins(TiXmlElement *app_ele, TiXmlElement *map_root, struct PVar_Set *var_set)
 		{
 			TiXmlElement *sub_serial, *me, *pri;
 			const char *pri_nm;
@@ -2429,47 +2435,23 @@ struct PacIns:public Condition  {
 
 			if ( var_set->is_var(nm)) return 0;
 
-			sub_serial = map_root->FirstChildElement(nm); //找到子系列
-			if ( !sub_serial ) 
-				return 0;
-			
-			me = sub_serial->FirstChildElement("Me");			
-			pri_nm = me->Attribute("primary");
-			if ( pri_nm)
-			{
-				if ( app_ele->Attribute(pri_nm))
-					c_num = 1;
-				else 
-				{
-					for( 	pri = app_ele->FirstChildElement(pri_nm); 
-						pri_ele; 
-						pri = pri->NextSiblingElement(pri_nm) )
-					{
-						c_num++;
-					}
-				}
-			} else 
-				c_num = 1;
-
+			sub_serial = map_root->FirstChildElement(nm); //找到子系列		
 			return sub_serial;
 		};
 
 		void put_inses(TiXmlElement *root, struct PVar_Set *var_set, TiXmlElement *map_root)
 		{
 			TiXmlElement *icc_ele, *sub;
-			int mor, cor, vmany, refny, i, comp_num, i_num ;
+			int mor, cor, vmany, refny, i, i_num ;
 
 			icc_ele= root->FirstChildElement(); refny = 0;
-			comp_num = 0;
 			while(icc_ele)
 			{
 				if ( icc_ele->Value() )
 				{
-					if (yes_ins(icc_ele, map_root, var_set, i) )
+					if (yes_ins(icc_ele, map_root, var_set) )
 					{
-						refny++;
-						comp_num += i;
-						
+						refny++;				
 					}
 				}
 				icc_ele = icc_ele->NextSiblingElement();
@@ -2477,11 +2459,9 @@ struct PacIns:public Condition  {
 			//初步确定变量数
 			many = refny ;
 			instructions = new struct User_Command[many];
-			comp_pool = new struct ComplexSubSerial[comp_num];
 			vmany = 0;
 			
 			icc_ele= root->FirstChildElement(); mor = 0;i = 0;
-			comp_num = 0;
 			i_num = 0;
 			while(icc_ele)
 			{
@@ -2493,8 +2473,7 @@ struct PacIns:public Condition  {
 						cor = 0;
 						icc_ele->QueryIntAttribute("order", &(cor)); 
 						if ( cor <= mor ) goto ICC_NEXT;	//order不符合顺序的，略过
-						i_num += instructions[vmany].set_sub(icc_ele, var_set, sub, &comp_pool[comp_num]);
-						comp_num += i;
+						i_num += instructions[vmany].set_sub(icc_ele, var_set, sub);
 						mor = cor;
 						vmany++;
 					}
