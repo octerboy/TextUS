@@ -104,7 +104,7 @@ char err_global_str[128]={0};
 /* 左边状态, 空闲, 等着新请求, 初始化中, 制卡中 */
 enum LEFT_STATUS { LT_IDLE = 0, LT_INITING = 2, LT_MKING = 3};
 
-enum Var_Type {VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_Dynamic = 10, VAR_Refer=11, VAR_Constant=98,  VAR_None=99};
+enum Var_Type {VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_Dynamic = 10, VAR_Refer=11, VAR_Me=12, VAR_Constant=98,  VAR_None=99};
 
 
 /* 右边状态, 空闲, IC指令发出, HSM指令发出, 终端测试中 */
@@ -948,7 +948,7 @@ struct PacIns:public Condition  {
 
 	struct CmdRcv *rcv_lst;
 	int rcv_num;
-	struct ComplexSubSerial *comp;	//如果这个不为0, 则返回此值，指示调度器调用一个子过程。
+	struct ComplexSubSerial *complex;	//如果这个不为0, 则返回此值，指示调度器调用一个子过程。
 
 	PacIns() 
 	{
@@ -962,10 +962,11 @@ struct PacIns:public Condition  {
 
 	struct ComplexSubSerial *set_snd( PacketObj *snd_pac, int &bor, MK_Session *sess)
 	{
-		/* ..... */
+		/* ..和get_current差不多... */
 		bor = subor;
 		return comp;
 	};
+
 	void  get_current( char *buf, int &len, MK_Session *sess)
 	{	/* 取实时的指令内容 */
 		int i;
@@ -997,7 +998,7 @@ struct PacIns:public Condition  {
 		buf[len] = 0;
 	};
 
-	void set_cmd ( TiXmlElement *ele, struct PVar_Set *var_set, struct PVar_Set *o_set=0)
+	void hard_work ( TiXmlElement *pac_ele, TiXmlElement *usr_ele, TiXmlElement *def_ele, struct PVar_Set *var_set)
 	{
 		struct PVar *vr_tmp=0;
 		TiXmlElement *e_tmp, *n_ele;
@@ -1007,6 +1008,56 @@ struct PacIns:public Condition  {
 		TiXmlElement *rep_ele;
 		const char *vn="reply";
 		int r_i = 0;
+
+
+			/* 分析Me元素, app_ele，从而设定更多的sv_set内容......, 这里要改了，怎么怎么弄？....... */
+			for (loc_v_ele= me->FirstChildElement(); loc_v_ele; 
+				loc_v_ele = loc_v_ele->NextSiblingElement())
+			{
+				const char *tag;
+				TiXmlElement *body;	//用户指令的第一个body元素
+
+				tag = loc_v_ele->Value();
+				if ( !tag ) continue;
+				//先将Me的各个子元素当作用户指令的属性名，
+				set_loc_ref_var(app_ele->Attribute(loc_v_ele->Value()), loc_v_ele->Value());
+				TEXTUS_SNPRINTF(lv_nm, sizeof(lv_nm), "me.%s", tag);
+
+				//然后当作用户指令的子元素
+				body =  cmd_ele->FirstChildElement(tag); 
+				while ( body ) 
+				{
+					vr_tmp= g_var_set->all_still(body, tag_body, body_buf, body_len, n_ele);
+					body = n_ele;
+					if ( !vr_tmp ) 		//还是常数, 这里应该结束了
+					{	
+						if (body) printf("%s body !!!!!!!!!!\n", tag);	//这不应该
+						continue;
+					}
+					
+					if ( vr_tmp->kind == VAR_Refer )
+					{
+						ek_var = vr_tmp;		//参考变量, 多个也可, 以后从1开始
+						set_loc_ref_var(vr_tmp, me->Attribute("imply"));
+					} else if ( vr_tmp->kind <= VAR_Dynamic )
+					{
+						body_dynamic = true;		//动态啦
+					}
+				} 
+
+				if ( body_dynamic ) 
+				{
+					vr_tmp = sv_set.look(lv_nm);
+					vr_tmp->dynamic_pos = var_set->get_neo_dynamic_pos();	//动态变量位置
+					vr_tmp->kind = VAR_Dynamic;
+					body_dy_pos = vr_tmp->dynamic_pos;
+				} else {
+					sv_set.put_still(lv_nm,body_buf);
+				}
+			}
+
+
+			
 
 		reply_num = 0; vres = 0;
 		for (rep_ele = ele->FirstChildElement(vn); rep_ele; rep_ele = rep_ele->NextSiblingElement(vn) ) 
@@ -1085,12 +1136,12 @@ struct PacIns:public Condition  {
 				continue;
 			}
 		}
-	NextPro:
-		set_condition ( ele, var_set, o_set);
+	
+		set_condition ( pac_ele, var_set, o_set);
 		return ;
 	};
 
-	void pro_response(char *res_buf, int rlen,  struct MK_Session *mess)
+	//void pro_response(char *res_buf, int rlen,  struct MK_Session *mess)
 	/* 本指令处理响应报文，匹配必须的内容 */
 	bool pro_response(PacketObj *snd_pac,  struct MK_Session *mess)
 	{
@@ -1119,7 +1170,7 @@ struct PacIns:public Condition  {
 	};
 };
 
-	struct ComplexSubSerial: public Condition {
+	struct ComplexSubSerial{
 		TiXmlElement *sub_ins_entry;	//MAP文档的子序列元素，可能不用了。
 
 		TiXmlDocument var_doc;
@@ -1128,11 +1179,15 @@ struct PacIns:public Condition  {
 		TiXmlElement *usr_def_entry;	//MAP文档中，对用户指令的定义
 		TiXmlElement *sub_pro;			//实际使用的指令序列，在相同用户指令名下，可能有不同的序列,可能usr_def_entry相同, 而sub_pro不同。
 
-		struct PVar_Set *g_var_set;	//全局变量集
-		struct PVar_Set sv_set;		//局域变量集, 只有对DesMac之类的才有
+		struct PVar_Set *g_var_set;		//全局变量集
+		//struct PVar_Set sv_set;		//局域变量集, 只有对DesMac之类的才有
 
-		struct PacIns *instructions;
-		int many;
+		struct PacIns *pac_inses;
+		int pac_many;
+
+		TiXmlElement *def_root;
+		TiXmlElement *map_root;
+		TiXmlElement *usr_ele;
 
 		ComplexSubSerial()
 		{
@@ -1140,15 +1195,15 @@ struct PacIns:public Condition  {
 			usr_def_entry = 0;
 			sub_pro = 0;
 			me = 0;
-			instructions = 0;
+			pac_inses = 0;
 			many = 0;
 		};
 		
 		~ComplexSubSerial()
 		{
-			if (instructions ) delete []instructions;
-			instructions = 0;
-			many = 0;
+			if (pac_inses) delete []pac_inses;
+			pac_inses = 0;
+			pac_many = 0;
 		};
 
 		int defer_sub_serial(TiXmlElement *ele, TiXmlElement *root, struct PVar_Set *all_set, struct PVar_Set *sub_set=0)
@@ -1168,14 +1223,6 @@ struct PacIns:public Condition  {
 			sv_set.defer_vars(var_root);
 		};
 
-		void sub_allow_sw( TiXmlElement *ele)
-		{
-			allow_sw(ele);	//看可允许的SW
-			sv_set.put_still("me.sw", another_sw_str);
-			sv_set.put_still("me.sw2", another_sw2_str);
-			sv_set.put_still("me.not_sw", not_sw_str);
-			sv_set.put_still("me.slot",  ele->Attribute("slot")); 
-		};
 
 		/* 参考型变量在子序列中的准备, 从全局变量表中发现它是一个参考变量, 再赋值到局域变量表中
 		   loc_rf_nm 是局域变量表中的名, 如"protect", "refer", "key"等
@@ -1339,14 +1386,15 @@ struct PacIns:public Condition  {
 		};
 
 		//ref_vnm是一个参考变量名, 如$Main之类的. 根据这个$Main从全局变量集找到相应的定义。
-		int pro_analyze( const char *pri_vnm, TiXmlElement *cmd_ele )
+		int pro_analyze( const char *pri_vnm)
 		{
 			TiXmlAttribute *att; 
 			struct PVar *ref_var;
 			const char *pro_nm;
 			char pro_nm[128];
 			char lv_nm[128];
-			TiXmlElement *loc_v_ele;
+			TiXmlElement *pac_ele;
+			int which, icc_num=0 ;
 
 			sv_set.defer_vars(usr_def_entry); //局域变量定义完全还在那个自定义中，cmd_ele中找me.sw之类, 要做......
 
@@ -1364,829 +1412,59 @@ struct PacIns:public Condition  {
 			}
 
 			sub_pro = usr_def_entry->FirstChildElement(pro_nm);	//定位实际的子系列
-			/* 分析Me元素, app_ele，从而设定更多的sv_set内容......, 这里要改了，怎么怎么弄？....... */
-			for (loc_v_ele= me->FirstChildElement(); loc_v_ele; 
-				loc_v_ele = loc_v_ele->NextSiblingElement())
-			{
-				const char *tag;
-				TiXmlElement *body;	//用户指令的第一个body元素
-
-				tag = loc_v_ele->Value();
-				if ( !tag ) continue;
-				//先将Me的各个子元素当作用户指令的属性名，
-				set_loc_ref_var(app_ele->Attribute(loc_v_ele->Value()), loc_v_ele->Value());
-				TEXTUS_SNPRINTF(lv_nm, sizeof(lv_nm), "me.%s", tag);
-
-				//然后当作用户指令的子元素
-				body =  cmd_ele->FirstChildElement(tag); 
-				while ( body ) 
-				{
-					vr_tmp= g_var_set->all_still(body, tag_body, body_buf, body_len, n_ele);
-					body = n_ele;
-					if ( !vr_tmp ) 		//还是常数, 这里应该结束了
-					{	
-						if (body) printf("%s body !!!!!!!!!!\n", tag);	//这不应该
-						continue;
-					}
-					
-					if ( vr_tmp->kind == VAR_Refer )
-					{
-						ek_var = vr_tmp;		//参考变量, 多个也可, 以后从1开始
-						set_loc_ref_var(vr_tmp, me->Attribute("imply"));
-					} else if ( vr_tmp->kind <= VAR_Dynamic )
-					{
-						body_dynamic = true;		//动态啦
-					}
-				} 
-
-				if ( body_dynamic ) 
-				{
-					vr_tmp = sv_set.look(lv_nm);
-					vr_tmp->dynamic_pos = var_set->get_neo_dynamic_pos();	//动态变量位置
-					vr_tmp->kind = VAR_Dynamic;
-					body_dy_pos = vr_tmp->dynamic_pos;
-				} else {
-					sv_set.put_still(lv_nm,body_buf);
-				}
-			}
-
-
-			set_condition ( cmd_ele, g_var_set, &sv_set);
 			if ( !sub_pro ) 	//没有子序列入口, 
 				return 0;
 
-			TiXmlElement *b_ele;
-			int which, refny=0, icc_num=0 ;
-
-			b_ele= spro->FirstChildElement(); refny = 0;
-			while(b_ele)
+			pac_ele= spro->FirstChildElement(); pac_many = 0;
+			while(pac_ele)
 			{
-				if ( b_ele->Value() )	//直接拿一个元素就当基本指令了
+				if ( pac_ele->Value() )	//直接拿一个元素就当基本指令了
 				{
-					refny++;
+					pac_many++;
 				}
-				b_ele = b_ele->NextSiblingElement();
+				pac_ele = pac_ele->NextSiblingElement();
 			}
 			//确定变量数
-			if ( refny ==0 )
+			if ( pac_many ==0 )
 				goto S_End;
 
-			many = refny;
-			instructions = new struct PacIns[many];
+			pac_inses = new struct PacIns[pac_many];
 			which = 0;
 
-			b_ele= spro->FirstChildElement(); 
+			pac_ele= spro->FirstChildElement(); 
 			icc_num = 0;
-			while(b_ele)
+			while(pac_ele)
 			{
-				if ( b_ele->Value() )
+				if ( pac_ele->Value() )
 				{
-					if ( IS_SUBINS(b_ele->Value()) )
+					if ( def_root->FirstChildElement(pac_ele->Value()) )	//如果在报文中有定义
 					{
-						icc_num += instructions[which].set(b_ele, var_set, o_set);
+						icc_num += pac_inses[which].hard_work(pac_ele, cmd_ele, var_set, o_set);
+						which++;
+					} else if ( map_root->FirstChildElement(pac_ele->Value()) )	//如果在map中有定义, 也就是一个嵌套的子序列
+					{
+						pac_inses[which].complex = new ComplexSubSerial;
+						pac_inses[which].complex.
+						pac_inses[which].complex->usr_def_entry = map_root->FirstChildElement(pac_ele->Value());
+						pac_inses[which].complex->g_var_set = g_var_set;
+						pac_inses[which].complex->def_root = def_root;
+						pac_inses[which].complex->usr_ele = usr_ele;
+						pac_inses[which].complex->map_root = map_root;
+						icc_num += pac_inses[which].complex->pro_analyze(0);
 						which++;
 					}
 				}
-				b_ele = b_ele->NextSiblingElement();
+				pac_ele = pac_ele->NextSiblingElement();
 			}
+
 		S_End:
 			return icc_num;
-
 		};
 
 	};
 
-	struct ChargeIns: public ComplexSubSerial {			//充值综合指令
-		const char *key;	//充值key，指向文档
-		struct PVar *key_lod;
-		int set ( TiXmlElement *ele, struct PVar_Set *var_set, TiXmlElement *map_root, const char *entry_nm)
-		{
-			const char *xml="<?xml version=\"1.0\" encoding=\"gb2312\" ?>"
-				"<Loc>"
-					"<Variable name=\"me.key.location\" />"
-					"<Variable name=\"me.slot\" />"
-					"<Variable name=\"me.key.para1\" />"
-					"<Variable name=\"me.key.para2\" />"
-					"<Variable name=\"me.key.para3\" />"
-					"<Variable name=\"me.key.para4\" />"
-					"<Variable name=\"me.key.para5\" />"
-					"<Variable name=\"me.key.para6\" />"
-					"<Variable name=\"me.key.para7\" />"
-					"<Variable name=\"me.key.para8\" />"
-					"<Variable name=\"me.key.para9\" />"
-					"<Variable name=\"me.key.para10\" />"
-					"<Variable name=\"me.key.para11\" />"
-					"<Variable name=\"me.key.para12\" />"
-					"<Variable name=\"me.key.para13\" />"
-					"<Variable name=\"me.key.para14\" />"
-					"<Variable name=\"me.key.para15\" />"
-					"<Variable name=\"me.key.para16\" />"
-					"<Variable name=\"me.term\" />"
-					"<Variable name=\"me.amount\" />"
-					"<Variable name=\"me.datetime\" />"
-					"<Variable name=\"me.not_sw\" />"
-					"<Variable name=\"me.sw\" />"
-					"<Variable name=\"me.sw2\" />"
-				"</Loc>";
 
-			def_sub_vars(xml);		//局域变量定义
-			sub_allow_sw(ele);	//看可允许的SW, 包括slot
-
-			get_loc_var (ele, "term",  var_set, "me.term", "123456789012");
-			get_loc_var (ele, "amount",  var_set, "me.amount", "00000000");
-			get_loc_var (ele, "datetime",  var_set, "me.datetime", "20131231083011");
-
-			ref_prepare_sub(ele->Attribute("key"),  key_lod, var_set, "key");	//密钥变量预处理
-			get_entry(key_lod, map_root, entry_nm);
-			return defer_sub_serial(ele, sub_ins_entry, var_set, &sv_set);
-		};
-	};
-
-	struct LoadInitIns: public ComplexSubSerial {			//圈存初始化指令
-		struct PVar *key_lod;
-
-		int set ( TiXmlElement *ele, struct PVar_Set *var_set, TiXmlElement *map_root, const char *entry_nm)
-		{
-			const char *xml="<?xml version=\"1.0\" encoding=\"gb2312\" ?>"
-				"<Loc>"
-					"<Variable name=\"me.key.location\" />"
-					"<Variable name=\"me.slot\" />"
-					"<Variable name=\"me.key.para1\" />"
-					"<Variable name=\"me.key.para2\" />"
-					"<Variable name=\"me.key.para3\" />"
-					"<Variable name=\"me.key.para4\" />"
-					"<Variable name=\"me.key.para5\" />"
-					"<Variable name=\"me.key.para6\" />"
-					"<Variable name=\"me.key.para7\" />"
-					"<Variable name=\"me.key.para8\" />"
-					"<Variable name=\"me.key.para9\" />"
-					"<Variable name=\"me.key.para10\" />"
-					"<Variable name=\"me.key.para11\" />"
-					"<Variable name=\"me.key.para12\" />"
-					"<Variable name=\"me.key.para13\" />"
-					"<Variable name=\"me.key.para14\" />"
-					"<Variable name=\"me.key.para15\" />"
-					"<Variable name=\"me.key.para16\" />"
-					"<Variable name=\"me.typeid\" />"
-					"<Variable name=\"me.term\" />"
-					"<Variable name=\"me.amount\" />"
-					"<Variable name=\"me.datetime\" />"
-					"<Variable name=\"me.online\" />"
-					"<Variable name=\"me.balance\" />"
-					"<Variable name=\"me.mac2\" />"
-					"<Variable name=\"me.not_sw\" />"
-					"<Variable name=\"me.sw\" />"
-					"<Variable name=\"me.sw2\" />"
-				"</Loc>";
-
-			sub_ins_entry = map_root->FirstChildElement(entry_nm);
-			def_sub_vars(xml);		//局域变量定义
-			sub_allow_sw(ele);	//看可允许的SW
-
-			get_loc_var (ele, "typeid",  var_set, "me.typeid", "02");
-			get_loc_var (ele, "term",  var_set, "me.term", "123456789012");
-			get_loc_var (ele, "amount",  var_set, "me.amount", "00000000");
-			get_loc_var (ele, "datetime",  var_set, "me.datetime", "20131231083011");
-			get_loc_var (ele, "online",  var_set, "me.online"); //仅输出的, 不会有默认值
-			get_loc_var (ele, "balance",  var_set, "me.balance"); //仅输出的, 不会有默认值
-			get_loc_var (ele, "mac2",  var_set, "me.mac2"); //仅输出的, 不会有默认值
-
-			ref_prepare_sub(ele->Attribute("key"),  key_lod, var_set, "key");
-			get_entry(key_lod, map_root, entry_nm);
-			return defer_sub_serial(ele, sub_ins_entry, var_set, &sv_set);
-		};
-	};
-
-	struct DebitIns: public ComplexSubSerial {			//完整的消费过程，包括初始化，扣款
-		struct PVar *key_debit;
-
-		int set ( TiXmlElement *ele, struct PVar_Set *var_set, TiXmlElement *map_root, const char *entry_nm)
-		{
-			const char *xml="<?xml version=\"1.0\" encoding=\"gb2312\" ?>"
-				"<Loc>"
-					"<Variable name=\"me.key.location\" />"
-					"<Variable name=\"me.slot\" />"
-					"<Variable name=\"me.key.para1\" />"
-					"<Variable name=\"me.key.para2\" />"
-					"<Variable name=\"me.key.para3\" />"
-					"<Variable name=\"me.key.para4\" />"
-					"<Variable name=\"me.key.para5\" />"
-					"<Variable name=\"me.key.para6\" />"
-					"<Variable name=\"me.key.para7\" />"
-					"<Variable name=\"me.key.para8\" />"
-					"<Variable name=\"me.key.para9\" />"
-					"<Variable name=\"me.key.para10\" />"
-					"<Variable name=\"me.key.para11\" />"
-					"<Variable name=\"me.key.para12\" />"
-					"<Variable name=\"me.key.para13\" />"
-					"<Variable name=\"me.key.para14\" />"
-					"<Variable name=\"me.key.para15\" />"
-					"<Variable name=\"me.key.para16\" />"
-					"<Variable name=\"me.typeid\" />"
-					"<Variable name=\"me.term\" />"
-					"<Variable name=\"me.transno\" />"
-					"<Variable name=\"me.amount\" />"
-					"<Variable name=\"me.datetime\" />"
-					"<Variable name=\"me.offline\" />"
-					"<Variable name=\"me.balance\" />"
-					"<Variable name=\"me.tac\" />"
-					"<Variable name=\"me.not_sw\" />"
-					"<Variable name=\"me.sw\" />"
-					"<Variable name=\"me.sw2\" />"
-				"</Loc>";
-
-			def_sub_vars(xml);		//局域变量定义
-			sub_allow_sw(ele);	//允许的SW
-
-			get_loc_var (ele, "typeid",  var_set, "me.typeid", "06");
-			get_loc_var (ele, "term",  var_set, "me.term", "000000000012");
-			get_loc_var (ele, "amount",  var_set, "me.amount", "00000000");
-			get_loc_var (ele, "datetime",  var_set, "me.datetime", "00000000000000");
-			get_loc_var (ele, "transno",  var_set, "me.transno", "0000");
-			get_loc_var (ele, "offline",  var_set, "me.offline"); //仅输出的, 不会有默认值
-			get_loc_var (ele, "balance",  var_set, "me.balance"); //仅输出的, 不会有默认值
-			get_loc_var (ele, "tac",  var_set, "me.tac"); //仅输出的, 不会有默认值
-
-			ref_prepare_sub(ele->Attribute("key"),  key_debit, var_set, "key");
-			get_entry(key_debit, map_root, entry_nm);
-			return defer_sub_serial(ele, sub_ins_entry, var_set, &sv_set);
-		};
-	};
-
-	struct ExtAuthIns: public ComplexSubSerial {
-		char auth[256];
-		struct PVar *key_auth;	//认证key
-		int set ( TiXmlElement *ele, struct PVar_Set *var_set, TiXmlElement *map_root, const char *entry_nm, TiXmlElement *key_e)
-		{
-			const char *au;
-			const char *xml="<?xml version=\"1.0\" encoding=\"gb2312\" ?>"
-				"<Loc>"
-					"<Variable name=\"me.key.location\" />"
-					"<Variable name=\"me.slot\" />"
-					"<Variable name=\"me.key.para1\" />"
-					"<Variable name=\"me.key.para2\" />"
-					"<Variable name=\"me.key.para3\" />"
-					"<Variable name=\"me.key.para4\" />"
-					"<Variable name=\"me.key.para5\" />"
-					"<Variable name=\"me.key.para6\" />"
-					"<Variable name=\"me.key.para7\" />"
-					"<Variable name=\"me.key.para8\" />"
-					"<Variable name=\"me.key.para9\" />"
-					"<Variable name=\"me.key.para10\" />"
-					"<Variable name=\"me.key.para11\" />"
-					"<Variable name=\"me.key.para12\" />"
-					"<Variable name=\"me.key.para13\" />"
-					"<Variable name=\"me.key.para14\" />"
-					"<Variable name=\"me.key.para15\" />"
-					"<Variable name=\"me.key.para16\" />"
-					"<Variable name=\"me.auth\" />"
-					"<Variable name=\"me.not_sw\" />"
-					"<Variable name=\"me.sw\" />"
-					"<Variable name=\"me.sw2\" />"
-				"</Loc>";
-			def_sub_vars(xml);
-			sub_allow_sw(ele);	//允许的SW
-
-			memset(auth, 0, sizeof(auth));
-			au = key_e->Attribute("auth");	//<key auth=""></key>中的auth优先
-			if ( !au)
-				au = ele->Attribute("auth");
-			if ( au && strlen(au) > 0 )
-			{
-				squeeze(au, auth);
-				sv_set.put_still("me.auth", auth);
-			} else
-				sv_set.put_still("me.auth", "0082000008");
-
-			ref_prepare_sub(key_e->GetText(),  key_auth, var_set, "key");	//"key"与me.key.para相对应
-			get_entry(key_auth, map_root, entry_nm);
-			return defer_sub_serial(ele, sub_ins_entry, var_set, &sv_set);
-		};
-	};
-	
-	struct DesMacIns: public ComplexSubSerial {
-		struct PVar *pk_var;	//保护key，指向分析好的一个变量定义
-		struct PVar *ek_var;	//导出key，指向分析好的一个变量定义
-
-		bool head_dynamic;
-		bool body_dynamic;
-
-		TiXmlElement *head;	//指令文档中的第一个head元素
-		TiXmlElement *body;	//指令文档中的第一个body元素
-		TiXmlElement *tail;	//指令文档中的第一个tail元素
-		const char *tag_head;
-		const char *tag_body;
-		const char *tag_tail;
-		char head_buf[512]; 
-		int head_len;
-		char body_buf[512]; 
-		int body_len;
-
-		const char* len_format;
-
-		int head_dy_pos;	
-		int head_len_dy_pos;	
-
-		int body_dy_pos;	
-		int body_len_dy_pos;	
-
-		int mac_len_dy_pos;	
-		/* 取得实时的指令头、指令体的内容 */
-		void  get_current(MK_Session *sess, struct PVar_Set *var_set)
-		{
-			struct DyVar *dvr, *dvr2;
-			int blen, hlen;
-			hlen = blen = 0;
-			if ( head_dynamic )
-			{
-				dvr = &(sess->snap[head_dy_pos]);
-				dvr2 = &(sess->snap[head_len_dy_pos]);
-				var_set->get_var_all(head, tag_head, dvr->val, dvr->c_len, sess);
-				if ( len_format ) 
-				{
-					TEXTUS_SPRINTF(dvr2->val, len_format, dvr->c_len/2);
-				} else  {
-					TEXTUS_SPRINTF(dvr2->val, "%02d", dvr->c_len/2);
-				}
-				dvr2->c_len = strlen(dvr2->val);
-				hlen = dvr->c_len/2;
-			} else 
-				hlen = strlen(head_buf)/2;
-
-			if ( body_dynamic ) 
-			{
-				dvr = &(sess->snap[body_dy_pos]);
-				dvr2 = &(sess->snap[body_len_dy_pos]);
-				var_set->get_var_all(body, tag_body, dvr->val, dvr->c_len, sess);
-				if ( len_format ) 
-				{
-					TEXTUS_SPRINTF(dvr2->val, len_format, dvr->c_len/2);
-				} else  {
-					TEXTUS_SPRINTF(dvr2->val, "%02d", dvr->c_len/2);
-				}
-				dvr2->c_len = strlen(dvr2->val);
-				blen = dvr->c_len/2; 
-			} else
-				blen = strlen(body_buf)/2;
-		
-			if ( body_dynamic || head_dynamic )
-			{
-				if ( blen%8 == 0 ) 
-					blen += 8;
-				else
-					blen += (8-blen%8);	//加密数据补位后的长度
-				blen += ( 8 + hlen );	//加上8字节随机数和头长度
-
-				dvr2 = &(sess->snap[mac_len_dy_pos]);
-				if ( len_format ) 
-				{
-					TEXTUS_SPRINTF(dvr2->val, len_format, blen);
-				} else  {
-					TEXTUS_SPRINTF(dvr2->val, "%03d", blen);
-				}
-				dvr2->c_len = strlen(dvr2->val);
-			}
-		};
-
-		int set(TiXmlElement *ele, struct PVar_Set *var_set, TiXmlElement *map_root, const char *entry_nm)
-		{
-			const char *xml="<?xml version=\"1.0\" encoding=\"gb2312\" ?>"
-				"<Loc>"
-					"<Variable name=\"me.protect.location\" />"
-					"<Variable name=\"me.slot\" />"
-					"<Variable name=\"me.protect.para1\" />"
-					"<Variable name=\"me.protect.para2\" />"
-					"<Variable name=\"me.protect.para3\" />"
-					"<Variable name=\"me.protect.para4\" />"
-					"<Variable name=\"me.protect.para5\" />"
-					"<Variable name=\"me.protect.para6\" />"
-					"<Variable name=\"me.protect.para7\" />"
-					"<Variable name=\"me.protect.para8\" />"
-					"<Variable name=\"me.protect.para9\" />"
-					"<Variable name=\"me.protect.para10\" />"
-					"<Variable name=\"me.protect.para11\" />"
-					"<Variable name=\"me.protect.para12\" />"
-					"<Variable name=\"me.protect.para13\" />"
-					"<Variable name=\"me.protect.para14\" />"
-					"<Variable name=\"me.protect.para15\" />"
-					"<Variable name=\"me.protect.para16\" />"
-					"<Variable name=\"me.refer.para1\" />"
-					"<Variable name=\"me.refer.para2\" />"
-					"<Variable name=\"me.refer.para3\" />"
-					"<Variable name=\"me.refer.para4\" />"
-					"<Variable name=\"me.refer.para5\" />"
-					"<Variable name=\"me.refer.para6\" />"
-					"<Variable name=\"me.refer.para7\" />"
-					"<Variable name=\"me.refer.para8\" />"
-					"<Variable name=\"me.refer.para9\" />"
-					"<Variable name=\"me.refer.para10\" />"
-					"<Variable name=\"me.refer.para11\" />"
-					"<Variable name=\"me.refer.para12\" />"
-					"<Variable name=\"me.refer.para13\" />"
-					"<Variable name=\"me.refer.para14\" />"
-					"<Variable name=\"me.refer.para15\" />"
-					"<Variable name=\"me.refer.para16\" />"
-					"<Variable name=\"me.head\" />"
-					"<Variable name=\"me.body\" />"
-					"<Variable name=\"me.head_length\" />"
-					"<Variable name=\"me.body_length\" />"
-					"<Variable name=\"me.mac_length\" />"
-					"<Variable name=\"me.not_sw\" />"
-					"<Variable name=\"me.sw\" />"
-					"<Variable name=\"me.sw2\" />"
-				"</Loc>";
-
-			struct PVar *vr_tmp;
-			TiXmlElement *e_tmp, *n_ele;
-			int j;
-			char tmp[32];
-
-			tag_head = "head";
-			tag_body = "body";
-			head =  ele->FirstChildElement(tag_head); 
-			body =  ele->FirstChildElement(tag_body); 
-
-			def_sub_vars(xml);		//局域变量定义
-			sub_allow_sw(ele);	//看可允许的SW
-			ref_prepare_sub(ele->Attribute("protect_key"),  pk_var, var_set, "protect");	//保护Key定义
-			get_entry(pk_var, map_root, entry_nm);	//sub_ins_entry才确定
-			if ( !sub_ins_entry) return 0;	//没有子序列定义, 直接返
-			len_format = sub_ins_entry->Attribute("length_format");
-
-			body_dynamic = false;
-			head_dynamic = false;
-
-			head_len = 0;
-			head_buf[0] = 0;
-			n_ele = e_tmp = head;
-			while ( e_tmp ) 
-			{
-				vr_tmp= var_set->all_still( e_tmp, tag_head, head_buf, head_len, n_ele);
-				e_tmp = n_ele;
-				if ( !vr_tmp ) 		//还是常数, 这里应该结束了
-				{
-					if (e_tmp) printf("desmac head !!!!!!!!!!\n");	//这不应该
-						continue;
-				}
-
-				if ( vr_tmp->kind <= VAR_Dynamic )
-				{
-					head_dynamic = true;		//动态啦
-				} 
-			}
-
-			ek_var = 0;		//如果没有导出?
-			body_len = 0;
-			body_buf[0] = 0;
-			n_ele = e_tmp = body;
-			j = 0;
-			while ( e_tmp ) 
-			{
-				vr_tmp= var_set->all_still( e_tmp, tag_body, body_buf, body_len, n_ele);
-				e_tmp = n_ele;
-				if ( !vr_tmp ) 		//还是常数, 这里应该结束了
-				{
-					if (e_tmp) printf("desmac body !!!!!!!!!!\n");	//这不应该
-					continue;
-				}
-					
-				if ( vr_tmp->kind == VAR_Refer )
-				{
-					ek_var = vr_tmp;		//参考变量, 多个也可, 以后从1开始
-					if ( j == 0 ) 	//ek_var已经找到, 再找一次, 函数就这样, 有点重复
-					{
-						ref_prepare_sub(ek_var->name,  ek_var, var_set, "refer");
-					} else {
-						char ref_nm[16];
-						TEXTUS_SPRINTF(ref_nm, "refer%d", j);
-						ref_prepare_sub(ek_var->name,  ek_var, var_set, ref_nm);
-					}
-					j++;
-		
-				} else if ( vr_tmp->kind <= VAR_Dynamic )
-				{
-					body_dynamic = true;		//动态啦
-				} 
-			}
-
-			if ( head_dynamic )		//sv_set: 局域变量集
-			{
-				vr_tmp = sv_set.look("me.head");
-				vr_tmp->dynamic_pos = var_set->get_neo_dynamic_pos();	//动态变量位置
-				vr_tmp->kind = VAR_Dynamic;
-				head_dy_pos = vr_tmp->dynamic_pos;
-
-				vr_tmp = sv_set.look("me.head_length");
-				vr_tmp->dynamic_pos = var_set->get_neo_dynamic_pos();	//动态变量位置
-				vr_tmp->kind = VAR_Dynamic;
-				head_len_dy_pos	= vr_tmp->dynamic_pos;
-
-			} else {
-				sv_set.put_still("me.head",head_buf);
-				if ( len_format ) 
-					TEXTUS_SPRINTF(tmp, len_format, strlen(head_buf)/2);
-				else 
-					TEXTUS_SPRINTF(tmp, "%02lu", strlen(head_buf)/2);
-				sv_set.put_still("me.head_length",tmp);
-			}
-
-			if ( body_dynamic ) 
-			{
-				vr_tmp = sv_set.look("me.body");
-				vr_tmp->dynamic_pos = var_set->get_neo_dynamic_pos();	//动态变量位置
-				vr_tmp->kind = VAR_Dynamic;
-				body_dy_pos = vr_tmp->dynamic_pos;
-
-				vr_tmp = sv_set.look("me.body_length");
-				vr_tmp->dynamic_pos = var_set->get_neo_dynamic_pos();	//动态变量位置
-				vr_tmp->kind = VAR_Dynamic;
-				body_len_dy_pos = vr_tmp->dynamic_pos;
-
-			} else {
-				sv_set.put_still("me.body",body_buf);
-				if ( len_format ) 
-					TEXTUS_SPRINTF(tmp, len_format, strlen(body_buf)/2);
-				else 
-					TEXTUS_SPRINTF(tmp, "%02lu", strlen(body_buf)/2);
-				sv_set.put_still("me.body_length",tmp);
-			}
-
-			if ( body_dynamic || head_dynamic )
-			{
-				vr_tmp = sv_set.look("me.mac_length");
-				vr_tmp->dynamic_pos = var_set->get_neo_dynamic_pos();	//动态变量位置
-				vr_tmp->kind = VAR_Dynamic;
-				mac_len_dy_pos = vr_tmp->dynamic_pos;
-			} else {
-				int mlen;
-				mlen = strlen(body_buf)/2;
-				if ( mlen%8 == 0 ) 
-					mlen += 8;
-				else
-					mlen += (8-mlen%8);
-				mlen += ( 8 + strlen(head_buf)/2 );
-
-				if ( len_format ) 
-					TEXTUS_SPRINTF(tmp, len_format, mlen);
-				else 
-					TEXTUS_SPRINTF(tmp, "%03d", mlen);
-				sv_set.put_still("me.mac_length",tmp);
-			}
-
-			return defer_sub_serial(ele, sub_ins_entry, var_set, &sv_set);
-		};
-	};
-	
-	struct MacIns: public ComplexSubSerial {
-		const char *protect;	//保护key，指向文档
-		struct PVar *pk_var;	//保护key，指向分析好的一个变量定义
-
-		const char *tag;
-		TiXmlElement *component;	//指令文档中的第一个component元素
-
-		bool dynamic;
-		char cmd_buf[512];
-		int cmd_len;
-
-		int cmd_dy_pos;	
-		int cmd_len_dy_pos;	
-		int mac_len_dy_pos;	
-
-		const char *t_tag, *len_format;
-
-		void  get_current( MK_Session *sess, struct PVar_Set *var_set)
-		{
-			struct DyVar *dvr, *dvr2;
-			if ( dynamic ) 
-			{
-				dvr = &(sess->snap[cmd_dy_pos]);
-				dvr2 = &(sess->snap[cmd_len_dy_pos]);
-				var_set->get_var_all(component, tag, dvr->val, dvr->c_len, sess);
-				if ( len_format ) 
-				{
-					TEXTUS_SPRINTF(dvr2->val, len_format, dvr->c_len/2);
-				} else  {
-					TEXTUS_SPRINTF(dvr2->val, "%03d", dvr->c_len/2);
-				}
-				dvr2->c_len = strlen(dvr2->val);
-
-				dvr2 = &(sess->snap[mac_len_dy_pos]);
-				if ( len_format ) 
-				{
-					TEXTUS_SPRINTF(dvr2->val, len_format, dvr->c_len/2+8);
-				} else  {
-					TEXTUS_SPRINTF(dvr2->val, "%03d", dvr->c_len/2+8);
-				}
-				dvr2->c_len = strlen(dvr2->val);
-			}
-		};
-
-		int set(TiXmlElement *ele, struct PVar_Set *var_set, TiXmlElement *map_root, const char *entry_nm)
-		{
-			const char *xml="<?xml version=\"1.0\" encoding=\"gb2312\" ?>"
-				"<Loc>"
-					"<Variable name=\"me.protect.location\" />"
-					"<Variable name=\"me.slot\" />"
-					"<Variable name=\"me.protect.para1\" />"
-					"<Variable name=\"me.protect.para2\" />"
-					"<Variable name=\"me.protect.para3\" />"
-					"<Variable name=\"me.protect.para4\" />"
-					"<Variable name=\"me.protect.para5\" />"
-					"<Variable name=\"me.protect.para6\" />"
-					"<Variable name=\"me.protect.para7\" />"
-					"<Variable name=\"me.protect.para8\" />"
-					"<Variable name=\"me.protect.para9\" />"
-					"<Variable name=\"me.protect.para10\" />"
-					"<Variable name=\"me.protect.para11\" />"
-					"<Variable name=\"me.protect.para12\" />"
-					"<Variable name=\"me.protect.para13\" />"
-					"<Variable name=\"me.protect.para14\" />"
-					"<Variable name=\"me.protect.para15\" />"
-					"<Variable name=\"me.protect.para16\" />"
-					"<Variable name=\"me.command\" />"
-					"<Variable name=\"me.command_length\" />"
-					"<Variable name=\"me.mac_length\" />"
-					"<Variable name=\"me.not_sw\" />"
-					"<Variable name=\"me.sw\" />"
-					"<Variable name=\"me.sw2\" />"
-				"</Loc>";
-
-			struct PVar *vr_tmp;
-			TiXmlElement *e_tmp, *n_ele;
-
-			def_sub_vars(xml);		//局域变量定义
-			sub_allow_sw(ele);	//看可允许的SW
-			ref_prepare_sub(ele->Attribute("protect_key"),  pk_var, var_set, "protect");	//保护密钥
-			get_entry(pk_var, map_root, entry_nm);
-			len_format = sub_ins_entry->Attribute("length_format");	//取得长度格式字符串
-
-			tag = "component";
-			component = ele->FirstChildElement(tag); 
-
-			dynamic = false;
-			cmd_len = 0;
-			cmd_buf[0] = 0;
-			n_ele = e_tmp = component;
-			while ( e_tmp ) 
-			{
-				vr_tmp= var_set->all_still( e_tmp, tag, cmd_buf, cmd_len, n_ele);
-				e_tmp = n_ele;
-				if ( !vr_tmp ) 		//还是常数, 这里应该结束了
-				{
-					if (e_tmp) printf("macins !!!!!!!!!!\n");	//这不应该
-					continue;
-				}
-					
-				if ( vr_tmp->kind <= VAR_Dynamic )
-				{
-					dynamic = true;		//动态啦
-				} 
-			}
-
-			if ( dynamic ) 
-			{
-				vr_tmp = sv_set.look("me.command");
-				vr_tmp->dynamic_pos = var_set->get_neo_dynamic_pos();	//动态变量位置
-				vr_tmp->kind = VAR_Dynamic;
-				cmd_dy_pos = vr_tmp->dynamic_pos;
-
-				vr_tmp = sv_set.look("me.command_length");
-				vr_tmp->dynamic_pos = var_set->get_neo_dynamic_pos();	//动态变量位置
-				vr_tmp->kind = VAR_Dynamic;
-				cmd_len_dy_pos = vr_tmp->dynamic_pos;
-
-				vr_tmp = sv_set.look("me.mac_length");
-				vr_tmp->dynamic_pos = var_set->get_neo_dynamic_pos();	//动态变量位置
-				vr_tmp->kind = VAR_Dynamic;
-				mac_len_dy_pos = vr_tmp->dynamic_pos;
-			} else {
-				char tmp[32];
-				sv_set.put_still("me.command", cmd_buf);
-				if ( len_format ) 
-					TEXTUS_SPRINTF(tmp, len_format, strlen(cmd_buf)/2);
-				else 
-					TEXTUS_SPRINTF(tmp, "%03lu", strlen(cmd_buf)/2);
-				sv_set.put_still("me.command_length",tmp);
-
-				if ( len_format ) 
-					TEXTUS_SPRINTF(tmp, len_format, strlen(cmd_buf)/2+8);
-				else 
-					TEXTUS_SPRINTF(tmp, "%03lu", strlen(cmd_buf)/2+8);
-				sv_set.put_still("me.mac_length",tmp);
-			}
-
-			return defer_sub_serial(ele, sub_ins_entry, var_set, &sv_set);
-		};
-	};
-	
-	struct GPKMCIns: public ComplexSubSerial {
-		const char *ori_kmc;	//原KMC，指向文档, 可能是一个变量名, 或实际的值
-		struct PVar *ori_kvar;	//原指向分析好的一个变量定义
-
-		const char *neo_kmc;	//新KMC，指向文档, 可能是一个变量名, 或实际的值
-		struct PVar *neo_kvar;	//新指向分析好的一个变量定义
-		char ori_ver[8];		//原密钥版本
-		char neo_ver[8];		//新密钥版本
-
-		char put_type[8];	//密钥类型: 80或81, 对于put key有用.
-		char put_ins[16];	//PUT KEY Command
-
-		int set ( TiXmlElement *ele, struct PVar_Set *var_set, TiXmlElement *map_root, const char *entry_nm)
-		{
-			const char *tmp;
-
-			const char *xml="<?xml version=\"1.0\" encoding=\"gb2312\" ?>"
-				"<Loc>"
-					"<Variable name=\"me.neokey.location\" />"
-					"<Variable name=\"me.neokey.para1\" />"
-					"<Variable name=\"me.neokey.para2\" />"
-					"<Variable name=\"me.neokey.para3\" />"
-					"<Variable name=\"me.neokey.para4\" />"
-					"<Variable name=\"me.neokey.para5\" />"
-					"<Variable name=\"me.neokey.para6\" />"
-					"<Variable name=\"me.neokey.para7\" />"
-					"<Variable name=\"me.neokey.para8\" />"
-					"<Variable name=\"me.neokey.para9\" />"
-					"<Variable name=\"me.neokey.para10\" />"
-					"<Variable name=\"me.neokey.para11\" />"
-					"<Variable name=\"me.neokey.para12\" />"
-					"<Variable name=\"me.neokey.para13\" />"
-					"<Variable name=\"me.neokey.para14\" />"
-					"<Variable name=\"me.neokey.para15\" />"
-					"<Variable name=\"me.neokey.para16\" />"
-					"<Variable name=\"me.orikey.location\" />"
-					"<Variable name=\"me.orikey.para1\" />"
-					"<Variable name=\"me.orikey.para2\" />"
-					"<Variable name=\"me.orikey.para3\" />"
-					"<Variable name=\"me.orikey.para4\" />"
-					"<Variable name=\"me.orikey.para5\" />"
-					"<Variable name=\"me.orikey.para6\" />"
-					"<Variable name=\"me.orikey.para7\" />"
-					"<Variable name=\"me.orikey.para8\" />"
-					"<Variable name=\"me.orikey.para9\" />"
-					"<Variable name=\"me.orikey.para10\" />"
-					"<Variable name=\"me.orikey.para11\" />"
-					"<Variable name=\"me.orikey.para12\" />"
-					"<Variable name=\"me.orikey.para13\" />"
-					"<Variable name=\"me.orikey.para14\" />"
-					"<Variable name=\"me.orikey.para15\" />"
-					"<Variable name=\"me.orikey.para16\" />"
-					"<Variable name=\"me.slot\" />"
-					"<Variable name=\"me.put\" />"
-					"<Variable name=\"me.type\" />"
-					"<Variable name=\"me.not_sw\" />"
-					"<Variable name=\"me.sw\" />"
-					"<Variable name=\"me.sw2\" />"
-				"</Loc>";
-
-			def_sub_vars(xml);		//局域变量定义
-			sub_allow_sw(ele);	//看可允许的SW
-
-			memset(put_ins, 0, sizeof(put_ins));
-			tmp = ele->Attribute("put");
-			if ( tmp && strlen(tmp) > 0 ) 
-			{
-				squeeze(tmp, put_ins);
-				sv_set.put_still("me.put", put_ins);
-			} else {
-				sv_set.put_still("me.put", "80D8018143");
-			}
-
-			memset(put_type, 0, sizeof(put_type));
-			tmp = ele->Attribute("type");
-			if ( tmp && strlen(tmp) > 0 ) 
-			{
-				squeeze(tmp, put_type);
-				sv_set.put_still("me.type", put_type);
-			} else {
-				sv_set.put_still("me.type", "80");
-			}
-
-			ref_prepare_sub(ele->Attribute("ori_key"),  ori_kvar, var_set, "orikey");
-			ref_prepare_sub(ele->Attribute("neo_key"),  neo_kvar, var_set, "neokey");
-			get_entry(ori_kvar, map_root, entry_nm);	//以旧密钥的pro作子序列名
-			return defer_sub_serial(ele, sub_ins_entry, var_set, &sv_set);
-		};
-	};
-	
-	struct ResetIns: public ComplexSubSerial {
-		const char *pro_name;	//复位时使用的一个子序列名
-		int set ( TiXmlElement *ele, struct PVar_Set *var_set, TiXmlElement *map_root, const char *entry_nm)
-		{
-			char pro_nm[128];
-			pro_name = ele->Attribute("pro");
-			if ( pro_name ) 
-			{
-				TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s%s", entry_nm, pro_name);
-				sub_ins_entry = map_root->FirstChildElement(pro_nm);
-			} else {
-				sub_ins_entry = map_root->FirstChildElement(entry_nm);
-			}
-			return defer_sub_serial(ele, sub_ins_entry, var_set, 0);
-		};
-	};
-
-	struct User_Command {		//INS_User指令定义
+	struct User_Command : public Condition {		//INS_User指令定义
 		int order;
 		struct ComplexSubSerial *complex;
 		int comp_num;
@@ -2236,7 +1514,7 @@ struct PacIns:public Condition  {
 		//	}
 		//};
 
-		int  set_sub( TiXmlElement *app_ele, struct PVar_Set *vrset, TiXmlElement *sub_serial) //返回对IC的指令数
+		int  set_sub( TiXmlElement *app_ele, struct PVar_Set *vrset, TiXmlElement *sub_serial, TiXmlElement *def_root, TiXmlElement * map_root) //返回对IC的指令数
 		{
 			TiXmlElement *pri;
 			const char *pri_nm;
@@ -2253,9 +1531,15 @@ struct PacIns:public Condition  {
 					/* pro_analyze 根据变量名, 去找到实际真正的变量内容(必须是参考变量)。变量内容中指定了Pro等 */
 					comp_num = 1;
 					complex = new struct ComplexSubSerial;
-					complex->usr_def_entry = sub_serial;
-					complex->g_var_set = vrset;
-					ret_ic = complex->pro_analyze(app_ele->Attribute(pri_nm),app_ele);
+					#define PUT_COMPLEX(X) \
+							complex[X].usr_def_entry = sub_serial;	\
+							complex[X].g_var_set = vrset;			\
+							complex[X].def_root = def_root;			\
+							complex[X].usr_ele = app_ele;			\
+							complex[X].map_root = map_root;
+
+					PUT_COMPLEX(0)
+					ret_ic = complex->pro_analyze(app_ele->Attribute(pri_nm));
 					
 				} else {
 					for( pri = app_ele->FirstChildElement(pri_nm), comp_num = 0; 
@@ -2270,21 +1554,19 @@ struct PacIns:public Condition  {
 						pri_ele; 
 						pri = pri->NextSiblingElement(pri_nm) )
 					{
-						complex[i].usr_def_entry = sub_serial;
-						complex[i].g_var_set = vrset;
-						ret_ic = complex[i].pro_analyze(key->GetText(), app_ele); //多个可选，指令数就计最后一个
+						PUT_COMPLEX(i)
+						ret_ic = complex[i].pro_analyze(key->GetText()); //多个可选，指令数就计最后一个
 						i++;
 					}
 				}
 			} else {
 				comp_num = 1;
 				complex = new struct ComplexSubSerial;
-				complex->usr_def_entry = sub_serial;
-				complex->g_var_set = vrset;
-				ret_ic = complex->pro_analyze(0,app_ele);
-				comp_num = 1;
+				PUT_COMPLEX(0)
+				ret_ic = complex->pro_analyze(0);
 			}
 
+			set_condition ( app_ele, var_set);
 			return ret_ic;
 
 
@@ -2410,7 +1692,6 @@ struct PacIns:public Condition  {
 	struct INS_Set {	
 		struct User_Command *instructions;
 		int many;
-		struct ComplexSubSerial *comp_pool;
 		INS_Set () 
 		{
 			instructions= 0;
@@ -2439,7 +1720,7 @@ struct PacIns:public Condition  {
 			return sub_serial;
 		};
 
-		void put_inses(TiXmlElement *root, struct PVar_Set *var_set, TiXmlElement *map_root)
+		void put_inses(TiXmlElement *root, struct PVar_Set *var_set, TiXmlElement *map_root, TiXmlElement *pac_def_root)
 		{
 			TiXmlElement *icc_ele, *sub;
 			int mor, cor, vmany, refny, i, i_num ;
@@ -2473,7 +1754,7 @@ struct PacIns:public Condition  {
 						cor = 0;
 						icc_ele->QueryIntAttribute("order", &(cor)); 
 						if ( cor <= mor ) goto ICC_NEXT;	//order不符合顺序的，略过
-						i_num += instructions[vmany].set_sub(icc_ele, var_set, sub);
+						i_num += instructions[vmany].set_sub(icc_ele, var_set, sub, pac_def_root, map_root);
 						mor = cor;
 						vmany++;
 					}
@@ -2492,6 +1773,9 @@ struct PacIns:public Condition  {
 		TiXmlElement *c_root;	
 		TiXmlDocument doc_k;	//map：Variable定义，子序列定义
 		TiXmlElement *k_root;
+
+		TiXmlDocument doc_pac_def;	//insdef：报文定义
+		TiXmlElement *pac_def_root;
 
 		TiXmlDocument doc_v;	//其它Variable定义
 		TiXmlElement *v_root;
@@ -2568,7 +1852,13 @@ struct PacIns:public Condition  {
 
 		bool put_def( TiXmlElement *per_ele, TiXmlElement *key_ele_default)
 		{
-			const char *ic_nm, *map_nm, *v_nm;
+			const char *ic_nm, *map_nm, *v_nm, *df_nm;
+
+			if ( (df_nm = per_ele->Attribute("pac")))
+				load_xml(df_nm, doc_pac_def,  pac_def_root, per_ele->Attribute("pac_md5"));
+			else
+				pac_def_root = per_ele->FirstChildElement("pac");
+
 
 			if ( (ic_nm = per_ele->Attribute("icc")))
 				load_xml(ic_nm, doc_c,  c_root, per_ele->Attribute("md5"));
@@ -2603,7 +1893,7 @@ struct PacIns:public Condition  {
 			set_here(c_root);	//再看本定义
 			set_here(v_root);	//看看其它变量定义,key.xml等
 
-			ins_all.put_inses(c_root, &person_vars, k_root);//指令集定义, 把变量定义输进去, 很多指令就是现成的了.
+			ins_all.put_inses(c_root, &person_vars, k_root, pac_def_root);//指令集定义, 把变量定义输进去, 很多指令就是现成的了.
 			return true;
 		}
 	};
@@ -4099,3 +3389,735 @@ MINLINE void PacWay::deliver(TEXTUS_ORDO aordo)
 }
 
 #include "hook.c"
+
+
+
+	//struct ChargeIns: public ComplexSubSerial {			//充值综合指令
+	//	const char *key;	//充值key，指向文档
+	//	struct PVar *key_lod;
+	//	int set ( TiXmlElement *ele, struct PVar_Set *var_set, TiXmlElement *map_root, const char *entry_nm)
+	//	{
+	//		const char *xml="<?xml version=\"1.0\" encoding=\"gb2312\" ?>"
+	//			"<Loc>"
+	//				"<Variable name=\"me.key.location\" />"
+	//				"<Variable name=\"me.slot\" />"
+	//				"<Variable name=\"me.key.para1\" />"
+	//				"<Variable name=\"me.key.para2\" />"
+	//				"<Variable name=\"me.key.para3\" />"
+	//				"<Variable name=\"me.key.para4\" />"
+	//				"<Variable name=\"me.key.para5\" />"
+	//				"<Variable name=\"me.key.para6\" />"
+	//				"<Variable name=\"me.key.para7\" />"
+	//				"<Variable name=\"me.key.para8\" />"
+	//				"<Variable name=\"me.key.para9\" />"
+	//				"<Variable name=\"me.key.para10\" />"
+	//				"<Variable name=\"me.key.para11\" />"
+	//				"<Variable name=\"me.key.para12\" />"
+	//				"<Variable name=\"me.key.para13\" />"
+	//				"<Variable name=\"me.key.para14\" />"
+	//				"<Variable name=\"me.key.para15\" />"
+	//				"<Variable name=\"me.key.para16\" />"
+	//				"<Variable name=\"me.term\" />"
+	//				"<Variable name=\"me.amount\" />"
+	//				"<Variable name=\"me.datetime\" />"
+	//				"<Variable name=\"me.not_sw\" />"
+	//				"<Variable name=\"me.sw\" />"
+	//				"<Variable name=\"me.sw2\" />"
+	//			"</Loc>";
+
+	//		def_sub_vars(xml);		//局域变量定义
+	//		sub_allow_sw(ele);	//看可允许的SW, 包括slot
+
+	//		get_loc_var (ele, "term",  var_set, "me.term", "123456789012");
+	//		get_loc_var (ele, "amount",  var_set, "me.amount", "00000000");
+	//		get_loc_var (ele, "datetime",  var_set, "me.datetime", "20131231083011");
+
+	//		ref_prepare_sub(ele->Attribute("key"),  key_lod, var_set, "key");	//密钥变量预处理
+	//		get_entry(key_lod, map_root, entry_nm);
+	//		return defer_sub_serial(ele, sub_ins_entry, var_set, &sv_set);
+	//	};
+	//};
+
+	//struct LoadInitIns: public ComplexSubSerial {			//圈存初始化指令
+	//	struct PVar *key_lod;
+
+	//	int set ( TiXmlElement *ele, struct PVar_Set *var_set, TiXmlElement *map_root, const char *entry_nm)
+	//	{
+	//		const char *xml="<?xml version=\"1.0\" encoding=\"gb2312\" ?>"
+	//			"<Loc>"
+	//				"<Variable name=\"me.key.location\" />"
+	//				"<Variable name=\"me.slot\" />"
+	//				"<Variable name=\"me.key.para1\" />"
+	//				"<Variable name=\"me.key.para2\" />"
+	//				"<Variable name=\"me.key.para3\" />"
+	//				"<Variable name=\"me.key.para4\" />"
+	//				"<Variable name=\"me.key.para5\" />"
+	//				"<Variable name=\"me.key.para6\" />"
+	//				"<Variable name=\"me.key.para7\" />"
+	//				"<Variable name=\"me.key.para8\" />"
+	//				"<Variable name=\"me.key.para9\" />"
+	//				"<Variable name=\"me.key.para10\" />"
+	//				"<Variable name=\"me.key.para11\" />"
+	//				"<Variable name=\"me.key.para12\" />"
+	//				"<Variable name=\"me.key.para13\" />"
+	//				"<Variable name=\"me.key.para14\" />"
+	//				"<Variable name=\"me.key.para15\" />"
+	//				"<Variable name=\"me.key.para16\" />"
+	//				"<Variable name=\"me.typeid\" />"
+	//				"<Variable name=\"me.term\" />"
+	//				"<Variable name=\"me.amount\" />"
+	//				"<Variable name=\"me.datetime\" />"
+	//				"<Variable name=\"me.online\" />"
+	//				"<Variable name=\"me.balance\" />"
+	//				"<Variable name=\"me.mac2\" />"
+	//				"<Variable name=\"me.not_sw\" />"
+	//				"<Variable name=\"me.sw\" />"
+	//				"<Variable name=\"me.sw2\" />"
+	//			"</Loc>";
+
+	//		sub_ins_entry = map_root->FirstChildElement(entry_nm);
+	//		def_sub_vars(xml);		//局域变量定义
+	//		sub_allow_sw(ele);	//看可允许的SW
+
+	//		get_loc_var (ele, "typeid",  var_set, "me.typeid", "02");
+	//		get_loc_var (ele, "term",  var_set, "me.term", "123456789012");
+	//		get_loc_var (ele, "amount",  var_set, "me.amount", "00000000");
+	//		get_loc_var (ele, "datetime",  var_set, "me.datetime", "20131231083011");
+	//		get_loc_var (ele, "online",  var_set, "me.online"); //仅输出的, 不会有默认值
+	//		get_loc_var (ele, "balance",  var_set, "me.balance"); //仅输出的, 不会有默认值
+	//		get_loc_var (ele, "mac2",  var_set, "me.mac2"); //仅输出的, 不会有默认值
+
+	//		ref_prepare_sub(ele->Attribute("key"),  key_lod, var_set, "key");
+	//		get_entry(key_lod, map_root, entry_nm);
+	//		return defer_sub_serial(ele, sub_ins_entry, var_set, &sv_set);
+	//	};
+	//};
+
+	//struct DebitIns: public ComplexSubSerial {			//完整的消费过程，包括初始化，扣款
+	//	struct PVar *key_debit;
+
+	//	int set ( TiXmlElement *ele, struct PVar_Set *var_set, TiXmlElement *map_root, const char *entry_nm)
+	//	{
+	//		const char *xml="<?xml version=\"1.0\" encoding=\"gb2312\" ?>"
+	//			"<Loc>"
+	//				"<Variable name=\"me.key.location\" />"
+	//				"<Variable name=\"me.slot\" />"
+	//				"<Variable name=\"me.key.para1\" />"
+	//				"<Variable name=\"me.key.para2\" />"
+	//				"<Variable name=\"me.key.para3\" />"
+	//				"<Variable name=\"me.key.para4\" />"
+	//				"<Variable name=\"me.key.para5\" />"
+	//				"<Variable name=\"me.key.para6\" />"
+	//				"<Variable name=\"me.key.para7\" />"
+	//				"<Variable name=\"me.key.para8\" />"
+	//				"<Variable name=\"me.key.para9\" />"
+	//				"<Variable name=\"me.key.para10\" />"
+	//				"<Variable name=\"me.key.para11\" />"
+	//				"<Variable name=\"me.key.para12\" />"
+	//				"<Variable name=\"me.key.para13\" />"
+	//				"<Variable name=\"me.key.para14\" />"
+	//				"<Variable name=\"me.key.para15\" />"
+	//				"<Variable name=\"me.key.para16\" />"
+	//				"<Variable name=\"me.typeid\" />"
+	//				"<Variable name=\"me.term\" />"
+	//				"<Variable name=\"me.transno\" />"
+	//				"<Variable name=\"me.amount\" />"
+	//				"<Variable name=\"me.datetime\" />"
+	//				"<Variable name=\"me.offline\" />"
+	//				"<Variable name=\"me.balance\" />"
+	//				"<Variable name=\"me.tac\" />"
+	//				"<Variable name=\"me.not_sw\" />"
+	//				"<Variable name=\"me.sw\" />"
+	//				"<Variable name=\"me.sw2\" />"
+	//			"</Loc>";
+
+	//		def_sub_vars(xml);		//局域变量定义
+	//		sub_allow_sw(ele);	//允许的SW
+
+	//		get_loc_var (ele, "typeid",  var_set, "me.typeid", "06");
+	//		get_loc_var (ele, "term",  var_set, "me.term", "000000000012");
+	//		get_loc_var (ele, "amount",  var_set, "me.amount", "00000000");
+	//		get_loc_var (ele, "datetime",  var_set, "me.datetime", "00000000000000");
+	//		get_loc_var (ele, "transno",  var_set, "me.transno", "0000");
+	//		get_loc_var (ele, "offline",  var_set, "me.offline"); //仅输出的, 不会有默认值
+	//		get_loc_var (ele, "balance",  var_set, "me.balance"); //仅输出的, 不会有默认值
+	//		get_loc_var (ele, "tac",  var_set, "me.tac"); //仅输出的, 不会有默认值
+
+	//		ref_prepare_sub(ele->Attribute("key"),  key_debit, var_set, "key");
+	//		get_entry(key_debit, map_root, entry_nm);
+	//		return defer_sub_serial(ele, sub_ins_entry, var_set, &sv_set);
+	//	};
+	//};
+
+	//struct ExtAuthIns: public ComplexSubSerial {
+	//	char auth[256];
+	//	struct PVar *key_auth;	//认证key
+	//	int set ( TiXmlElement *ele, struct PVar_Set *var_set, TiXmlElement *map_root, const char *entry_nm, TiXmlElement *key_e)
+	//	{
+	//		const char *au;
+	//		const char *xml="<?xml version=\"1.0\" encoding=\"gb2312\" ?>"
+	//			"<Loc>"
+	//				"<Variable name=\"me.key.location\" />"
+	//				"<Variable name=\"me.slot\" />"
+	//				"<Variable name=\"me.key.para1\" />"
+	//				"<Variable name=\"me.key.para2\" />"
+	//				"<Variable name=\"me.key.para3\" />"
+	//				"<Variable name=\"me.key.para4\" />"
+	//				"<Variable name=\"me.key.para5\" />"
+	//				"<Variable name=\"me.key.para6\" />"
+	//				"<Variable name=\"me.key.para7\" />"
+	//				"<Variable name=\"me.key.para8\" />"
+	//				"<Variable name=\"me.key.para9\" />"
+	//				"<Variable name=\"me.key.para10\" />"
+	//				"<Variable name=\"me.key.para11\" />"
+	//				"<Variable name=\"me.key.para12\" />"
+	//				"<Variable name=\"me.key.para13\" />"
+	//				"<Variable name=\"me.key.para14\" />"
+	//				"<Variable name=\"me.key.para15\" />"
+	//				"<Variable name=\"me.key.para16\" />"
+	//				"<Variable name=\"me.auth\" />"
+	//				"<Variable name=\"me.not_sw\" />"
+	//				"<Variable name=\"me.sw\" />"
+	//				"<Variable name=\"me.sw2\" />"
+	//			"</Loc>";
+	//		def_sub_vars(xml);
+	//		sub_allow_sw(ele);	//允许的SW
+
+	//		memset(auth, 0, sizeof(auth));
+	//		au = key_e->Attribute("auth");	//<key auth=""></key>中的auth优先
+	//		if ( !au)
+	//			au = ele->Attribute("auth");
+	//		if ( au && strlen(au) > 0 )
+	//		{
+	//			squeeze(au, auth);
+	//			sv_set.put_still("me.auth", auth);
+	//		} else
+	//			sv_set.put_still("me.auth", "0082000008");
+
+	//		ref_prepare_sub(key_e->GetText(),  key_auth, var_set, "key");	//"key"与me.key.para相对应
+	//		get_entry(key_auth, map_root, entry_nm);
+	//		return defer_sub_serial(ele, sub_ins_entry, var_set, &sv_set);
+	//	};
+	//};
+	//
+	//struct DesMacIns: public ComplexSubSerial {
+	//	struct PVar *pk_var;	//保护key，指向分析好的一个变量定义
+	//	struct PVar *ek_var;	//导出key，指向分析好的一个变量定义
+
+	//	bool head_dynamic;
+	//	bool body_dynamic;
+
+	//	TiXmlElement *head;	//指令文档中的第一个head元素
+	//	TiXmlElement *body;	//指令文档中的第一个body元素
+	//	TiXmlElement *tail;	//指令文档中的第一个tail元素
+	//	const char *tag_head;
+	//	const char *tag_body;
+	//	const char *tag_tail;
+	//	char head_buf[512]; 
+	//	int head_len;
+	//	char body_buf[512]; 
+	//	int body_len;
+
+	//	const char* len_format;
+
+	//	int head_dy_pos;	
+	//	int head_len_dy_pos;	
+
+	//	int body_dy_pos;	
+	//	int body_len_dy_pos;	
+
+	//	int mac_len_dy_pos;	
+	//	/* 取得实时的指令头、指令体的内容 */
+	//	void  get_current(MK_Session *sess, struct PVar_Set *var_set)
+	//	{
+	//		struct DyVar *dvr, *dvr2;
+	//		int blen, hlen;
+	//		hlen = blen = 0;
+	//		if ( head_dynamic )
+	//		{
+	//			dvr = &(sess->snap[head_dy_pos]);
+	//			dvr2 = &(sess->snap[head_len_dy_pos]);
+	//			var_set->get_var_all(head, tag_head, dvr->val, dvr->c_len, sess);
+	//			if ( len_format ) 
+	//			{
+	//				TEXTUS_SPRINTF(dvr2->val, len_format, dvr->c_len/2);
+	//			} else  {
+	//				TEXTUS_SPRINTF(dvr2->val, "%02d", dvr->c_len/2);
+	//			}
+	//			dvr2->c_len = strlen(dvr2->val);
+	//			hlen = dvr->c_len/2;
+	//		} else 
+	//			hlen = strlen(head_buf)/2;
+
+	//		if ( body_dynamic ) 
+	//		{
+	//			dvr = &(sess->snap[body_dy_pos]);
+	//			dvr2 = &(sess->snap[body_len_dy_pos]);
+	//			var_set->get_var_all(body, tag_body, dvr->val, dvr->c_len, sess);
+	//			if ( len_format ) 
+	//			{
+	//				TEXTUS_SPRINTF(dvr2->val, len_format, dvr->c_len/2);
+	//			} else  {
+	//				TEXTUS_SPRINTF(dvr2->val, "%02d", dvr->c_len/2);
+	//			}
+	//			dvr2->c_len = strlen(dvr2->val);
+	//			blen = dvr->c_len/2; 
+	//		} else
+	//			blen = strlen(body_buf)/2;
+	//	
+	//		if ( body_dynamic || head_dynamic )
+	//		{
+	//			if ( blen%8 == 0 ) 
+	//				blen += 8;
+	//			else
+	//				blen += (8-blen%8);	//加密数据补位后的长度
+	//			blen += ( 8 + hlen );	//加上8字节随机数和头长度
+
+	//			dvr2 = &(sess->snap[mac_len_dy_pos]);
+	//			if ( len_format ) 
+	//			{
+	//				TEXTUS_SPRINTF(dvr2->val, len_format, blen);
+	//			} else  {
+	//				TEXTUS_SPRINTF(dvr2->val, "%03d", blen);
+	//			}
+	//			dvr2->c_len = strlen(dvr2->val);
+	//		}
+	//	};
+
+	//	int set(TiXmlElement *ele, struct PVar_Set *var_set, TiXmlElement *map_root, const char *entry_nm)
+	//	{
+	//		const char *xml="<?xml version=\"1.0\" encoding=\"gb2312\" ?>"
+	//			"<Loc>"
+	//				"<Variable name=\"me.protect.location\" />"
+	//				"<Variable name=\"me.slot\" />"
+	//				"<Variable name=\"me.protect.para1\" />"
+	//				"<Variable name=\"me.protect.para2\" />"
+	//				"<Variable name=\"me.protect.para3\" />"
+	//				"<Variable name=\"me.protect.para4\" />"
+	//				"<Variable name=\"me.protect.para5\" />"
+	//				"<Variable name=\"me.protect.para6\" />"
+	//				"<Variable name=\"me.protect.para7\" />"
+	//				"<Variable name=\"me.protect.para8\" />"
+	//				"<Variable name=\"me.protect.para9\" />"
+	//				"<Variable name=\"me.protect.para10\" />"
+	//				"<Variable name=\"me.protect.para11\" />"
+	//				"<Variable name=\"me.protect.para12\" />"
+	//				"<Variable name=\"me.protect.para13\" />"
+	//				"<Variable name=\"me.protect.para14\" />"
+	//				"<Variable name=\"me.protect.para15\" />"
+	//				"<Variable name=\"me.protect.para16\" />"
+	//				"<Variable name=\"me.refer.para1\" />"
+	//				"<Variable name=\"me.refer.para2\" />"
+	//				"<Variable name=\"me.refer.para3\" />"
+	//				"<Variable name=\"me.refer.para4\" />"
+	//				"<Variable name=\"me.refer.para5\" />"
+	//				"<Variable name=\"me.refer.para6\" />"
+	//				"<Variable name=\"me.refer.para7\" />"
+	//				"<Variable name=\"me.refer.para8\" />"
+	//				"<Variable name=\"me.refer.para9\" />"
+	//				"<Variable name=\"me.refer.para10\" />"
+	//				"<Variable name=\"me.refer.para11\" />"
+	//				"<Variable name=\"me.refer.para12\" />"
+	//				"<Variable name=\"me.refer.para13\" />"
+	//				"<Variable name=\"me.refer.para14\" />"
+	//				"<Variable name=\"me.refer.para15\" />"
+	//				"<Variable name=\"me.refer.para16\" />"
+	//				"<Variable name=\"me.head\" />"
+	//				"<Variable name=\"me.body\" />"
+	//				"<Variable name=\"me.head_length\" />"
+	//				"<Variable name=\"me.body_length\" />"
+	//				"<Variable name=\"me.mac_length\" />"
+	//				"<Variable name=\"me.not_sw\" />"
+	//				"<Variable name=\"me.sw\" />"
+	//				"<Variable name=\"me.sw2\" />"
+	//			"</Loc>";
+
+	//		struct PVar *vr_tmp;
+	//		TiXmlElement *e_tmp, *n_ele;
+	//		int j;
+	//		char tmp[32];
+
+	//		tag_head = "head";
+	//		tag_body = "body";
+	//		head =  ele->FirstChildElement(tag_head); 
+	//		body =  ele->FirstChildElement(tag_body); 
+
+	//		def_sub_vars(xml);		//局域变量定义
+	//		sub_allow_sw(ele);	//看可允许的SW
+	//		ref_prepare_sub(ele->Attribute("protect_key"),  pk_var, var_set, "protect");	//保护Key定义
+	//		get_entry(pk_var, map_root, entry_nm);	//sub_ins_entry才确定
+	//		if ( !sub_ins_entry) return 0;	//没有子序列定义, 直接返
+	//		len_format = sub_ins_entry->Attribute("length_format");
+
+	//		body_dynamic = false;
+	//		head_dynamic = false;
+
+	//		head_len = 0;
+	//		head_buf[0] = 0;
+	//		n_ele = e_tmp = head;
+	//		while ( e_tmp ) 
+	//		{
+	//			vr_tmp= var_set->all_still( e_tmp, tag_head, head_buf, head_len, n_ele);
+	//			e_tmp = n_ele;
+	//			if ( !vr_tmp ) 		//还是常数, 这里应该结束了
+	//			{
+	//				if (e_tmp) printf("desmac head !!!!!!!!!!\n");	//这不应该
+	//					continue;
+	//			}
+
+	//			if ( vr_tmp->kind <= VAR_Dynamic )
+	//			{
+	//				head_dynamic = true;		//动态啦
+	//			} 
+	//		}
+
+	//		ek_var = 0;		//如果没有导出?
+	//		body_len = 0;
+	//		body_buf[0] = 0;
+	//		n_ele = e_tmp = body;
+	//		j = 0;
+	//		while ( e_tmp ) 
+	//		{
+	//			vr_tmp= var_set->all_still( e_tmp, tag_body, body_buf, body_len, n_ele);
+	//			e_tmp = n_ele;
+	//			if ( !vr_tmp ) 		//还是常数, 这里应该结束了
+	//			{
+	//				if (e_tmp) printf("desmac body !!!!!!!!!!\n");	//这不应该
+	//				continue;
+	//			}
+	//				
+	//			if ( vr_tmp->kind == VAR_Refer )
+	//			{
+	//				ek_var = vr_tmp;		//参考变量, 多个也可, 以后从1开始
+	//				if ( j == 0 ) 	//ek_var已经找到, 再找一次, 函数就这样, 有点重复
+	//				{
+	//					ref_prepare_sub(ek_var->name,  ek_var, var_set, "refer");
+	//				} else {
+	//					char ref_nm[16];
+	//					TEXTUS_SPRINTF(ref_nm, "refer%d", j);
+	//					ref_prepare_sub(ek_var->name,  ek_var, var_set, ref_nm);
+	//				}
+	//				j++;
+	//	
+	//			} else if ( vr_tmp->kind <= VAR_Dynamic )
+	//			{
+	//				body_dynamic = true;		//动态啦
+	//			} 
+	//		}
+
+	//		if ( head_dynamic )		//sv_set: 局域变量集
+	//		{
+	//			vr_tmp = sv_set.look("me.head");
+	//			vr_tmp->dynamic_pos = var_set->get_neo_dynamic_pos();	//动态变量位置
+	//			vr_tmp->kind = VAR_Dynamic;
+	//			head_dy_pos = vr_tmp->dynamic_pos;
+
+	//			vr_tmp = sv_set.look("me.head_length");
+	//			vr_tmp->dynamic_pos = var_set->get_neo_dynamic_pos();	//动态变量位置
+	//			vr_tmp->kind = VAR_Dynamic;
+	//			head_len_dy_pos	= vr_tmp->dynamic_pos;
+
+	//		} else {
+	//			sv_set.put_still("me.head",head_buf);
+	//			if ( len_format ) 
+	//				TEXTUS_SPRINTF(tmp, len_format, strlen(head_buf)/2);
+	//			else 
+	//				TEXTUS_SPRINTF(tmp, "%02lu", strlen(head_buf)/2);
+	//			sv_set.put_still("me.head_length",tmp);
+	//		}
+
+	//		if ( body_dynamic ) 
+	//		{
+	//			vr_tmp = sv_set.look("me.body");
+	//			vr_tmp->dynamic_pos = var_set->get_neo_dynamic_pos();	//动态变量位置
+	//			vr_tmp->kind = VAR_Dynamic;
+	//			body_dy_pos = vr_tmp->dynamic_pos;
+
+	//			vr_tmp = sv_set.look("me.body_length");
+	//			vr_tmp->dynamic_pos = var_set->get_neo_dynamic_pos();	//动态变量位置
+	//			vr_tmp->kind = VAR_Dynamic;
+	//			body_len_dy_pos = vr_tmp->dynamic_pos;
+
+	//		} else {
+	//			sv_set.put_still("me.body",body_buf);
+	//			if ( len_format ) 
+	//				TEXTUS_SPRINTF(tmp, len_format, strlen(body_buf)/2);
+	//			else 
+	//				TEXTUS_SPRINTF(tmp, "%02lu", strlen(body_buf)/2);
+	//			sv_set.put_still("me.body_length",tmp);
+	//		}
+
+	//		if ( body_dynamic || head_dynamic )
+	//		{
+	//			vr_tmp = sv_set.look("me.mac_length");
+	//			vr_tmp->dynamic_pos = var_set->get_neo_dynamic_pos();	//动态变量位置
+	//			vr_tmp->kind = VAR_Dynamic;
+	//			mac_len_dy_pos = vr_tmp->dynamic_pos;
+	//		} else {
+	//			int mlen;
+	//			mlen = strlen(body_buf)/2;
+	//			if ( mlen%8 == 0 ) 
+	//				mlen += 8;
+	//			else
+	//				mlen += (8-mlen%8);
+	//			mlen += ( 8 + strlen(head_buf)/2 );
+
+	//			if ( len_format ) 
+	//				TEXTUS_SPRINTF(tmp, len_format, mlen);
+	//			else 
+	//				TEXTUS_SPRINTF(tmp, "%03d", mlen);
+	//			sv_set.put_still("me.mac_length",tmp);
+	//		}
+
+	//		return defer_sub_serial(ele, sub_ins_entry, var_set, &sv_set);
+	//	};
+	//};
+	//
+	//struct MacIns: public ComplexSubSerial {
+	//	const char *protect;	//保护key，指向文档
+	//	struct PVar *pk_var;	//保护key，指向分析好的一个变量定义
+
+	//	const char *tag;
+	//	TiXmlElement *component;	//指令文档中的第一个component元素
+
+	//	bool dynamic;
+	//	char cmd_buf[512];
+	//	int cmd_len;
+
+	//	int cmd_dy_pos;	
+	//	int cmd_len_dy_pos;	
+	//	int mac_len_dy_pos;	
+
+	//	const char *t_tag, *len_format;
+
+	//	void  get_current( MK_Session *sess, struct PVar_Set *var_set)
+	//	{
+	//		struct DyVar *dvr, *dvr2;
+	//		if ( dynamic ) 
+	//		{
+	//			dvr = &(sess->snap[cmd_dy_pos]);
+	//			dvr2 = &(sess->snap[cmd_len_dy_pos]);
+	//			var_set->get_var_all(component, tag, dvr->val, dvr->c_len, sess);
+	//			if ( len_format ) 
+	//			{
+	//				TEXTUS_SPRINTF(dvr2->val, len_format, dvr->c_len/2);
+	//			} else  {
+	//				TEXTUS_SPRINTF(dvr2->val, "%03d", dvr->c_len/2);
+	//			}
+	//			dvr2->c_len = strlen(dvr2->val);
+
+	//			dvr2 = &(sess->snap[mac_len_dy_pos]);
+	//			if ( len_format ) 
+	//			{
+	//				TEXTUS_SPRINTF(dvr2->val, len_format, dvr->c_len/2+8);
+	//			} else  {
+	//				TEXTUS_SPRINTF(dvr2->val, "%03d", dvr->c_len/2+8);
+	//			}
+	//			dvr2->c_len = strlen(dvr2->val);
+	//		}
+	//	};
+
+	//	int set(TiXmlElement *ele, struct PVar_Set *var_set, TiXmlElement *map_root, const char *entry_nm)
+	//	{
+	//		const char *xml="<?xml version=\"1.0\" encoding=\"gb2312\" ?>"
+	//			"<Loc>"
+	//				"<Variable name=\"me.protect.location\" />"
+	//				"<Variable name=\"me.slot\" />"
+	//				"<Variable name=\"me.protect.para1\" />"
+	//				"<Variable name=\"me.protect.para2\" />"
+	//				"<Variable name=\"me.protect.para3\" />"
+	//				"<Variable name=\"me.protect.para4\" />"
+	//				"<Variable name=\"me.protect.para5\" />"
+	//				"<Variable name=\"me.protect.para6\" />"
+	//				"<Variable name=\"me.protect.para7\" />"
+	//				"<Variable name=\"me.protect.para8\" />"
+	//				"<Variable name=\"me.protect.para9\" />"
+	//				"<Variable name=\"me.protect.para10\" />"
+	//				"<Variable name=\"me.protect.para11\" />"
+	//				"<Variable name=\"me.protect.para12\" />"
+	//				"<Variable name=\"me.protect.para13\" />"
+	//				"<Variable name=\"me.protect.para14\" />"
+	//				"<Variable name=\"me.protect.para15\" />"
+	//				"<Variable name=\"me.protect.para16\" />"
+	//				"<Variable name=\"me.command\" />"
+	//				"<Variable name=\"me.command_length\" />"
+	//				"<Variable name=\"me.mac_length\" />"
+	//				"<Variable name=\"me.not_sw\" />"
+	//				"<Variable name=\"me.sw\" />"
+	//				"<Variable name=\"me.sw2\" />"
+	//			"</Loc>";
+
+	//		struct PVar *vr_tmp;
+	//		TiXmlElement *e_tmp, *n_ele;
+
+	//		def_sub_vars(xml);		//局域变量定义
+	//		sub_allow_sw(ele);	//看可允许的SW
+	//		ref_prepare_sub(ele->Attribute("protect_key"),  pk_var, var_set, "protect");	//保护密钥
+	//		get_entry(pk_var, map_root, entry_nm);
+	//		len_format = sub_ins_entry->Attribute("length_format");	//取得长度格式字符串
+
+	//		tag = "component";
+	//		component = ele->FirstChildElement(tag); 
+
+	//		dynamic = false;
+	//		cmd_len = 0;
+	//		cmd_buf[0] = 0;
+	//		n_ele = e_tmp = component;
+	//		while ( e_tmp ) 
+	//		{
+	//			vr_tmp= var_set->all_still( e_tmp, tag, cmd_buf, cmd_len, n_ele);
+	//			e_tmp = n_ele;
+	//			if ( !vr_tmp ) 		//还是常数, 这里应该结束了
+	//			{
+	//				if (e_tmp) printf("macins !!!!!!!!!!\n");	//这不应该
+	//				continue;
+	//			}
+	//				
+	//			if ( vr_tmp->kind <= VAR_Dynamic )
+	//			{
+	//				dynamic = true;		//动态啦
+	//			} 
+	//		}
+
+	//		if ( dynamic ) 
+	//		{
+	//			vr_tmp = sv_set.look("me.command");
+	//			vr_tmp->dynamic_pos = var_set->get_neo_dynamic_pos();	//动态变量位置
+	//			vr_tmp->kind = VAR_Dynamic;
+	//			cmd_dy_pos = vr_tmp->dynamic_pos;
+
+	//			vr_tmp = sv_set.look("me.command_length");
+	//			vr_tmp->dynamic_pos = var_set->get_neo_dynamic_pos();	//动态变量位置
+	//			vr_tmp->kind = VAR_Dynamic;
+	//			cmd_len_dy_pos = vr_tmp->dynamic_pos;
+
+	//			vr_tmp = sv_set.look("me.mac_length");
+	//			vr_tmp->dynamic_pos = var_set->get_neo_dynamic_pos();	//动态变量位置
+	//			vr_tmp->kind = VAR_Dynamic;
+	//			mac_len_dy_pos = vr_tmp->dynamic_pos;
+	//		} else {
+	//			char tmp[32];
+	//			sv_set.put_still("me.command", cmd_buf);
+	//			if ( len_format ) 
+	//				TEXTUS_SPRINTF(tmp, len_format, strlen(cmd_buf)/2);
+	//			else 
+	//				TEXTUS_SPRINTF(tmp, "%03lu", strlen(cmd_buf)/2);
+	//			sv_set.put_still("me.command_length",tmp);
+
+	//			if ( len_format ) 
+	//				TEXTUS_SPRINTF(tmp, len_format, strlen(cmd_buf)/2+8);
+	//			else 
+	//				TEXTUS_SPRINTF(tmp, "%03lu", strlen(cmd_buf)/2+8);
+	//			sv_set.put_still("me.mac_length",tmp);
+	//		}
+
+	//		return defer_sub_serial(ele, sub_ins_entry, var_set, &sv_set);
+	//	};
+	//};
+	//
+	//struct GPKMCIns: public ComplexSubSerial {
+	//	const char *ori_kmc;	//原KMC，指向文档, 可能是一个变量名, 或实际的值
+	//	struct PVar *ori_kvar;	//原指向分析好的一个变量定义
+
+	//	const char *neo_kmc;	//新KMC，指向文档, 可能是一个变量名, 或实际的值
+	//	struct PVar *neo_kvar;	//新指向分析好的一个变量定义
+	//	char ori_ver[8];		//原密钥版本
+	//	char neo_ver[8];		//新密钥版本
+
+	//	char put_type[8];	//密钥类型: 80或81, 对于put key有用.
+	//	char put_ins[16];	//PUT KEY Command
+
+	//	int set ( TiXmlElement *ele, struct PVar_Set *var_set, TiXmlElement *map_root, const char *entry_nm)
+	//	{
+	//		const char *tmp;
+
+	//		const char *xml="<?xml version=\"1.0\" encoding=\"gb2312\" ?>"
+	//			"<Loc>"
+	//				"<Variable name=\"me.neokey.location\" />"
+	//				"<Variable name=\"me.neokey.para1\" />"
+	//				"<Variable name=\"me.neokey.para2\" />"
+	//				"<Variable name=\"me.neokey.para3\" />"
+	//				"<Variable name=\"me.neokey.para4\" />"
+	//				"<Variable name=\"me.neokey.para5\" />"
+	//				"<Variable name=\"me.neokey.para6\" />"
+	//				"<Variable name=\"me.neokey.para7\" />"
+	//				"<Variable name=\"me.neokey.para8\" />"
+	//				"<Variable name=\"me.neokey.para9\" />"
+	//				"<Variable name=\"me.neokey.para10\" />"
+	//				"<Variable name=\"me.neokey.para11\" />"
+	//				"<Variable name=\"me.neokey.para12\" />"
+	//				"<Variable name=\"me.neokey.para13\" />"
+	//				"<Variable name=\"me.neokey.para14\" />"
+	//				"<Variable name=\"me.neokey.para15\" />"
+	//				"<Variable name=\"me.neokey.para16\" />"
+	//				"<Variable name=\"me.orikey.location\" />"
+	//				"<Variable name=\"me.orikey.para1\" />"
+	//				"<Variable name=\"me.orikey.para2\" />"
+	//				"<Variable name=\"me.orikey.para3\" />"
+	//				"<Variable name=\"me.orikey.para4\" />"
+	//				"<Variable name=\"me.orikey.para5\" />"
+	//				"<Variable name=\"me.orikey.para6\" />"
+	//				"<Variable name=\"me.orikey.para7\" />"
+	//				"<Variable name=\"me.orikey.para8\" />"
+	//				"<Variable name=\"me.orikey.para9\" />"
+	//				"<Variable name=\"me.orikey.para10\" />"
+	//				"<Variable name=\"me.orikey.para11\" />"
+	//				"<Variable name=\"me.orikey.para12\" />"
+	//				"<Variable name=\"me.orikey.para13\" />"
+	//				"<Variable name=\"me.orikey.para14\" />"
+	//				"<Variable name=\"me.orikey.para15\" />"
+	//				"<Variable name=\"me.orikey.para16\" />"
+	//				"<Variable name=\"me.slot\" />"
+	//				"<Variable name=\"me.put\" />"
+	//				"<Variable name=\"me.type\" />"
+	//				"<Variable name=\"me.not_sw\" />"
+	//				"<Variable name=\"me.sw\" />"
+	//				"<Variable name=\"me.sw2\" />"
+	//			"</Loc>";
+
+	//		def_sub_vars(xml);		//局域变量定义
+	//		sub_allow_sw(ele);	//看可允许的SW
+
+	//		memset(put_ins, 0, sizeof(put_ins));
+	//		tmp = ele->Attribute("put");
+	//		if ( tmp && strlen(tmp) > 0 ) 
+	//		{
+	//			squeeze(tmp, put_ins);
+	//			sv_set.put_still("me.put", put_ins);
+	//		} else {
+	//			sv_set.put_still("me.put", "80D8018143");
+	//		}
+
+	//		memset(put_type, 0, sizeof(put_type));
+	//		tmp = ele->Attribute("type");
+	//		if ( tmp && strlen(tmp) > 0 ) 
+	//		{
+	//			squeeze(tmp, put_type);
+	//			sv_set.put_still("me.type", put_type);
+	//		} else {
+	//			sv_set.put_still("me.type", "80");
+	//		}
+
+	//		ref_prepare_sub(ele->Attribute("ori_key"),  ori_kvar, var_set, "orikey");
+	//		ref_prepare_sub(ele->Attribute("neo_key"),  neo_kvar, var_set, "neokey");
+	//		get_entry(ori_kvar, map_root, entry_nm);	//以旧密钥的pro作子序列名
+	//		return defer_sub_serial(ele, sub_ins_entry, var_set, &sv_set);
+	//	};
+	//};
+	//
+	//struct ResetIns: public ComplexSubSerial {
+	//	const char *pro_name;	//复位时使用的一个子序列名
+	//	int set ( TiXmlElement *ele, struct PVar_Set *var_set, TiXmlElement *map_root, const char *entry_nm)
+	//	{
+	//		char pro_nm[128];
+	//		pro_name = ele->Attribute("pro");
+	//		if ( pro_name ) 
+	//		{
+	//			TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s%s", entry_nm, pro_name);
+	//			sub_ins_entry = map_root->FirstChildElement(pro_nm);
+	//		} else {
+	//			sub_ins_entry = map_root->FirstChildElement(entry_nm);
+	//		}
+	//		return defer_sub_serial(ele, sub_ins_entry, var_set, 0);
+	//	};
+	//};
