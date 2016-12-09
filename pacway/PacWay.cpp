@@ -206,6 +206,11 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 		int source_fld_no;	//来源域号。
 		int dest_fld_no;	//目的域号, 
 
+		char me_name[64];	//Me变量名称，除去开头的 me. 三个字节, 不包括后缀. 从变量名name中复制，最大63字符
+		int me_nm_len;
+		const char *me_sub_name;  //Me变量后缀名， 从变量名name中定位。
+		int me_sub_nm_len;
+
 		TiXmlElement *self_ele;	/* 自身, 其子元素包括两种可能: 1.函数变量表, 
 					2.一个指令序列, 在指令子元素分析时, 如发现一个用到的变量中, 有子序列时, 把这些指令嵌入。
 					*/
@@ -223,6 +228,11 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 			dest_fld_no = -1;
 			dynamic_pos = -1;	//非动态类
 			self_ele = 0;
+
+			memset(me_name, 0, sizeof(me_name)) = 0;
+			me_nm_len = 0;
+			me_sub_name = 0;
+			me_sub_nm_len = 0;
 		};
 
 		void put_still(const char *val, unsigned int len=0)
@@ -290,6 +300,29 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 					kind = VAR_Refer;
 				}
 			}
+
+			if ( kind != VAR_None) goto P_RET; //已有定义，
+
+			/* 以下对Me变量进行处理， 在子序列中, 还是先要定义一下me.这些变量。 要不，还真是麻烦 */
+			if ( strncasecmp(nm, "me.", 3) == 0 ) 
+			{
+				kind = VAR_Me;
+				me_sub_name = strpbrk(&nm[3], ".");	//从Me变量名后找第一个点，后面就作为后缀名.
+				if ( me_sub_name )	//如果存在后缀
+				{
+					me_nm_len = me_sub_name - &nm[3];
+					me_sub_name++;	//当然，这个点本身不是后缀名, 从后一个开始才是后缀名
+					me_sub_nm_len = strlen(me_sub_name);
+				} else {			//如果不存在后缀
+					me_nm_len = strlen(&nm[3]);
+				}
+
+				if ( me_nm_len >= sizeof ( me_name))	//Me变量名空间有限, 64字节最大。
+					me_nm_len = sizeof ( me_name)-1;
+				memcpy(me_name, &nm[3], me_nm_len);
+				me_name[me_nm_len] = 0 ;
+			}
+
 
 			if ( kind == VAR_None && p) 
 			{	//这里有内容但还没有类型, 那就定为常数, 其它的也可以有内容, 就要别处定义了
@@ -1216,12 +1249,12 @@ struct PacIns:public Condition  {
 			return si_set->put_inses(root, all_set, sub_set); //返回子序列指令数
 		};
 	
-		void def_sub_vars(const char *xml) //分析一下变量定义
-		{
-			var_doc.Parse(xml);
-			var_root = var_doc.RootElement();
-			sv_set.defer_vars(var_root);
-		};
+		//void def_sub_vars(const char *xml) //分析一下变量定义
+		//{
+		//	var_doc.Parse(xml);
+		//	var_root = var_doc.RootElement();
+		//	sv_set.defer_vars(var_root);
+		//};
 
 
 		/* 参考型变量在子序列中的准备, 从全局变量表中发现它是一个参考变量, 再赋值到局域变量表中
