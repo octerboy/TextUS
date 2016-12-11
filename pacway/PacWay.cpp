@@ -948,11 +948,18 @@ struct CmdSnd {
 	int dy_num;
 	struct DyList *dy_list;
 	bool dynamic ;		//是否动态
-	char cmd_buf[2048];
+	char *cmd_buf;
 	int cmd_len;
 
 	const char *tag;
 	TiXmlElement *component;	//指令文档中的第一个component元素
+	CmdSnd () {
+		cmd_buf = 0;
+		cmd_len = 0;
+		fld_no = -1;
+		dy_num = 0;
+		dy_list = 0;
+	};
 };
 
 struct CmdRcv {
@@ -961,7 +968,7 @@ struct CmdRcv {
 	int start;
 	int length;
 	char *must_con;
-	int must_con_len;
+	int must_len;
 
 	const char *tag;//比如： reply, sw
 	CmdRcv () {
@@ -1031,86 +1038,10 @@ struct PacIns:public Condition  {
 		buf[len] = 0;
 	};
 
-	void hard_work ( TiXmlElement *pac_ele, TiXmlElement *usr_ele, TiXmlElement *def_ele, struct PVar_Set *var_set)
+	void hard_work_2 ( struct CmdSnd *cur_snd, TiXmlElement *pac_ele, TiXmlElement *usr_ele, struct PVar_Set *g_vars, struct PVar_Set *me_vars)
 	{
 		struct PVar *vr_tmp=0;
-		TiXmlElement *e_tmp, *n_ele;
-		const char *p;
-		char *cp;
-
-		TiXmlElement *rep_ele;
-		const char *vn="reply";
-		int r_i = 0;
-
-
-			/* 分析Me元素, app_ele，从而设定更多的sv_set内容......, 这里要改了，怎么怎么弄？....... */
-			for (loc_v_ele= me->FirstChildElement(); loc_v_ele; 
-				loc_v_ele = loc_v_ele->NextSiblingElement())
-			{
-				const char *tag;
-				TiXmlElement *body;	//用户指令的第一个body元素
-
-				tag = loc_v_ele->Value();
-				if ( !tag ) continue;
-				//先将Me的各个子元素当作用户指令的属性名，
-				set_loc_ref_var(app_ele->Attribute(loc_v_ele->Value()), loc_v_ele->Value());
-				TEXTUS_SNPRINTF(lv_nm, sizeof(lv_nm), "me.%s", tag);
-
-				//然后当作用户指令的子元素
-				body =  cmd_ele->FirstChildElement(tag); 
-				while ( body ) 
-				{
-					vr_tmp= g_var_set->all_still(body, tag_body, body_buf, body_len, n_ele);
-					body = n_ele;
-					if ( !vr_tmp ) 		//还是常数, 这里应该结束了
-					{	
-						if (body) printf("%s body !!!!!!!!!!\n", tag);	//这不应该
-						continue;
-					}
-					
-					if ( vr_tmp->kind == VAR_Refer )
-					{
-						ek_var = vr_tmp;		//参考变量, 多个也可, 以后从1开始
-						set_loc_ref_var(vr_tmp, me->Attribute("imply"));
-					} else if ( vr_tmp->kind <= VAR_Dynamic )
-					{
-						body_dynamic = true;		//动态啦
-					}
-				} 
-
-				if ( body_dynamic ) 
-				{
-					vr_tmp = sv_set.look(lv_nm);
-					vr_tmp->dynamic_pos = var_set->get_neo_dynamic_pos();	//动态变量位置
-					vr_tmp->kind = VAR_Dynamic;
-					body_dy_pos = vr_tmp->dynamic_pos;
-				} else {
-					sv_set.put_still(lv_nm,body_buf);
-				}
-			}
-
-
-			
-
-		reply_num = 0; vres = 0;
-		for (rep_ele = ele->FirstChildElement(vn); rep_ele; rep_ele = rep_ele->NextSiblingElement(vn) ) 
-			reply_num++;
-
-		vres = new struct PlainReply[reply_num]; r_i = 0;
-		for (rep_ele = ele->FirstChildElement(vn); rep_ele; rep_ele = rep_ele->NextSiblingElement(vn) ) 
-		{
-			if ( (p = rep_ele->Attribute("name")) )
-			{
-				vr_tmp = var_set->look(p, o_set);	//响应变量, 动态变量, 两个变量集
-				if (vr_tmp) 
-				{
-					vres[r_i].dynamic_pos = vr_tmp->dynamic_pos;
-					rep_ele->QueryIntAttribute("start", &(vres[r_i].start));
-					rep_ele->QueryIntAttribute("length", &(vres[r_i].length));
-				}
-			}
-			r_i++;
-		}
+		TiXmlElement *e_tmp, *n_ele, *p_ele;
 
 		tag = "component";
 		component = ele->FirstChildElement(tag); 
@@ -1169,8 +1100,188 @@ struct PacIns:public Condition  {
 				continue;
 			}
 		}
+			/* 分析Me元素, app_ele，从而设定更多的sv_set内容......, 这里要改了，怎么怎么弄？....... */
+			for (loc_v_ele= me->FirstChildElement(); loc_v_ele; 
+				loc_v_ele = loc_v_ele->NextSiblingElement())
+			{
+				const char *tag;
+				TiXmlElement *body;	//用户指令的第一个body元素
+
+				tag = loc_v_ele->Value();
+				if ( !tag ) continue;
+				//先将Me的各个子元素当作用户指令的属性名，
+				set_loc_ref_var(app_ele->Attribute(loc_v_ele->Value()), loc_v_ele->Value());
+				TEXTUS_SNPRINTF(lv_nm, sizeof(lv_nm), "me.%s", tag);
+
+				//然后当作用户指令的子元素
+				body =  cmd_ele->FirstChildElement(tag); 
+				while ( body ) 
+				{
+					vr_tmp= g_var_set->all_still(body, tag_body, body_buf, body_len, n_ele);
+					body = n_ele;
+					if ( !vr_tmp ) 		//还是常数, 这里应该结束了
+					{	
+						if (body) printf("%s body !!!!!!!!!!\n", tag);	//这不应该
+						continue;
+					}
+					
+					if ( vr_tmp->kind == VAR_Refer )
+					{
+						ek_var = vr_tmp;		//参考变量, 多个也可, 以后从1开始
+						set_loc_ref_var(vr_tmp, me->Attribute("imply"));
+					} else if ( vr_tmp->kind <= VAR_Dynamic )
+					{
+						body_dynamic = true;		//动态啦
+					}
+				} 
+
+				if ( body_dynamic ) 
+				{
+					vr_tmp = sv_set.look(lv_nm);
+					vr_tmp->dynamic_pos = var_set->get_neo_dynamic_pos();	//动态变量位置
+					vr_tmp->kind = VAR_Dynamic;
+					body_dy_pos = vr_tmp->dynamic_pos;
+				} else {
+					sv_set.put_still(lv_nm,body_buf);
+				}
+			}
+
+
 	
-		set_condition ( pac_ele, var_set, o_set);
+	};
+
+	void hard_work ( TiXmlElement *def_ele, TiXmlElement *pac_ele, TiXmlElement *usr_ele, struct PVar_Set *g_vars, struct PVar_Set *me_vars)
+	{
+		struct PVar *vr_tmp=0;
+		TiXmlElement *e_tmp, *n_ele, *p_ele;
+		const char *p;
+
+		int i = 0;
+		int lnn;
+		const char *tag;
+
+		subor = 0; def_ele->QueryIntAttribute("subor", &subor);
+
+		/* 先预置发送的每个域，设定域号*/
+		snd_num = 0;
+		for (p_ele= def_ele->FirstChildElement(); p_ele; p_ele = p_ele->NextSiblingElement())
+		{
+			p = p_ele->Value();
+			if ( !p ) continue;
+			if ( strcasecmp(p, "send") == 0 || p_ele->Attribute("to")) 
+				snd_num++;
+		}
+		snd_lst = new struct CmdSnd[snd_num];
+
+		i = 0;
+		for (p_ele= def_ele->FirstChildElement(); p_ele; p_ele = p_ele->NextSiblingElement())
+		{
+			p = p_ele->Value();
+			if ( !p ) continue;
+			if ( strcasecmp(p, "send") == 0 || p_ele->Attribute("to")) 
+			{
+				p_ele->QueryIntAttribute("field", &(snd_list[i].fld_no));
+				tag = p_ele->Value();
+				snd_list[i].tag =tag;
+				if ( strcasecmp(tag, "send") == 0 ) 
+				{
+					p = p_ele->->GetText();
+					if ( p )
+					{
+						lnn = strlen(p);
+						snd_list[i].cmd_buf = new char[lnn+1];
+						snd_list[i].cmd_len = squeeze(p, cmd_buf);	
+					}
+				} else {
+				}	hard_work_2(&snd_list[i], pac_ele, usr_ele, g_vars, me_vars);
+				i++;
+			}
+		}
+		
+		
+		/* 预置接收的每个域，设定域号*/
+		rcv_num = 0;
+		for (p_ele= def_ele->FirstChildElement(); p_ele; p_ele = p_ele->NextSiblingElement())
+		{
+			p = p_ele->Value();
+			if ( !p ) continue;
+			if ( strcasecmp(p, "recv") == 0 || p_ele->Attribute("from")) 
+			{
+				rcv_num++;
+				continue;	/* recv 仅在基础报文定义中出现 */
+			}
+			/*子序列中的返回元素也算上, 如果和用户命令都没有，则这里不需要分配了 */
+			for (e_tmp = pac_ele->FirstChildElement(p); e_tmp; e_tmp = e_tmp->NextSiblingElement(p) ) 
+				rcv_num++;
+			/* 用户命令的返回元素也算上 */
+			for (e_tmp = usr_ele->FirstChildElement(p); e_tmp; e_tmp = e_tmp->NextSiblingElement(p) ) 
+				rcv_num++;
+				
+		}
+		rcv_lst = new struct CmdRcv[rcv_num];
+
+		i = 0;
+		for (p_ele= def_ele->FirstChildElement(); p_ele; p_ele = p_ele->NextSiblingElement())
+		{
+			p = p_ele->Value();
+			if ( !p ) continue;
+			if ( strcasecmp(p, "recv") == 0 || p_ele->Attribute("from")) 
+			{
+				p_ele->QueryIntAttribute("field", &(rcv_list[i].fld_no));
+				tag = p_ele->Value();
+				rcv_list[i].tag =tag;
+				if ( strcasecmp(tag, "recv") == 0 ) 
+				{
+					p = p_ele->->GetText();
+					if ( p )
+					{
+						lnn = strlen(p);
+						must_con = new char[lnn+1];
+						must_len = squeeze(p, must_con);	
+					}
+					i++;
+					continue;	/* recv 仅在基础报文定义中出现 */
+				}
+
+				/*子序列中的返回元素也算上, 如果和用户命令都没有，则这里不需要分配了 */
+				for (e_tmp = pac_ele->FirstChildElement(tag); e_tmp; e_tmp = e_tmp->NextSiblingElement(tag) ) 
+				{
+					p_ele->QueryIntAttribute("field", &(rcv_list[i].fld_no));
+					rcv_list[i].tag =tag;
+					if ( (p = e_tmp->Attribute("name")) )
+					{
+						vr_tmp = g_vars->look(p, me_vars);	//响应变量, 动态变量, 两个变量集
+						if (vr_tmp) 
+						{
+							rcv_list[i].dyna_pos = vr_tmp->dynamic_pos;
+							e_tmp->QueryIntAttribute("start", &(rcv_list[i].start));
+							e_tmp->QueryIntAttribute("length", &(rcv_list[i].length));
+						}
+					}
+					i++;
+				}
+				/* 用户命令的返回元素也算上 */
+				for (e_tmp = usr_ele->FirstChildElement(tag); e_tmp; e_tmp = e_tmp->NextSiblingElement(tag) ) 
+				{
+					p_ele->QueryIntAttribute("field", &(rcv_list[i].fld_no));
+					rcv_list[i].tag =tag;
+					if ( (p = e_tmp->Attribute("name")) )
+					{
+						vr_tmp = g_vars->look(p, me_vars);	//响应变量, 动态变量, 两个变量集
+						if (vr_tmp) 
+						{
+							rcv_list[i].dyna_pos = vr_tmp->dynamic_pos;
+							e_tmp->QueryIntAttribute("start", &(rcv_list[i].start));
+							e_tmp->QueryIntAttribute("length", &(rcv_list[i].length));
+						}
+					}
+					i++;
+				}
+			}
+		}	/* 结束返回元素的定义*/
+		
+		
+		set_condition ( pac_ele, g_vars, me_vars);
 		return ;
 	};
 
@@ -1218,7 +1329,7 @@ struct PacIns:public Condition  {
 		struct PacIns *pac_inses;
 		int pac_many;
 
-		TiXmlElement *def_root;
+		TiXmlElement *def_root;	//基础报文定义
 		TiXmlElement *map_root;
 		TiXmlElement *usr_ele;
 
@@ -1426,7 +1537,7 @@ struct PacIns:public Condition  {
 			const char *pro_nm;
 			char pro_nm[128];
 			char lv_nm[128];
-			TiXmlElement *pac_ele;
+			TiXmlElement *pac_ele, *def_ele;
 			int which, icc_num=0 ;
 
 			sv_set.defer_vars(usr_def_entry); //局域变量定义完全还在那个自定义中，cmd_ele中找me.sw之类, 要做......
@@ -1470,9 +1581,10 @@ struct PacIns:public Condition  {
 			{
 				if ( pac_ele->Value() )
 				{
-					if ( def_root->FirstChildElement(pac_ele->Value()) )	//如果在报文中有定义
+					def_ele = def_root->FirstChildElement(pac_ele->Value());	//如果在基础报文中有定义
+					if ( def_ele)
 					{
-						icc_num += pac_inses[which].hard_work(pac_ele, cmd_ele, var_set, o_set);
+						icc_num += pac_inses[which].hard_work(def_ele, pac_ele, cmd_ele, var_set, o_set);
 						which++;
 					} else if ( map_root->FirstChildElement(pac_ele->Value()) )	//如果在map中有定义, 也就是一个嵌套的子序列
 					{
