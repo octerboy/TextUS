@@ -65,7 +65,7 @@ static unsigned char* hex2byte(unsigned char *byte, size_t blen, const char *hex
 	return byte;
 }
 
-int squeeze(const char *p, char q[])	//°Ñ¿Õ¸ñµÈ¼·µô, Ö»ÁôÏÂ16½øÖÆ×Ö·û(´óĞ´), ·µ»ØÊµ¼ÊµÄ³¤¶È
+int squeeze(const char *p, char *q)	//°Ñ¿Õ¸ñµÈ¼·µô, Ö»ÁôÏÂ16½øÖÆ×Ö·û(´óĞ´), ·µ»ØÊµ¼ÊµÄ³¤¶È
 {
 	int i;
 	i = 0;
@@ -73,15 +73,19 @@ int squeeze(const char *p, char q[])	//°Ñ¿Õ¸ñµÈ¼·µô, Ö»ÁôÏÂ16½øÖÆ×Ö·û(´óĞ´), ·µ»
 	{ 
 		if ( isxdigit(*p) ) 
 		{
-			q[i] = toupper(*p);
+			if ( q) 
+				q[i] = toupper(*p);
 			i++;
-		} else if ( !isspace(*p))  {
-			q[i] = *p;
+		} else if ( !isspace(*p)) 
+		{
+			if ( q ) 
+				q[i] = *p;
 			i++;
 		}
 		p++;
 	}
-	q[i] = '\0';
+	if (q) 
+		q[i] = '\0';
 	return i;
 };
 
@@ -190,7 +194,8 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 #define Pos_FlowPrint 1 
 #define Pos_TotalIns 2 
 #define Pos_Fixed_Next 3  //ÏÂÒ»¸ö¶¯Ì¬±äÁ¿µÄÎ»ÖÃ, Ò²ÊÇÎª½Å±¾×Ô¶¨Òå¶¯Ì¬±äÁ¿µÄµÚ1¸öÎ»ÖÃ
-
+#define VARIABLE_TAG_NAME "Variable"
+#define ME_VARIABLE_HEAD "me."
 	struct PVar
 	{
 		Var_Type kind;
@@ -304,7 +309,7 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 			if ( kind != VAR_None) goto P_RET; //ÒÑÓĞ¶¨Òå£¬
 
 			/* ÒÔÏÂ¶ÔMe±äÁ¿½øĞĞ´¦Àí£¬ ÔÚ×ÓĞòÁĞÖĞ, »¹ÊÇÏÈÒª¶¨ÒåÒ»ÏÂme.ÕâĞ©±äÁ¿¡£ Òª²»£¬»¹ÕæÊÇÂé·³ */
-			if ( strncasecmp(nm, "me.", 3) == 0 ) 
+			if ( strncasecmp(nm, ME_VARIABLE_HEAD, sizeof(ME_VARIABLE_HEAD)) == 0 ) 
 			{
 				kind = VAR_Me;
 				me_sub_name = strpbrk(&nm[3], ".");	//´ÓMe±äÁ¿ÃûºóÕÒµÚÒ»¸öµã£¬ºóÃæ¾Í×÷Îªºó×ºÃû.
@@ -377,6 +382,7 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 				val[len] = 0;
 			}
 		};
+
 		void input(int iv)
 		{
 			TEXTUS_SPRINTF(val, "%d", iv);
@@ -451,18 +457,16 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 	};
 
 /* ±äÁ¿¼¯ºÏ*/
+
 struct PVar_Set {	
 	struct PVar *vars;
 	int many;
 	int dynamic_at;
-	char var_nm[16];
 	PVar_Set () 
 	{
 		vars = 0;
 		many = 0;
 		dynamic_at = Pos_Fixed_Next; //0,µÈ ÒÑ¾­¸ø$FlowPrintµÈÕ¼ÁË
-		memcpy(var_nm, "Variable", 8);
-		var_nm[8] = 0;
 	};
 
 	~PVar_Set () 
@@ -473,7 +477,7 @@ struct PVar_Set {
 	};
 	bool is_var(const char *nm)
 	{
-		if (nm  && strlen(nm) == 8 && memcmp(nm, var_nm, 8) == 0 )
+		if (nm  && strlen(nm) == sizeof(VARIABLE_TAG_NAME) && memcmp(nm, VARIABLE_TAG_NAME, sizeof(VARIABLE_TAG_NAME)) == 0 )
 			return true;
 		return false;
 	}
@@ -481,7 +485,7 @@ struct PVar_Set {
 	void defer_vars(TiXmlElement *map_root, TiXmlElement *icc_root=0) //·ÖÎöÒ»ÏÂ±äÁ¿¶¨Òå
 	{
 		TiXmlElement *var_ele, *i_ele;
-		const char *vn = &var_nm[0], *nm;
+		const char *vn = VARIABLE_TAG_NAME, *nm;
 		bool had_nm;
 		int vmany ;
 
@@ -579,7 +583,7 @@ struct PVar_Set {
 	};
 
 	/* ÕÒ¾²Ì¬µÄ±äÁ¿, »ñµÃÊµ¼ÊÄÚÈİ */
-	struct PVar *one_still( const char *nm, char buf[], int &len, struct PVar_Set *loc_v=0)
+	struct PVar *one_still( const char *nm, char *buf, int &len, struct PVar_Set *loc_v=0)
 	{
 		struct PVar  *vt;
 		/* ÔÚÕâÊ±Á½ÖÖÇé¿ö´¦Àí, Ò»¸öÊÇÓĞ¾²Ì¬³£Êı¶¨ÒåµÄ, ÁíÒ»¸ö¾²Ì¬³£Êı±äÁ¿ */
@@ -595,7 +599,8 @@ struct PVar_Set {
 		{
 		case VAR_Constant:	//¾²Ì¬³£Êı±äÁ¿
 			len = vt->c_len;
-			memcpy(buf, vt->content, len);
+			if ( buf )
+				memcpy(buf, vt->content, len);
 			break;
 
 		default:
@@ -603,12 +608,12 @@ struct PVar_Set {
 			break;
 		}
 		VARET:
-		buf[len] = 0;	//½áÊøNULL
+		if ( buf ) buf[len] = 0;	//½áÊøNULL
 		return vt;
 	};
 
 	/* nxt ÏÂÒ»¸ö±äÁ¿, ¶ÔÓÚ¶à¸ötagÔªËØ£¬½«Ö®¾²Ì¬ÄÚÈİºÏ³Éµ½ Ò»¸ö±äÁ¿commandÖĞ¡£¶ÔÓÚ·Ç¾²Ì¬µÄ£¬·µ»Ø¸ÃtagÔªËØÊÇ¸ö¶¯Ì¬±äÁ¿ */
-	struct PVar *all_still( TiXmlElement *ele, const char*tag, char command[], int &ac_len, TiXmlElement *&nxt, struct PVar_Set *loc_v=0)
+	struct PVar *all_still( TiXmlElement *ele, const char*tag, char *command, int &ac_len, TiXmlElement *&nxt, struct PVar_Set *loc_v=0)
 	{
 		TiXmlElement *comp = ele;
 		int l;
@@ -617,8 +622,11 @@ struct PVar_Set {
 		rt = 0;
 		/* ac_len´Ó²ÎÊı´«½ø, ÀÛ¼ÆµÄ, command¾ÍÊÇÔ­À´µÄºÃÁË, ²»ÓÃÖØÉèÖ¸Õë */
 		while(comp)
-        	{
-			rt = one_still( comp->GetText(), &command[ac_len], l, loc_v);
+        {
+			if ( command ) 
+				rt = one_still( comp->GetText(), &command[ac_len], l, loc_v);
+			else 
+				rt = one_still( comp->GetText(), 0, l, loc_v);
 			ac_len += l;
 			comp = comp->NextSiblingElement(tag);
 			if ( rt && rt->kind < VAR_Constant )		//Èç¹ûÓĞ·Ç¾²Ì¬µÄ, ÕâÀïÏÈÖĞ¶Ï
@@ -951,8 +959,8 @@ struct CmdSnd {
 	char *cmd_buf;
 	int cmd_len;
 
-	const char *tag;
-	TiXmlElement *component;	//Ö¸ÁîÎÄµµÖĞµÄµÚÒ»¸öcomponentÔªËØ
+	const char *tag;	/*  ±ÈÈç"component"ÕâÑùµÄÄÚÈİ£¬Ö¸Ã÷×ÓĞòÁĞÖĞµÄÔªËØ */
+	//TiXmlElement *component;	//Ö¸ÁîÎÄµµÖĞµÄµÚÒ»¸öcomponentÔªËØ
 	CmdSnd () {
 		cmd_buf = 0;
 		cmd_len = 0;
@@ -960,98 +968,22 @@ struct CmdSnd {
 		dy_num = 0;
 		dy_list = 0;
 	};
-};
 
-struct CmdRcv {
-	int fld_no;	//½ÓÊÕµÄÓòºÅ, ÓĞ¶à¸ö½ÓÊÕ¶¨Òå£¬Ã¿¸öÖ»¶¨ÒåÒ»¸ö±äÁ¿.ËùÒÔ£¬ÓĞ¶à¸ö¶¨Òå£¬Ö¸ÏòÍ¬Ò»¸öÓò¡£
-	int dyna_pos;	//¶¯Ì¬±äÁ¿Î»ÖÃ, -1±íÊ¾¾²Ì¬
-	int start;
-	int length;
-	char *must_con;
-	int must_len;
-
-	const char *tag;//±ÈÈç£º reply, sw
-	CmdRcv () {
-		dyna_pos = -1;
-		start =1;
-		length = 500;
-		must_con = 0;
-		must_con_len = 0;
-	};
-};
-struct ComplexSubSerial;
-struct PacIns:public Condition  {
-	int subor;	//Ö¸Ê¾Ö¸Áî±¨ÎÄËÍ¸øÄÄÒ»¸öÏÂ¼¶Ä£¿é
-
-	struct CmdSnd *snd_lst;
-	int snd_num;
-
-	struct CmdRcv *rcv_lst;
-	int rcv_num;
-	struct ComplexSubSerial *complex;	//Èç¹ûÕâ¸ö²»Îª0, Ôò·µ»Ø´ËÖµ£¬Ö¸Ê¾µ÷¶ÈÆ÷µ÷ÓÃÒ»¸ö×Ó¹ı³Ì¡£
-
-	PacIns() 
+	void hard_work_2 ( TiXmlElement *pac_ele, TiXmlElement *usr_ele, struct PVar_Set *g_vars, struct PVar_Set *me_vars)
 	{
-		snd_num = 0;
-		snd_lst = 0;
-		rcv_lst = 0;
-		rcv_num = 0;
-		subor = 0;
-		comp = 0;
-	};
-
-	struct ComplexSubSerial *set_snd( PacketObj *snd_pac, int &bor, MK_Session *sess)
-	{
-		/* ..ºÍget_current²î²»¶à... */
-		bor = subor;
-		return comp;
-	};
-
-	void  get_current( char *buf, int &len, MK_Session *sess)
-	{	/* È¡ÊµÊ±µÄÖ¸ÁîÄÚÈİ */
-		int i;
-		struct DyVar *dvr;
-		char *p=buf;
-		len = 0;
-		if ( !dynamic ) 
-		{
-			memcpy(buf, cmd_buf, cmd_len);
-			len = cmd_len;
-			goto G_RET;
-		}
-		for ( i = 0 ; i < dy_num; i++ )
-		{
-			struct DyList *dl = &dy_list[i];
-			if ( dl->dy_pos >=0 ) 
-			{
-				dvr = &(sess->snap[dl->dy_pos]);
-				memcpy(p, dvr->val, dvr->c_len);
-				p += dvr->c_len;
-				len += dvr->c_len;
-			} else {
-				memcpy(p, dl->con, dl->len);
-				p += dl->len;
-				len += dl->len;
-			}
-		}
-	 G_RET:
-		buf[len] = 0;
-	};
-
-	void hard_work_2 ( struct CmdSnd *cur_snd, TiXmlElement *pac_ele, TiXmlElement *usr_ele, struct PVar_Set *g_vars, struct PVar_Set *me_vars)
-	{
-		struct PVar *vr_tmp=0;
+		struct PVar *vr_tmp, *vr2_tmp=0;
 		TiXmlElement *e_tmp, *n_ele, *p_ele;
+		TiXmlElement *e2_tmp, *n2_ele;
 
-		tag = "component";
-		component = ele->FirstChildElement(tag); 
+		e_tmp = pac_ele->FirstChildElement(tag); 
 		cmd_len = 0;
-		cmd_buf[0] = 0;
+		cmd_buf = 0;
 		dy_num = 0;
-		n_ele = e_tmp = component;
+
+		n_ele = e_tmp;
 		while ( e_tmp ) 
 		{
-			vr_tmp= var_set->all_still( e_tmp, tag, cmd_buf, cmd_len, n_ele, o_set);
+			vr_tmp = g_vars->all_still( e_tmp, tag, 0, cmd_len, n_ele, me_vars);
 			e_tmp = n_ele;
 			if ( !vr_tmp ) 		//»¹ÊÇ³£Êı, ÕâÀïÓ¦¸Ã½áÊøÁË
 			{
@@ -1064,15 +996,48 @@ struct PacIns:public Condition  {
 				dynamic = true;		//¶¯Ì¬À²
 				dy_num++;
 			}
+
+			if ( vr_tmp->kind == VAR_Me && vr_tmp->c_len > 0)	//Me±äÁ¿ÒÑÓĞÄÚÈİ,ÎŞºó×ºµÄ£¬¿ÉÄÜÒÑÓĞ¶¨ÒåµÄ£¬»òÕß´øºó×ºµÄ¡£
+			{
+				cmd_len += vr_tmp->c_len;
+				continue;
+			}
+
+			if ( vr_tmp->kind == VAR_Me && vr_tmp->me_sub_nm_len == 0)	//Me±äÁ¿,ÇÒÎŞºó×ºÃû, ±íÊ¾´ÓÓÃ»§ÃüÁîÖĞÈ¡£¬µ±È»»¹Ã»ÓĞÄÚÈİ
+			{
+				e2_tmp = usr_ele->FirstChildElement(vr_tmp->me_name);
+				while (e2_tmp)
+				{
+					vr2_tmp = g_vars->all_still(e2_tmp, vr_tmp->me_name, 0, cmd_len, n2_ele, 0);
+					e2_tmp = n2_ele;
+					if ( !vr2_tmp ) 		//»¹ÊÇ³£Êı, ÕâÀïÓ¦¸Ã½áÊøÁË
+					{
+						if (e2_tmp) printf("plain !!!!!!!!!!\n");	//Õâ²»Ó¦¸Ã
+						continue;
+					}
+
+					if ( vr2_tmp->kind <= VAR_Dynamic )	//²Î¿¼±äÁ¿µÄ, ²»Ëã×÷¶¯Ì¬
+					{
+						dynamic = true;		//¶¯Ì¬À²
+						dy_num++;
+					}
+				}
+			}
 		}
 
-		if ( !dynamic )	//¶ÔÓÚ·Ç¶¯Ì¬µÄ, cmd_bufÓëcmd_len¸ÕºÃÊÇÆäÈ«²¿µÄÄÚÈİ
-			goto NextPro;
-
+		//if ( !dynamic )	//¶ÔÓÚ·Ç¶¯Ì¬µÄ, cmd_bufÓëcmd_len¸ÕºÃÊÇÆäÈ«²¿µÄÄÚÈİ
+		//	goto NextPro;
+		cmd_buf = new char[cmd_len];
 		dy_num = dy_num *2+1;	/* dy_num±íÊ¾¶àÉÙ¸ö¶¯Ì¬±äÁ¿, Êµ¼Ê·Ö¶ÎÊı×î¶àÊÇÆä2±¶ÔÙ¶à1 */
 		dy_list = new struct DyList [dy_num];
 		cp = &cmd_buf[0]; dy_num = 0;
-		n_ele = e_tmp = component;
+
+		e_tmp = pac_ele->FirstChildElement(tag); 
+		cmd_len = 0;
+		cmd_buf = 0;
+		dy_num = 0;
+		n_ele = e_tmp;
+
 		while ( e_tmp ) 
 		{
 			dy_list[dy_num].con = cp;
@@ -1145,9 +1110,88 @@ struct PacIns:public Condition  {
 					sv_set.put_still(lv_nm,body_buf);
 				}
 			}
+		};
+};
+
+struct CmdRcv {
+	int fld_no;	//½ÓÊÕµÄÓòºÅ, ÓĞ¶à¸ö½ÓÊÕ¶¨Òå£¬Ã¿¸öÖ»¶¨ÒåÒ»¸ö±äÁ¿.ËùÒÔ£¬ÓĞ¶à¸ö¶¨Òå£¬Ö¸ÏòÍ¬Ò»¸öÓò¡£
+	int dyna_pos;	//¶¯Ì¬±äÁ¿Î»ÖÃ, -1±íÊ¾¾²Ì¬
+	int start;
+	int length;
+	char *must_con;
+	int must_len;
+
+	const char *tag;//±ÈÈç£º reply, sw
+	CmdRcv () {
+		dyna_pos = -1;
+		start =1;
+		length = 500;
+		must_con = 0;
+		must_con_len = 0;
+	};
 
 
-	
+};
+struct ComplexSubSerial;
+struct PacIns:public Condition  {
+	int subor;	//Ö¸Ê¾Ö¸Áî±¨ÎÄËÍ¸øÄÄÒ»¸öÏÂ¼¶Ä£¿é
+
+	struct CmdSnd *snd_lst;
+	int snd_num;
+
+	struct CmdRcv *rcv_lst;
+	int rcv_num;
+	struct ComplexSubSerial *complex;	//Èç¹ûÕâ¸ö²»Îª0, Ôò·µ»Ø´ËÖµ£¬Ö¸Ê¾µ÷¶ÈÆ÷µ÷ÓÃÒ»¸ö×Ó¹ı³Ì¡£
+
+	PacIns() 
+	{
+		snd_num = 0;
+		snd_lst = 0;
+		rcv_lst = 0;
+		rcv_num = 0;
+		subor = 0;
+		comp = 0;
+	};
+
+	struct ComplexSubSerial *set_snd( PacketObj *snd_pac, int &bor, MK_Session *sess)
+	{
+		/* ..ºÍget_current²î²»¶à... */
+		bor = subor;
+		return comp;
+	};
+
+	void  get_current( char *buf, int &len, MK_Session *sess)
+	{	/* È¡ÊµÊ±µÄÖ¸ÁîÄÚÈİ */
+		int i;
+		struct DyVar *dvr;
+		char *p=buf;
+		len = 0;
+		if ( !dynamic ) 
+		{
+			memcpy(buf, cmd_buf, cmd_len);
+			len = cmd_len;
+			goto G_RET;
+		}
+		for ( i = 0 ; i < dy_num; i++ )
+		{
+			struct DyList *dl = &dy_list[i];
+			if ( dl->dy_pos >=0 ) 
+			{
+				dvr = &(sess->snap[dl->dy_pos]);
+				memcpy(p, dvr->val, dvr->c_len);
+				p += dvr->c_len;
+				len += dvr->c_len;
+			} else {
+				memcpy(p, dl->con, dl->len);
+				p += dl->len;
+				len += dl->len;
+			}
+		}
+	 G_RET:
+		buf[len] = 0;
+	};
+
+
 	};
 
 	void hard_work ( TiXmlElement *def_ele, TiXmlElement *pac_ele, TiXmlElement *usr_ele, struct PVar_Set *g_vars, struct PVar_Set *me_vars)
@@ -1193,7 +1237,8 @@ struct PacIns:public Condition  {
 						snd_list[i].cmd_len = squeeze(p, cmd_buf);	
 					}
 				} else {
-				}	hard_work_2(&snd_list[i], pac_ele, usr_ele, g_vars, me_vars);
+					snd_list[i].hard_work_2(pac_ele, usr_ele, g_vars, me_vars);
+				}
 				i++;
 			}
 		}
@@ -1315,23 +1360,23 @@ struct PacIns:public Condition  {
 };
 
 	struct ComplexSubSerial{
-		TiXmlElement *sub_ins_entry;	//MAPÎÄµµµÄ×ÓĞòÁĞÔªËØ£¬¿ÉÄÜ²»ÓÃÁË¡£
+		//TiXmlElement *sub_ins_entry;	//MAPÎÄµµµÄ×ÓĞòÁĞÔªËØ£¬¿ÉÄÜ²»ÓÃÁË¡£
 
-		TiXmlDocument var_doc;
-		TiXmlElement *var_root;
+		//TiXmlDocument var_doc;
+		//TiXmlElement *var_root;
 
 		TiXmlElement *usr_def_entry;	//MAPÎÄµµÖĞ£¬¶ÔÓÃ»§Ö¸ÁîµÄ¶¨Òå
 		TiXmlElement *sub_pro;			//Êµ¼ÊÊ¹ÓÃµÄÖ¸ÁîĞòÁĞ£¬ÔÚÏàÍ¬ÓÃ»§Ö¸ÁîÃûÏÂ£¬¿ÉÄÜÓĞ²»Í¬µÄĞòÁĞ,¿ÉÄÜusr_def_entryÏàÍ¬, ¶øsub_pro²»Í¬¡£
 
 		struct PVar_Set *g_var_set;		//È«¾Ö±äÁ¿¼¯
-		//struct PVar_Set sv_set;		//¾ÖÓò±äÁ¿¼¯, Ö»ÓĞ¶ÔDesMacÖ®ÀàµÄ²ÅÓĞ
+		struct PVar_Set sv_set;		//¾ÖÓò±äÁ¿¼¯, ÓÃÓÚÒı½ø²ÎÊıĞÍµÄÓÃ»§ÃüÁî
 
 		struct PacIns *pac_inses;
 		int pac_many;
 
 		TiXmlElement *def_root;	//»ù´¡±¨ÎÄ¶¨Òå
 		TiXmlElement *map_root;
-		TiXmlElement *usr_ele;
+		TiXmlElement *usr_ele;	//ÓÃ»§ÃüÁî
 
 		ComplexSubSerial()
 		{
@@ -1350,15 +1395,15 @@ struct PacIns:public Condition  {
 			pac_many = 0;
 		};
 
-		int defer_sub_serial(TiXmlElement *ele, TiXmlElement *root, struct PVar_Set *all_set, struct PVar_Set *sub_set=0)
-		{
-			set_condition ( ele, all_set, sub_set);
-			if ( !root ) 	//Ã»ÓĞ×ÓĞòÁĞÈë¿Ú, 
-				return 0;
-			if (!si_set)
-				si_set = new struct INS_SubSet();
-			return si_set->put_inses(root, all_set, sub_set); //·µ»Ø×ÓĞòÁĞÖ¸ÁîÊı
-		};
+		//int defer_sub_serial(TiXmlElement *ele, TiXmlElement *root, struct PVar_Set *all_set, struct PVar_Set *sub_set=0)
+		//{
+		//	set_condition ( ele, all_set, sub_set);
+		//	if ( !root ) 	//Ã»ÓĞ×ÓĞòÁĞÈë¿Ú, 
+		//		return 0;
+		//	if (!si_set)
+		//		si_set = new struct INS_SubSet();
+		//	return si_set->put_inses(root, all_set, sub_set); //·µ»Ø×ÓĞòÁĞÖ¸ÁîÊı
+		//};
 	
 		//void def_sub_vars(const char *xml) //·ÖÎöÒ»ÏÂ±äÁ¿¶¨Òå
 		//{
@@ -1371,44 +1416,44 @@ struct PacIns:public Condition  {
 		/* ²Î¿¼ĞÍ±äÁ¿ÔÚ×ÓĞòÁĞÖĞµÄ×¼±¸, ´ÓÈ«¾Ö±äÁ¿±íÖĞ·¢ÏÖËüÊÇÒ»¸ö²Î¿¼±äÁ¿, ÔÙ¸³Öµµ½¾ÖÓò±äÁ¿±íÖĞ
 		   loc_rf_nm ÊÇ¾ÖÓò±äÁ¿±íÖĞµÄÃû, Èç"protect", "refer", "key"µÈ
 		*/
-		void ref_prepare_sub(const char *ref_nm,  struct PVar *&ref_var, struct PVar_Set *var_set, const char *loc_rf_nm)
-		{
-			char buf[512];		//Êµ¼ÊÄÚÈİ, ³£ÊıÄÚÈİ
-			int len;
-			struct PVar *vr_tmp;
-			struct PVar *loc_var;
-			int i;
+		//void ref_prepare_sub(const char *ref_nm,  struct PVar *&ref_var, struct PVar_Set *var_set, const char *loc_rf_nm)
+		//{
+		//	char buf[512];		//Êµ¼ÊÄÚÈİ, ³£ÊıÄÚÈİ
+		//	int len;
+		//	struct PVar *vr_tmp;
+		//	struct PVar *loc_var;
+		//	int i;
 
-			char att_name[32];
-			const char *at_val;
+		//	char att_name[32];
+		//	const char *at_val;
 
-			if ( ref_nm )
-			{
-				ref_var = var_set->one_still(ref_nm, buf, len);	//ÕÒµ½ÒÑ¶¨Òå±äÁ¿µÄ
-				if ( ref_var )
-				{
-					for ( i = 1; i <= VAR_SUB_NUM; i++)		//¸÷ÖÖ×Ó±äÁ¿Öµ¸ø¸³ÉÏ£¬¶¼µ±×÷¾²Ì¬
-					{
-						TEXTUS_SPRINTF(att_name, "para%d", i);
-						at_val = ref_var->self_ele->Attribute(att_name);
-						if ( !at_val ) continue;		//Ã»ÓĞ×Ó±äÁ¿£¬¿´ÏÂÒ»¸ö
-								
-						TEXTUS_SPRINTF(att_name, "me.%s.para%d", loc_rf_nm, i); //¾ÖÓò±äÁ¿
-						vr_tmp = var_set->one_still(at_val, buf, len);	//at_valÊÇ¸ö±äÁ¿, ¿ÉÄÜÊÇ¶¯Ì¬
-						if ( vr_tmp && vr_tmp->kind <= VAR_Dynamic ) 
-						{	//±äÁ¿ÈôÊÇ¶¯Ì¬, Èç¿¨ºÅ, ÔòÔÚÕâÀïÉèÎª¶¯Ì¬, ²¢Ö¸Ïò¸ÃÎ»ÖÃ
-							loc_var = sv_set.look(att_name);
-							loc_var->dynamic_pos = vr_tmp->dynamic_pos;
-							loc_var->kind = vr_tmp->kind;
-						} else 
-							sv_set.put_still(att_name, buf, len);
-					}
-					at_val = ref_var->self_ele->Attribute("location");	//²Î¿¼±äÁ¿ÖĞÓĞÎ»ÖÃÊôĞÔ
-					TEXTUS_SPRINTF(att_name, "me.%s.location", loc_rf_nm);
-					sv_set.put_still(att_name, at_val);
-				}
-			}
-		};
+		//	if ( ref_nm )
+		//	{
+		//		ref_var = var_set->one_still(ref_nm, buf, len);	//ÕÒµ½ÒÑ¶¨Òå±äÁ¿µÄ
+		//		if ( ref_var )
+		//		{
+		//			for ( i = 1; i <= VAR_SUB_NUM; i++)		//¸÷ÖÖ×Ó±äÁ¿Öµ¸ø¸³ÉÏ£¬¶¼µ±×÷¾²Ì¬
+		//			{
+		//				TEXTUS_SPRINTF(att_name, "para%d", i);
+		//				at_val = ref_var->self_ele->Attribute(att_name);
+		//				if ( !at_val ) continue;		//Ã»ÓĞ×Ó±äÁ¿£¬¿´ÏÂÒ»¸ö
+		//						
+		//				TEXTUS_SPRINTF(att_name, "me.%s.para%d", loc_rf_nm, i); //¾ÖÓò±äÁ¿
+		//				vr_tmp = var_set->one_still(at_val, buf, len);	//at_valÊÇ¸ö±äÁ¿, ¿ÉÄÜÊÇ¶¯Ì¬
+		//				if ( vr_tmp && vr_tmp->kind <= VAR_Dynamic ) 
+		//				{	//±äÁ¿ÈôÊÇ¶¯Ì¬, Èç¿¨ºÅ, ÔòÔÚÕâÀïÉèÎª¶¯Ì¬, ²¢Ö¸Ïò¸ÃÎ»ÖÃ
+		//					loc_var = sv_set.look(att_name);
+		//					loc_var->dynamic_pos = vr_tmp->dynamic_pos;
+		//					loc_var->kind = vr_tmp->kind;
+		//				} else 
+		//					sv_set.put_still(att_name, buf, len);
+		//			}
+		//			at_val = ref_var->self_ele->Attribute("location");	//²Î¿¼±äÁ¿ÖĞÓĞÎ»ÖÃÊôĞÔ
+		//			TEXTUS_SPRINTF(att_name, "me.%s.location", loc_rf_nm);
+		//			sv_set.put_still(att_name, at_val);
+		//		}
+		//	}
+		//};
 
 		/* »ñµÃ×ÓĞòÁĞÈë¿Ú, ÓëÖ÷²Î¿¼±äÁ¿ÓĞ¹Ø */
 		void get_entry(struct PVar *ref_var, TiXmlElement *map_root, const char *entry_nm)
@@ -1490,19 +1535,19 @@ struct PacIns:public Condition  {
 
 			for ( att = ref_var->self_ele->FirstAttribute(); att; att = att->Next())
 			{
-				if ( strcmp(att->Name(), "pro") == 0 
-					|| strcmp(att->Name(), "name") == 0 
-					|| strcmp(att->Name(), "desc") == 0  
-					|| strcmp(att->Name(), "from") == 0  
-					|| strcmp(att->Name(), "start") == 0  
-					|| strcmp(att->Name(), "length") == 0  
-					|| strcmp(att->Name(), "to") == 0  
-					|| strcmp(att->Name(), "dynamic") == 0  )
-					continue;
+				//if ( strcmp(att->Name(), "pro") == 0 
+				//	|| strcmp(att->Name(), "name") == 0 
+				//	|| strcmp(att->Name(), "desc") == 0  
+				//	|| strcmp(att->Name(), "from") == 0  
+				//	|| strcmp(att->Name(), "start") == 0  
+				//	|| strcmp(att->Name(), "length") == 0  
+				//	|| strcmp(att->Name(), "to") == 0  
+				//	|| strcmp(att->Name(), "dynamic") == 0  )
+				//	continue;
 
 				//°ÑÆäËüÊôĞÔ¼Óµ½±¾µØ±äÁ¿¼¯ sv_set
-				TEXTUS_SPRINTF(loc_v_name, "me.%s.%s", mid_nm, att->name()); 
-				sv_set.put_still(loc_v_name, att->Value());
+				TEXTUS_SPRINTF(loc_v_name, "%s%s.%s", ME_VARIABLE_HEAD, mid_nm, att->name()); 
+				sv_set.put_still(loc_v_name, att->Value()); //Ô­À´Ã»ÓĞ¶¨ÒåµÄ, ÕâÀï²»»á¸³ÖµµÄ¡£ËùÒÔ, Ç°Ãæ²»ÓÃÅĞ¶ÏÊôĞÔÁË¡£
 			}
 			return ref_var;
 		};
@@ -1523,7 +1568,7 @@ struct PacIns:public Condition  {
 
 			if ( len > 0 )	//ÕÒµ½µÄÈ«¾Ö±äÁ¿¿ÉÄÜÓĞÄÚÈİ£¬¼Óµ½±¾µØÖĞ¡£
 			{
-				TEXTUS_SPRINTF(loc_v_name, "me.%s", mid_nm); 
+				TEXTUS_SPRINTF(loc_v_name, "%s%s", ME_VARIABLE_HEAD,mid_nm); 
 				sv_set.put_still(loc_v_name, buf, len);
 			}
 			return ref_var;
@@ -1533,19 +1578,63 @@ struct PacIns:public Condition  {
 		int pro_analyze( const char *pri_vnm)
 		{
 			TiXmlAttribute *att; 
-			struct PVar *ref_var;
-			const char *pro_nm;
+			struct PVar *ref_var, *me_var;
+			const char *pro_nm, *ref_nm;
+
 			char pro_nm[128];
 			char lv_nm[128];
 			TiXmlElement *pac_ele, *def_ele;
+			struct PVar *vr_tmp=0;
+			TiXmlElement *e_tmp, *n_ele, *p_ele;
 			int which, icc_num=0 ;
+			int i;
+			TiXmlElement *body;	//ÓÃ»§ÃüÁîµÄµÚÒ»¸öbodyÔªËØ
 
-			sv_set.defer_vars(usr_def_entry); //¾ÖÓò±äÁ¿¶¨ÒåÍêÈ«»¹ÔÚÄÇ¸ö×Ô¶¨ÒåÖĞ£¬cmd_eleÖĞÕÒme.swÖ®Àà, Òª×ö......
+			sv_set.defer_vars(usr_def_entry); //¾ÖÓò±äÁ¿¶¨ÒåÍêÈ«»¹ÔÚÄÇ¸ö×Ô¶¨ÒåÖĞ£¬ÕâÀï½«implyÉè¶¨µÄ²Î¿¼±äÁ¿¸³Öµ£¬
+			for ( i = 0 ; i  < sv_set.many; i++ )
+			{
+				me_var = &(sv_set.vars[i]);
+				if (me_var->kind != VAR_Me ) continue;		//Ö»´¦ÀíMe±äÁ¿
+				if ( usr_def_entry->Attribute("primary") && strcmp(me_var->me_name, usr_def_entry->Attribute("primary")) == 0 ) continue; //Ö÷²Î¿¼±äÁ¿ÏÂÃæ´¦Àí
+				if ( usr_def_entry->Attribute("imply") && strcmp(me_var->me_name, usr_def_entry->Attribute("imply")) == 0 ) continue;	////implyµÄ²Î¿¼±äÁ¿ÔÚÆäËü·Ç²Î¿¼µÄMe±äÁ¿ÖĞ´¦Àí
 
-			TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s", "Pro");
+				if ( me_var->me_sub_name £© //ÓĞºó×ºÃû, ÕâÓ¦¸ÃÊÇ²Î¿¼±äÁ¿£¬ÇÒ²»ÊÇimplyµÄ¡£
+				{
+					if ( me_var->c_len > 0 ) continue;	//ÓĞÄÚÈİ¾Í²»ÔÙ´¦ÀíÁË¡£
+					ref_nm = usr_ele->Attribute(me_var->me_name);	//ÏÈ¿´ÊôĞÔÃûÎªme.XX.yyÖĞµÄXXÃû£¬ref_nmÊÇ$MainÖ®µÄ¡£
+					if (!ref_nm )
+					{
+						body = usr_ele->FirstChildElement(me_var->me_name);	//ÔÙ¿´ÔªËØÎªme.XX.yyÖĞµÄXXÃû£¬ref_nmÊÇ$MainÖ®µÄ¡£
+						if ( body ) ref_nm = body->GetText();
+					}
+					if (!ref_nm ) continue;
+					ref_var = set_loc_ref_var(ref_nm, me_var->me_name); /* primaryÊôĞÔÖ¸Ã÷protectÖ®ÀàµÄ, Êµ¼ÊÉÏ¾ÍÊÇme.protect.*ÕâÑùµÄ¶«Î÷¡£ÕâÀïÒÑ¾­¸üĞÂ¾Ö²¿±äÁ¿¼¯ */
+					continue;	//²Î¿¼±äÁ¿µÄ´¦ÀíÍêÁË¡£
+				}
+
+				/* ÏÂÃæ¸ù¾İme.XX£¬ÔÚÓÃ»§ÃüÁîÖĞÕÒËùÓĞXXÔªËØ£¬Èç¹ûÆäÖĞÓĞ²Î¿¼±äÁ¿µÄ£¬°´imply´¦Àí */
+				body = usr_ele->FirstChildElement(me_var->me_name); 
+				while ( body ) 
+				{
+					vr_tmp= g_var_set->all_still(body, me_var->me_name, body_buf, body_len, n_ele);
+					body = n_ele;
+					if ( !vr_tmp ) 		//»¹ÊÇ³£Êı, ÕâÀïÓ¦¸Ã½áÊøÁË
+					{	
+						if (body) printf("%s body !!!!!!!!!!\n", me_var->me_name);	//Õâ²»Ó¦¸Ã
+						continue;
+					}
+					
+					if ( vr_tmp->kind == VAR_Refer )
+					{
+						set_loc_ref_var(vr_tmp, usr_def_entry->Attribute("imply"));
+					}
+				} 
+			}
+
+			TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s", "Pro"); //ÏÈ¼Ù¶¨×ÓĞòÁĞÊÇPro element£¬Èç¹ûÓĞÖ÷²Î¿¼±äÁ¿£¬ÏÂÃæ»á¸üĞÂ¡£
 			if ( pri_vnm ) //Èç¹ûÓĞÖ÷²Î¿¼±äÁ¿, ¾Í¼´¸ù¾İÕâ¸öÖ÷²Î¿¼±äÁ¿ÖĞÕÒµ½ÏàÓ¦µÄsub_pro, pri_vnm¾ÍÊÇ$MainÖ®ÀàµÄ¡£
 			{
-				ref_var = set_loc_ref_var(pri_vnm, usr_def_entry->Attribute("primary")); //primaryÊôĞÔÖ¸Ã÷protectÖ®ÀàµÄ, Êµ¼ÊÉÏ¾ÍÊÇme.protectÕâÑùµÄ¶«Î÷¡£
+				ref_var = set_loc_ref_var(pri_vnm, usr_def_entry->Attribute("primary")); /* primaryÊôĞÔÖ¸Ã÷protectÖ®ÀàµÄ, Êµ¼ÊÉÏ¾ÍÊÇme.protect.*ÕâÑùµÄ¶«Î÷¡£ÕâÀïÒÑ¾­¸üĞÂ¾Ö²¿±äÁ¿¼¯ */
 				if ( ref_var )
 				{
 					if (ref_var->self_ele->Attribute("pro") ) //²Î¿¼±äÁ¿µÄproÊôĞÔÖ¸Ê¾×ÓĞòÁĞµÄ±äÌåÃû
@@ -1584,7 +1673,7 @@ struct PacIns:public Condition  {
 					def_ele = def_root->FirstChildElement(pac_ele->Value());	//Èç¹ûÔÚ»ù´¡±¨ÎÄÖĞÓĞ¶¨Òå
 					if ( def_ele)
 					{
-						icc_num += pac_inses[which].hard_work(def_ele, pac_ele, cmd_ele, var_set, o_set);
+						icc_num += pac_inses[which].hard_work(def_ele, pac_ele, cmd_ele, g_var_set, &sv_set);
 						which++;
 					} else if ( map_root->FirstChildElement(pac_ele->Value()) )	//Èç¹ûÔÚmapÖĞÓĞ¶¨Òå, Ò²¾ÍÊÇÒ»¸öÇ¶Ì×µÄ×ÓĞòÁĞ
 					{
