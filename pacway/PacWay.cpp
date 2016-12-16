@@ -73,19 +73,16 @@ int squeeze(const char *p, char *q)	//把空格等挤掉, 只留下16进制字符(大写), 返回
 	{ 
 		if ( isxdigit(*p) ) 
 		{
-			if ( q) 
-				q[i] = toupper(*p);
+			if (q) q[i] = toupper(*p);
 			i++;
 		} else if ( !isspace(*p)) 
 		{
-			if ( q ) 
-				q[i] = *p;
+			if (q) q[i] = *p;
 			i++;
 		}
 		p++;
 	}
-	if (q) 
-		q[i] = '\0';
+	if (q) q[i] = '\0';
 	return i;
 };
 
@@ -312,22 +309,21 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 			if ( strncasecmp(nm, ME_VARIABLE_HEAD, sizeof(ME_VARIABLE_HEAD)) == 0 ) 
 			{
 				kind = VAR_Me;
-				me_sub_name = strpbrk(&nm[3], ".");	//从Me变量名后找第一个点，后面就作为后缀名.
+				me_sub_name = strpbrk(&nm[sizeof(ME_VARIABLE_HEAD)], ".");	//从Me变量名后找第一个点，后面就作为后缀名.
 				if ( me_sub_name )	//如果存在后缀
 				{
-					me_nm_len = me_sub_name - &nm[3];
+					me_nm_len = me_sub_name - &nm[sizeof(ME_VARIABLE_HEAD)];
 					me_sub_name++;	//当然，这个点本身不是后缀名, 从后一个开始才是后缀名
 					me_sub_nm_len = strlen(me_sub_name);
 				} else {			//如果不存在后缀
-					me_nm_len = strlen(&nm[3]);
+					me_nm_len = strlen(&nm[sizeof(ME_VARIABLE_HEAD)]);
 				}
 
 				if ( me_nm_len >= sizeof ( me_name))	//Me变量名空间有限, 64字节最大。
 					me_nm_len = sizeof ( me_name)-1;
-				memcpy(me_name, &nm[3], me_nm_len);
+				memcpy(me_name, &nm[sizeof(ME_VARIABLE_HEAD)], me_nm_len);
 				me_name[me_nm_len] = 0 ;
 			}
-
 
 			if ( kind == VAR_None && p) 
 			{	//这里有内容但还没有类型, 那就定为常数, 其它的也可以有内容, 就要别处定义了
@@ -599,8 +595,7 @@ struct PVar_Set {
 		{
 		case VAR_Constant:	//静态常数变量
 			len = vt->c_len;
-			if ( buf )
-				memcpy(buf, vt->content, len);
+			if ( buf ) memcpy(buf, vt->content, len);
 			break;
 
 		default:
@@ -974,6 +969,7 @@ struct CmdSnd {
 		struct PVar *vr_tmp, *vr2_tmp=0;
 		TiXmlElement *e_tmp, *n_ele, *p_ele;
 		TiXmlElement *e2_tmp, *n2_ele;
+		int g_ln;
 
 		e_tmp = pac_ele->FirstChildElement(tag); 
 		cmd_len = 0;
@@ -995,6 +991,7 @@ struct CmdSnd {
 			{
 				dynamic = true;		//动态啦
 				dy_num++;
+				continue;
 			}
 
 			if ( vr_tmp->kind == VAR_Me && vr_tmp->c_len > 0)	//Me变量已有内容,无后缀的，可能已有定义的，或者带后缀的。
@@ -1003,8 +1000,19 @@ struct CmdSnd {
 				continue;
 			}
 
-			if ( vr_tmp->kind == VAR_Me && vr_tmp->me_sub_nm_len == 0)	//Me变量,且无后缀名, 表示从用户命令中取，当然还没有内容
+			if ( vr_tmp->kind == VAR_Me && vr_tmp->me_sub_nm_len == 0)	//Me变量,且无后缀名, 则从用户命令中取，当然还没有内容
 			{
+				vr2_tmp = 0;
+				if ( usr_ele->Attribute(vr_tmp->me_name) ) 
+					vr2_tmp = g_vars->one_still( usr_ele->Attribute(vr_tmp->me_name), 0, cmd_len);
+
+				if ( vr2_tmp && vr2_tmp->kind <= VAR_Dynamic )
+				{
+						dynamic = true;		//动态啦
+						dy_num++;
+						continue;
+				}
+
 				e2_tmp = usr_ele->FirstChildElement(vr_tmp->me_name);
 				while (e2_tmp)
 				{
@@ -1042,28 +1050,76 @@ struct CmdSnd {
 		{
 			dy_list[dy_num].con = cp;
 			dy_list[dy_num].len = 0;
-			vr_tmp= var_set->all_still( e_tmp, tag, dy_list[dy_num].con, dy_list[dy_num].len, n_ele, o_set);
+ALL_STILL:
+			g_ln = 0;
+			vr_tmp= g_vars->all_still( e_tmp, tag, cp, g_ln, n_ele, me_vars);
 			e_tmp = n_ele;
 
-			if ( dy_list[dy_num].len > 0 )	/* 前面是一个静态常量 */
+			/*  !!!!! ?????  */
+			if ( g_ln > 0 )	/* 刚处理的是静态内容 */
 			{
 				dy_list[dy_num].dy_pos = -1;
-				cp = &cp[dy_list[dy_num].len];	//指针后移
-				dy_num++;
+				cp = &cp[g_ln];	//指针后移
+				dy_list[dy_num].len += g_ln;
+				if ( vr_tmp && vr_tmp->kind <= VAR_Dynamic )	//参考变量的, 不算作动态。
+					dy_num++;	//指向下一个
 			}
 
-			if ( vr_tmp && vr_tmp->kind <= VAR_Dynamic )	//参考变量的, 不算作动态
+			if ( vr_tmp && vr_tmp->kind <= VAR_Dynamic )	//参考变量的, 不算作动态。
 			{
 				dy_list[dy_num].con = 0;
 				dy_list[dy_num].len = 0;
 				dy_list[dy_num].dy_pos = vr_tmp->dynamic_pos;
 				dy_num++;
+				continue;
 			}
+
 			if ( !vr_tmp ) 		//还是常数, 这里应该结束了
 			{
 				if (e_tmp) printf("plain !!!!!!!!!!\n");	//这不应该
 				continue;
 			}
+
+			if ( vr_tmp->kind == VAR_Me && vr_tmp->c_len > 0)	//Me变量已有内容,1、无后缀的，本身已有定义的; 2、或者带后缀的，前面的处理中已经设定了内容
+			{
+				memcpy(cp, vr_tmp->content, vr_tmp->c_len);
+				dy_list[dy_num].len += vr_tmp->c_len;
+				cp = &cp[vr_tmp->c_len];	//指针后移
+				goto ALL_STILL;	//这里处理的是静态，所以继续从该处继续
+			}
+
+			if ( vr_tmp->kind == VAR_Me && vr_tmp->me_sub_nm_len == 0)	//Me变量,且无后缀名, 则从用户命令中取，当然还没有内容
+			{
+				vr2_tmp = 0;
+				if (usr_ele->Attribute(vr_tmp->me_name)) 
+					vr2_tmp = g_vars->one_still( usr_ele->Attribute(vr_tmp->me_name), dy_list[dy_num].con, dy_list[dy_num].len);
+				if ( vr2_tmp && vr2_tmp->kind <= VAR_Dynamic )
+				{
+						dynamic = true;		//动态啦
+						dy_num++;
+						continue;
+				}
+
+				e2_tmp = usr_ele->FirstChildElement(vr_tmp->me_name);
+				while (e2_tmp)
+				{
+					vr2_tmp = g_vars->all_still(e2_tmp, vr_tmp->me_name, 0, cmd_len, n2_ele, 0);
+					e2_tmp = n2_ele;
+					if ( !vr2_tmp ) 		//还是常数, 这里应该结束了
+					{
+						if (e2_tmp) printf("plain !!!!!!!!!!\n");	//这不应该
+						continue;
+					}
+
+					if ( vr2_tmp->kind <= VAR_Dynamic )	//参考变量的, 不算作动态
+					{
+						dynamic = true;		//动态啦
+						dy_num++;
+					}
+				}
+			}
+
+
 		}
 			/* 分析Me元素, app_ele，从而设定更多的sv_set内容......, 这里要改了，怎么怎么弄？....... */
 			for (loc_v_ele= me->FirstChildElement(); loc_v_ele; 
