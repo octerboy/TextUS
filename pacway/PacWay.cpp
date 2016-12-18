@@ -100,7 +100,6 @@ int squeeze(const char *p, char *q)	//把空格等挤掉, 只留下16进制字符(大写), 返回
 #define ERROR_INS_NOT_SW -135
 #define ERROR_OTHER -200
 
-unsigned short SW_OK=0x9000;	//SW1 SW2 = 9000, 这么做, 可能在其它机器上, 顺序不一样
 char err_global_str[128]={0};
 /* 左边状态, 空闲, 等着新请求, 初始化中, 制卡中 */
 enum LEFT_STATUS { LT_IDLE = 0, LT_INITING = 2, LT_MKING = 3};
@@ -111,81 +110,6 @@ enum Var_Type {VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_Dynamic = 10, VAR_Refer=11
 /* 右边状态, 空闲, IC指令发出, HSM指令发出, 终端测试中 */
 enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, RT_TERM_FEED=4, 
 		RT_TERM_PROMPT=5, RT_IC_RESET=6, RT_TERM_OUT=8, RT_INS_READY = 12};
-
-	struct TermOPBase {
-		const char *give;
-		const char *take;
-		const char *fun;
-		int tlen;
-		int glen;
-		RIGHT_STATUS rt_stat;
-		void me()	
-		{
-			glen = strlen(give);
-			tlen = strlen(take);
-		};
-	};
-
-	struct FeedCardOp:public TermOPBase {
-		FeedCardOp() {
-			give="F";
-			take="f";
-			fun = "pro_feed";
-			rt_stat = RT_TERM_FEED;
-			me();
-		};
-		void set () { };
-	};
-
-	struct OutCardOp :public TermOPBase {
-		OutCardOp () {
-			give="O";
-			take="o";
-			fun = "pro_out";
-			rt_stat = RT_TERM_OUT;
-			me();
-		}
-		void set () {	};
-	};
-
-	struct ProRstOp :public TermOPBase {
-		ProRstOp ()	{
-			give="R";
-			take="r";
-			fun = "pro_reset";
-			rt_stat = RT_IC_RESET;
-			me();
-		}
-		void set () {	};
-	};
-
-	struct PromptOp :public TermOPBase {		//进度提示操作
-		char cent[16];
-		int len;
-		PromptOp () {
-			give="P";
-			take="p";
-			fun = "pro_prompt";
-			rt_stat = RT_TERM_PROMPT;
-			me();			
-		}
-		void set (int icent) 
-		{
-			TEXTUS_SPRINTF(cent, "%d", icent);
-			len = strlen(cent);
-		};
-	};
-
-	struct ProComOp :public TermOPBase {
-		ProComOp () {
-			give="C";
-			take="c";
-			fun = "pro_com";
-			rt_stat = RT_IC_COM;
-			me();
-		}
-		void set () {	};
-	};
 
 /* 包括SysTime这样的变量，都由外部函数计算，所以这里只保留脚本指纹数据 */	
 #define Pos_FlowPrint 1 
@@ -395,7 +319,6 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 
 		char flow_id[64];
 		int pro_order;		//当前处理的操作序号
-		char bad_sw[32];
 
 		LEFT_STATUS left_status;
 		RIGHT_STATUS right_status;
@@ -617,7 +540,7 @@ struct PVar_Set {
 		rt = 0;
 		/* ac_len从参数传进, 累计的, command就是原来的好了, 不用重设指针 */
 		while(comp)
-        {
+        	{
 			if ( command ) 
 				rt = one_still( comp->GetText(), &command[ac_len], l, loc_v);
 			else 
@@ -691,58 +614,6 @@ struct PVar_Set {
 /* 指令分两种，一种是从报文定义而来，即INS_Ori，还有一种是从INS_Ori的组合而来，即INS_User */
 enum Command_Type { INS_None = 0, INS_Ori=1, INS_User=2};
 	 
-
-struct SwBase {
-	unsigned short another_sw;	//除了9000之外， 另一个可允许的sw1sw2
-	unsigned short another_sw2;	//除了9000之外， 另一个可允许的sw1sw2
-	unsigned short not_sw;		//不允许的SW, 包括9000
-
-	const char *another_sw_str;	//除了9000之外， 另一个可允许的sw1sw2
-	const char *another_sw2_str;	//除了9000之外， 另一个可允许的sw1sw2
-	const char *not_sw_str;		//不允许的SW, 包括9000
-	SwBase () {};
-
-	const char *get_sw(const char *p, unsigned short &sw)
-	{
-		const char *q=p;
-		if ( p )
-		{
-			unsigned char hi,lo;
-			hex2byte((unsigned char*)&hi, sizeof(hi), p); 
-			p++; p++;
-			hex2byte((unsigned char*)&lo, sizeof(lo), p);
-			sw = hi << 8 | lo;
-		}
-		return q;
-	};
-
-	void allow_sw ( TiXmlElement *ele,  struct PVar_Set *loc_v=0)
-	{
-		another_sw = SW_OK;
-		another_sw2 = SW_OK;
-		not_sw = 0;
-		another_sw_str = 0;
-		another_sw2_str = 0;
-		not_sw_str = 0;
-		if ( loc_v ) 
-		{
-			another_sw_str = get_sw(loc_v->get_value(ele->Attribute("sw")), another_sw);
-			another_sw2_str = get_sw(loc_v->get_value(ele->Attribute("sw2")), another_sw2);
-			not_sw_str = get_sw(loc_v->get_value(ele->Attribute("not_sw")), not_sw);
-		} 
-		if (!another_sw_str) another_sw_str = get_sw(ele->Attribute("sw"), another_sw);
-		if (!another_sw2_str) another_sw2_str = get_sw(ele->Attribute("sw2"), another_sw2);
-		if (!not_sw_str) not_sw_str = get_sw(ele->Attribute("not_sw"), not_sw);
-	};
-		
-	bool valid_sw ( unsigned short sw)
-	{
-		if ( sw == not_sw || (sw != SW_OK && sw != another_sw && sw != another_sw2 ) ) 
-			return false;
-
-		return true;
-	};
-};
 
 /* 下面这段匹配应该是不需要变的 */
 struct MatchDst {	//匹配目标
@@ -971,12 +842,11 @@ struct CmdSnd {
 		TiXmlElement *e2_tmp, *n2_ele;
 		int g_ln;
 
-		e_tmp = pac_ele->FirstChildElement(tag); 
 		cmd_len = 0;
 		cmd_buf = 0;
 		dy_num = 0;
 
-		n_ele = e_tmp;
+		e_tmp = pac_ele->FirstChildElement(tag); 
 		while ( e_tmp ) 
 		{
 			vr_tmp = g_vars->all_still( e_tmp, tag, 0, cmd_len, n_ele, me_vars);
@@ -1003,14 +873,15 @@ struct CmdSnd {
 			if ( vr_tmp->kind == VAR_Me && vr_tmp->me_sub_nm_len == 0)	//Me变量,且无后缀名, 则从用户命令中取，当然还没有内容
 			{
 				vr2_tmp = 0;
-				if ( usr_ele->Attribute(vr_tmp->me_name) ) 
+				if ( usr_ele->Attribute(vr_tmp->me_name) ) 	//用户命令中，属性优先
+				{
 					vr2_tmp = g_vars->one_still( usr_ele->Attribute(vr_tmp->me_name), 0, cmd_len);
 
-				if ( vr2_tmp && vr2_tmp->kind <= VAR_Dynamic )
-				{
-						dynamic = true;		//动态啦
+					if ( vr2_tmp && vr2_tmp->kind <= VAR_Dynamic )
+					{
 						dy_num++;
-						continue;
+					}
+					continue;	//有了属性，不管如何，不再看子元素了
 				}
 
 				e2_tmp = usr_ele->FirstChildElement(vr_tmp->me_name);
@@ -1033,19 +904,12 @@ struct CmdSnd {
 			}
 		}
 
-		//if ( !dynamic )	//对于非动态的, cmd_buf与cmd_len刚好是其全部的内容
-		//	goto NextPro;
-		cmd_buf = new char[cmd_len];
+		cmd_buf = new char[cmd_len];	//对于非动态的, cmd_buf与cmd_len刚好是其全部的内容
 		dy_num = dy_num *2+1;	/* dy_num表示多少个动态变量, 实际分段数最多是其2倍再多1 */
 		dy_list = new struct DyList [dy_num];
+
 		cp = &cmd_buf[0]; dy_num = 0;
-
 		e_tmp = pac_ele->FirstChildElement(tag); 
-		cmd_len = 0;
-		cmd_buf = 0;
-		dy_num = 0;
-		n_ele = e_tmp;
-
 		while ( e_tmp ) 
 		{
 			dy_list[dy_num].con = cp;
@@ -1055,18 +919,17 @@ ALL_STILL:
 			vr_tmp= g_vars->all_still( e_tmp, tag, cp, g_ln, n_ele, me_vars);
 			e_tmp = n_ele;
 
-			/*  !!!!! ?????  */
 			if ( g_ln > 0 )	/* 刚处理的是静态内容 */
 			{
 				dy_list[dy_num].dy_pos = -1;
 				cp = &cp[g_ln];	//指针后移
-				dy_list[dy_num].len += g_ln;
-				if ( vr_tmp && vr_tmp->kind <= VAR_Dynamic )	//参考变量的, 不算作动态。
-					dy_num++;	//指向下一个
+				dy_list[dy_num].len += g_ln; //内容增加
 			}
 
 			if ( vr_tmp && vr_tmp->kind <= VAR_Dynamic )	//参考变量的, 不算作动态。
 			{
+				if ( g_ln > 0 )	/* 刚处理的是静态内容, 已经放在该dy中了 */
+					dy_num++;	//指向下一个
 				dy_list[dy_num].con = 0;
 				dy_list[dy_num].len = 0;
 				dy_list[dy_num].dy_pos = vr_tmp->dynamic_pos;
@@ -1083,28 +946,50 @@ ALL_STILL:
 			if ( vr_tmp->kind == VAR_Me && vr_tmp->c_len > 0)	//Me变量已有内容,1、无后缀的，本身已有定义的; 2、或者带后缀的，前面的处理中已经设定了内容
 			{
 				memcpy(cp, vr_tmp->content, vr_tmp->c_len);
-				dy_list[dy_num].len += vr_tmp->c_len;
+				dy_list[dy_num].len += vr_tmp->c_len; //长度累加
 				cp = &cp[vr_tmp->c_len];	//指针后移
-				goto ALL_STILL;	//这里处理的是静态，所以继续从该处继续
+				goto ALL_STILL;	//这里处理的是静态，所以从该处继续
 			}
 
 			if ( vr_tmp->kind == VAR_Me && vr_tmp->me_sub_nm_len == 0)	//Me变量,且无后缀名, 则从用户命令中取，当然还没有内容
 			{
 				vr2_tmp = 0;
-				if (usr_ele->Attribute(vr_tmp->me_name)) 
-					vr2_tmp = g_vars->one_still( usr_ele->Attribute(vr_tmp->me_name), dy_list[dy_num].con, dy_list[dy_num].len);
-				if ( vr2_tmp && vr2_tmp->kind <= VAR_Dynamic )
+				g_ln = 0;
+				if (usr_ele->Attribute(vr_tmp->me_name)) //先看属性内容
 				{
-						dynamic = true;		//动态啦
-						dy_num++;
-						continue;
-				}
+					vr2_tmp = g_vars->one_still( usr_ele->Attribute(vr_tmp->me_name), cp, g_ln);
+					if ( g_ln > 0 )	/* 刚处理的是静态内容 */
+					{
+						dy_list[dy_num].dy_pos = -1;
+						cp = &cp[g_ln];	//指针后移
+						dy_list[dy_num].len += g_ln; //内容增加
+					}
 
+					if ( vr2_tmp && vr2_tmp->kind <= VAR_Dynamic )
+					{
+						if ( g_ln > 0 )	/* 刚处理的是静态内容, 已经放在该dy中了 */
+							dy_num++;	//指向下一个
+						dy_list[dy_num].con = 0;
+						dy_list[dy_num].len = 0;
+						dy_list[dy_num].dy_pos = vr_tmp->dynamic_pos;
+						dy_num++;
+					}
+					continue;	//有了属性，不管如何，不再看子元素了
+				}
+			
 				e2_tmp = usr_ele->FirstChildElement(vr_tmp->me_name);
 				while (e2_tmp)
 				{
-					vr2_tmp = g_vars->all_still(e2_tmp, vr_tmp->me_name, 0, cmd_len, n2_ele, 0);
+					g_ln = 0;
+					vr2_tmp = g_vars->all_still(e2_tmp, vr_tmp->me_name, cp, g_ln, n2_ele, 0);
 					e2_tmp = n2_ele;
+					if ( g_ln > 0 )	/* 刚处理的是静态内容 */
+					{
+						dy_list[dy_num].dy_pos = -1;
+						cp = &cp[g_ln];	//指针后移
+						dy_list[dy_num].len += g_ln; //内容增加
+					}
+
 					if ( !vr2_tmp ) 		//还是常数, 这里应该结束了
 					{
 						if (e2_tmp) printf("plain !!!!!!!!!!\n");	//这不应该
@@ -1113,60 +998,17 @@ ALL_STILL:
 
 					if ( vr2_tmp->kind <= VAR_Dynamic )	//参考变量的, 不算作动态
 					{
-						dynamic = true;		//动态啦
+						if ( g_ln > 0 )	/* 刚处理的是静态内容, 已经放在该dy中了 */
+							dy_num++;	//指向下一个
+						dy_list[dy_num].con = 0;
+						dy_list[dy_num].len = 0;
+						dy_list[dy_num].dy_pos = vr_tmp->dynamic_pos;
 						dy_num++;
 					}
 				}
 			}
-
-
 		}
-			/* 分析Me元素, app_ele，从而设定更多的sv_set内容......, 这里要改了，怎么怎么弄？....... */
-			for (loc_v_ele= me->FirstChildElement(); loc_v_ele; 
-				loc_v_ele = loc_v_ele->NextSiblingElement())
-			{
-				const char *tag;
-				TiXmlElement *body;	//用户指令的第一个body元素
-
-				tag = loc_v_ele->Value();
-				if ( !tag ) continue;
-				//先将Me的各个子元素当作用户指令的属性名，
-				set_loc_ref_var(app_ele->Attribute(loc_v_ele->Value()), loc_v_ele->Value());
-				TEXTUS_SNPRINTF(lv_nm, sizeof(lv_nm), "me.%s", tag);
-
-				//然后当作用户指令的子元素
-				body =  cmd_ele->FirstChildElement(tag); 
-				while ( body ) 
-				{
-					vr_tmp= g_var_set->all_still(body, tag_body, body_buf, body_len, n_ele);
-					body = n_ele;
-					if ( !vr_tmp ) 		//还是常数, 这里应该结束了
-					{	
-						if (body) printf("%s body !!!!!!!!!!\n", tag);	//这不应该
-						continue;
-					}
-					
-					if ( vr_tmp->kind == VAR_Refer )
-					{
-						ek_var = vr_tmp;		//参考变量, 多个也可, 以后从1开始
-						set_loc_ref_var(vr_tmp, me->Attribute("imply"));
-					} else if ( vr_tmp->kind <= VAR_Dynamic )
-					{
-						body_dynamic = true;		//动态啦
-					}
-				} 
-
-				if ( body_dynamic ) 
-				{
-					vr_tmp = sv_set.look(lv_nm);
-					vr_tmp->dynamic_pos = var_set->get_neo_dynamic_pos();	//动态变量位置
-					vr_tmp->kind = VAR_Dynamic;
-					body_dy_pos = vr_tmp->dynamic_pos;
-				} else {
-					sv_set.put_still(lv_nm,body_buf);
-				}
-			}
-		};
+	};
 };
 
 struct CmdRcv {
@@ -1188,6 +1030,7 @@ struct CmdRcv {
 
 
 };
+
 struct ComplexSubSerial;
 struct PacIns:public Condition  {
 	int subor;	//指示指令报文送给哪一个下级模块
@@ -1245,9 +1088,6 @@ struct PacIns:public Condition  {
 		}
 	 G_RET:
 		buf[len] = 0;
-	};
-
-
 	};
 
 	void hard_work ( TiXmlElement *def_ele, TiXmlElement *pac_ele, TiXmlElement *usr_ele, struct PVar_Set *g_vars, struct PVar_Set *me_vars)
@@ -1416,11 +1256,6 @@ struct PacIns:public Condition  {
 };
 
 	struct ComplexSubSerial{
-		//TiXmlElement *sub_ins_entry;	//MAP文档的子序列元素，可能不用了。
-
-		//TiXmlDocument var_doc;
-		//TiXmlElement *var_root;
-
 		TiXmlElement *usr_def_entry;	//MAP文档中，对用户指令的定义
 		TiXmlElement *sub_pro;			//实际使用的指令序列，在相同用户指令名下，可能有不同的序列,可能usr_def_entry相同, 而sub_pro不同。
 
@@ -1451,67 +1286,11 @@ struct PacIns:public Condition  {
 			pac_many = 0;
 		};
 
-		//int defer_sub_serial(TiXmlElement *ele, TiXmlElement *root, struct PVar_Set *all_set, struct PVar_Set *sub_set=0)
-		//{
-		//	set_condition ( ele, all_set, sub_set);
-		//	if ( !root ) 	//没有子序列入口, 
-		//		return 0;
-		//	if (!si_set)
-		//		si_set = new struct INS_SubSet();
-		//	return si_set->put_inses(root, all_set, sub_set); //返回子序列指令数
-		//};
-	
-		//void def_sub_vars(const char *xml) //分析一下变量定义
-		//{
-		//	var_doc.Parse(xml);
-		//	var_root = var_doc.RootElement();
-		//	sv_set.defer_vars(var_root);
-		//};
-
 
 		/* 参考型变量在子序列中的准备, 从全局变量表中发现它是一个参考变量, 再赋值到局域变量表中
 		   loc_rf_nm 是局域变量表中的名, 如"protect", "refer", "key"等
 		*/
-		//void ref_prepare_sub(const char *ref_nm,  struct PVar *&ref_var, struct PVar_Set *var_set, const char *loc_rf_nm)
-		//{
-		//	char buf[512];		//实际内容, 常数内容
-		//	int len;
-		//	struct PVar *vr_tmp;
-		//	struct PVar *loc_var;
-		//	int i;
-
-		//	char att_name[32];
-		//	const char *at_val;
-
-		//	if ( ref_nm )
-		//	{
-		//		ref_var = var_set->one_still(ref_nm, buf, len);	//找到已定义变量的
-		//		if ( ref_var )
-		//		{
-		//			for ( i = 1; i <= VAR_SUB_NUM; i++)		//各种子变量值给赋上，都当作静态
-		//			{
-		//				TEXTUS_SPRINTF(att_name, "para%d", i);
-		//				at_val = ref_var->self_ele->Attribute(att_name);
-		//				if ( !at_val ) continue;		//没有子变量，看下一个
-		//						
-		//				TEXTUS_SPRINTF(att_name, "me.%s.para%d", loc_rf_nm, i); //局域变量
-		//				vr_tmp = var_set->one_still(at_val, buf, len);	//at_val是个变量, 可能是动态
-		//				if ( vr_tmp && vr_tmp->kind <= VAR_Dynamic ) 
-		//				{	//变量若是动态, 如卡号, 则在这里设为动态, 并指向该位置
-		//					loc_var = sv_set.look(att_name);
-		//					loc_var->dynamic_pos = vr_tmp->dynamic_pos;
-		//					loc_var->kind = vr_tmp->kind;
-		//				} else 
-		//					sv_set.put_still(att_name, buf, len);
-		//			}
-		//			at_val = ref_var->self_ele->Attribute("location");	//参考变量中有位置属性
-		//			TEXTUS_SPRINTF(att_name, "me.%s.location", loc_rf_nm);
-		//			sv_set.put_still(att_name, at_val);
-		//		}
-		//	}
-		//};
-
-		/* 获得子序列入口, 与主参考变量有关 */
+		/* 获得子序列入口, 与主参考变量有关, 不用了??? */
 		void get_entry(struct PVar *ref_var, TiXmlElement *map_root, const char *entry_nm)
 		{
 			char pro_nm[128];
@@ -1522,6 +1301,7 @@ struct PacIns:public Condition  {
 			} else 
 				sub_ins_entry = map_root->FirstChildElement(entry_nm);
 		};
+
 		/* 输入输出变量的全局本地处理 */
 		void get_loc_var ( TiXmlElement *ele, const char *att_nm,  struct PVar_Set *var_set, const char *loc_var_nm, const char *default_val)
 		{
@@ -1571,14 +1351,6 @@ struct PacIns:public Condition  {
 			}
 		};
 
-		//virtual int set ( TiXmlElement *ele, struct PVar_Set *var_set, TiXmlElement *map_root, const char *entry_nm)
-		//{
-		//	return 0;
-		//};
-
-		//virtual void  get_current(MK_Session *sess, struct PVar_Set *var_set) { };
-
-
 		/* 局域变量名根据protect所指向的元素属性名而变, 这样自然, 不用para1,para2之类的。 
 			vnm: 是一个变量名，如果在全局表中查不到，则当作变量内容
 			mid_num：是Me中指定的,是子元素或primay属性所指定的，局域变量名为: me.mid_num.xx
@@ -1591,17 +1363,7 @@ struct PacIns:public Condition  {
 
 			for ( att = ref_var->self_ele->FirstAttribute(); att; att = att->Next())
 			{
-				//if ( strcmp(att->Name(), "pro") == 0 
-				//	|| strcmp(att->Name(), "name") == 0 
-				//	|| strcmp(att->Name(), "desc") == 0  
-				//	|| strcmp(att->Name(), "from") == 0  
-				//	|| strcmp(att->Name(), "start") == 0  
-				//	|| strcmp(att->Name(), "length") == 0  
-				//	|| strcmp(att->Name(), "to") == 0  
-				//	|| strcmp(att->Name(), "dynamic") == 0  )
-				//	continue;
-
-				//把其它属性加到本地变量集 sv_set
+				//把属性加到本地变量集 sv_set
 				TEXTUS_SPRINTF(loc_v_name, "%s%s.%s", ME_VARIABLE_HEAD, mid_nm, att->name()); 
 				sv_set.put_still(loc_v_name, att->Value()); //原来没有定义的, 这里不会赋值的。所以, 前面不用判断属性了。
 			}
@@ -1672,7 +1434,7 @@ struct PacIns:public Condition  {
 				body = usr_ele->FirstChildElement(me_var->me_name); 
 				while ( body ) 
 				{
-					vr_tmp= g_var_set->all_still(body, me_var->me_name, body_buf, body_len, n_ele);
+					vr_tmp= g_var_set->all_still(body, me_var->me_name, 0, body_len, n_ele);
 					body = n_ele;
 					if ( !vr_tmp ) 		//还是常数, 这里应该结束了
 					{	
@@ -1734,11 +1496,10 @@ struct PacIns:public Condition  {
 					} else if ( map_root->FirstChildElement(pac_ele->Value()) )	//如果在map中有定义, 也就是一个嵌套的子序列
 					{
 						pac_inses[which].complex = new ComplexSubSerial;
-						pac_inses[which].complex.
 						pac_inses[which].complex->usr_def_entry = map_root->FirstChildElement(pac_ele->Value());
 						pac_inses[which].complex->g_var_set = g_var_set;
 						pac_inses[which].complex->def_root = def_root;
-						pac_inses[which].complex->usr_ele = usr_ele;
+						pac_inses[which].complex->usr_ele = pac_ele; //这个就要如同用户命令
 						pac_inses[which].complex->map_root = map_root;
 						icc_num += pac_inses[which].complex->pro_analyze(0);
 						which++;
@@ -1758,51 +1519,6 @@ struct PacIns:public Condition  {
 		int order;
 		struct ComplexSubSerial *complex;
 		int comp_num;
-
-		//enum Command_Type type;	//类型, 不用union类型, 真不知道如何调用这个构造函数
-		//	struct PlainIns plain;
-		//	struct HsmIns hsm;
-		//	struct CallFun fun;
-
-		//	int auth_num;
-		//	struct ExtAuthIns *auth;
-		//	struct ComplexSubSerial *complex;
-
-		//	/* -------- 对终端基本操作 ----------*/
-		//	struct PromptOp prompt;
-		//	struct FeedCardOp fcard;
-		//	struct OutCardOp ocard;
-		//	struct ProRstOp pro_rst;
-		//	/* -------- 对终端基本操作 ----------*/
-
-		//void set (Command_Type mtype, int cent)
-		//{
-		//	order = -1;
-		//	type = mtype;
-		//	if ( type == OP_Prompt )
-		//	{
-		//		prompt.set(cent);
-		//	}
-		//};
-		//void set (Command_Type mtype)
-		//{
-		//	order = -1;
-		//	type = mtype;
-		//	switch (mtype)
-		//	{
-		//		/* -------- 对终端基本操作 ----------*/
-		//		case OP_FeedCard:
-		//			fcard.set();
-		//			break;
-
-		//		case OP_OutCard:
-		//			ocard.set();
-		//			break;
-
-		//		default:
-		//			break;
-		//	}
-		//};
 
 		int  set_sub( TiXmlElement *app_ele, struct PVar_Set *vrset, TiXmlElement *sub_serial, TiXmlElement *def_root, TiXmlElement * map_root) //返回对IC的指令数
 		{
@@ -1858,124 +1574,6 @@ struct PacIns:public Condition  {
 
 			set_condition ( app_ele, var_set);
 			return ret_ic;
-
-
-			//
-			//if ( strcasecmp(ele->Value(), "Command") == 0 ) 
-			//{
-			//	type = INS_Plain;
-			//	plain.set(ele, vrset);
-			//	return 1;
-			//};
-
-			//if ( strcasecmp(ele->Value(), "HSM") == 0 ) 
-			//{
-			//	type = INS_HSM;
-			//	hsm.set(ele ,vrset);
-			//	return 0;
-			//};
-
-			//if ( strcasecmp(ele->Value(), "Call") == 0 ) 
-			//{
-			//	type = INS_Call;
-			//	fun.set(ele ,vrset);
-			//	return 0;
-			//};
-
-			//if ( strcasecmp(ele->Value(), "ExtAuth") == 0 ) 
-			//{
-			//	TiXmlElement *key;
-			//	int i,j;
-			//	const char *tag="key";
-
-			//	i = 0;
-			//	key =  ele->FirstChildElement(tag);	
-			//	while ( key )
-			//	{
-			//		if ( key->GetText() )
-			//		{
-			//			i++;
-			//		}
-			//		key = key->NextSiblingElement(tag);
-			//	}
-			//	auth_num = i;
-			//	auth = new struct ExtAuthIns[auth_num];
-
-			//	i = 0; j = 0;
-			//	key =  ele->FirstChildElement(tag);	
-			//	while ( key )
-			//	{
-			//		if ( key->GetText() )
-			//		{
-			//			j += auth[i].set(ele, vrset, map_root, "ExtAuth", key);
-			//			i++;
-			//		}
-			//		key = key->NextSiblingElement(tag);
-			//	}
-
-			//	type = INS_ExtAuth;
-			//	return j;
-			//};
-
-			//if ( strcasecmp(ele->Value(), "DesMac") == 0 ) 
-			//{
-			//	type = INS_DesMac;
-			//	complex = new struct DesMacIns;
-			//	return complex->set(ele, vrset, map_root, "DesMac");
-			//};
-
-			//if ( strcasecmp(ele->Value(), "DesFile") == 0 ) 
-			//{
-			//	type = INS_DesMac;
-			//	complex = new struct DesMacIns;
-			//	return complex->set(ele, vrset, map_root, "DesMac");
-			//};
-
-			//if ( strcasecmp(ele->Value(), "PMac") == 0 ) 
-			//{
-			//	type = INS_Mac;
-			//	complex = new struct  MacIns;
-			//	return complex->set(ele, vrset, map_root, "PMac");
-			//};
-
-			//if ( strcasecmp(ele->Value(), "Load") == 0 ) 
-			//{
-			//	type = INS_Charge;
-			//	complex = new struct  ChargeIns;
-			//	return complex->set(ele, vrset, map_root, "Load");
-			//};
-
-			//if ( strcasecmp(ele->Value(), "Scp02Kmc") == 0 ) 
-			//{
-			//	type = INS_GpKmc;
-			//	complex = new struct  ChargeIns;
-			//	return complex->set(ele, vrset, map_root, "Scp02Kmc");
-			//};
-
-			//if ( strcasecmp(ele->Value(), "LoadInit") == 0 ) 
-			//{
-			//	type = INS_LoadInit;
-			//	complex = new struct LoadInitIns;
-			//	return complex->set(ele, vrset, map_root, "LoadInit");
-			//};
-
-			//if ( strcasecmp(ele->Value(), "Debit") == 0 ) 
-			//{
-			//	type = INS_Debit;
-			//	complex = new struct DebitIns;
-			//	return complex->set(ele, vrset, map_root, "Debit");
-			//};
-
-			//if ( strcasecmp(ele->Value(), "Reset") == 0 ) 
-			//{
-			//	type = INS_ProRst;
-			//	complex = new struct ResetIns;
-			//	pro_rst.set();
-			//	return complex->set(ele, vrset, map_root, "Reset");
-			//};
-
-			//type = INS_None;
-			//return 0;
 		};
 	};
 
