@@ -127,10 +127,11 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 		int c_len;			//内容长度
 		int dynamic_pos;	//动态变量位置, -1表示静态
 
+		int source_fld_no;	//来自输入报文的哪个域号。		
 		int start_pos;		//从输入报文中, 什么位置开始
 		int get_length;		//取多少长度的值
-		int source_fld_no;	//来源域号。
-		int dest_fld_no;	//目的域号, 
+		
+		int dest_fld_no;	//输出报文的目的域号, 
 
 		char me_name[64];	//Me变量名称，除去开头的 me. 三个字节, 不包括后缀. 从变量名name中复制，最大63字符
 		int me_nm_len;
@@ -140,19 +141,21 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 		TiXmlElement *self_ele;	/* 自身, 其子元素包括两种可能: 1.函数变量表, 
 					2.一个指令序列, 在指令子元素分析时, 如发现一个用到的变量中, 有子序列时, 把这些指令嵌入。
 					*/
-
 		PVar () {
 			kind = VAR_None;	//起初认为非变量
 			name = 0;
 			n_len = 0;
+
 			c_len = 0;
 			memset(content,0,sizeof(content));
-
-			start_pos = 1;
-			get_length = 999 ;
-			source_fld_no = -1;
-			dest_fld_no = -1;
 			dynamic_pos = -1;	//非动态类
+
+			source_fld_no = -1;
+			start_pos = 1;
+			get_length = -1;
+			
+			dest_fld_no = -1;
+		
 			self_ele = 0;
 
 			memset(me_name, 0, sizeof(me_name)) = 0;
@@ -276,20 +279,21 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 		};
 	};
 
-	struct DyVar: public DyVarBase {	//动态变量
+	struct DyVar	/* 动态变量， 包括来自报文的 */
+	{	
 		Var_Type kind;	//动态类型, 
 		int index;	//索引, 也就是下标值
-		int c_len;
+		char *p;	//p有时指向这里的val， 但也可能指向输入、输出的域.c_len就是长度。
 		char val[512];	//变量内容. 随时更新, 足够空间啦
+		int c_len;
 
-		int dest_fld_no;	//目的域号, 
 		struct PVar *def_var;	//文件中定义的变量
 
 		DyVar () {
 			kind = VAR_None;
 			index = - 1;
 			c_len = 0;
-			dest_fld_no = -1;
+
 			memset(val, 0, sizeof(val));
 		};
 
@@ -311,10 +315,10 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 		};
 	};
 
-	struct MK_Session {		//记录一个制卡过程中的各种临时数据
-		struct DyVar *snap;//随时的变量, 包括
+	struct MK_Session {		//记录一个事务过程中的各种临时数据
+		struct DyVar *snap;		//随时的变量, 包括
 		int snap_num;
-		char err_str[1024];	//错误信息
+		char err_str[1024];		//错误信息
 		char station_str[1024];	//工作站信息
 
 		char flow_id[64];
@@ -322,8 +326,8 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 
 		LEFT_STATUS left_status;
 		RIGHT_STATUS right_status;
-		int ins_which;		//已经工作在哪个指令, 即为定义中数组的下标值
-		int iRet;		//制卡工作结果
+		int ins_which;	//已经工作在哪个命令, 即为定义中数组的下标值
+		int iRet;		//事务最终结果
 
 		inline MK_Session ()
 		{
@@ -369,7 +373,6 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 			left_status = LT_IDLE;
 			right_status = RT_IDLE;
 			ins_which = -1;
-			bad_sw[0] = 0;
 			err_str[0] = 0;	
 			flow_id[0] = 0;
 		};
@@ -394,6 +397,7 @@ struct PVar_Set {
 		vars = 0;
 		many = 0;
 	};
+
 	bool is_var(const char *nm)
 	{
 		if (nm  && strlen(nm) == sizeof(VARIABLE_TAG_NAME) && memcmp(nm, VARIABLE_TAG_NAME, sizeof(VARIABLE_TAG_NAME)) == 0 )
@@ -806,8 +810,8 @@ struct Condition {	//一个指令的匹配列表, 包括条件与结果的匹配
 };
 
 struct DyList {
-	char *con;
-	int len;
+	char *con;  /* 指向 cmd_buf中的某个点 */
+	unsigned long len;
 	int dy_pos;
 	DyList ()
 	{
@@ -821,9 +825,9 @@ struct CmdSnd {
 	int fld_no;	//发送的域号
 	int dy_num;
 	struct DyList *dy_list;
-	bool dynamic ;		//是否动态
+	//bool dynamic ;		//是否动态
 	char *cmd_buf;
-	int cmd_len;
+	unsigned long cmd_len;
 
 	const char *tag;	/*  比如"component"这样的内容，指明子序列中的元素 */
 	//TiXmlElement *component;	//指令文档中的第一个component元素
@@ -904,7 +908,7 @@ struct CmdSnd {
 			}
 		}
 
-		cmd_buf = new char[cmd_len];	//对于非动态的, cmd_buf与cmd_len刚好是其全部的内容
+		cmd_buf = new char[cmd_len+1];	//对于非动态的, cmd_buf与cmd_len刚好是其全部的内容
 		dy_num = dy_num *2+1;	/* dy_num表示多少个动态变量, 实际分段数最多是其2倍再多1 */
 		dy_list = new struct DyList [dy_num];
 
@@ -1027,8 +1031,6 @@ struct CmdRcv {
 		must_con = 0;
 		must_con_len = 0;
 	};
-
-
 };
 
 struct ComplexSubSerial;
@@ -1044,50 +1046,44 @@ struct PacIns:public Condition  {
 
 	PacIns() 
 	{
-		snd_num = 0;
+		subor = 0;
 		snd_lst = 0;
+		snd_num = 0;
 		rcv_lst = 0;
 		rcv_num = 0;
-		subor = 0;
-		comp = 0;
+
+		complex = 0;
 	};
 
-	struct ComplexSubSerial *set_snd( PacketObj *snd_pac, int &bor, MK_Session *sess)
+	struct ComplexSubSerial *prepair_snd_pac( PacketObj *snd_pac, int &bor, MK_Session *sess)
 	{
 		/* ..和get_current差不多... */
+		int i,j;
+		unsigned long t_len;
+		if (complex) return complex;
 		bor = subor;
-		return comp;
-	};
-
-	void  get_current( char *buf, int &len, MK_Session *sess)
-	{	/* 取实时的指令内容 */
-		int i;
-		struct DyVar *dvr;
-		char *p=buf;
-		len = 0;
-		if ( !dynamic ) 
+		t_len = 0;
+		for ( i = 0 ; i < snd_num; i++ )
 		{
-			memcpy(buf, cmd_buf, cmd_len);
-			len = cmd_len;
-			goto G_RET;
-		}
-		for ( i = 0 ; i < dy_num; i++ )
-		{
-			struct DyList *dl = &dy_list[i];
-			if ( dl->dy_pos >=0 ) 
+			for ( j = 0; j < snd_lst[i].dy_num; j++ )
 			{
-				dvr = &(sess->snap[dl->dy_pos]);
-				memcpy(p, dvr->val, dvr->c_len);
-				p += dvr->c_len;
-				len += dvr->c_len;
-			} else {
-				memcpy(p, dl->con, dl->len);
-				p += dl->len;
-				len += dl->len;
+				t_len += snd_lst[i].dy_list[j].len;
 			}
 		}
-	 G_RET:
-		buf[len] = 0;
+		snd_pac->buf.grant(t_len);
+
+		for ( i = 0 ; i < snd_num; i++ )
+		{
+			t_len = 0;
+			for ( j = 0; j < snd_lst[i].dy_num; j++ )
+			{
+				snd_pac->buf.input(snd_lst[i].dy_list[j].con, snd_lst[i].dy_list[j].len);	//一个域的内容
+				t_len += snd_lst[i].dy_list[j].len;	//一个域的长度
+			}
+			snd_pac->buf.commit(snd_lst[i].fld_no, t_len);	//域的确认
+		}
+		
+		return 0;
 	};
 
 	void hard_work ( TiXmlElement *def_ele, TiXmlElement *pac_ele, TiXmlElement *usr_ele, struct PVar_Set *g_vars, struct PVar_Set *me_vars)
@@ -1138,8 +1134,7 @@ struct PacIns:public Condition  {
 				i++;
 			}
 		}
-		
-		
+
 		/* 预置接收的每个域，设定域号*/
 		rcv_num = 0;
 		for (p_ele= def_ele->FirstChildElement(); p_ele; p_ele = p_ele->NextSiblingElement())
@@ -1220,27 +1215,32 @@ struct PacIns:public Condition  {
 				}
 			}
 		}	/* 结束返回元素的定义*/
-		
-		
+
 		set_condition ( pac_ele, g_vars, me_vars);
 		return ;
 	};
 
 	//void pro_response(char *res_buf, int rlen,  struct MK_Session *mess)
 	/* 本指令处理响应报文，匹配必须的内容 */
-	bool pro_response(PacketObj *snd_pac,  struct MK_Session *mess)
+	bool pro_rcv_pac(PacketObj *rcv_pac,  struct MK_Session *mess)
 	{
 		int ii;
-		
-		if ( !vres || reply_num <=0 ) 	//发现有动态定义的, 输出就保存在这里
-			return ;
-		for (ii = 0; ii < reply_num; ii++)
+		unsigned char *fc;
+		int min_len;
+		unsigned long rlen;
+
+		for (ii = 0; ii < rcv_num; ii++)
 		{
-			if ( vres[ii].dynamic_pos > 0)
+
+			if ( rcv_lst[ii].dyna_pos > 0)
 			{
-				struct PlainReply *rply = &vres[ii];
-				struct DyVar *dv= &mess->snap[ rply->dynamic_pos];
-				int min_len;
+				struct struct CmdRcv *rply = &rcv_lst[ii];
+				struct DyVar *dv= &mess->snap[rply->dyna_pos];
+
+				fc = rcv_pac->getfld(rply->fld_no,rlen);
+				if ( !fc ) 
+					return false;
+
 				if ( rlen >= (rply->start ) )	//start是从1开始
 				{
 					if ( (rply->length + rply->start-1) > rlen  )
@@ -1248,7 +1248,9 @@ struct PacIns:public Condition  {
 					else
 						min_len = rply->length;
 					if ( min_len > 0 )
-						dv->input(&res_buf[rply->start-1], min_len);
+					{
+						dv->input(&fc[rply->start-1], min_len);
+					}
 				}
 			}
 		}
