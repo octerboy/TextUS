@@ -101,20 +101,24 @@ int squeeze(const char *p, char *q)	//把空格等挤掉, 只留下16进制字符(大写), 返回
 #define ERROR_OTHER -200
 
 char err_global_str[128]={0};
-/* 左边状态, 空闲, 等着新请求, 初始化中, 制卡中 */
-enum LEFT_STATUS { LT_IDLE = 0, LT_INITING = 2, LT_MKING = 3};
+/* 左边状态, 空闲, 等着新请求, 交易进行中 */
+enum LEFT_STATUS { LT_IDLE = 0, LT_MKING = 3};
 
-enum Var_Type {VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_Dynamic = 10, VAR_Refer=11, VAR_Me=12, VAR_Constant=98,  VAR_None=99};
+enum Var_Type {VAR_ErrCode=1, VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_CurOrder=4, VAR_CurCent=5, VAR_ErrStr=6, VAR_Dynamic = 10, VAR_Refer=11, VAR_Me=12, VAR_Constant=98,  VAR_None=99};
+/* 命令分几种，INS_User：标准，INS_Exit：终止 */
+enum Command_Type { INS_None = 0, INS_User=1, , INS_Exit=2};
 
-
-/* 右边状态, 空闲, IC指令发出, HSM指令发出, 终端测试中 */
-enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, RT_TERM_FEED=4, 
-		RT_TERM_PROMPT=5, RT_IC_RESET=6, RT_TERM_OUT=8, RT_INS_READY = 12};
+/* 右边状态, 空闲, 发出报文等响应 */
+enum RIGHT_STATUS { RT_IDLE = 0, RT_OUT=7, RT_READY = 3};
 
 /* 包括SysTime这样的变量，都由外部函数计算，所以这里只保留脚本指纹数据 */	
-#define Pos_FlowPrint 1 
-#define Pos_TotalIns 2 
-#define Pos_Fixed_Next 3  //下一个动态变量的位置, 也是为脚本自定义动态变量的第1个位置
+#define Pos_ErrCode 1 
+#define Pos_FlowPrint 2 
+#define Pos_TotalIns 3 
+#define Pos_CurOrder 4 
+#define Pos_CurCent 5 
+#define Pos_ErrStr 6 
+#define Pos_Fixed_Next 7  //下一个动态变量的位置, 也是为脚本自定义动态变量的第1个位置
 #define VARIABLE_TAG_NAME "Variable"
 #define ME_VARIABLE_HEAD "me."
 	struct PVar
@@ -127,17 +131,18 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 		int c_len;			//内容长度
 		int dynamic_pos;	//动态变量位置, -1表示静态
 
-		int source_fld_no;	//来自输入报文的哪个域号。		
-		int start_pos;		//从输入报文中, 什么位置开始
+		int source_fld_no;	//来自请求报文的哪个域号。		
+		int start_pos;		//从请求报文中, 什么位置开始
 		int get_length;		//取多少长度的值
 		
-		int dest_fld_no;	//输出报文的目的域号, 
+		int dest_fld_no;	//响应报文的目的域号, 
 
 		char me_name[64];	//Me变量名称，除去开头的 me. 三个字节, 不包括后缀. 从变量名name中复制，最大63字符
 		int me_nm_len;
 		const char *me_sub_name;  //Me变量后缀名， 从变量名name中定位。
 		int me_sub_nm_len;
 
+		bool dy_link_mth;	//动态变量的赋值方式，true:取地址方式，不复制; false:复制方式
 		TiXmlElement *self_ele;	/* 自身, 其子元素包括两种可能: 1.函数变量表, 
 					2.一个指令序列, 在指令子元素分析时, 如发现一个用到的变量中, 有子序列时, 把这些指令嵌入。
 					*/
@@ -162,6 +167,8 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 			me_nm_len = 0;
 			me_sub_name = 0;
 			me_sub_nm_len = 0;
+
+			dy_link = false;	//动态变量的赋值方式为复制方式。
 		};
 
 		void put_still(const char *val, unsigned int len=0)
@@ -203,15 +210,44 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 			var_ele->QueryIntAttribute("start", &(start_pos));
 			var_ele->QueryIntAttribute("length", &(get_length));
 
-			if ( strcasecmp(nm, "$ink" ) == 0 ) 
+			if ( strcasecmp(nm, "$ink" ) == 0 ) //当前用户命令集指纹
 			{
 				dynamic_pos = Pos_FlowPrint;
 				kind = VAR_FlowPrint;
 			}
-			if ( strcasecmp(nm, "$total" ) == 0 ) 
+			if ( strcasecmp(nm, "$total" ) == 0 ) //总用户命令数
 			{
 				dynamic_pos = Pos_TotalIns;
 				kind = VAR_TotalIns;
+			}
+
+			if ( strcasecmp(nm, "$ErrCode" ) == 0 ) //错误代码
+			{
+				dynamic_pos = Pos_ErrCode;
+				kind = VAR_ErrCode;
+			}
+
+			if ( strcasecmp(nm, "$CurOrder" ) == 0 ) //当前用户命令编号
+			{
+				dynamic_pos = Pos_CurOrder;
+				kind = VAR_CurOrder;
+			}
+
+			if ( strcasecmp(nm, "$CurCent" ) == 0 ) //当前工作百分比
+			{
+				dynamic_pos = Pos_CurCent;
+				kind = VAR_CurCent;
+			}
+
+			if ( strcasecmp(nm, "$ErrStr" ) == 0 ) //错误描述
+			{
+				dynamic_pos = Pos_ErrStr;
+				kind = VAR_ErrStr;
+			}
+
+			if ( var_ele->Attribute("link") )
+			{
+				dy_link = true;
 			}
 
 			if ( kind != VAR_None) goto P_RET; //已有定义，不再看这个Dynamic, 以上定义都与Dynamic相同处理
@@ -283,9 +319,9 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 	{	
 		Var_Type kind;	//动态类型, 
 		int index;	//索引, 也就是下标值
-		char *p;	//p有时指向这里的val， 但也可能指向输入、输出的域.c_len就是长度。
+		char *val_p;	//p有时指向这里的val， 但也可能指向输入、输出的域.c_len就是长度。
 		char val[512];	//变量内容. 随时更新, 足够空间啦
-		int c_len;
+		unsigned long c_len;
 
 		struct PVar *def_var;	//文件中定义的变量
 
@@ -293,17 +329,25 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 			kind = VAR_None;
 			index = - 1;
 			c_len = 0;
+			val_p = 0;
 
 			memset(val, 0, sizeof(val));
 		};
 
-		void input(const char *p, int len)
+		void input(const char *p, unsigned long len)
 		{
-			if ( (len+1) < (int)sizeof(val) )
+			if ( def_var->dy_link)
 			{
-				memcpy(val, p, len);
+				val_p = p;
 				c_len = len;
-				val[len] = 0;
+			} else {
+				val_p = &val[0];
+				if ( (len+1) < sizeof(val) )
+				{
+					memcpy(val, p, len);
+					c_len = len;
+					val[len] = 0;
+				}
 			}
 		};
 
@@ -312,7 +356,22 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 			TEXTUS_SPRINTF(val, "%d", iv);
 			c_len = sizeof(iv);
 			val[c_len] = 0;
+			val_p = &val[0];
 		};
+
+		void input(const char *p)
+		{
+			c_len = strlen(p);
+			if ( def_var->dy_link)
+			{
+				val_p = p;
+			} else {
+				val[c_len] = 0;
+				val_p = &val[0];
+				memcpy(val, p, c_len);
+			}
+		};
+
 	};
 
 	struct MK_Session {		//记录一个事务过程中的各种临时数据
@@ -334,6 +393,26 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 			snap=0;
 		};
 
+		inline void  reset() 
+		{
+			int i;
+			for ( i = 0; i < snap_num; i++)
+			{
+				snap[i].c_len = 0;
+				snap[i].val[0] = 0;
+			}
+			for ( i = Pos_Fixed_Next ; i < snap_num; i++)
+			{
+				snap[i].kind = VAR_None;/* 这个Pos_Fixed_Next很重要, 要不然, 那些固有的动态变量会没有的！  */
+				snap[i].def_var = 0;
+			}
+			left_status = LT_IDLE;
+			right_status = RT_IDLE;
+			ins_which = -1;
+			err_str[0] = 0;	
+			flow_id[0] = 0;
+		};
+
 		inline void init(int m_snap_num) //这个m_snap_num来自各XML定义的最大动态变量数
 		{
 			if ( snap )
@@ -348,6 +427,10 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 			}
 			snap[Pos_FlowPrint].kind = VAR_FlowPrint;
 			snap[Pos_TotalIns].kind = VAR_TotalIns;
+			snap[Pos_ErrCode].kind = VAR_ErrCode;
+			snap[Pos_CurOrder].kind = VAR_CurOrder;
+			snap[Pos_CurCent].kind = VAR_CurCent;
+
 			reset();
 		};
 
@@ -357,25 +440,6 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_TERM_TEST = 1, RT_HSM_ASK = 2, RT_IC_COM=3, 
 			snap = 0;
 		}
 
-		inline void  reset() 
-		{
-			int i;
-			for ( i = 0; i < snap_num; i++)
-			{
-				snap[i].c_len = 0;
-				snap[i].val[0] = 0;
-			}
-			for ( i = Pos_Fixed_Next ; i < snap_num; i++)
-			{
-				snap[i].kind = VAR_None;/* 这个Pos_Fixed_Next很重要, 要不然, 那些UID等固有的动态变量会没有的！  */
-				snap[i].def_var = 0;
-			}
-			left_status = LT_IDLE;
-			right_status = RT_IDLE;
-			ins_which = -1;
-			err_str[0] = 0;	
-			flow_id[0] = 0;
-		};
 	};
 
 /* 变量集合*/
@@ -496,14 +560,14 @@ struct PVar_Set {
 		if ( av) av->put_still(val, len);
 	};
 
-	char *get_value(const char *nm)
-	{
-		struct PVar *av = look(nm);
-		if ( av )
-			return &(av->content[0]);
-		else 
-			return 0;
-	};
+	//char *get_value(const char *nm)
+	//{
+	//	struct PVar *av = look(nm);
+	//	if ( av )
+	//		return &(av->content[0]);
+	//	else 
+	//		return 0;
+	//};
 
 	/* 找静态的变量, 获得实际内容 */
 	struct PVar *one_still( const char *nm, char *buf, int &len, struct PVar_Set *loc_v=0)
@@ -615,9 +679,6 @@ struct PVar_Set {
 		return (dynamic_at-1);
 	};
 };
-/* 指令分两种，一种是从报文定义而来，即INS_Ori，还有一种是从INS_Ori的组合而来，即INS_User */
-enum Command_Type { INS_None = 0, INS_Ori=1, INS_User=2};
-	 
 
 /* 下面这段匹配应该是不需要变的 */
 struct MatchDst {	//匹配目标
@@ -825,12 +886,11 @@ struct CmdSnd {
 	int fld_no;	//发送的域号
 	int dy_num;
 	struct DyList *dy_list;
-	//bool dynamic ;		//是否动态
 	char *cmd_buf;
 	unsigned long cmd_len;
 
 	const char *tag;	/*  比如"component"这样的内容，指明子序列中的元素 */
-	//TiXmlElement *component;	//指令文档中的第一个component元素
+
 	CmdSnd () {
 		cmd_buf = 0;
 		cmd_len = 0;
@@ -863,7 +923,6 @@ struct CmdSnd {
 
 			if ( vr_tmp->kind <= VAR_Dynamic )	//参考变量的, 不算作动态
 			{
-				dynamic = true;		//动态啦
 				dy_num++;
 				continue;
 			}
@@ -901,7 +960,6 @@ struct CmdSnd {
 
 					if ( vr2_tmp->kind <= VAR_Dynamic )	//参考变量的, 不算作动态
 					{
-						dynamic = true;		//动态啦
 						dy_num++;
 					}
 				}
@@ -1020,8 +1078,9 @@ struct CmdRcv {
 	int dyna_pos;	//动态变量位置, -1表示静态
 	int start;
 	int length;
-	char *must_con;
-	int must_len;
+	unsigned char *must_con;
+	unsigned long must_len;
+	const char *err_code; //这是直接从外部定义文件得到的内容，不作任何处理。当本域不符合要求，设置此错误码。
 
 	const char *tag;//比如： reply, sw
 	CmdRcv () {
@@ -1042,7 +1101,10 @@ struct PacIns:public Condition  {
 
 	struct CmdRcv *rcv_lst;
 	int rcv_num;
+
+	const char *err_code; //这是直接从外部定义文件得到的内容，不作任何处理。 当本报文出现通信错误，包括报文不能解析的、通道关闭。
 	struct ComplexSubSerial *complex;	//如果这个不为0, 则返回此值，指示调度器调用一个子过程。
+	bool isIcc;
 
 	PacIns() 
 	{
@@ -1053,6 +1115,7 @@ struct PacIns:public Condition  {
 		rcv_num = 0;
 
 		complex = 0;
+		isIcc = false;	/* 不计入icc_num计算 */
 	};
 
 	struct ComplexSubSerial *prepair_snd_pac( PacketObj *snd_pac, int &bor, MK_Session *sess)
@@ -1086,7 +1149,7 @@ struct PacIns:public Condition  {
 		return 0;
 	};
 
-	void hard_work ( TiXmlElement *def_ele, TiXmlElement *pac_ele, TiXmlElement *usr_ele, struct PVar_Set *g_vars, struct PVar_Set *me_vars)
+	int hard_work ( TiXmlElement *def_ele, TiXmlElement *pac_ele, TiXmlElement *usr_ele, struct PVar_Set *g_vars, struct PVar_Set *me_vars)
 	{
 		struct PVar *vr_tmp=0;
 		TiXmlElement *e_tmp, *n_ele, *p_ele;
@@ -1097,6 +1160,8 @@ struct PacIns:public Condition  {
 		const char *tag;
 
 		subor = 0; def_ele->QueryIntAttribute("subor", &subor);
+		if ( def_ele->Attribute("is_icc") )
+				isIcc = true;
 
 		/* 先预置发送的每个域，设定域号*/
 		snd_num = 0;
@@ -1173,7 +1238,8 @@ struct PacIns:public Condition  {
 					{
 						lnn = strlen(p);
 						must_con = new char[lnn+1];
-						must_len = squeeze(p, must_con);	
+						must_len = squeeze(p, must_con);
+						err_code = p_ele->Attribute("error");
 					}
 					i++;
 					continue;	/* recv 仅在基础报文定义中出现 */
@@ -1217,29 +1283,28 @@ struct PacIns:public Condition  {
 		}	/* 结束返回元素的定义*/
 
 		set_condition ( pac_ele, g_vars, me_vars);
-		return ;
+		return is_icc ? 1:0 ;
 	};
 
-	//void pro_response(char *res_buf, int rlen,  struct MK_Session *mess)
-	/* 本指令处理响应报文，匹配必须的内容 */
+	/* 本指令处理响应报文，匹配必须的内容,出错时置出错代码变量 */
 	bool pro_rcv_pac(PacketObj *rcv_pac,  struct MK_Session *mess)
 	{
 		int ii;
 		unsigned char *fc;
 		int min_len;
 		unsigned long rlen;
+		struct CmdRcv *rply;
 
 		for (ii = 0; ii < rcv_num; ii++)
 		{
-
-			if ( rcv_lst[ii].dyna_pos > 0)
+			rply = &rcv_lst[ii];
+			if ( rply.dyna_pos > 0)
 			{
-				struct struct CmdRcv *rply = &rcv_lst[ii];
-				struct DyVar *dv= &mess->snap[rply->dyna_pos];
-
 				fc = rcv_pac->getfld(rply->fld_no,rlen);
 				if ( !fc ) 
-					return false;
+					goto ErrRet;
+				if ( !(reply->must_len == rlen && memcmp(reply->must_con, fc, rlen) == 0 ) ) 
+					goto ErrRet;
 
 				if ( rlen >= (rply->start ) )	//start是从1开始
 				{
@@ -1249,11 +1314,15 @@ struct PacIns:public Condition  {
 						min_len = rply->length;
 					if ( min_len > 0 )
 					{
-						dv->input(&fc[rply->start-1], min_len);
+						mess->snap[rply->dyna_pos].input(&fc[rply->start-1], min_len);
 					}
 				}
 			}
 		}
+		return true;
+ErrRet:
+		mess->snap[Pos_ErrCode].input(rply->err_code);
+		return false;
 	};
 };
 
@@ -2394,7 +2463,6 @@ void PacWay::handle_pac()
 			{
 				dvr = &mess.snap[vt->dynamic_pos];
 				dvr->kind = vt->kind;
-				dvr->dest_fld_no = vt->dest_fld_no;
 				dvr->def_var = vt;
 				if ( vt->c_len > 0 )	//先把定义的静态内容拷一遍, 动态变量的默认值
 				{
