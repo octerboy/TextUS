@@ -560,14 +560,6 @@ struct PVar_Set {
 		if ( av) av->put_still(val, len);
 	};
 
-	//char *get_value(const char *nm)
-	//{
-	//	struct PVar *av = look(nm);
-	//	if ( av )
-	//		return &(av->content[0]);
-	//	else 
-	//		return 0;
-	//};
 
 	/* 找静态的变量, 获得实际内容 */
 	struct PVar *one_still( const char *nm, char *buf, int &len, struct PVar_Set *loc_v=0)
@@ -709,7 +701,7 @@ struct MatchDst {	//匹配目标
 		if ( src->dynamic_pos >= 0 )
 		{
 			dvr = &sess->snap[src->dynamic_pos];
-			src_con = &dvr->val[0];
+			src_con = dvr->val_p;
 			src_len = dvr->c_len;
 		} else {
 			src_con = &src->content[0];
@@ -720,7 +712,7 @@ struct MatchDst {	//匹配目标
 			if ( dst->dynamic_pos >= 0 ) 
 			{
 				dvr = &sess->snap[dst->dynamic_pos];
-				dst_con = &dvr->val[0];
+				dst_con = dvr->val_p;
 				dst_len = dvr->c_len;
 			} else {
 				dst_con = &dst->content[0];
@@ -793,13 +785,13 @@ struct Match {		//一个匹配项
 	bool will_match(MK_Session *sess)
 	{
 		int i;
-		bool ret=true;
+		bool ret=false;	//假定没有一个是符合的
 		for(i = 0; i < dst_num; i++)
 		{
 			ret = dst_arr[i].valid_val(sess, src);
-			if ( !ys_no ) ret = !ret; 
-			if ( !ret ) break;
+			if ( ret ) break;	//有多个值，有一个相同，就不再比较了。
 		}
+		if ( !ys_no ) ret = !ret; 	//如果没有一个相同, 再取反, 这就返回ok。也就是not所有的值。
 		return ret;
 	};
 };
@@ -857,7 +849,7 @@ struct Condition {	//一个指令的匹配列表, 包括条件与结果的匹配
 			if ( !ret ) 
 				break;
 		}
-		return ret;
+		return ret;	//所有分项都符合，才算这个条件符合
 	};
 
 	bool valid_condition (MK_Session *sess)
@@ -1145,7 +1137,6 @@ struct PacIns:public Condition  {
 			}
 			snd_pac->buf.commit(snd_lst[i].fld_no, t_len);	//域的确认
 		}
-		
 		return 0;
 	};
 
@@ -1283,7 +1274,7 @@ struct PacIns:public Condition  {
 		}	/* 结束返回元素的定义*/
 
 		set_condition ( pac_ele, g_vars, me_vars);
-		return is_icc ? 1:0 ;
+		return isIcc ? 1:0 ;
 	};
 
 	/* 本指令处理响应报文，匹配必须的内容,出错时置出错代码变量 */
@@ -1326,7 +1317,7 @@ ErrRet:
 	};
 };
 
-	struct ComplexSubSerial{
+	struct ComplexSubSerial {
 		TiXmlElement *usr_def_entry;	//MAP文档中，对用户指令的定义
 		TiXmlElement *sub_pro;			//实际使用的指令序列，在相同用户指令名下，可能有不同的序列,可能usr_def_entry相同, 而sub_pro不同。
 
@@ -1585,11 +1576,10 @@ ErrRet:
 
 	};
 
-
 	struct User_Command : public Condition {		//INS_User指令定义
 		int order;
 		struct ComplexSubSerial *complex;
-		int comp_num;
+		int comp_num; //一般只有一个，有时需要重试几个, 重试条件？？？？
 
 		int  set_sub( TiXmlElement *app_ele, struct PVar_Set *vrset, TiXmlElement *sub_serial, TiXmlElement *def_root, TiXmlElement * map_root) //返回对IC的指令数
 		{
@@ -1655,23 +1645,19 @@ ErrRet:
 		{
 			instructions= 0;
 			many = 0;
-			comp_pool = 0;
 		};
 
 		~INS_Set () 
 		{
 			if (instructions ) delete []instructions;
-			if (comp_pool ) delete []comp_pool;
 			instructions = 0;
 			many = 0;
 		};
 
 		TiXmlElement *yes_ins(TiXmlElement *app_ele, TiXmlElement *map_root, struct PVar_Set *var_set)
 		{
-			TiXmlElement *sub_serial, *me, *pri;
-			const char *pri_nm;
+			TiXmlElement *sub_serial;
 			const char *nm = app_ele->Value();
-			c_num  =1;
 
 			if ( var_set->is_var(nm)) return 0;
 
@@ -1707,7 +1693,7 @@ ErrRet:
 			{
 				if ( icc_ele->Value() )
 				{
-					sub = yes_ins(icc_ele, map_root, var_set,i) )
+					sub = yes_ins(icc_ele, map_root, var_set);
 					if ( sub)
 					{
 						cor = 0;
@@ -1721,7 +1707,7 @@ ErrRet:
 				ICC_NEXT:
 				icc_ele = icc_ele->NextSiblingElement();
 			}
-			many = vmany; //最后再更新一次指令数
+			many = vmany; //最后再更新一次用户命令数
 		};
 	};	
 	/* User_Command指令集定义结束 */
@@ -1733,7 +1719,7 @@ ErrRet:
 		TiXmlDocument doc_k;	//map：Variable定义，子序列定义
 		TiXmlElement *k_root;
 
-		TiXmlDocument doc_pac_def;	//insdef：报文定义
+		TiXmlDocument doc_pac_def;	//pacdef：报文定义
 		TiXmlElement *pac_def_root;
 
 		TiXmlDocument doc_v;	//其它Variable定义
@@ -1797,7 +1783,7 @@ ErrRet:
 		void set_here(TiXmlElement *root)
 		{
 			TiXmlElement *var_ele;
-			const char *vn="Variable";
+			const char *vn=VARIABLE_TAG_NAME;
 			struct PVar *cv;
 
 			if ( !root ) return;
@@ -1954,25 +1940,16 @@ private:
 	struct G_CFG 	//全局定义
 	{
 		TiXmlElement *prop;
-		Work_Mode wmod;
 		struct PersonDef_Set person_defs;
 
-		int hcmd_fldno;		/* 密码机指令域号 */
-		int fldOffset;	/* 处理PacketObj时, 定义中的域号加上此值(偏移量)即实际处理的域, 初始为0 */
 		int maxium_fldno;		/* 最大域号 */
 
 		int flowID_fld_no;	//流标识域, 业务代码域, 
-		int error_fld_no;	//错误码域,
-		int errDesc_fld_no;	//错误消息域
 		int station_fld_no;	//工作站标识域
 
 		inline G_CFG() {
-			wmod =  TO_NONE;
-			fldOffset = 0;
 			maxium_fldno = 64;
 			flowID_fld_no = 3;
-			error_fld_no = 39;
-			errDesc_fld_no = 40;	
 			station_fld_no = 59;
 		};	
 		inline ~G_CFG() {
