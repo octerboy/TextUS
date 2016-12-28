@@ -102,11 +102,11 @@ int squeeze(const char *p, char *q)	//把空格等挤掉, 只留下16进制字符(大写), 返回
 
 char err_global_str[128]={0};
 /* 左边状态, 空闲, 等着新请求, 交易进行中 */
-enum LEFT_STATUS { LT_IDLE = 0, LT_MKING = 3};
+enum LEFT_STATUS { LT_Idle = 0, LT_Working = 3};
 
-enum Var_Type {VAR_ErrCode=1, VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_CurOrder=4, VAR_CurCent=5, VAR_ErrStr=6, VAR_Dynamic = 10, VAR_Refer=11, VAR_Me=12, VAR_Constant=98,  VAR_None=99};
+enum Var_Type {VAR_ErrCode=1, VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_CurOrder=4, VAR_CurCent=5, VAR_ErrStr=6, VAR_WillErrPro=7, VAR_Dynamic = 10, VAR_Refer=11, VAR_Me=12, VAR_Constant=98,  VAR_None=99};
 /* 命令分几种，INS_User：标准，INS_Exit：终止 */
-enum Command_Type { INS_None = 0, INS_User=1, , INS_Exit=2};
+enum PacIns_Type { INS_None = 0, INS_Normal=1, , INS_Exit=2};
 
 /* 右边状态, 空闲, 发出报文等响应 */
 enum RIGHT_STATUS { RT_IDLE = 0, RT_OUT=7, RT_READY = 3};
@@ -118,7 +118,8 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_OUT=7, RT_READY = 3};
 #define Pos_CurOrder 4 
 #define Pos_CurCent 5 
 #define Pos_ErrStr 6 
-#define Pos_Fixed_Next 7  //下一个动态变量的位置, 也是为脚本自定义动态变量的第1个位置
+#define Pos_WillErrPro 7 
+#define Pos_Fixed_Next 8  //下一个动态变量的位置, 也是为脚本自定义动态变量的第1个位置
 #define VARIABLE_TAG_NAME "Variable"
 #define ME_VARIABLE_HEAD "me."
 	struct PVar
@@ -240,6 +241,12 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_OUT=7, RT_READY = 3};
 			}
 
 			if ( strcasecmp(nm, "$ErrStr" ) == 0 ) //错误描述
+			{
+				dynamic_pos = Pos_ErrStr;
+				kind = VAR_ErrStr;
+			}
+
+			if ( strcasecmp(nm, "$WillErrPro" ) == 0 ) //错误描述
 			{
 				dynamic_pos = Pos_ErrStr;
 				kind = VAR_ErrStr;
@@ -1098,6 +1105,8 @@ struct PacIns:public Condition  {
 	struct ComplexSubSerial *complex;	//如果这个不为0, 则返回此值，指示调度器调用一个子过程。
 	bool isIcc;
 
+	PacIns_Type type;
+
 	PacIns() 
 	{
 		subor = 0;
@@ -1108,6 +1117,7 @@ struct PacIns:public Condition  {
 
 		complex = 0;
 		isIcc = false;	/* 不计入icc_num计算 */
+		type = INS_None;
 	};
 
 	struct ComplexSubSerial *prepair_snd_pac( PacketObj *snd_pac, int &bor, MK_Session *sess)
@@ -1149,6 +1159,12 @@ struct PacIns:public Condition  {
 		int i = 0;
 		int lnn;
 		const char *tag;
+
+		 if ( strcasecmp( pac_ele->Value(), "Exit") )
+		 {
+			type = INS_Exit;
+			 goto LAST_CON;
+		 }
 
 		subor = 0; def_ele->QueryIntAttribute("subor", &subor);
 		if ( def_ele->Attribute("is_icc") )
@@ -1273,6 +1289,8 @@ struct PacIns:public Condition  {
 			}
 		}	/* 结束返回元素的定义*/
 
+		type = INS_Normal;
+LAST_CON:
 		set_condition ( pac_ele, g_vars, me_vars);
 		return isIcc ? 1:0 ;
 	};
@@ -1328,7 +1346,7 @@ ErrRet:
 		int pac_many;
 
 		TiXmlElement *def_root;	//基础报文定义
-		TiXmlElement *map_root;
+		TiXmlElement *map_root;pac
 		TiXmlElement *usr_ele;	//用户命令
 
 		ComplexSubSerial()
@@ -1923,7 +1941,7 @@ public:
 private:
 	bool spo_term_hand();	//右边状态处理
 	void h_fail(char tmp[], char desc[], int p_len, int q_len, const char *p, const char *q, const char *fun);
-	bool mk_hand(MK_Mode mmode);	
+	bool mk_hand(Pius *);	
 	void mk_result();
 
 	void pro_com_R(const char *request, const int rlen, unsigned char slot);
@@ -1979,77 +1997,82 @@ private:
 
 	struct WKBase {
 		int step;	//0: send, 1: recv 
-	};
-
-	struct CompWKBase:public WKBase {
 		int sub_which;
-	} ;
-
-	struct CompWKBase comp_wt;	//子序列工作状态
-
-	struct _WP:public WKBase {
-		char com[16];
-	} plain_wt;
-
-	struct _WAU:public CompWKBase {
 		int cur;
-	} auth_wt;
+	} command_wt;
 
-	/* 以下对IC卡5种基本操作, 设这些操作的原因是因为异步操作, 需要来保存过程状态 */
-	struct _WFC:public WKBase {
-		struct FeedCardOp fcard;	//进卡
-	} fcard_wt;
+	struct PacWork {
+		int step;	//0: send, 1: recv 
+	} pac_wt;
 
-	struct _WOC:public WKBase {		//出卡
-		struct OutCardOp ocard;
-	} ocard_wt;
+	//struct CompWKBase:public WKBase {
+	//	int sub_which;
+	//} ;
 
-	struct _WPST:public WKBase {		//卡复位
-		struct ProRstOp pro_rst;
-		int try_num;
-	} pro_rst_wt;
+	//struct CompWKBase comp_wt;	//子序列工作状态
 
-	struct _WPMT:public WKBase {
-		struct PromptOp prompt;		//进度提示
-	} prompt_wt;
+	//struct _WP:public WKBase {
+	//	char com[16];
+	//} plain_wt;
 
-	struct _WPCOM {
-		char cmd_buf[1024];
-		struct ProComOp procom;		//卡指令
-	} procom_wt;
-	
-	struct _HMOP:public WKBase {		//HSM 指令
-		char cmd[2048];
-		int len;
-		int ci;
-		const char *loc;
-	} hsmcom_wt;
+	//struct _WAU:public CompWKBase {
+	//	int cur;
+	//} auth_wt;
+
+	///* 以下对IC卡5种基本操作, 设这些操作的原因是因为异步操作, 需要来保存过程状态 */
+	//struct _WFC:public WKBase {
+	//	struct FeedCardOp fcard;	//进卡
+	//} fcard_wt;
+
+	//struct _WOC:public WKBase {		//出卡
+	//	struct OutCardOp ocard;
+	//} ocard_wt;
+
+	//struct _WPST:public WKBase {		//卡复位
+	//	struct ProRstOp pro_rst;
+	//	int try_num;
+	//} pro_rst_wt;
+
+	//struct _WPMT:public WKBase {
+	//	struct PromptOp prompt;		//进度提示
+	//} prompt_wt;
+
+	//struct _WPCOM {
+	//	char cmd_buf[1024];
+	//	struct ProComOp procom;		//卡指令
+	//} procom_wt;
+	//
+	//struct _HMOP:public WKBase {		//HSM 指令
+	//	char cmd[2048];
+	//	int len;
+	//	int ci;
+	//	const char *loc;
+	//} hsmcom_wt;
 
 	struct TermOPBase* get_ic_base();
 	void me_sub_zero()
 	{
-		plain_wt.step = 0;
-		hsmcom_wt.step = 0;
-		hsmcom_wt.cmd[0] = 0;
-		hsmcom_wt.len = 0;
-		hsmcom_wt.ci = 1;
-		hsmcom_wt.loc = (const char*)0;
-		procom_wt.cmd_buf[0]=0;
+		pac_wt.step = 0;
+	//	hsmcom_wt.step = 0;
+	//	hsmcom_wt.cmd[0] = 0;
+	//	hsmcom_wt.len = 0;
+	//	hsmcom_wt.ci = 1;
+	//	hsmcom_wt.loc = (const char*)0;
+	//	procom_wt.cmd_buf[0]=0;
 	};
 	void me_zero()
 	{
 		me_sub_zero();
-		fcard_wt.step=0;
-		ocard_wt.step=0;
-		prompt_wt.step=0;
-		pro_rst_wt.step=0;
-		pro_rst_wt.try_num=1;
+		//fcard_wt.step=0;
+		//ocard_wt.step=0;
+		//prompt_wt.step=0;
+		//pro_rst_wt.step=0;
+		//pro_rst_wt.try_num=1;
 
-		auth_wt.step=0;
-		auth_wt.cur = 0;
-		comp_wt.step = 0;
+		command_wt.step=0;
+		command_wt.cur = 0;
 	};
-	int sub_serial_pro( struct INS_SubSet *si_set, struct CompWKBase *wk);
+	int sub_serial_pro( struct ComplexSubSerial *pac_set, struct WKBase *wk);
 	#include "wlog.h"
 };
 
@@ -2064,13 +2087,13 @@ void PacWay::ignite(TiXmlElement *prop)
 		has_config = true;
 	}
 
-	if ( (comm_str = prop->Attribute("work_mode")) )
-	{
-		if ( strcmp(comm_str, "icterm") == 0 )
-			gCFG->wmod = TO_ICTERM;
-		if ( strcmp(comm_str, "hsm") == 0 )
-			gCFG->wmod = TO_HSM;
-	}
+	//if ( (comm_str = prop->Attribute("work_mode")) )
+	//{
+	//	if ( strcmp(comm_str, "icterm") == 0 )
+	//		gCFG->wmod = TO_ICTERM;
+	//	if ( strcmp(comm_str, "hsm") == 0 )
+	//		gCFG->wmod = TO_HSM;
+	//}
 
 	if ( (comm_str = prop->Attribute("max_fld")) )
 		gCFG->maxium_fldno = atoi(comm_str);
@@ -2080,12 +2103,12 @@ void PacWay::ignite(TiXmlElement *prop)
 	hi_req.produce(gCFG->maxium_fldno) ;
 	hi_reply.produce(gCFG->maxium_fldno) ;
 
-	prop->QueryIntAttribute("hsm_cmd_fld", &gCFG->hcmd_fldno);
+	//prop->QueryIntAttribute("hsm_cmd_fld", &gCFG->hcmd_fldno);
 
-	prop->QueryIntAttribute("business_code", &gCFG->flowID_fld_no);
-	prop->QueryIntAttribute("error_code", &gCFG->error_fld_no);
-	prop->QueryIntAttribute("error_desc", &gCFG->errDesc_fld_no);
-	prop->QueryIntAttribute("workstation", &gCFG->station_fld_no);
+	//prop->QueryIntAttribute("business_code", &gCFG->flowID_fld_no);
+	//prop->QueryIntAttribute("error_code", &gCFG->error_fld_no);
+	//prop->QueryIntAttribute("error_desc", &gCFG->errDesc_fld_no);
+	//prop->QueryIntAttribute("workstation", &gCFG->station_fld_no);
 
 	return;
 }
@@ -2098,10 +2121,11 @@ PacWay::PacWay()
 
 	gCFG = 0;
 	has_config = false;
-	tohsm_pri = (PacWay*) 0;
-	tohsm_slv = (PacWay*) 0;
+	//tohsm_pri = (PacWay*) 0;
+	//tohsm_slv = (PacWay*) 0;
 	loc_pro_pac.ordo = Notitia::PRO_UNIPAC;
 	loc_pro_pac.indic = 0;
+	loc_pro_pac.subor = -1;
 }
 
 PacWay::~PacWay() 
@@ -2376,48 +2400,48 @@ void PacWay::handle_pac()
 
 	switch ( mess.left_status) 
 	{
-	case LT_IDLE:
-		if ( alen==4 &&  memcmp(actp, "\x00\x00\x00\x00", alen) ==0 ) 
-		{ /* 建立对两个通道的对应关系 */
-			snd_pac->reset();
-			plen = 0;
-			p = rcv_pac->getfld(gCFG->station_fld_no, &plen);		//终端标识
-			if ( p ) {
-				if ( plen > (int)sizeof(mess.station_str) )
-					plen =  (int)sizeof(mess.station_str);
-				memcpy(mess.station_str, p, plen);
-				mess.station_str[plen] = 0;
-			}
+	case LT_Idle:
+		//if ( alen==4 &&  memcmp(actp, "\x00\x00\x00\x00", alen) ==0 ) 
+		//{ /* 建立对两个通道的对应关系 */
+		//	snd_pac->reset();
+		//	plen = 0;
+		//	p = rcv_pac->getfld(gCFG->station_fld_no, &plen);		//终端标识
+		//	if ( p ) {
+		//		if ( plen > (int)sizeof(mess.station_str) )
+		//			plen =  (int)sizeof(mess.station_str);
+		//		memcpy(mess.station_str, p, plen);
+		//		mess.station_str[plen] = 0;
+		//	}
 
-			WLOG(INFO, "MKInit dev is %s", mess.station_str);
-			hi_req.reset();
-			hi_reply.reset();
-			hi_req.input(1,(unsigned char*)"T", 1);
-			hi_req.input(2, p, plen);
+		//	WLOG(INFO, "MKInit dev is %s", mess.station_str);
+		//	hi_req.reset();
+		//	hi_reply.reset();
+		//	hi_req.input(1,(unsigned char*)"T", 1);
+		//	hi_req.input(2, p, plen);
 
-			back_st = BS_Requesting;
-			mess.left_status = LT_INITING;
-			mess.right_status = RT_TERM_TEST;
-			aptus->facio(&loc_pro_pac);     //向右发出指令, 然后等待. 这里会启动连接. 放在最后很重要
-			goto HERE_END;
-		}	
+		//	back_st = BS_Requesting;
+		//	mess.left_status = LT_INITING;
+		//	mess.right_status = RT_TERM_TEST;
+		//	aptus->facio(&loc_pro_pac);     //向右发出指令, 然后等待. 这里会启动连接. 放在最后很重要
+		//	goto HERE_END;
+		//}	
 	
 		/* 这里就是一般的业务啦 */
 		mess.reset();	//会话复位
 		snd_pac->reset();
 		actp = rcv_pac->getfld(gCFG->flowID_fld_no, &alen);
-		snd_pac->input(gCFG->flowID_fld_no, actp, alen);
+		//snd_pac->input(gCFG->flowID_fld_no, actp, alen);
 		if (alen > 63 ) alen = 63;
 		memcpy(mess.flow_id, actp, alen);
 		mess.flow_id[alen] = 0;
 
-		p=rcv_pac->getfld(gCFG->station_fld_no, &plen);
-		if ( p ) {
-			if ( plen > (int)sizeof(mess.station_str) )
-				plen =  (int)sizeof(mess.station_str);
-			memcpy(mess.station_str, p, plen);
-			mess.station_str[plen] = 0;
-		}
+		//p=rcv_pac->getfld(gCFG->station_fld_no, &plen);
+		//if ( p ) {
+		//	if ( plen > (int)sizeof(mess.station_str) )
+		//		plen =  (int)sizeof(mess.station_str);
+		//	memcpy(mess.station_str, p, plen);
+		//	mess.station_str[plen] = 0;
+		//}
 		
 		cur_def = gCFG->person_defs.look(mess.flow_id); //找一个相应的指令流定义
 		if ( !cur_def ) 
@@ -2462,21 +2486,28 @@ void PacWay::handle_pac()
 		}
 	//{int *a =0 ; *a = 0; };
 
-		WLOG(NOTICE, "Current cardno is %s by %s at %s",  mess.snap[Pos_CardNo].val, cur_def->flow_id, mess.station_str);
-		mk_hand(FROM_START);	//启动!!，很重要, 这里的TRUE是指刚开始启动
+		//WLOG(NOTICE, "Current cardno is %s by %s at %s",  mess.snap[Pos_CardNo].val, cur_def->flow_id, mess.station_str);
+		mess.ins_which = 0;
+		mess.iRet = 0;	//假定一开始都是OK。
+		TEXTUS_STRCPY(mess.err_str, " ");
+		mess.left_status = LT_Working;
+		mess.right_status = RT_INS_READY;	//指示终端准备开始工作, 
+
+		//mk_hand(FROM_START);	//启动!!，很重要, 这里的TRUE是指刚开始启动
+		mk_hand();
 HERE_END:
 		break;
 
-	case LT_INITING: //不接受, 不响应
-		if ( alen > 20 ) alen =20;
-		byte2hex(actp, alen, desc); desc[2*alen]= 0;
-		WLOG(WARNING,"still testing mkdev! from console %s", desc);
-		break;
+	//case LT_INITING: //不接受, 不响应
+	//	if ( alen > 20 ) alen =20;
+	//	byte2hex(actp, alen, desc); desc[2*alen]= 0;
+	//	WLOG(WARNING,"still testing mkdev! from console %s", desc);
+	//	break;
 
-	case LT_MKING:	//不接受, 不响应即可
+	case LT_Working:	//不接受, 不响应即可
 		if ( alen > 20 ) alen =20;
 		byte2hex(actp, alen, desc); desc[2*alen]= 0;
-		WLOG(WARNING,"still making card! from console %s", desc);
+		WLOG(WARNING,"still working! from console %s", desc);
 		break;
 
 	default:
@@ -2728,58 +2759,84 @@ Pro_Ret:
 }
 
 /* 子序列入口 */
-int PacWay::sub_serial_pro( struct INS_SubSet *si_set, struct CompWKBase *wk)
+int PacWay::sub_serial_pro( struct ComplexSubSerial *si_set, struct WKBase *wk)
 {
 	int i_ret=0, s_ret=0;
-	struct Base_Command *ins;
+	struct PacIns *ins;
+	int h_subor;
+	struct ComplexSubSerial *ano;
 
-	if ( !si_set )	//如果不存在子序列, 就当执行完成.
-		return 1;
+	//if ( !si_set )	//如果不存在子序列, 就当执行完成.
+	//	return 1;
 SUB_INS_PRO:
-	ins = &(si_set->instructions[wk->sub_which]);
+	ins = &(si_set->pac_inses[wk->sub_which]);
 	i_ret = 1;
 	switch ( ins->type)
 	{
-	case INS_Plain:
-			if (plain_wt.step ==0 ) 
+	case INS_Normal:
+		switch ( pac_wt.step )
+		{
+		case 0:
+			if ( !ins->valid_condition(&mess) )		/* 不符合条件,就转下一条 */
 			{
-				if ( !ins->plain_p->valid_condition(&mess) )
-					break;
+				i_ret = 1;
+				break;
 			}
-			i_ret = ins_plain_pro(ins->plain_p);
-			if ( i_ret > 0 && !ins->plain_p->valid_result(&mess) )
+			ano = prepair_snd_pac(&hi_req, loc_pro_pac.subor, &mess);
+			if ( ano )	/* 要执行另一个序列, ????????*/
 			{
-				mess.iRet = ERR_RESULT_INVALID;
+
+			}
+			pac_wt.step++;
+			i_ret = 0;	/* 进行中 */
+			break;
+
+		case 1:
+			if ( pro_rcv_pac(&hi_reply, &mess) ) 
+				i_ret = 1;
+			else
 				i_ret = -1;
-			}
+			break;
+
+		default:
+			break;
+		}
+			//i_ret = ins_plain_pro(ins->plain_p);
+			//if ( i_ret > 0 && !ins->plain_p->valid_result(&mess) )
+			//{
+			//	mess.iRet = ERR_RESULT_INVALID;
+			//	i_ret = -1;
+			//}
 		break;
 
-	case INS_HSM:
-			if ( hsmcom_wt.step ==0 ) 
-			{
-				if ( !ins->hsm_p->valid_condition(&mess) )
-					break;
-			}
-			i_ret = ins_hsm_pro(ins->hsm_p);
-			if ( i_ret > 0 && !ins->hsm_p->valid_result(&mess) )
-			{
-				mess.iRet = ERR_RESULT_INVALID;
-				i_ret = -1;
-			}
+	case INS_Exit:
+			//if ( hsmcom_wt.step ==0 ) 
+			//{
+			//	if ( !ins->hsm_p->valid_condition(&mess) )
+			//		break;
+			//}
+			//i_ret = ins_hsm_pro(ins->hsm_p);
+			//if ( i_ret > 0 && !ins->hsm_p->valid_result(&mess) )
+			//{
+			//	mess.iRet = ERR_RESULT_INVALID;
+			//	i_ret = -1;
+			//}
+			i_ret = 1;
 		break;
 
-	case INS_Call:
-			i_ret = ins->fun_p->callfun(&mess);
-			if ( i_ret > 0 && !ins->fun_p->valid_result(&mess) )
-			{
-				mess.iRet = ERR_RESULT_INVALID;
-				i_ret = -1;
-			}
-			//if (wk->sub_which == 2 ) {int *a =0 ; *a = 0; };
-		break;
+	//case INS_Call:
+	//		i_ret = ins->fun_p->callfun(&mess);
+	//		if ( i_ret > 0 && !ins->fun_p->valid_result(&mess) )
+	//		{
+	//			mess.iRet = ERR_RESULT_INVALID;
+	//			i_ret = -1;
+	//		}
+	//		//if (wk->sub_which == 2 ) {int *a =0 ; *a = 0; };
+	//	break;
 	default :
 		break;
 	}
+NEXT_PAC:
 	if ( i_ret > 0 )
 	{
 		wk->sub_which++;
@@ -2803,93 +2860,93 @@ bool PacWay::mk_hand(MK_Mode mmode)
 	
 	struct DyVar *dvr=0;
 	struct User_Command *ins;
-	struct TermOPBase *wbase ;
+	//struct TermOPBase *wbase ;
 	char *p, *q, *r;
 	unsigned long p_len, q_len, r_len;
 
 	int i_ret;
 
-#if defined(_WIN32) && (_MSC_VER < 1400 )
-	struct _timeb now;
-#else
-	struct timeb now;
-#endif
-	struct tm *tdatePtr;
-#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
-	struct tm tdate;
-#endif
-	char time_str[32];
-
-	switch ( mmode)
-	{
-		case FROM_START:
-			//初始，都设为非正常。
-			mess.ins_which = 0;
-			mess.iRet = 0;	//假定一开始都是OK。
-			TEXTUS_STRCPY(mess.err_str, " ");
-			mess.left_status = LT_MKING;
-			mess.right_status = RT_INS_READY;	//指示终端准备开始工作, 
-			#if defined(_WIN32) && (_MSC_VER < 1400 )
-				_ftime(&now);
-			#else
-				ftime(&now);
-			#endif
-			#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
-				tdatePtr = &tdate;
-				localtime_s(tdatePtr, &now.time);
-			#else
-				tdatePtr = localtime(&now.time);
-			#endif
-
-			(void) strftime( time_str, sizeof(time_str), "%Y%m%d%H%M%S", tdatePtr );
-			mess.snap[Pos_SysTime].input( time_str, strlen(time_str));
-			goto INS_PRO; //刚开始工作，直接工作。 以下是处理从制卡终端或加密机的返回。
-
-			break;
-
-		case FROM_HSM:
-			if ( mess.right_status != RT_HSM_ASK || mess.left_status != LT_MKING )
-			{
-				TEXTUS_SPRINTF(mess.err_str, "%s", "bug!! from hsm , but not asking hsm or making card, bug!!");
-				WLOG(EMERG, "%s", mess.err_str);
-				mess.iRet= ERROR_HSM_RPC;
-				goto HsmErrPro;
-			}
-			break;
-
-		case FROM_ICTERM: 
-			if ( !(wbase = get_ic_base()) )  //不是制卡工作的响应, 返回(可能是终端测试、提示下一张卡等)
-				return false;
-			/* 制卡响应基础通讯数据检查 */
-			p = (char*)hi_reply.getfld(1, &p_len);
-			if ( p_len != (unsigned long)wbase->tlen || memcmp(p, wbase->take, wbase->tlen) != 0)	//功能字是否对应
-			{
-				if ( p_len > 30 ) p_len = 30; 
-				memcpy(tmp, p, p_len ); 
-				tmp[p_len] = 0;
-				TEXTUS_SPRINTF(mess.err_str, "%s, RPC_ERROR(%s), at %s", wbase->fun, tmp, mess.station_str);
-				WLOG(WARNING, "%s", mess.err_str);
-				mess.iRet= ERROR_MK_RPC;
-				goto CardErrPro;
-			}
-
-			q = (char*)hi_reply.getfld(2, &q_len);	//结果码长度有问题
-			if ( q_len != 1 )
-			{
-				if ( q_len > 30 ) q_len = 30; memcpy(tmp, q, q_len ); tmp[q_len] = 0;
-				TEXTUS_SPRINTF(mess.err_str, "%s, RPC_ERROR(%ld, %s), at %s", wbase->fun, q_len, tmp, mess.station_str);
-				WLOG(WARNING, "%s", mess.err_str);
-				mess.iRet= ERROR_MK_RPC;
-				goto CardErrPro;
-			}
-			break;
-		default:
-			mess.iRet= ERROR_OTHER;
-			goto CardErrPro;
-			break;
-	}
-
-INS_PRO:
+//#if defined(_WIN32) && (_MSC_VER < 1400 )
+//	struct _timeb now;
+//#else
+//	struct timeb now;
+//#endif
+//	struct tm *tdatePtr;
+//#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+//	struct tm tdate;
+//#endif
+//	char time_str[32];
+//
+//	switch ( mmode)
+//	{
+//		case FROM_START:
+//			//初始，都设为非正常。
+//			//mess.ins_which = 0;
+//			//mess.iRet = 0;	//假定一开始都是OK。
+//			//TEXTUS_STRCPY(mess.err_str, " ");
+//			//mess.left_status = LT_Working;
+//			//mess.right_status = RT_INS_READY;	//指示终端准备开始工作, 
+//			//#if defined(_WIN32) && (_MSC_VER < 1400 )
+//			//	_ftime(&now);
+//			//#else
+//			//	ftime(&now);
+//			//#endif
+//			//#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+//			//	tdatePtr = &tdate;
+//			//	localtime_s(tdatePtr, &now.time);
+//			//#else
+//			//	tdatePtr = localtime(&now.time);
+//			//#endif
+//
+//			//(void) strftime( time_str, sizeof(time_str), "%Y%m%d%H%M%S", tdatePtr );
+//			//mess.snap[Pos_SysTime].input( time_str, strlen(time_str));
+//			goto INS_PRO; //刚开始工作，直接工作。 以下是处理从制卡终端或加密机的返回。
+//
+//			break;
+//
+//		//case FROM_HSM:
+//		//	if ( mess.right_status != RT_HSM_ASK || mess.left_status != LT_MKING )
+//		//	{
+//		//		TEXTUS_SPRINTF(mess.err_str, "%s", "bug!! from hsm , but not asking hsm or making card, bug!!");
+//		//		WLOG(EMERG, "%s", mess.err_str);
+//		//		mess.iRet= ERROR_HSM_RPC;
+//		//		goto HsmErrPro;
+//		//	}
+//		//	break;
+//
+//		case FROM_ICTERM: 
+//			if ( !(wbase = get_ic_base()) )  //不是制卡工作的响应, 返回(可能是终端测试、提示下一张卡等)
+//				return false;
+//			/* 制卡响应基础通讯数据检查 */
+//			p = (char*)hi_reply.getfld(1, &p_len);
+//			if ( p_len != (unsigned long)wbase->tlen || memcmp(p, wbase->take, wbase->tlen) != 0)	//功能字是否对应
+//			{
+//				if ( p_len > 30 ) p_len = 30; 
+//				memcpy(tmp, p, p_len ); 
+//				tmp[p_len] = 0;
+//				TEXTUS_SPRINTF(mess.err_str, "%s, RPC_ERROR(%s), at %s", wbase->fun, tmp, mess.station_str);
+//				WLOG(WARNING, "%s", mess.err_str);
+//				mess.iRet= ERROR_MK_RPC;
+//				goto CardErrPro;
+//			}
+//
+//			q = (char*)hi_reply.getfld(2, &q_len);	//结果码长度有问题
+//			if ( q_len != 1 )
+//			{
+//				if ( q_len > 30 ) q_len = 30; memcpy(tmp, q, q_len ); tmp[q_len] = 0;
+//				TEXTUS_SPRINTF(mess.err_str, "%s, RPC_ERROR(%ld, %s), at %s", wbase->fun, q_len, tmp, mess.station_str);
+//				WLOG(WARNING, "%s", mess.err_str);
+//				mess.iRet= ERROR_MK_RPC;
+//				goto CardErrPro;
+//			}
+//			break;
+//		default:
+//			mess.iRet= ERROR_OTHER;
+//			goto CardErrPro;
+//			break;
+//	}
+//
+//INS_PRO:
 	ins = &(cur_def->ins_all.instructions[mess.ins_which]);
 	mess.pro_order = ins->order;	
 
@@ -2898,293 +2955,337 @@ INS_PRO:
 	
 	hi_req.reset();	//请求复位
 	//{int *a =0 ; *a = 0; };
-	switch ( ins->type)
+	switch ( command_wt.step)
 	{
-	case OP_Prompt:
-			switch ( prompt_wt.step)
-			{
-			case 0:
-				hi_req.input(2, ins->prompt.cent, ins->prompt.len);
-				mess.right_status = ins->prompt.rt_stat;
-				break;
-
-			case 1: //进度提示的响应, 从来不管
-				mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
-				break;
-			}
-			prompt_wt.step++;	//指示下一步操作
-		break;
-
-	case OP_FeedCard:
-			switch ( fcard_wt.step)
-			{
-			case 0:
-				hi_req.input(2, mess.snap[Pos_CardNo].val, mess.snap[Pos_CardNo].c_len);
-				hi_req.input(3, "0", 1);	//厂商标志用不着了
-				hi_req.input(4, cur_def->description, strlen(cur_def->description));
-				mess.right_status = ins->fcard.rt_stat;
-				break;
-
-			case 1: //进卡响应
-				p = (char*)hi_reply.getfld(2, &p_len);
-				if ( p_len != 1 || *p != '0' )
-				{
-					q = (char*)hi_reply.getfld(3, &q_len);
-					h_fail(tmp, desc, p_len, q_len, p, q, "pro_feed");
-					if ( *p == 'B' )
-						mess.iRet = ERROR_MK_PAUSE;
-					else
-						mess.iRet = ERROR_MK_DEV;
-					goto CardErrPro;
-				}
-				mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
-				break;
-			}
-			fcard_wt.step++;	//指示下一步操作
-		break;
-
-	case OP_OutCard: //出卡操作, 有可能前面制卡失败
-			switch ( ocard_wt.step)
-			{
-			case 0:
-				hi_req.input(2, mess.iRet==0 ? "0":"A", 1);
-				hi_req.input(3, mess.snap[Pos_CardNo].val, mess.snap[Pos_CardNo].c_len);
-				mess.right_status = ins->ocard.rt_stat;
-				break;
-			case 1:	
-				p = (char*)hi_reply.getfld(2, &p_len);
-				if ( p_len != 1 || *p != '0' )
-				{
-					q = (char*)hi_reply.getfld(3, &q_len);
-					h_fail(tmp, desc, p_len, q_len, p, q, "pro_out");
-					mess.iRet = ERROR_MK_DEV;
-					goto CardErrPro;
-				}
-				mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
-				break;
-			}
-			ocard_wt.step++;
-
-		break;
-
-	case INS_ProRst:		//卡片复位 
-			switch ( pro_rst_wt.step)
-			{
-			case 0:	//外层将功能字设上, 这里就设一下状态
-				if ( !ins->complex->valid_condition(&mess) )
-				{
-					mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
-					break;
-				}
-
-				mess.right_status = ins->pro_rst.rt_stat;
-				pro_rst_wt.step++;
-				break;
-			case 1:
-				p = (char*)hi_reply.getfld(3, &p_len);	//2域是slot
-				r = (char*)hi_reply.getfld(7, &r_len);	//UID
-				if ( p_len != 1 || *p != '0' ||!r )
-				{
-					q = (char*)hi_reply.getfld(4, &q_len);
-					h_fail(tmp, desc, p_len, q_len, p, q, "pro_reset");
-					mess.iRet = ERROR_IC_INS;		//复位失败, 就是卡而已, 不关设备
-					goto CardErrPro;
-				}
-				dvr = &(mess.snap[Pos_UID]);
-				dvr->input(r, r_len);
-				if ( !ins->complex->si_set ) 
-				{
-					if ( !ins->complex->valid_result(&mess) )
-					{
-						mess.iRet = ERR_RESULT_INVALID;
-						goto CardErrPro; 
-					}
-					//通过， 下一条指令
-					mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
-					break;
-				}
-				/* 这里不中断, 继续走子序列 */
-				pro_rst_wt.step++;	//这里使得step=2
-			case 2:
-				switch ( comp_wt.step)
-				{
-				case 0:
-					comp_wt.sub_which = 0;
-					ins->complex->get_current(&mess, &(cur_def->person_vars));
-					comp_wt.step++;	
-					me_sub_zero();
-				case 1:
-					i_ret = sub_serial_pro(ins->complex->si_set, &comp_wt);
-					if ( i_ret < 0 ) 
-						goto CardErrPro; //两种SW定义都不符合
-
-					if ( i_ret == 0 )  
-						goto INS_OUT; //子序列还没有执行完成, 这里中断
-//{int *a =0 ; *a = 0; };
-					if ( !ins->complex->valid_result(&mess) )
-					{
-						mess.iRet = ERR_RESULT_INVALID;
-						goto CardErrPro; 
-					}
-					//通过， 下一条指令
-					mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
-				default:
-					break;
-				}
-			}
-		break;
-
-	case INS_Call:
-			if ( !ins->fun.valid_condition(&mess) )
+		case 0:	//开始
+			if ( !ins->valid_condition(&mess) )
 			{
 				mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
 				break;
 			}
-				
-			i_ret = ins->fun.callfun(&mess);
-			if ( i_ret > 0 )
-			{
-				if ( !ins->fun.valid_result(&mess) )
-				{
-					mess.iRet = ERR_RESULT_INVALID;
-					goto CardErrPro; 
-				}
-				mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
-			} else if ( i_ret < 0 ) {
+
+			command_wt.cur = 0;
+NEXT_PRI:
+			command_wt.sub_which = 0;
+			command_wt.step++;	
+			me_sub_zero();
+		case 1:	
+			i_ret = sub_serial_pro(ins->complex[command_wt.cur], &command_wt);
+			if ( i_ret < 0 && command_wt.cur < (ins->comp_num-1)) 
+			{	
+				command_wt.cur++;
+				command_wt.step--;
+				goto NEXT_PRI;		//再一次认证开始
+			}
+			if ( i_ret < 0 ) 
 				goto CardErrPro; //两种SW定义都不符合
-			}
-		break;
 
-	case INS_Plain:
-			if ( plain_wt.step ==0 && !ins->plain.valid_condition(&mess) )
-			{
-				mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
-				break;
-			}
-				
-			i_ret = ins_plain_pro(&ins->plain);
-			if ( i_ret > 0 )
-			{
-				if ( !ins->plain.valid_result(&mess) )
-				{
-					mess.iRet = ERR_RESULT_INVALID;
-					goto CardErrPro; 
-				}
-				mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
-			} else if ( i_ret < 0 ) {
-				goto CardErrPro; //两种SW定义都不符合
-			}
-		break;
-
-	case INS_HSM:
-			if ( hsmcom_wt.step ==0 && !ins->hsm.valid_condition(&mess) )
-			{
-				mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
-				break;
-			}
-				
-			i_ret = ins_hsm_pro(&ins->hsm);
-			if ( i_ret > 0 )
-			{
-				if ( !ins->hsm.valid_result(&mess) )
-				{
-					mess.iRet = ERR_RESULT_INVALID;
-					goto HsmErrPro; 
-				}
-				mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
-			} else if ( i_ret < 0 ) {
-				goto HsmErrPro; 
-			}
-		break;
-
-	case INS_ExtAuth:
-			switch ( auth_wt.step)
-			{
-			case 0:	//开始
-				if ( !ins->auth[0].valid_condition(&mess) )
-				{
-					mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
-					break;
-				}
-				auth_wt.cur = 0;
-AUTH_AGAIN:
-				auth_wt.sub_which = 0;
-				auth_wt.step++;	
-				me_sub_zero();
-			case 1:	
-				i_ret = sub_serial_pro(ins->auth[auth_wt.cur].si_set, &auth_wt);
-				if ( i_ret < 0 && auth_wt.cur < (ins->auth_num-1)) 
-				{	
-					auth_wt.cur++;
-					auth_wt.step--;
-					goto AUTH_AGAIN;		//再一次认证开始
-				}
-				if ( i_ret < 0 ) 
-					goto CardErrPro; //两种SW定义都不符合
-
-				if ( i_ret ==0  )
-					goto INS_OUT; //子序列还没有执行完成, 这里中断
-				if ( !ins->auth[0].valid_result(&mess) )
-				{
-					mess.iRet = ERR_RESULT_INVALID;
-					goto CardErrPro; 
-				}
+			if ( i_ret ==0  )
+				goto INS_OUT; //子序列还没有执行完成, 这里中断
+			//if ( !ins->auth[0].valid_result(&mess) )
+			//{
+			//	mess.iRet = ERR_RESULT_INVALID;
+			//	goto CardErrPro; 
+			//}
 				//通过， 下一条指令
-				mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
+			mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
 //{int *a =0 ; *a = 0; };
-				break;
-			default:
-				break;
-			}
-		break;
-
-	case INS_Charge:
-	case INS_LoadInit:
-	case INS_Debit:
-	case INS_DesMac:
-	case INS_Mac:
-	case INS_GpKmc:
-			switch ( comp_wt.step)
-			{
-			case 0:
-				if ( !ins->complex->valid_condition(&mess) )
-				{
-					mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
-					break;
-				}
-
-				comp_wt.sub_which = 0;
-				ins->complex->get_current(&mess, &(cur_def->person_vars));
-				comp_wt.step++;	
-				me_sub_zero();
-			case 1:
-				i_ret = sub_serial_pro(ins->complex->si_set, &comp_wt);
-				if ( i_ret < 0 ) 
-					goto CardErrPro; //两种SW定义都不符合
-
-				if ( i_ret == 0 ) 
-					goto INS_OUT; //子序列还没有执行完成, 这里中断
-
-				if ( !ins->complex->valid_result(&mess) )
-				{
-					mess.iRet = ERR_RESULT_INVALID;
-					goto CardErrPro; 
-				}
-				//通过， 下一条指令
-				mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
-			default:
-				break;
-			}
-		break;
-
-	case INS_None:
-		break;
+			break;
+		default:
+			break;
 	}
 
-	if ( mess.iRet != 0 && mess.ins_which < (cur_def->ins_all.many-1) && mess.iRet != ERR_HSM_AGAIN ) //有错误发生
-	{
-		WBUG("bug!! mk_hand has error! but not goto error!");
-	}
+
+//
+//
+//
+//	switch ( ins->type)
+//	{
+//	case OP_Prompt:
+//			switch ( prompt_wt.step)
+//			{
+//			case 0:
+//				hi_req.input(2, ins->prompt.cent, ins->prompt.len);
+//				mess.right_status = ins->prompt.rt_stat;
+//				break;
+//
+//			case 1: //进度提示的响应, 从来不管
+//				mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
+//				break;
+//			}
+//			prompt_wt.step++;	//指示下一步操作
+//		break;
+//
+//	case OP_FeedCard:
+//			switch ( fcard_wt.step)
+//			{
+//			case 0:
+//				hi_req.input(2, mess.snap[Pos_CardNo].val, mess.snap[Pos_CardNo].c_len);
+//				hi_req.input(3, "0", 1);	//厂商标志用不着了
+//				hi_req.input(4, cur_def->description, strlen(cur_def->description));
+//				mess.right_status = ins->fcard.rt_stat;
+//				break;
+//
+//			case 1: //进卡响应
+//				p = (char*)hi_reply.getfld(2, &p_len);
+//				if ( p_len != 1 || *p != '0' )
+//				{
+//					q = (char*)hi_reply.getfld(3, &q_len);
+//					h_fail(tmp, desc, p_len, q_len, p, q, "pro_feed");
+//					if ( *p == 'B' )
+//						mess.iRet = ERROR_MK_PAUSE;
+//					else
+//						mess.iRet = ERROR_MK_DEV;
+//					goto CardErrPro;
+//				}
+//				mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
+//				break;
+//			}
+//			fcard_wt.step++;	//指示下一步操作
+//		break;
+//
+//	case OP_OutCard: //出卡操作, 有可能前面制卡失败
+//			switch ( ocard_wt.step)
+//			{
+//			case 0:
+//				hi_req.input(2, mess.iRet==0 ? "0":"A", 1);
+//				hi_req.input(3, mess.snap[Pos_CardNo].val, mess.snap[Pos_CardNo].c_len);
+//				mess.right_status = ins->ocard.rt_stat;
+//				break;
+//			case 1:	
+//				p = (char*)hi_reply.getfld(2, &p_len);
+//				if ( p_len != 1 || *p != '0' )
+//				{
+//					q = (char*)hi_reply.getfld(3, &q_len);
+//					h_fail(tmp, desc, p_len, q_len, p, q, "pro_out");
+//					mess.iRet = ERROR_MK_DEV;
+//					goto CardErrPro;
+//				}
+//				mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
+//				break;
+//			}
+//			ocard_wt.step++;
+//
+//		break;
+//
+//	case INS_ProRst:		//卡片复位 
+//			switch ( pro_rst_wt.step)
+//			{
+//			case 0:	//外层将功能字设上, 这里就设一下状态
+//				if ( !ins->complex->valid_condition(&mess) )
+//				{
+//					mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
+//					break;
+//				}
+//
+//				mess.right_status = ins->pro_rst.rt_stat;
+//				pro_rst_wt.step++;
+//				break;
+//			case 1:
+//				p = (char*)hi_reply.getfld(3, &p_len);	//2域是slot
+//				r = (char*)hi_reply.getfld(7, &r_len);	//UID
+//				if ( p_len != 1 || *p != '0' ||!r )
+//				{
+//					q = (char*)hi_reply.getfld(4, &q_len);
+//					h_fail(tmp, desc, p_len, q_len, p, q, "pro_reset");
+//					mess.iRet = ERROR_IC_INS;		//复位失败, 就是卡而已, 不关设备
+//					goto CardErrPro;
+//				}
+//				dvr = &(mess.snap[Pos_UID]);
+//				dvr->input(r, r_len);
+//				if ( !ins->complex->si_set ) 
+//				{
+//					if ( !ins->complex->valid_result(&mess) )
+//					{
+//						mess.iRet = ERR_RESULT_INVALID;
+//						goto CardErrPro; 
+//					}
+//					//通过， 下一条指令
+//					mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
+//					break;
+//				}
+//				/* 这里不中断, 继续走子序列 */
+//				pro_rst_wt.step++;	//这里使得step=2
+//			case 2:
+//				switch ( comp_wt.step)
+//				{
+//				case 0:
+//					comp_wt.sub_which = 0;
+//					ins->complex->get_current(&mess, &(cur_def->person_vars));
+//					comp_wt.step++;	
+//					me_sub_zero();
+//				case 1:
+//					i_ret = sub_serial_pro(ins->complex->si_set, &comp_wt);
+//					if ( i_ret < 0 ) 
+//						goto CardErrPro; //两种SW定义都不符合
+//
+//					if ( i_ret == 0 )  
+//						goto INS_OUT; //子序列还没有执行完成, 这里中断
+////{int *a =0 ; *a = 0; };
+//					if ( !ins->complex->valid_result(&mess) )
+//					{
+//						mess.iRet = ERR_RESULT_INVALID;
+//						goto CardErrPro; 
+//					}
+//					//通过， 下一条指令
+//					mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
+//				default:
+//					break;
+//				}
+//			}
+//		break;
+//
+//	case INS_Call:
+//			if ( !ins->fun.valid_condition(&mess) )
+//			{
+//				mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
+//				break;
+//			}
+//				
+//			i_ret = ins->fun.callfun(&mess);
+//			if ( i_ret > 0 )
+//			{
+//				if ( !ins->fun.valid_result(&mess) )
+//				{
+//					mess.iRet = ERR_RESULT_INVALID;
+//					goto CardErrPro; 
+//				}
+//				mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
+//			} else if ( i_ret < 0 ) {
+//				goto CardErrPro; //两种SW定义都不符合
+//			}
+//		break;
+//
+//	case INS_Plain:
+//			if ( plain_wt.step ==0 && !ins->plain.valid_condition(&mess) )
+//			{
+//				mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
+//				break;
+//			}
+//				
+//			i_ret = ins_plain_pro(&ins->plain);
+//			if ( i_ret > 0 )
+//			{
+//				if ( !ins->plain.valid_result(&mess) )
+//				{
+//					mess.iRet = ERR_RESULT_INVALID;
+//					goto CardErrPro; 
+//				}
+//				mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
+//			} else if ( i_ret < 0 ) {
+//				goto CardErrPro; //两种SW定义都不符合
+//			}
+//		break;
+//
+//	case INS_HSM:
+//			if ( hsmcom_wt.step ==0 && !ins->hsm.valid_condition(&mess) )
+//			{
+//				mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
+//				break;
+//			}
+//				
+//			i_ret = ins_hsm_pro(&ins->hsm);
+//			if ( i_ret > 0 )
+//			{
+//				if ( !ins->hsm.valid_result(&mess) )
+//				{
+//					mess.iRet = ERR_RESULT_INVALID;
+//					goto HsmErrPro; 
+//				}
+//				mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
+//			} else if ( i_ret < 0 ) {
+//				goto HsmErrPro; 
+//			}
+//		break;
+//
+//	case INS_ExtAuth:
+//			switch ( auth_wt.step)
+//			{
+//			case 0:	//开始
+//				if ( !ins->auth[0].valid_condition(&mess) )
+//				{
+//					mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
+//					break;
+//				}
+//				auth_wt.cur = 0;
+//AUTH_AGAIN:
+//				auth_wt.sub_which = 0;
+//				auth_wt.step++;	
+//				me_sub_zero();
+//			case 1:	
+//				i_ret = sub_serial_pro(ins->auth[auth_wt.cur].si_set, &auth_wt);
+//				if ( i_ret < 0 && auth_wt.cur < (ins->auth_num-1)) 
+//				{	
+//					auth_wt.cur++;
+//					auth_wt.step--;
+//					goto AUTH_AGAIN;		//再一次认证开始
+//				}
+//				if ( i_ret < 0 ) 
+//					goto CardErrPro; //两种SW定义都不符合
+//
+//				if ( i_ret ==0  )
+//					goto INS_OUT; //子序列还没有执行完成, 这里中断
+//				if ( !ins->auth[0].valid_result(&mess) )
+//				{
+//					mess.iRet = ERR_RESULT_INVALID;
+//					goto CardErrPro; 
+//				}
+//				//通过， 下一条指令
+//				mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
+////{int *a =0 ; *a = 0; };
+//				break;
+//			default:
+//				break;
+//			}
+//		break;
+//
+//	case INS_Charge:
+//	case INS_LoadInit:
+//	case INS_Debit:
+//	case INS_DesMac:
+//	case INS_Mac:
+//	case INS_GpKmc:
+//			switch ( comp_wt.step)
+//			{
+//			case 0:
+//				if ( !ins->complex->valid_condition(&mess) )
+//				{
+//					mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
+//					break;
+//				}
+//
+//				comp_wt.sub_which = 0;
+//				ins->complex->get_current(&mess, &(cur_def->person_vars));
+//				comp_wt.step++;	
+//				me_sub_zero();
+//			case 1:
+//				i_ret = sub_serial_pro(ins->complex->si_set, &comp_wt);
+//				if ( i_ret < 0 ) 
+//					goto CardErrPro; //两种SW定义都不符合
+//
+//				if ( i_ret == 0 ) 
+//					goto INS_OUT; //子序列还没有执行完成, 这里中断
+//
+//				if ( !ins->complex->valid_result(&mess) )
+//				{
+//					mess.iRet = ERR_RESULT_INVALID;
+//					goto CardErrPro; 
+//				}
+//				//通过， 下一条指令
+//				mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
+//			default:
+//				break;
+//			}
+//		break;
+//
+//	case INS_None:
+//		break;
+//	}
+//
+//	if ( mess.iRet != 0 && mess.ins_which < (cur_def->ins_all.many-1) && mess.iRet != ERR_HSM_AGAIN ) //有错误发生
+//	{
+//		WBUG("bug!! mk_hand has error! but not goto error!");
+//	}
 
 	if (mess.right_status == RT_INS_READY )	//新近一条指令做完
 	{
@@ -3200,14 +3301,14 @@ AUTH_AGAIN:
 HAND_END:
 	return true;
 INS_OUT:
-	wbase = get_ic_base();
-	if (wbase)
-	{	//再一次判定这是IC卡操作
-		hi_req.input(1, wbase->give, wbase->glen);	//把这个功能字设上啦。很重要!!!
+	//wbase = get_ic_base();
+	//if (wbase)
+	//{	//再一次判定这是IC卡操作
+	//	hi_req.input(1, wbase->give, wbase->glen);	//把这个功能字设上啦。很重要!!!
 		aptus->facio(&loc_pro_pac);     //向右发出指令, 然后等待, 这个放在别处????
-	} else {	//HSM操作,
-		tohsm_pri->aptus->facio(&loc_pro_pac);     //向右发出指令, 然后等待
-	}
+	//} else {	//HSM操作,
+	//	tohsm_pri->aptus->facio(&loc_pro_pac);     //向右发出指令, 然后等待
+	//}
 	/* aptus.facio的处理放在最后, 很重要!!。因为有可能在这个调用中就收到右节点的sponte. 注意!!. 以后的工作中一定要注意这点 */
 	return true;
 
