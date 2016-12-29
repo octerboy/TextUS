@@ -1996,10 +1996,62 @@ private:
 	Back_Status back_st;		//右处理状态
 
 	struct WKBase {
-		int step;	//0: send, 1: recv 
-		int sub_which;
+		int step;	//0: just start, 1: doing 
 		int cur;
 	} command_wt;
+
+#define SUB_DEPTH 10
+
+	struct CompWKBase {
+		struct ComplexSubSerial *comp;
+		int which;
+	};
+
+	struct SubWKBase {
+			struct CompWKBase comps[SUB_DEPTH];
+			int depth;	//指向当前的，
+			void reset()
+			{
+				int i;
+				depth = -1;	//一开始没有，
+				for ( i = 0; i < SUB_DEPTH; i++)
+				{
+					comps[i].comp = 0;
+					comps[i].which = 0;
+				}
+			};
+
+			SubWKBase () 
+			{
+				reset();
+			};
+			
+			bool push(struct ComplexSubSerial *c)
+			{
+				depth++; //先找一个位置
+				if (depth >= SUB_DEPTH )
+					return false;
+
+				comps[depth].comp = c;
+				comps[depth].which = 0;
+				return true;
+			};
+
+			struct CompWKBase *pop()
+			{
+				struct CompWKBase *ret;
+				if ( depth < 0 )
+					return 0;
+				ret = &comps[depth];
+				depth--;
+			};
+
+			struct CompWKBase *peek()
+			{
+				return &comps[depth];
+			}
+	} sub_wt;
+	
 
 	struct PacWork {
 		int step;	//0: send, 1: recv 
@@ -2759,19 +2811,20 @@ Pro_Ret:
 }
 
 /* 子序列入口 */
-int PacWay::sub_serial_pro( struct ComplexSubSerial *si_set, struct WKBase *wk)
+int PacWay::sub_serial_pro()
 {
 	int i_ret=0, s_ret=0;
-	struct PacIns *ins;
+	struct PacIns *paci;
 	int h_subor;
 	struct ComplexSubSerial *ano;
+	struct CompWKBase *wk = sub_wt.peek();
 
 	//if ( !si_set )	//如果不存在子序列, 就当执行完成.
 	//	return 1;
 SUB_INS_PRO:
-	ins = &(si_set->pac_inses[wk->sub_which]);
+	paci = &(wk->comp->pac_inses[wk->which]);
 	i_ret = 1;
-	switch ( ins->type)
+	switch ( paci->type)
 	{
 	case INS_Normal:
 		switch ( pac_wt.step )
@@ -2782,17 +2835,18 @@ SUB_INS_PRO:
 				i_ret = 1;
 				break;
 			}
-			ano = prepair_snd_pac(&hi_req, loc_pro_pac.subor, &mess);
+			ano = paci->prepair_snd_pac(&hi_req, loc_pro_pac.subor, &mess);
 			if ( ano )	/* 要执行另一个序列, ????????*/
 			{
-
+				sub_wt.push(ano);
+				sub_serial_pro();
 			}
 			pac_wt.step++;
 			i_ret = 0;	/* 进行中 */
 			break;
 
 		case 1:
-			if ( pro_rcv_pac(&hi_reply, &mess) ) 
+			if ( paci->pro_rcv_pac(&hi_reply, &mess) ) 
 				i_ret = 1;
 			else
 				i_ret = -1;
@@ -2859,7 +2913,7 @@ bool PacWay::mk_hand(MK_Mode mmode)
 	char tmp[64], desc[64];
 	
 	struct DyVar *dvr=0;
-	struct User_Command *ins;
+	struct User_Command *usr_com;
 	//struct TermOPBase *wbase ;
 	char *p, *q, *r;
 	unsigned long p_len, q_len, r_len;
@@ -2947,8 +3001,8 @@ bool PacWay::mk_hand(MK_Mode mmode)
 //	}
 //
 //INS_PRO:
-	ins = &(cur_def->ins_all.instructions[mess.ins_which]);
-	mess.pro_order = ins->order;	
+	usr_com = &(cur_def->ins_all.instructions[mess.ins_which]);
+	mess.pro_order = usr_com->order;	
 
 	if ( mess.right_status  ==  RT_INS_READY )	//终端空闲,各类工作单元清空复位
 		me_zero();
@@ -2963,15 +3017,17 @@ bool PacWay::mk_hand(MK_Mode mmode)
 				mess.right_status = RT_INS_READY ;	//右端闲, 可以下一条指令
 				break;
 			}
-
 			command_wt.cur = 0;
 NEXT_PRI:
-			command_wt.sub_which = 0;
+			sub_wt.reset();
+			if (!sub_wt.push(&(usr_com->complex[command_wt.cur])))
+				goto HsmErrPro;
+
 			command_wt.step++;	
 			me_sub_zero();
 		case 1:	
-			i_ret = sub_serial_pro(ins->complex[command_wt.cur], &command_wt);
-			if ( i_ret < 0 && command_wt.cur < (ins->comp_num-1)) 
+			i_ret = sub_serial_pro();
+			if ( i_ret < 0 && command_wt.cur < (usr_com->comp_num-1) )
 			{	
 				command_wt.cur++;
 				command_wt.step--;
