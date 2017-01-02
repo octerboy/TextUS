@@ -46,4 +46,36 @@
 	#define TEXTUS_FOPEN(x,y,z)  x = fopen(y,z)
 #endif
 
+#define Obtainx(s)   "0123456789abcdef"[s]
+#define ObtainX(s)   "0123456789ABCDEF"[s]
+#define Obtainc(s)   (s >= 'A' && s <='F' ? s-'A'+10 :(s >= 'a' && s <='f' ? s-'a'+10 : s-'0' ) )
+
+static char* byte2hex(const unsigned char *byte, size_t blen, char *hex) 
+{
+	size_t i;
+	for ( i = 0 ; i < blen ; i++ )
+	{
+		hex[2*i] =  ObtainX((byte[i] & 0xF0 ) >> 4 );
+		hex[2*i+1] = ObtainX(byte[i] & 0x0F );
+	}
+	return hex;
+}
+
+static unsigned char* hex2byte(unsigned char *byte, size_t blen, const char *hex)
+{
+	size_t i;
+	const char *p ;	
+
+	p = hex; i = 0;
+
+	while ( i < blen )
+	{
+		byte[i] =  (0x0F & Obtainc( hex[2*i] ) ) << 4;
+		byte[i] |=  Obtainc( hex[2*i+1] ) & 0x0f ;
+		i++;
+		p +=2;
+	}
+	return byte;
+}
+
 #endif
