@@ -379,8 +379,8 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2};
 				snap[i].val[0] = 0;
 			}
 			for ( i = Pos_Fixed_Next ; i < snap_num; i++)
-			{
-				snap[i].kind = VAR_None;/* 这个Pos_Fixed_Next很重要, 要不然, 那些固有的动态变量会没有的！  */
+			{	/* 这个Pos_Fixed_Next很重要, 要不然, 那些固有的动态变量会没有的！  *//* 这个Pos_Fixed_Next很重要, 要不然, 那些固有的动态变量会没有的！  */
+				snap[i].kind = VAR_None;
 				snap[i].def_var = 0;
 			}
 			left_status = LT_Idle;
@@ -407,7 +407,6 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2};
 			snap[Pos_ErrCode].kind = VAR_ErrCode;
 			snap[Pos_CurOrder].kind = VAR_CurOrder;
 			snap[Pos_CurCent].kind = VAR_CurCent;
-
 			reset();
 		};
 
@@ -998,14 +997,16 @@ struct CmdRcv {
 	CmdRcv () {
 		dyna_pos = -1;
 		start =1;
-		length = 500;
+		length = -1;
 		must_con = 0;
 		must_len = 0;
+		err_code = 0;
 	};
 };
 
 struct ComplexSubSerial;
 struct PacIns:public Condition  {
+	PacIns_Type type;
 	int subor;	//指示指令报文送给哪一个下级模块
 
 	struct CmdSnd *snd_lst;
@@ -1018,8 +1019,6 @@ struct PacIns:public Condition  {
 	struct ComplexSubSerial *complex;	//如果这个不为0, 则返回此值，指示调度器调用一个子过程。
 	bool isIcc;
 
-	PacIns_Type type;
-
 	PacIns() 
 	{
 		subor = 0;
@@ -1028,6 +1027,7 @@ struct PacIns:public Condition  {
 		rcv_lst = 0;
 		rcv_num = 0;
 
+		err_code = 0;
 		complex = 0;
 		isIcc = false;	/* 不计入icc_num计算 */
 		type = INS_None;
@@ -1066,9 +1066,8 @@ struct PacIns:public Condition  {
 	/* 本指令处理响应报文，匹配必须的内容,出错时置出错代码变量 */
 	bool pro_rcv_pac(PacketObj *rcv_pac,  struct MK_Session *mess)
 	{
-		int ii;
+		int ii,min_len;
 		unsigned char *fc;
-		int min_len;
 		unsigned long rlen;
 		struct CmdRcv *rply;
 
@@ -1083,16 +1082,11 @@ struct PacIns:public Condition  {
 				if ( !(rply->must_len == rlen && memcmp(rply->must_con, fc, rlen) == 0 ) ) 
 					goto ErrRet;
 
-				if ( rlen >= (rply->start ) )	//start是从1开始
+				if ( rlen >= (rply->start ) )	
 				{
-					if ( (rply->length + rply->start-1) > rlen  )
-						min_len = (rlen - rply->start+1) ;	//要取的长度大于返回的长度
-					else
-						min_len = rply->length;
-					if ( min_len > 0 )
-					{
-						mess->snap[rply->dyna_pos].input(&fc[rply->start-1], min_len);
-					}
+					rlen -= (rply->start-1); //start是从1开始
+					if ( rply->length > 0 && rply->length < rlen) rlen = rply->length;
+					mess->snap[rply->dyna_pos].input(&fc[rply->start-1], rlen);
 				}
 			}
 		}
@@ -1101,7 +1095,6 @@ ErrRet:
 		mess->snap[Pos_ErrCode].input(rply->err_code);
 		return false;
 	};
-
 
 	int hard_work ( TiXmlElement *def_ele, TiXmlElement *pac_ele, TiXmlElement *usr_ele, struct PVar_Set *g_vars, struct PVar_Set *me_vars)
 	{
@@ -1113,6 +1106,7 @@ ErrRet:
 		int lnn;
 		const char *tag;
 
+		err_code = pac_ele->Attribute("error"); //每一个报文定义一个错误码，对于INS_Abort很有用。
 		 if ( strcasecmp( pac_ele->Value(), "abort") )
 		 {
 			type = INS_Abort;
@@ -1133,9 +1127,7 @@ ErrRet:
 				snd_num++;
 		}
 		snd_lst = new struct CmdSnd[snd_num];
-
-		i = 0;
-		for (p_ele= def_ele->FirstChildElement(); p_ele; p_ele = p_ele->NextSiblingElement())
+		for (p_ele= def_ele->FirstChildElement(),i = 0; p_ele; p_ele = p_ele->NextSiblingElement())
 		{
 			p = p_ele->Value();
 			if ( !p ) continue;
@@ -1176,21 +1168,17 @@ ErrRet:
 				rcv_num++;
 			/* 用户命令的返回元素也算上 */
 			for (e_tmp = usr_ele->FirstChildElement(p); e_tmp; e_tmp = e_tmp->NextSiblingElement(p) ) 
-				rcv_num++;
-				
+				rcv_num++;				
 		}
 		rcv_lst = new struct CmdRcv[rcv_num];
-
-		i = 0;
-		for (p_ele= def_ele->FirstChildElement(); p_ele; p_ele = p_ele->NextSiblingElement())
+		for (p_ele= def_ele->FirstChildElement(),i = 0; p_ele; p_ele = p_ele->NextSiblingElement())
 		{
-			p = p_ele->Value();
-			if ( !p ) continue;
+			tag = p_ele->Value();
+			if ( !tag ) continue;
 			if ( strcasecmp(p, "recv") == 0 || p_ele->Attribute("from")) 
 			{
 				p_ele->QueryIntAttribute("field", &(rcv_lst[i].fld_no));
-				tag = p_ele->Value();
-				rcv_lst[i].tag =tag;
+				rcv_lst[i].tag = tag;
 				if ( strcasecmp(tag, "recv") == 0 ) 
 				{
 					p = p_ele->GetText();
@@ -1199,7 +1187,7 @@ ErrRet:
 						lnn = strlen(p);
 						rcv_lst[i].must_con = new unsigned char[lnn+1];
 						rcv_lst[i].must_len = squeeze(p, rcv_lst[i].must_con);
-						err_code = p_ele->Attribute("error");
+						rcv_lst[i].err_code = p_ele->Attribute("error");	//接收域若有不符合，设此错误码
 					}
 					i++;
 					continue;	/* recv 仅在基础报文定义中出现 */
@@ -1208,7 +1196,7 @@ ErrRet:
 				/*子序列中的返回元素也算上, 如果和用户命令都没有，则这里不需要分配了 */
 				for (e_tmp = pac_ele->FirstChildElement(tag); e_tmp; e_tmp = e_tmp->NextSiblingElement(tag) ) 
 				{
-					p_ele->QueryIntAttribute("field", &(rcv_lst[i].fld_no));
+					p_ele->QueryIntAttribute("field", &(rcv_lst[i].fld_no));	//对第一个有点重复
 					rcv_lst[i].tag =tag;
 					if ( (p = e_tmp->Attribute("name")) )
 					{
@@ -1222,10 +1210,10 @@ ErrRet:
 					}
 					i++;
 				}
-				/* 用户命令的返回元素也算上 */
+				/* 用户命令的返回元素也算上，和上面一段几乎相同 */
 				for (e_tmp = usr_ele->FirstChildElement(tag); e_tmp; e_tmp = e_tmp->NextSiblingElement(tag) ) 
 				{
-					p_ele->QueryIntAttribute("field", &(rcv_lst[i].fld_no));
+					p_ele->QueryIntAttribute("field", &(rcv_lst[i].fld_no));	//对第一个有点重复
 					rcv_lst[i].tag =tag;
 					if ( (p = e_tmp->Attribute("name")) )
 					{
@@ -2131,6 +2119,7 @@ SUB_INS_PRO:
 
 	case INS_Abort:
 		i_ret = -1;	//脚本所控制的错误
+		mess->snap[Pos_ErrCode].input(paci->err_code);
 		break;
 
 	default :
