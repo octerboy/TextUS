@@ -323,7 +323,7 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2};
 		void input(int iv)
 		{
 			TEXTUS_SPRINTF((char*)&val[0], "%d", iv);
-			c_len = sizeof(iv);
+			c_len = strlen((char*)&val[0]);
 			val[c_len] = 0;
 			val_p = &val[0];
 		};
@@ -348,15 +348,12 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2};
 			val_p = &val[0];
 			val[0] = p;
 		};
-
 	};
 
 	struct MK_Session {		//记录一个事务过程中的各种临时数据
 		struct DyVar *snap;		//随时的变量, 包括
 		int snap_num;
 		char err_str[1024];		//错误信息
-		char station_str[1024];	//工作站信息
-
 		char flow_id[64];
 		int pro_order;		//当前处理的操作序号
 
@@ -414,8 +411,7 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2};
 		{
 			if ( snap ) delete[] snap;
 			snap = 0;
-		}
-
+		};
 	};
 
 /* 变量集合*/
@@ -799,7 +795,6 @@ struct CmdSnd {
 	struct DyList *dy_list;
 	unsigned char *cmd_buf;
 	unsigned long cmd_len;
-
 	const char *tag;	/*  比如"component"这样的内容，指明子序列中的元素 */
 
 	CmdSnd () {
@@ -1092,7 +1087,10 @@ struct PacIns:public Condition  {
 		}
 		return true;
 ErrRet:
-		mess->snap[Pos_ErrCode].input(rply->err_code);
+		if ( rply->err_code )
+			mess->snap[Pos_ErrCode].input(rply->err_code);
+		else
+			mess->snap[Pos_ErrCode].input(err_code);	//可能对于域不符合的情况，未定义错误码，就取基础报文或map中的定义
 		return false;
 	};
 
@@ -1107,15 +1105,16 @@ ErrRet:
 		const char *tag;
 
 		err_code = pac_ele->Attribute("error"); //每一个报文定义一个错误码，对于INS_Abort很有用。
-		 if ( strcasecmp( pac_ele->Value(), "abort") )
-		 {
+		if (!err_code ) err_code = def_ele->Attribute("error"); //一般INS_Normal不定义，那么取基础报文的定义
+		if ( strcasecmp( pac_ele->Value(), "abort") )
+		{
 			type = INS_Abort;
-			 goto LAST_CON;
-		 }
+			goto LAST_CON;
+		}
 
-		subor = 0; def_ele->QueryIntAttribute("subor", &subor);
+		subor=0; def_ele->QueryIntAttribute("subor", &subor);
 		if ( def_ele->Attribute("is_icc") )
-				isIcc = true;
+			isIcc = true;
 
 		/* 先预置发送的每个域，设定域号*/
 		snd_num = 0;
@@ -1262,7 +1261,7 @@ struct ComplexSubSerial {
 		pac_many = 0;
 		g_var_set = 0;
 	};
-		
+
 	~ComplexSubSerial()
 	{
 		if (pac_inses) delete []pac_inses;
@@ -1270,12 +1269,10 @@ struct ComplexSubSerial {
 		pac_many = 0;
 	};
 
-
 	/* 局域变量名根据protect所指向的元素属性名而变, 这样自然, 不用para1,para2之类的。 
 		vnm: 是一个变量名，如果在全局表中查不到，则当作变量内容
 		mid_num：是Me中指定的,是子元素或primay属性所指定的，局域变量名为: me.mid_num.xx
 	*/
-
 	struct PVar *set_loc_ref_var(struct PVar *ref_var, const char *mid_nm)
 	{
 		TiXmlAttribute *att; 
@@ -1727,7 +1724,7 @@ public:
 	void handle_pac();	//左边状态处理
 	bool sponte( Pius *);
 	Amor *clone();
-		
+
 	PacWay();
 	~PacWay();
 
@@ -1820,7 +1817,6 @@ private:
 			return &comps[depth];
 		}
 	} sub_wt;
-	
 
 	struct PacWork {
 		int step;	//0: send, 1: recv 
@@ -1870,6 +1866,7 @@ PacWay::~PacWay()
 	if ( has_config  )
 	{	
 		if(gCFG) delete gCFG;
+		gCFG = 0;
 	}
 }
 
@@ -1963,6 +1960,7 @@ bool PacWay::sponte( Amor::Pius *pius)
 		{
 			mess.iRet = ERROR_DEVICE_DOWN;
 			TEXTUS_SPRINTF(mess.err_str, "device down at %d", pius->subor);
+			mess.snap[Pos_ErrCode].input(mess.iRet);
 			mk_result();	//结束
 		}
 		break;
@@ -2107,7 +2105,7 @@ SUB_INS_PRO:
 				i_ret = 1;
 			else {
 				mess.iRet = ERROR_RECV_PAC;
-				TEXTUS_SPRINTF(mess.err_str, "recv pac fault at %d of %s", mess.pro_order, cur_def->flow_id);
+				TEXTUS_SPRINTF(mess.err_str, "fault at %d of %s", mess.pro_order, cur_def->flow_id);
 				i_ret = -2;	//这是基本报文错误，非脚本所控制
 			}
 			break;
@@ -2145,22 +2143,14 @@ SUB_INS_PRO:
 		s_ret = i_ret;
 	}
 
-	if ( s_ret == -1 ) {int *a =0 ; *a = 0; };
+	//if ( s_ret == -1 ) {int *a =0 ; *a = 0; };
 	return s_ret;
 }
 
 bool PacWay::mk_hand()
 {
-	char tmp[64], desc[64];
-	
-	struct DyVar *dvr=0;
 	struct User_Command *usr_com;
-	//struct TermOPBase *wbase ;
-	char *p, *q, *r;
-	unsigned long p_len, q_len, r_len;
-
 	int i_ret;
-
 INS_PRO:
 	usr_com = &(cur_def->ins_all.instructions[mess.ins_which]);
 	mess.pro_order = usr_com->order;	
@@ -2267,9 +2257,10 @@ void PacWay::mk_result()
 		if ( vt->dynamic_pos >=0 )
 		{
 			dvr = &mess.snap[vt->dynamic_pos];
-			snd_pac->input(vt->dest_fld_no, dvr->val_p, dvr->c_len);
+			if ( dvr->kind != VAR_None )
+				snd_pac->input(vt->dest_fld_no, dvr->val_p, dvr->c_len);
 		} else {
-			snd_pac->input(vt->dest_fld_no, &vt->content[0], vt->c_len);
+				snd_pac->input(vt->dest_fld_no, &vt->content[0], vt->c_len);
 		}
 	}
 	aptus->sponte(&loc_pro_pac);    //制卡的结果回应给控制台
