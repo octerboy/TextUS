@@ -2129,14 +2129,12 @@ SUB_INS_PRO:
 			wk = sub_wt.pop();
 			if (wk)		//从嵌套中出来
 				goto SUB_INS_PRO;
-			else 
-				s_ret = 1;	//整个已经完成
+			else
+				return 1;	//整个已经完成
 		} else
 			goto SUB_INS_PRO;
-	} else
-		s_ret = i_ret; //正在进行中,指令已备, 或者已经发生错误
-	//if ( s_ret == -1 ) {int *a =0 ; *a = 0; };
-	return s_ret;
+	}
+	return i_ret;
 }
 
 void PacWay::mk_hand()
