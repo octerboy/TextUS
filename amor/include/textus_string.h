@@ -49,10 +49,9 @@
 #define Obtainx(s)   "0123456789abcdef"[s]
 #define ObtainX(s)   "0123456789ABCDEF"[s]
 #define Obtainc(s)   (s >= 'A' && s <='F' ? s-'A'+10 :(s >= 'a' && s <='f' ? s-'a'+10 : s-'0' ) )
-
-static char* byte2hex(const unsigned char *byte, size_t blen, char *hex) 
+static char* byte2hex(const unsigned char *byte, unsigned long blen, char *hex) 
 {
-	size_t i;
+	unsigned long i;
 	for ( i = 0 ; i < blen ; i++ )
 	{
 		hex[2*i] =  ObtainX((byte[i] & 0xF0 ) >> 4 );
@@ -61,9 +60,9 @@ static char* byte2hex(const unsigned char *byte, size_t blen, char *hex)
 	return hex;
 }
 
-static unsigned char* hex2byte(unsigned char *byte, size_t blen, const char *hex)
+static unsigned char* hex2byte(unsigned char *byte, unsigned long blen, const char *hex)
 {
-	size_t i;
+	unsigned long i;
 	const char *p ;	
 
 	p = hex; i = 0;

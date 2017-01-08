@@ -4,9 +4,6 @@
 #include <stdio.h>
 #include <string.h>
 #define LINE_MAXLEN 1024
-#define ObtainHex(s, X)   ( (s) > 9 ? (s)-10+X :(s)+'0')
-#define Obtainx(s)   ObtainHex(s, 'a')
-#define ObtainX(s)   ObtainHex(s, 'A')
 static inline unsigned int validate(char* file_name, int row, const char *sum);
 /* 返回值为0: 表示OK 
 	   1: 过期

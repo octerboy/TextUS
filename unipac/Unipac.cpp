@@ -33,7 +33,6 @@
 #include <limits.h>
 #include <stdarg.h>
 #define PACINLINE inline
-#define Obtainx(s)   ( (s) > 9 ? (s)-10+'a' :(s)+'0')
 
 enum LocType {	/* 域定位方法 */
 	RIGID	= 0,	/* 固定长度 */

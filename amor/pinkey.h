@@ -30,10 +30,6 @@ static  int pinkeys[3][64] = {
 
 static  unsigned char sum_file_vector[8] = {9,44,88,13,7,5,6,36 };
 
-#define ObtainHex(s, X)   ( (s) > 9 ? (s)-10+X :(s)+'0')
-#define Obtainx(s)   ObtainHex(s, 'a')
-#define ObtainX(s)   ObtainHex(s, 'A')
-
 #include "xdes.c"
 static const char* sumfile (char *filename, int row, int keyIndex, unsigned char lrcblock[], int mode) 
 {

@@ -30,11 +30,6 @@
 #include <stdarg.h>
 
 #define PACINLINE inline
-#define ObtainHex(s, X)   ( (s) > 9 ? (s)-10+X :(s)+'0')
-#define Obtainx(s)   ObtainHex(s, 'a')
-#define ObtainX(s)   ObtainHex(s, 'A')
-#define Obtainc(s)   (s >= 'A' && s <='F' ? s-'A'+10 :(s >= 'a' && s <='f' ? s-'a'+10 : s-'0' ) )
-
 #define AFTER 0
 #define BEFORE 1
 
@@ -1010,7 +1005,6 @@ PACINLINE void Unifom::handle(int defNum, PProcDef defProcs, bool negative)
 
 void Unifom::convert(FieldObj &fldIn, PacketObj &pac, unsigned int fldOut, bool &negative, Proc_Convert &def)
 {
-	char what_hex;
 	CODE_TYPE in, out;
 
 	unsigned char *vbuf;
@@ -1133,15 +1127,14 @@ void Unifom::convert(FieldObj &fldIn, PacketObj &pac, unsigned int fldOut, bool 
 		{
 		case HEX:
 		case HEXCAP:
-			what_hex = out == HEX ? 'a': 'A';
 			len = fldIn.range*2;
 			pac.grant(len);
 
 			vbuf = pac.buf.point;
 			for (j = 0, i=0 ; j < fldIn.range ; j++)
 			{
-				vbuf[2*j] =  ObtainHex ((0xF0 & fldIn.val[j] ) >> 4, what_hex);
-				vbuf[2*j+1] = ObtainHex (0x0F & fldIn.val[j], what_hex) ;
+				vbuf[2*j] =  out == HEX ? ObtainX ((0xF0 & fldIn.val[j] ) >> 4):Obtainx((0xF0 & fldIn.val[j] ) >> 4) ;
+				vbuf[2*j+1] = out == HEX ? ObtainX (0x0F & fldIn.val[j]):Obtainx(0x0F & fldIn.val[j]) ;
 			}
 			pac.commit(fldOut, len);
 

@@ -3,7 +3,7 @@
 # Build
 #	B01:created by octerboy 2006/07/15
 include ../Rules.basemod
-INCLUDE_DIR  += -I../httpsrvhead/include -I../baselib/include
+INCLUDE_DIR  += -I../httpsrvhead/include -I../baselib/include -I../logdata/include
 AMOROBJS=Urlsw.o
 
 all:httpurlsw.so

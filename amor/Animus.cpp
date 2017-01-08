@@ -299,6 +299,7 @@ void Animus::stipes(const char *bran_tag)
 
 	bran_num = 0;
 	aps = carbo->FirstChildElement(bran_tag);
+	if ( !aps ) return;
 	/* how many of pius accept? bran_num. */
 	for ( bran_ele = aps->FirstChildElement();
 		bran_ele; bran_ele = bran_ele->NextSiblingElement() )

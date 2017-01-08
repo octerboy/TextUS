@@ -1487,6 +1487,7 @@ struct INS_Set {
 					refny++;				
 			}
 		}
+		printf("333\n");
 		//初步确定变量数
 		many = refny ;
 		instructions = new struct User_Command[many];
@@ -1626,6 +1627,8 @@ struct  Personal_Def	//个人化定义
 		else
 			v_root = per_ele->FirstChildElement("Var");
 
+		if ( !c_root || !k_root || !pac_def_root ) 
+			return false;
 		if ( c_root)
 		{
 			if ( k_root ) 
@@ -1998,7 +2001,7 @@ void PacWay::handle_pac()
 		{
 			mess.iRet = ERROR_INS_DEF;	
 			TEXTUS_SPRINTF(mess.err_str, "not defined flow_id: %s ", mess.flow_id );
-			mess->snap[Pos_ErrCode].input(mess.iRet);
+			mess.snap[Pos_ErrCode].input(mess.iRet);
 			mk_result();	//工作结束
 			goto HERE_END;
 		}
@@ -2095,7 +2098,7 @@ SUB_INS_PRO:
 				else {
 					mess.iRet = ERROR_RESULT;
 					TEXTUS_SPRINTF(mess.err_str, "result error at %d of %s", mess.pro_order, cur_def->flow_id);
-					mess->snap[Pos_ErrCode].input(paci->err_code);
+					mess.snap[Pos_ErrCode].input(paci->err_code);
 					i_ret = -2;	//这是脚本所控制
 				}
 			} else {
@@ -2112,7 +2115,7 @@ SUB_INS_PRO:
 
 	case INS_Abort:
 		i_ret = -1;	//脚本所控制的错误
-		mess->snap[Pos_ErrCode].input(paci->err_code);
+		mess.snap[Pos_ErrCode].input(paci->err_code);
 		break;
 
 	default :
@@ -2167,16 +2170,16 @@ NEXT_PRI_TRY:
 			{
 				mess.iRet = ERROR_COMPLEX_TOO_DEEP;
 				TEXTUS_SPRINTF(mess.err_str, "too many nested complex at %d of %s", mess.pro_order, cur_def->flow_id);
-				mess->snap[Pos_ErrCode].input(mess.iRet);
+				mess.snap[Pos_ErrCode].input(mess.iRet);
 				mk_result();
 				return ;
 			}
 			pac_wt.step = 0;
-			command_wt.step++;
 			if ( usr_com->comp_num ==1 )
 				mess.snap[Pos_WillErrPro].input('1');	//指标外部脚本：如果失败，就调用相应过程，否则不调用。
 			else 
 				mess.snap[Pos_WillErrPro].input('0');	//指标外部脚本：即使失败也不调用相应过程。因为这是一个中间步骤			
+			command_wt.step++;	//指向下一步
 		case 1:	
 			i_ret = sub_serial_pro();
 			if ( i_ret == -1 ) 
@@ -2198,7 +2201,7 @@ NEXT_PRI_TRY:
 				aptus->facio(&loc_pro_pac);     //向右发出, 然后等待, 这个放在别处????
 			} else if ( i_ret < 0 )  //脚本控制或报文定义 的 错误
 			{
-					mk_result(); 
+				mk_result(); 
 			} else {
 				mess.right_status = RT_READY;	//右端闲
 				WLOG(CRIT, "has completed %d, order %d", mess.ins_which, mess.pro_order);

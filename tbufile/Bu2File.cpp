@@ -274,11 +274,6 @@ bool Bu2File::sponte( Amor::Pius *pius)
 	return true;
 }
 
-#define ObtainHex(s, X)   ( (s) > 9 ? (s)-10+X :(s)+'0')
-#define Obtainx(s)   ObtainHex(s, 'a')
-#define ObtainX(s)   ObtainHex(s, 'A')
-#define Obtainc(s)   (s >= 'A' && s <='F' ? s-'A'+10 :(s >= 'a' && s <='f' ? s-'a'+10 : s-'0' ) )
-
 int Bu2File::bug_view(TBuffer *tbuf, char *str )
 {
 	int i,ri, len, rows, rest;
