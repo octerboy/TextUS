@@ -1,15 +1,19 @@
 #Makefile base rule, not for microsoft vc
 TEXTUS_DIR = $(HOME)/textus
+RELEASE_DIR = $(HOME)/lib
 CC=gcc
 CXX=g++
 LD=g++
 CFLAGS  = -O3 -g -Wall -c -fPIC
 INCLUDE_DIR = -I$(TEXTUS_DIR)/tinyxml -I$(TEXTUS_DIR)/amor/include
-LDFLAGS = -O3 -shared -dn
+LDFLAGS = -O3 -shared -dn -L$(HOME)/lib
+ALONE_LDFLAGS = -O3 -shared -dn
 LDLIBS = 
+ALONE_LDLIBS = 
 MAKE = make
 
 DEBUG_FLAG= -DNNDEBUG 
 
 LIBSOCKET=
+_POST_RPO_SUB = cp $@ $(RELEASE_DIR)
 

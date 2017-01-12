@@ -23,15 +23,15 @@
 namespace Notitia
 {
 enum HERE_ORDO { 
-	IGNITE_ALL_READY=0,	/* info, all children node have been ignited */
-	MAIN_PARA	=1,	/* the parameter of main(), *indic[0] = argc, *indic[1] = argv  */
+	MAIN_PARA		=1,	/* the parameter of main(), *indic[0] = argc, *indic[1] = argv  */
 	WINMAIN_PARA	=2,	/* the parameter of WinMain()  */
 	CMD_MAIN_EXIT	=3,	/* 退出主程序 */
 	
 	CLONE_ALL_READY	=5,	/* 所有子节点已clone完毕 */
 	CMD_GET_OWNER	=6,	/* 取得aptus的owner对象指针 */
 	SET_SAME_PRIUS	=7,	/* 使indic所指的amor对象与本对象有相同的prius */
-	WHO_AM_I	=8,	/* 以sponte方式给出, 指示自身的this指针 */
+	WHO_AM_I		=8,	/* 以sponte方式给出, 指示自身的this指针 */
+	IGNITE_ALL_READY=9,	/* info, all children node have been ignited */
 
 	LOG_EMERG	=10,
 	LOG_ALERT	=11,
@@ -200,7 +200,7 @@ enum HERE_ORDO {
 	IC_RESET_SAM	=316, 	/* 复位PSAM, indic指向数组, 第1个int*返回(0表示OK), 第2个错误描述指针, 第3个为int *slot(空指针为默认), 第4个指向char *ATR(输出) */
 	IC_PRO_PRESENT	=317, 	/* IC卡是否在(包括非接), 第1个int*返回(如有卡则加1, 否则不加), 第2个错误描述指针, 第3个为int *slot(空指针为默认) */
 
-	TEXTUS_RESERVED =-1	/* reserved */
+	TEXTUS_RESERVED =0	/* reserved */
 };
 	TEXTUS_AMOR_STORAGE unsigned long get_ordo(const char *comm_str);
 };

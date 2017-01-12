@@ -33,7 +33,7 @@
 #define COMMON_DIGEST_FOR_OPENSSL
 #include <CommonCrypto/CommonDigest.h>
 #else
-#include <openssl/sha.h>
+#include <openssl/md5.h>
 #endif
 
 int squeeze(const char *p, unsigned char *q)	//把空格等挤掉, 只留下16进制字符(大写), 返回实际的长度
@@ -85,6 +85,7 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2};
 #define Pos_Fixed_Next 8  //下一个动态变量的位置, 也是为脚本自定义动态变量的第1个位置
 #define VARIABLE_TAG_NAME "Variable"
 #define ME_VARIABLE_HEAD "me."
+
 	struct PVar
 	{
 		Var_Type kind;
@@ -102,7 +103,7 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2};
 		int dest_fld_no;	//响应报文的目的域号, 
 
 		char me_name[64];	//Me变量名称，除去开头的 me. 三个字节, 不包括后缀. 从变量名name中复制，最大63字符
-		int me_nm_len;
+		unsigned int me_nm_len;
 		const char *me_sub_name;  //Me变量后缀名， 从变量名name中定位。
 		int me_sub_nm_len;
 
@@ -153,7 +154,6 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2};
 		struct PVar* prepare(TiXmlElement *var_ele, int &dy_at) //变量准备
 		{
 			const char *p, *dy, *nm;
-			int i;
 			kind = VAR_None;
 			self_ele = var_ele;
 
@@ -807,7 +807,7 @@ struct CmdSnd {
 	void hard_work_2 ( TiXmlElement *pac_ele, TiXmlElement *usr_ele, struct PVar_Set *g_vars, struct PVar_Set *me_vars)
 	{
 		struct PVar *vr_tmp, *vr2_tmp=0;
-		TiXmlElement *e_tmp, *n_ele, *p_ele;
+		TiXmlElement *e_tmp, *n_ele;
 		TiXmlElement *e2_tmp, *n2_ele;
 		unsigned long g_ln;
 		unsigned char *cp;
@@ -981,7 +981,7 @@ ALL_STILL:
 struct CmdRcv {
 	int fld_no;	//接收的域号, 有多个接收定义，每个只定义一个变量.所以，有多个定义，指向同一个域。
 	int dyna_pos;	//动态变量位置, -1表示静态
-	int start;
+	unsigned int start;
 	int length;
 	unsigned char *must_con;
 	unsigned long must_len;
@@ -1060,7 +1060,7 @@ struct PacIns:public Condition  {
 	/* 本指令处理响应报文，匹配必须的内容,出错时置出错代码变量 */
 	bool pro_rcv_pac(PacketObj *rcv_pac,  struct MK_Session *mess)
 	{
-		int ii,min_len;
+		int ii;
 		unsigned char *fc;
 		unsigned long rlen;
 		struct CmdRcv *rply;
@@ -1080,7 +1080,7 @@ struct PacIns:public Condition  {
 				if ( rlen >= (rply->start ) )	
 				{
 					rlen -= (rply->start-1); //start是从1开始
-					if ( rply->length > 0 && rply->length < rlen)
+					if ( rply->length > 0 && (unsigned int)rply->length < rlen)
 						rlen = rply->length;
 					mess->snap[rply->dyna_pos].input(&fc[rply->start-1], rlen);
 				}
@@ -1098,8 +1098,8 @@ ErrRet:
 	int hard_work ( TiXmlElement *def_ele, TiXmlElement *pac_ele, TiXmlElement *usr_ele, struct PVar_Set *g_vars, struct PVar_Set *me_vars)
 	{
 		struct PVar *vr_tmp=0;
-		TiXmlElement *e_tmp, *n_ele, *p_ele, *some_ele;
-		const char *p;
+		TiXmlElement *e_tmp, *p_ele, *some_ele;
+		const char *p=0;
 
 		int i = 0;
 		int lnn;
@@ -1206,7 +1206,9 @@ ANOTHER:
 						if (vr_tmp) 
 						{
 							rcv_lst[i].dyna_pos = vr_tmp->dynamic_pos;
-							e_tmp->QueryIntAttribute("start", &(rcv_lst[i].start));
+							e_tmp->QueryIntAttribute("start", &(lnn));
+							if ( lnn >= 1) 
+								rcv_lst[i].start = (unsigned int)lnn;
 							e_tmp->QueryIntAttribute("length", &(rcv_lst[i].length));
 						}
 					}
@@ -1307,9 +1309,8 @@ struct ComplexSubSerial {
 
 		char pro_nm[128];
 
-		TiXmlElement *pac_ele, *def_ele, *e_tmp, *n_ele, *p_ele;
+		TiXmlElement *pac_ele, *def_ele;
 		TiXmlElement *body;	//用户命令的第一个body元素
-		struct PVar *vr_tmp=0;
 		int which, icc_num=0 ;
 		int i;
 
@@ -1397,7 +1398,7 @@ struct User_Command : public Condition {		//INS_User指令定义
 	{
 		TiXmlElement *pri;
 		const char *pri_nm;
-		int ret_ic, i;
+		int ret_ic=0, i;
 
 		//前面已经分析过了, 这里肯定不为NULL,nm就是Command之类的。 sub_serial 
 		pri_nm = sub_serial->Attribute("primary");
@@ -1476,7 +1477,7 @@ struct INS_Set {
 	void put_inses(TiXmlElement *root, struct PVar_Set *var_set, TiXmlElement *map_root, TiXmlElement *pac_def_root)
 	{
 		TiXmlElement *usr_ele, *sub;
-		int mor, cor, vmany, refny, i, i_num ;
+		int mor, cor, vmany, refny, i_num ;
 
 		for ( usr_ele= root->FirstChildElement(), refny = 0; 
 			usr_ele; usr_ele = usr_ele->NextSiblingElement())
@@ -1794,7 +1795,6 @@ private:
 
 		struct CompWKBase *pop()
 		{
-			struct CompWKBase *ret;
 			depth--;
 			if ( depth < 0 )
 				return 0;
@@ -2061,7 +2061,7 @@ HERE_END:
 /* 子序列入口 */
 int PacWay::sub_serial_pro()
 {
-	int i_ret=1, s_ret=0;
+	int i_ret=1;
 	struct PacIns *paci;
 	struct CompWKBase *wk = sub_wt.peek();
 

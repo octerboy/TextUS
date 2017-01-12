@@ -51,9 +51,9 @@ public:
 		const char *tag;		/* the tag of xml element for load module */
 		int must;			/* should ignite() */
 		inline  Aptus_Positor () {
-			genero =0;
-			casso  =0;
-			carbo =0;
+			genero = 0;
+			casso  = 0;
+			carbo = 0;
 			tag = 0;
 			must = 0;
 		}
@@ -76,7 +76,7 @@ public:
 		bool accept;
 		bool is_fac;
 		inline Branch() {
-			ordo = -1;
+			ordo = 0;
 			sub = -1;
 			accept = true;
 			is_fac = true;

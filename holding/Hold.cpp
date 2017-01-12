@@ -391,10 +391,6 @@ int* Hold::addSession( char *domain)
 	return &(gCFG->sess[i].id);
 }
 
-#define ObtainHex(s, X)   ( (s) > 9 ? (s)-10+X :(s)+'0')
-#define ObtainX(s)   ObtainHex(s, 'A')
-#define Obtainx(s)   ObtainHex(s, 'a')
-
 void Hold::getsum(char *output, char *dom, const char *snm, int snlen)
 {
 	char *p = dom;
