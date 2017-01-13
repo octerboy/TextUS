@@ -70,7 +70,7 @@ enum LEFT_STATUS { LT_Idle = 0, LT_Working = 3};
 /* 右边状态, 空闲, 发出报文等响应 */
 enum RIGHT_STATUS { RT_IDLE = 0, RT_OUT=7, RT_READY = 3};
 
-enum Var_Type {VAR_ErrCode=1, VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_CurOrder=4, VAR_CurCent=5, VAR_ErrStr=6, VAR_WillErrPro=7, VAR_Dynamic = 10, VAR_Refer=11, VAR_Me=12, VAR_Constant=98,  VAR_None=99};
+enum Var_Type {VAR_ErrCode=1, VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_CurOrder=4, VAR_CurCent=5, VAR_ErrStr=6, VAR_WillErrPro=7, VAR_Dynamic = 10, VAR_Me=12, VAR_Constant=98,  VAR_None=99};
 /* 命令分几种，INS_Normal：标准，INS_Abort：终止 */
 enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2};
 
@@ -83,9 +83,8 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2};
 #define Pos_ErrStr 6 
 #define Pos_WillErrPro 7 
 #define Pos_Fixed_Next 8  //下一个动态变量的位置, 也是为脚本自定义动态变量的第1个位置
-#define VARIABLE_TAG_NAME "Variable"
+#define VARIABLE_TAG_NAME "Var"
 #define ME_VARIABLE_HEAD "me."
-
 	struct PVar
 	{
 		Var_Type kind;
@@ -153,7 +152,7 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2};
 
 		struct PVar* prepare(TiXmlElement *var_ele, int &dy_at) //变量准备
 		{
-			const char *p, *dy, *nm;
+			const char *p, *nm;
 			kind = VAR_None;
 			self_ele = var_ele;
 
@@ -222,18 +221,11 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2};
 
 			if ( kind != VAR_None) goto P_RET; //已有定义，不再看这个Dynamic, 以上定义都与Dynamic相同处理
 
-			dy = var_ele->Attribute("dynamic");
-			if ( dy )
+			if (var_ele->Attribute("dynamic"))
 			{
-				if ( strcasecmp(dy, "yes") == 0 ) 
-				{
-					dynamic_pos = dy_at;	//动态变量位置
-					kind = VAR_Dynamic;
-					dy_at++;
-				} else if ( strcasecmp(dy, "refer") == 0 ) 
-				{
-					kind = VAR_Refer;
-				}
+				dynamic_pos = dy_at;	//动态变量位置
+				kind = VAR_Dynamic;
+				dy_at++;
 			}
 
 			if ( kind != VAR_None) goto P_RET; //已有定义，
@@ -434,8 +426,7 @@ struct PVar_Set {
 
 	bool is_var(const char *nm)
 	{
-		if (nm  && strlen(nm) == sizeof(VARIABLE_TAG_NAME) && memcmp(nm, VARIABLE_TAG_NAME, sizeof(VARIABLE_TAG_NAME)) == 0 )
-			return true;
+		if (nm  && strcasecmp(nm, VARIABLE_TAG_NAME) == 0 ) return true;
 		return false;
 	}
 
@@ -580,7 +571,7 @@ struct PVar_Set {
 			if ( rt && rt->kind < VAR_Constant )		//如果有非静态的, 这里先中断
 				break;
 		}
-		command[ac_len] = 0;	//结束NULL
+		if (command) command[ac_len] = 0;	//结束NULL
 		nxt = comp;	//指示下一个变量
 		return rt;
 	};
@@ -1336,6 +1327,7 @@ struct ComplexSubSerial {
 		}
 
 		TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s", "Pro"); //先假定子序列是Pro element，如果有主参考变量，下面会更新。
+		printf("--- %s, usr %s\n",pro_nm, usr_ele->GetText());
 		if ( pri_vnm ) //如果有主参考变量, 就即根据这个主参考变量中找到相应的sub_pro, pri_vnm就是$Main之类的。
 		{
 			ref_var = set_loc_ref_var(pri_vnm, usr_def_entry->Attribute("primary")); /* primary属性指明protect之类的, 实际上就是me.protect.*这样的东西。这里更新局部变量集 */
@@ -1488,7 +1480,7 @@ struct INS_Set {
 					refny++;				
 			}
 		}
-		printf("333\n");
+
 		//初步确定变量数
 		many = refny ;
 		instructions = new struct User_Command[many];
@@ -1503,6 +1495,7 @@ struct INS_Set {
 				sub = yes_ins(usr_ele, map_root, var_set);
 				if ( sub)
 				{
+				printf("++++ treu %s\n", usr_ele->Value());
 					cor = 0;
 					usr_ele->QueryIntAttribute("order", &(cor)); 
 					if ( cor <= mor ) continue;	//order不符合顺序的，略过
