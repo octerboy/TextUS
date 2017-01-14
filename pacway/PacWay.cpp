@@ -1147,9 +1147,9 @@ ErrRet:
 		rcv_num = 0;
 		for (p_ele= def_ele->FirstChildElement(); p_ele; p_ele = p_ele->NextSiblingElement())
 		{
-			p = p_ele->Value();
-			if ( !p ) continue;
-			if ( strcasecmp(p, "recv") == 0 || p_ele->Attribute("from")) 
+			tag = p_ele->Value();
+			if ( !tag ) continue;
+			if ( strcasecmp(tag, "recv") == 0 || p_ele->Attribute("from")) 
 			{
 				rcv_num++;
 				continue;	/* recv 仅在基础报文定义中出现 */
@@ -1166,7 +1166,7 @@ ErrRet:
 		{
 			tag = p_ele->Value();
 			if ( !tag ) continue;
-			if ( strcasecmp(p, "recv") == 0 || p_ele->Attribute("from")) 
+			if ( strcasecmp(tag, "recv") == 0 || p_ele->Attribute("from")) 
 			{
 				p_ele->QueryIntAttribute("field", &(rcv_lst[i].fld_no));
 				rcv_lst[i].tag = tag;
@@ -1327,7 +1327,6 @@ struct ComplexSubSerial {
 		}
 
 		TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s", "Pro"); //先假定子序列是Pro element，如果有主参考变量，下面会更新。
-		printf("--- %s, usr %s\n",pro_nm, usr_ele->GetText());
 		if ( pri_vnm ) //如果有主参考变量, 就即根据这个主参考变量中找到相应的sub_pro, pri_vnm就是$Main之类的。
 		{
 			ref_var = set_loc_ref_var(pri_vnm, usr_def_entry->Attribute("primary")); /* primary属性指明protect之类的, 实际上就是me.protect.*这样的东西。这里更新局部变量集 */
@@ -1375,7 +1374,6 @@ struct ComplexSubSerial {
 					which++;
 				}
 			}
-			pac_ele = pac_ele->NextSiblingElement();
 		}
 		return icc_num;
 	};
@@ -1495,7 +1493,6 @@ struct INS_Set {
 				sub = yes_ins(usr_ele, map_root, var_set);
 				if ( sub)
 				{
-				printf("++++ treu %s\n", usr_ele->Value());
 					cor = 0;
 					usr_ele->QueryIntAttribute("order", &(cor)); 
 					if ( cor <= mor ) continue;	//order不符合顺序的，略过
