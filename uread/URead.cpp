@@ -1,5 +1,5 @@
-#include "Notitia.h"
 #include "Amor.h"
+#include "Notitia.h"
 #include "casecmp.h"
 #include "textus_string.h"
 #include <stdio.h>
@@ -10,40 +10,6 @@
 /* $NoKeywords: $ */
 
 #define MINLINE inline
-#define ObtainHex(s,X)   ( (s) > 9 ? (s)-10+X :(s)+'0')
-#define Obtainx(s)   ObtainHex(s,'a')
-#define ObtainX(s)   ObtainHex(s,'A')
-#define Obtainc(s)   (s >= 'A' && s <='F' ? s-'A'+10 :(s >= 'a' && s <='f' ? s-'a'+10 : s-'0' ) )
-
-static char* byte2hex(const unsigned char *byte, size_t blen, char *hex) 
-{
-	size_t i;
-	for ( i = 0 ; i < blen ; i++ )
-	{
-		hex[2*i] =  ObtainX((byte[i] & 0xF0 ) >> 4 );
-		hex[2*i+1] = ObtainX(byte[i] & 0x0F );
-	}
-//	hex[2*i] = '\0';
-	return hex;
-}
-
-static unsigned char* hex2byte(unsigned char *byte, size_t blen, const char *hex)
-{
-	size_t i;
-	const char *p ;	
-
-	p = hex; i = 0;
-
-	while ( i < blen )
-	{
-		byte[i] =  (0x0F & Obtainc( hex[2*i] ) ) << 4;
-		byte[i] |=  Obtainc( hex[2*i+1] ) & 0x0f ;
-		i++;
-		p +=2;
-	}
-	return byte;
-}
-
 
 typedef int (__stdcall *TP_open_dev)(char* Paras);
 typedef int (__stdcall *TP_close_dev)(long DevHandle);
@@ -54,6 +20,22 @@ typedef int (__stdcall *TP_pro_command)(long DevHandle,int CardPlace, int iComma
 typedef int (__stdcall *TP_sam_command)(long DevHandle,int iSockID,int iCommandLength, char* sCommand ,int* iReplylength,char* sReply);
 typedef int (__stdcall *TP_pro_detect)(long DevHandle);
 typedef char* (__stdcall *TP_get_info)(int rc);
+
+typedef bool (__stdcall *TP_GetCardNo_RFID)(char* CardNo);
+typedef bool (__stdcall *TP_GetCPCID_RFID)(char* CPCID);
+typedef bool (__stdcall *TP_GetFlagStationInfo_RFID)(char* CPCID,int *FlagStationCnt,char* FlagStationInfo);
+typedef bool (__stdcall *TP_GetPowerInfo_RFID)(char* CPCID,int *PowerInfo);
+typedef bool (__stdcall *TP_Set433CardMode_RFID)(char* CPCID,int iMode);
+typedef bool (__stdcall *TP_Get433CardMode_RFID)(char* CPCID,int* iMode);
+
+typedef int (__stdcall *TP_ICC_authenticate) (long DevHandle, int CardPlace,int sector,int keytype, char* key);
+typedef int (__stdcall *TP_ICC_readsector) (long DevHandle, int CardPlace, int sector, int start, int len, char* data);
+typedef int (__stdcall *TP_ICC_writesector)  (long DevHandle, int CardPlace, int sector, int start, int len, char* data);
+typedef int (__stdcall *TP_GetReaderVersion) (long DevHandle,char* sReaderVersion, int iRVerMaxLength,char* sAPIVersion, int iAPIVerMaxlength);
+typedef int (__stdcall *TP_Led_display) (long DevHandle,unsigned char cRed,unsigned char cGreen,unsigned char cBlue);
+typedef int (__stdcall *TP_Audio_control) (long DevHandle,unsigned  char cBeep);
+
+
 class URead: public Amor
 {
 public:
@@ -68,6 +50,20 @@ public:
 	TP_sam_command sam_command;
 	TP_pro_detect pro_detect;
 	TP_get_info get_info;
+
+	TP_GetCardNo_RFID getcardno_rfid;
+	TP_GetCPCID_RFID getcpcid_rfid;
+	TP_GetFlagStationInfo_RFID getflagstationinfo_rfid;
+	TP_GetPowerInfo_RFID getpowerinfo_rfid;
+	TP_Set433CardMode_RFID set433cardmode_rfid;
+	TP_Get433CardMode_RFID get433cardmode_rfid;
+
+	TP_ICC_authenticate icc_authenticate;
+	TP_ICC_readsector icc_readsector;
+	TP_ICC_writesector icc_writesector;
+	TP_GetReaderVersion getreaderversion;
+	TP_Led_display led_display;
+	TP_Audio_control audio_control;
 
 	bool dev_ok;	//true:设备已经OK. 
 	bool pro_ok;	//true:用户卡片已经OK, 一旦发生通讯错误, 即将此值设为false
@@ -115,9 +111,9 @@ void URead::ignite(TiXmlElement *prop)
 	com = prop->Attribute("com") ;
 	if ( com ) 
 	{
-		strcpy(comm_para, com);
+		TEXTUS_STRCPY(comm_para, com);
 	} else {
-		strcpy(comm_para, "1,COM1,115200");
+		TEXTUS_STRCPY(comm_para, "1,COM1,115200");
 	}
 	prop->QueryIntAttribute("sam_slot", &sam_face);
 
@@ -174,6 +170,20 @@ void URead::ignite(TiXmlElement *prop)
 			sam_command=(TP_sam_command)GetProcAddress(ext, "SAM_command");
 			pro_detect=(TP_pro_detect)GetProcAddress(ext, "PRO_detect");
 			get_info =(TP_get_info)GetProcAddress(ext, "GetOpInfo");
+
+			getcardno_rfid = (TP_GetCardNo_RFID) GetProcAddress(ext, "GetCardNo_RFID");
+			getcpcid_rfid = (TP_GetCPCID_RFID)  GetProcAddress(ext, "GetCPCID_RFID");
+			getflagstationinfo_rfid = (TP_GetFlagStationInfo_RFID ) GetProcAddress(ext, "GetFlagStationInfo_RFID");
+			getpowerinfo_rfid = (TP_GetPowerInfo_RFID)  GetProcAddress(ext, "GetPowerInfo_RFID") ;
+			set433cardmode_rfid = (TP_Set433CardMode_RFID) GetProcAddress(ext, "Set433CardMode_RFID") ;
+			get433cardmode_rfid = (TP_Get433CardMode_RFID) GetProcAddress(ext, "Get433CardMode_RFID") ;
+
+			icc_authenticate = (TP_ICC_authenticate) GetProcAddress(ext, "ICC_authenticate");
+			icc_readsector = (TP_ICC_readsector) GetProcAddress(ext, "ICC_readsector");
+			icc_writesector = (TP_ICC_writesector) GetProcAddress(ext, "ICC_writesector");
+			getreaderversion = (TP_GetReaderVersion) GetProcAddress(ext, "GetReaderVersion");
+			led_display = (TP_Led_display) GetProcAddress(ext, "Led_display") ;
+			audio_control = (TP_Audio_control) GetProcAddress(ext, "Audio_control");
 		} else {
 		}
 	}
@@ -237,6 +247,7 @@ int URead::Sam_Reset(char atr[64])
 	int len;
 	char resp[255];
 	
+	atr[0] = 0;
 	ret=sam_reset(hdev, sam_face, &len, resp);
 	if ( ret ==0) 
 	{
@@ -295,6 +306,8 @@ int URead::CardCommand (char* command, char* response, int which, int *sw)
 int URead::dev_close(void)
 {
 	int ret;
+	if (hdev == 0 ) 
+		return 0;
 	ret = close_dev(hdev);
 	hdev = 0;
 	return ret;
@@ -346,11 +359,13 @@ bool URead::facio( Amor::Pius *pius)
 	int *psw;
 	int which;
 	bool *isPresent;
-
+	int *piSockID;
 	assert(pius);
+
 	switch(pius->ordo )
 	{
 	case Notitia::IC_DEV_INIT:
+		WBUG("facio IC_DEV_INIT");
 		ps = (void**)(pius->indic);
 		ret = (int*)ps[0];
 		m_error_buf = (char*)ps[1];
@@ -373,8 +388,8 @@ bool URead::facio( Amor::Pius *pius)
 
 	case Notitia::IC_OPEN_PRO:
 		WBUG("facio IC_OPEN_PRO dev_ok %d", dev_ok);
-		if ( !dev_ok ) 
-			return false;		//如果设备没有准备好, 这里根本不处理
+		if ( !dev_ok ) return false;		//如果设备没有准备好, 这里根本不处理
+
 		ps = (void**)(pius->indic);
 		ret = (int*)ps[0];
 		m_error_buf = (char*)ps[1];
@@ -388,8 +403,8 @@ bool URead::facio( Amor::Pius *pius)
 
 	case Notitia::IC_CLOSE_PRO:
 		WBUG("facio IC_CLOSE_PRO dev_ok %d", dev_ok);
-		if ( !dev_ok ) 
-			return false;		//如果设备没有准备好, 这里根本不处理
+		if ( !dev_ok ) return false;		//如果设备没有准备好, 这里根本不处理
+
 		ps = (void**)(pius->indic);
 		ret = (int*)ps[0];
 		m_error_buf = (char*)ps[1];
@@ -399,23 +414,30 @@ bool URead::facio( Amor::Pius *pius)
 
 	case Notitia::IC_SAM_COMMAND:
 		WBUG("facio IC_SAM_COMMAND sam_ok %d", sam_ok);
-		if ( !sam_ok ) 
-			return false;		//如果SAM卡没有准备好, 这里根本不处理
+		if ( !sam_ok ) return false;		//如果SAM卡没有准备好, 这里根本不处理
+
 		which = 0;
 		goto COMM;
 
 	case Notitia::IC_PRO_COMMAND:
 		WBUG("facio IC_PRO_COMMAND pro_ok %d", pro_ok);
-		if ( !pro_ok ) 
-			return false;		//如果用户卡没有准备好, 这里根本不处理
+		if ( !pro_ok ) return false;		//如果用户卡没有准备好, 这里根本不处理
+
 		which = 1;
 COMM:
 		ps = (void**)(pius->indic);
 		ret = (int*)ps[0];
 		m_error_buf = (char*)ps[1];
+		piSockID = (int*) ps[2];
 		comm = (char*)ps[3];
 		reply = (char*)ps[4];
 		psw = (int*)(ps[5]);
+
+		if (pius->ordo ==Notitia::IC_SAM_COMMAND &&  piSockID != 0 ) 
+			sam_face = *piSockID; //如果指定了某个sam位置，那以后就默认用这个位置。
+
+		if (pius->ordo ==Notitia::IC_PRO_COMMAND &&  piSockID != 0 ) 
+			card_place = *piSockID; 
 
 		*ret = CardCommand (comm, reply, which, psw);
 		WBUG("ProComm req(%s) res(%s) %04x",comm, reply, *psw);
@@ -430,12 +452,16 @@ COMM:
 
 	case Notitia::IC_RESET_SAM:
 		WBUG("facio IC_RESET_SAM dev_ok %d", dev_ok);
-		if ( !dev_ok ) 
-			return false;		//如果设备没有准备好, 这里根本不处理
+		if ( !dev_ok ) return false;		//如果设备没有准备好, 这里根本不处理
+
 		ps = (void**)(pius->indic);
 		ret = (int*)ps[0];
 		m_error_buf = (char*)ps[1];
+		piSockID = (int*) ps[2];
 		atr = (char*)ps[3];
+
+		if ( piSockID != 0 ) 
+			sam_face = *piSockID; //如果指定了某个sam位置，那以后就默认用这个位置。
 		*ret = Sam_Reset(atr);
 		if ( *ret == 0 ) 
 			sam_ok = true;
@@ -445,8 +471,8 @@ COMM:
 		break;
 	case Notitia::IC_PRO_PRESENT:
 		WBUG("facio IC_PRO_PRESENT dev_ok %d", dev_ok);
-		if ( !dev_ok ) 
-			return false;		//如果设备没有准备好, 这里根本不处理
+		if ( !dev_ok ) return false;		//如果设备没有准备好, 这里根本不处理
+
 		ps = (void**)(pius->indic);
 		isPresent = (bool*)ps[0];
 		m_error_buf = (char*)ps[1];
@@ -462,6 +488,124 @@ COMM:
 		ReleaseMutex(op_mutex);
 */
 		*isPresent = Pro_Present();
+		break;
+
+	case Notitia::ICC_Authenticate:
+		WBUG("facio ICC_Authenticate dev_ok %d", dev_ok);
+		if ( !dev_ok ) return false;		//如果设备没有准备好, 这里根本不处理
+
+		ps = (void**)(pius->indic);
+		*((int*)ps[0]) = icc_authenticate(hdev, *((int*)ps[2]), *((int*)ps[3]), *((int*)ps[4]), (char*)ps[5]);
+		break;
+
+	case Notitia::ICC_Read_Sector:
+		WBUG("facio ICC_Read_Sector dev_ok %d", dev_ok);
+		if ( !dev_ok ) return false;		//如果设备没有准备好, 这里根本不处理
+
+		ps = (void**)(pius->indic);
+		*((int*)ps[0]) = icc_readsector(hdev, *((int*)ps[2]), *((int*)ps[3]), *((int*)ps[4]), *((int*)ps[5]), (char*)ps[6]);
+		break;
+
+	case Notitia::ICC_Write_Sector:
+		WBUG("facio ICC_Write_Sector dev_ok %d", dev_ok);
+		if ( !dev_ok ) return false;		//如果设备没有准备好, 这里根本不处理
+
+		ps = (void**)(pius->indic);
+		*((int*)ps[0]) = icc_writesector(hdev, *((int*)ps[2]), *((int*)ps[3]), *((int*)ps[4]), *((int*)ps[5]), (char*)ps[6]);
+		break;
+
+	case Notitia::ICC_Reader_Version:
+		WBUG("facio ICC_Reader_Version dev_ok %d", dev_ok);
+		if ( !dev_ok ) return false;		//如果设备没有准备好, 这里根本不处理
+
+		ps = (void**)(pius->indic);
+		*((int*)ps[0]) = getreaderversion(hdev, (char*)ps[2], *((int*)ps[3]), (char*)ps[4], *((int*)ps[5]));
+		break;
+
+	case Notitia::ICC_Led_Display:
+		WBUG("facio ICC_Led_Display dev_ok %d", dev_ok);
+		if ( !dev_ok ) return false;		//如果设备没有准备好, 这里根本不处理
+
+		ps = (void**)(pius->indic);
+		*((int*)ps[0]) = led_display(hdev, *((unsigned char*)ps[2]), *((unsigned char*)ps[3]), *((unsigned char*)ps[4]));
+		break;
+
+	case Notitia::ICC_Audio_Control:
+		WBUG("facio ICC_Audio_Control dev_ok %d", dev_ok);
+		if ( !dev_ok ) return false;		//如果设备没有准备好, 这里根本不处理
+
+		ps = (void**)(pius->indic);
+		*((int*)ps[0]) = audio_control(hdev, *((unsigned char*)ps[2]));
+		break;
+
+	case Notitia::ICC_GetOpInfo:
+		WBUG("facio ICC_GetOpInfo dev_ok %d", dev_ok);
+		if ( !dev_ok ) return false;		//如果设备没有准备好, 这里根本不处理
+
+		ps = (void**)(pius->indic);
+		*((char**)ps[0]) = get_info(*((int*)ps[2]));
+		break;
+
+	case Notitia::ICC_Get_Card_RFID:
+		WBUG("facio ICC_Get_Card_RFID dev_ok %d", dev_ok);
+		if ( !dev_ok ) return false;		//如果设备没有准备好, 这里根本不处理
+
+		ps = (void**)(pius->indic);
+		*((bool*)ps[0]) = getcardno_rfid((char*)ps[2]);
+		break;
+
+	case Notitia::ICC_Get_CPC_RFID:
+		WBUG("facio ICC_Get_CPC_RFID dev_ok %d", dev_ok);
+		if ( !dev_ok ) return false;		//如果设备没有准备好, 这里根本不处理
+
+		ps = (void**)(pius->indic);
+		*((bool*)ps[0]) = getcpcid_rfid((char*)ps[2]);
+		break;
+
+	case Notitia::ICC_Get_Flag_RFID:
+		WBUG("facio ICC_Get_Flag_RFID dev_ok %d", dev_ok);
+		if ( !dev_ok ) return false;		//如果设备没有准备好, 这里根本不处理
+
+		ps = (void**)(pius->indic);
+		*((bool*)ps[0]) = getflagstationinfo_rfid( (char*)ps[2], (int*)ps[3], (char*)ps[4]);
+		break;
+
+	case Notitia::ICC_Get_Power_RFID:
+		WBUG("facio ICC_Get_Power_RFID dev_ok %d", dev_ok);
+		if ( !dev_ok ) return false;		//如果设备没有准备好, 这里根本不处理
+
+		ps = (void**)(pius->indic);
+		*((bool*)ps[0]) = getpowerinfo_rfid( (char*)ps[2], (int*)ps[3]);
+		break;
+
+	case Notitia::ICC_Set433_Mode_RFID:
+		WBUG("facio ICC_Set433_Mode_RFID dev_ok %d", dev_ok);
+		if ( !dev_ok ) 	return false;		//如果设备没有准备好, 这里根本不处理
+
+		ps = (void**)(pius->indic);
+		*((bool*)ps[0]) = set433cardmode_rfid( (char*)ps[2], *(int*)ps[3]);
+		break;
+
+	case Notitia::ICC_Get433_Mode_RFID:
+		WBUG("facio ICC_Get433_Mode_RFID dev_ok %d", dev_ok);
+		if ( !dev_ok ) 	return false;		//如果设备没有准备好, 这里根本不处理
+
+		ps = (void**)(pius->indic);
+		*((bool*)ps[0]) = get433cardmode_rfid( (char*)ps[2], (int*)ps[3]);
+		break;
+
+	case Notitia::ICC_CARD_open:
+		WBUG("facio IC_OPEN_PRO dev_ok %d", dev_ok);
+		if ( !dev_ok ) return false;		//如果设备没有准备好, 这里根本不处理
+
+		ps = (void**)(pius->indic);
+		ret = (int*)ps[0];
+		*ret = card_open (hdev, *(int*)ps[2], (char*)ps[3], (char*)ps[4], (int*)ps[5], (char*)ps[6]);
+		if ( *ret == 0 ) 
+			pro_ok = true;
+		else
+			pro_ok = false;
+
 		break;
 	default:
 		return false;
