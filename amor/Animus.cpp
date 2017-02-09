@@ -27,6 +27,7 @@
 		char msg[2048]; \
 		TEXTUS_SNPRINTF(msg, sizeof(msg)-1, x,y); \
 		TEXTUS_SNPRINTF(errMsg, sizeof(errMsg)-1, "%s(%d) %s", __FILE__, __LINE__, msg); \
+		printf("%s\n", errMsg); \
 		OutputDebugString(errMsg); \
 		}
 	#define WBUG3(x,y,z) { \
@@ -34,6 +35,7 @@
 		char msg[2048]; \
 		TEXTUS_SNPRINTF(msg, sizeof(msg)-1, x,y,z); \
 		TEXTUS_SNPRINTF(errMsg, sizeof(errMsg)-1, "%s(%d) %s", __FILE__, __LINE__, msg); \
+		printf("%s\n", errMsg); \
 		OutputDebugString(errMsg); \
 		}
 	#define WBUG4(x,y,z,w) { \
@@ -41,6 +43,7 @@
 		char msg[2048]; \
 		TEXTUS_SNPRINTF(msg, sizeof(msg)-1, x,y,z,w); \
 		TEXTUS_SNPRINTF(errMsg, sizeof(errMsg)-1, "%s(%d) %s", __FILE__, __LINE__, msg); \
+		printf("%s\n", errMsg); \
 		OutputDebugString(errMsg); \
 		}
 	#else
