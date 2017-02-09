@@ -46,12 +46,12 @@ public:
 	/* 以下为本类特别定义 */
 	Trend();
 	~Trend();
-	
-protected:
-	bool isPoineer;
 
 	enum DIRECT { 	FACIO = 0 , SPONTE = 1, DEXTRA = 2 , LAEVE = 3 , PRI_LAEVE = 4, LEFT_LAEVE = 5,
 			RIGHT_DEXTRA = 6, NEXT = 7, STILL = 8, OWNER = 9, SKIP = 10, NONE_DIR = -1};
+	
+protected:
+	bool isPoineer;
 
 	typedef struct _Action {
 		TEXTUS_ORDO ordo;	/* 特别动作ordo, -1表示使用原有Pius */
@@ -341,7 +341,6 @@ bool Trend::laeve( Amor::Pius *pius, unsigned int from )
 */
 void Trend::doact(Action &act, DIRECT dir, Amor::Pius *ori, int from)
 {
-	Amor::Pius tmpps;
 	bool isO;
 	unsigned int i;
 	Aptus **tor;
