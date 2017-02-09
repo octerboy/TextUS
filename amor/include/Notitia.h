@@ -199,6 +199,20 @@ enum HERE_ORDO {
 	IC_SAM_COMMAND	=315, 	/* SAM卡指令, 同上*/
 	IC_RESET_SAM	=316, 	/* 复位PSAM, indic指向数组, 第1个int*返回(0表示OK), 第2个错误描述指针, 第3个为int *slot(空指针为默认), 第4个指向char *ATR(输出) */
 	IC_PRO_PRESENT	=317, 	/* IC卡是否在(包括非接), 第1个int*返回(如有卡则加1, 否则不加), 第2个错误描述指针, 第3个为int *slot(空指针为默认) */
+	ICC_Authenticate=318,
+	ICC_Read_Sector	=319,
+	ICC_Write_Sector	=320, 
+	ICC_Reader_Version	=321,
+	ICC_Led_Display		=322,
+	ICC_Audio_Control	=323,
+	ICC_GetOpInfo		=324,
+	ICC_Get_Card_RFID	=325,
+	ICC_Get_CPC_RFID	=326,
+	ICC_Get_Flag_RFID	=327,
+	ICC_Get_Power_RFID	=328,
+	ICC_Set433_Mode_RFID=329,
+	ICC_Get433_Mode_RFID=330,
+	ICC_CARD_open		=331,	/* 与IC_OPEN_PRO 不同，这里完全保留unireader的参数*/
 
 	TEXTUS_RESERVED =0	/* reserved */
 };
