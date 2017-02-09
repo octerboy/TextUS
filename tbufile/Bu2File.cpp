@@ -68,11 +68,11 @@ public:
 	TBuffer *second_buf;
 
 	unsigned long instance_id;
-
-private:
 	enum OUT_FORM { DIRECT_VIEW = 0 ,  DEBUG_VIEW =1, DEBUG_VIEW_X=2 };
 	enum SHOW_DEV { NONE_SHOW = 0 ,  STDOUT_SHOW =1, STDERR_SHOW=2 };
 	enum SPLIT { SP_NONE = 0 ,  SP_DATE =1};
+
+private:
 	struct G_CFG {
 		const char *filename;	//文件名, 当SPLIT不为0时, 这个文件名就成为一个格式符
 		OUT_FORM form;		/* 输出形式, 0: 标准, 直接输出; 1: 16进制, 并输出ASCII */

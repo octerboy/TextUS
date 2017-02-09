@@ -26,6 +26,7 @@
 #include <time.h>
 #include <ctype.h>
 #include <stdarg.h>
+#include <assert.h>
 
 #ifndef TINLINE
 #define TINLINE inline
@@ -42,6 +43,7 @@ public:
 		
 	TBufChan();
 	~TBufChan();
+	enum MODE { TBUF, UNIPAC, HYBRID };
 
 private:
 	TBuffer *rcv_buf;
@@ -49,7 +51,6 @@ private:
 
 	PacketObj *rcv_pac;	/* 来自左节点的PacketObj */
 	PacketObj *snd_pac;
-
 
 	TBuffer house;		/* 暂存 */
 	TBuffer right_rcv;	/* 从右节点接收的数据缓冲 */
@@ -64,8 +65,6 @@ private:
 	bool alive;	/* 通道是否打开 */
 	bool demanding;	/* 正在要求通道, 还未有响应 */
 	
-	enum MODE { TBUF, UNIPAC, HYBRID };
-
 	struct G_CFG {
 		Amor::Pius chn_timeout;
 		int expired;	/* 超时时间。0: 不设超时 */
@@ -111,8 +110,6 @@ private:
 
 #include "wlog.h"
 };
-
-#include <assert.h>
 
 void TBufChan::ignite(TiXmlElement *cfg) 
 {
