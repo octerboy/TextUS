@@ -1,0 +1,25 @@
+# Title: Makefile(VC)
+# ID: Textus-tocrw-Makefile-vc
+# Build
+#	B01:created by octerboy 2005/06/10
+include ..\Rules.basemod.vc
+CFLAGS = $(CFLAGS) -I$(TEXTUS_DIR)\baselib\include -I$(TEXTUS_DIR)/logdata/include -I$(TEXTUS_DIR)/unipac/include -I$(TEXTUS_DIR)/uread/include
+LDLIB = $(LDLIB) ..\baselib\libbase.lib Ws2_32.lib
+AMOROBJS=vreader.obj 
+
+all:vreader.dll 
+
+vreader.obj:vreader.cpp 
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=ICPort vreader.cpp
+
+vreader.dll:vreader.obj
+	$(LD)  $(LDFLAGS) /DEF:p.def /dll -out:$@ $(AMOROBJS)  $(LDLIB) 
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del vreader.obj
+	del vreader.dll.*
+	del vreader.lib
+	del vreader.exp
+
