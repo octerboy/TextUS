@@ -24,7 +24,7 @@
 #include "TBuffer.h"
 #include "BTool.h"
 #if defined(_WIN32) 
-#include "regex.h"
+#include "boost\regex.h"
 #else
 #include <regex.h>
 #endif
@@ -344,7 +344,7 @@ typedef struct _PacDef {
 		
 	Unipac();
 	~Unipac();
-
+	enum BuffAct { COPY_BUFF, MOVE_BUFF, REF_BUFF };
 
 private:
 	Amor::Pius local_p;
@@ -365,8 +365,6 @@ private:
 
 	Amor::Pius tb_ps;
 	Amor::Pius pa_ps;
-
-	enum BuffAct { COPY_BUFF, MOVE_BUFF, REF_BUFF };
 
 	struct G_CFG {
 		int segNum;	/* 定义段数 */
@@ -2554,6 +2552,7 @@ PACINLINE bool Unipac::domatch(FieldObj &field, FldDef &fld_def)
 	unsigned int i;
 	FldDef::Match *scan;
 	bool matched;
+	TBuffer m_con;
 
 	if ( fld_def.m_num == 0 )	/* 没有限制 */
 		return true;
@@ -2620,14 +2619,11 @@ PACINLINE bool Unipac::domatch(FieldObj &field, FldDef &fld_def)
 			break;
 
 		case REGEX:
-			{
-				TBuffer m_con;
-				m_con.grant(field.range+1);
-				m_con.input(field.val, field.range);
-				m_con.base[field.range] = 0;	//null terminating string.
-				if ( regexec(&(scan->rgx), (const char*)m_con.base, 0,  0, 0) == 0 )
-					matched = true;
-			}
+			m_con.grant(field.range+1);
+			m_con.input(field.val, field.range);
+			m_con.base[field.range] = 0;	//null terminating string.
+			if ( regexec(&(scan->rgx), (const char*)m_con.base, 0,  0, 0) == 0 )
+				matched = true;
 			break;
 
 		default:

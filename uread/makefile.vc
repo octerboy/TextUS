@@ -13,8 +13,7 @@ URead.obj: URead.cpp
 	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=URead URead.cpp
 
 uread.dll: URead.obj
-	$(LD) /NODEFAULTLIB  /NOLOGO -dll -out:$@ uread.obj $(LDLIB)
-
+	$(LD) $(LDFLAGS) -dll -out:$@ uread.obj $(LDLIB)
 	$(_VC_MANIFEST_PRO)
 	$(_POST_RPO_SUB)
 

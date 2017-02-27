@@ -14,6 +14,8 @@
 #if defined( _WIN32 )
 #include <windows.h>
 #include <process.h>
+#include <conio.h>
+
 #define GETPID _getpid()
 #else
 #include <sys/types.h>

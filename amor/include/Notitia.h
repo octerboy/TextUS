@@ -213,6 +213,9 @@ enum HERE_ORDO {
 	ICC_Set433_Mode_RFID=329,
 	ICC_Get433_Mode_RFID=330,
 	ICC_CARD_open		=331,	/* 与IC_OPEN_PRO 不同，这里完全保留unireader的参数*/
+	URead_ReLoad_Dll	=332,	/* 指示重载unireader.dll */
+	URead_UnLoad_Dll	=333,	/* 指示卸载unireader.dll */
+	URead_Load_Dll		=334,	/* 指示加载unireader.dll */
 
 	TEXTUS_RESERVED =0	/* reserved */
 };

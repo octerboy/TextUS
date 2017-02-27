@@ -9,8 +9,6 @@
 #define TEXTUS_BUILDNO  "$Revision: 5 $"
 /* $NoKeywords: $ */
 
-#define MINLINE inline
-
 typedef int (__stdcall *TP_open_dev)(char* Paras);
 typedef int (__stdcall *TP_close_dev)(long DevHandle);
 typedef int (__stdcall *TP_sam_reset)(long DevHandle,int iSockID,int* iReplylength,char* sReply);
@@ -23,7 +21,7 @@ typedef char* (__stdcall *TP_get_info)(int rc);
 
 typedef bool (__stdcall *TP_GetCardNo_RFID)(char* CardNo);
 typedef bool (__stdcall *TP_GetCPCID_RFID)(char* CPCID);
-typedef bool (__stdcall *TP_GetFlagStationInfo_RFID)(char* CPCID,int *FlagStationCnt,char* FlagStationInfo);
+typedef bool (__stdcall *TP_GetFlagStationInfo_RFID)(char* CPCID,char *InitData,int *FlagStationCnt, char *FlagStationInfo);
 typedef bool (__stdcall *TP_GetPowerInfo_RFID)(char* CPCID,int *PowerInfo);
 typedef bool (__stdcall *TP_Set433CardMode_RFID)(char* CPCID,int iMode);
 typedef bool (__stdcall *TP_Get433CardMode_RFID)(char* CPCID,int* iMode);
@@ -93,15 +91,35 @@ public:
 
 	int card_place;	//卡片位置
 
+	char unireader_dll_real_path[1024];
+	HINSTANCE unireader_dll_hd;
+	int load_dll();
+	int unload_dll();
+	void error_sys_pro(const char *h_msg) ;
+
 #include "wlog.h"
 };
 #include "md5.c"
+
+void URead::error_sys_pro(const char *h_msg) 
+{ 
+    char errstr[1024];
+    DWORD dw = GetLastError(); 
+
+    FormatMessage( FORMAT_MESSAGE_FROM_SYSTEM, NULL, dw,
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        errstr, 1024, NULL );
+
+    wsprintf(&m_error_buf[0], "%s failed with error %d: %s", (char*)h_msg, dw, errstr); 
+	WLOG(ERR, "%s", m_error_buf);
+}
+
 /* 不同的读写器有完全不同的参数配置, ignite的函数内容完全不同.  */
 void URead::ignite(TiXmlElement *prop)
 {
 	const char *lib_file, *com;
 	TiXmlElement *doc_root=0;
-	char real_path[1024];
+
 	const char *md5_content;
 	
 	doc_root = prop->GetDocument()->RootElement();
@@ -121,8 +139,7 @@ void URead::ignite(TiXmlElement *prop)
 	md5_content = prop->Attribute("dllsum") ;
 	if ( lib_file )
 	{
-		HINSTANCE ext=NULL;
-		TEXTUS_SPRINTF(real_path, "%s%s", doc_root->Attribute("path"), lib_file);
+		TEXTUS_SPRINTF(unireader_dll_real_path, "%s%s", doc_root->Attribute("path"), lib_file);
 		if ( md5_content)
 		{
   			FILE *inFile;
@@ -134,12 +151,12 @@ void URead::ignite(TiXmlElement *prop)
 			if ( strlen(md5_content) < 10 )
     				goto MyEnd;
 
-			TEXTUS_FOPEN(inFile, real_path, "rb");
+			TEXTUS_FOPEN(inFile, unireader_dll_real_path, "rb");
   			if ( !inFile ) 
     				goto MyEnd;
 
   			MD5Init (&mdContext);
-    			MD5Update (&mdContext, (unsigned char*)"213423_13axcc3q  3qqaaa", 23);
+    		MD5Update (&mdContext, (unsigned char*)"213423_13axcc3q  3qqaaa", 23);
   			while ((bytes = fread (data, 1, 1024, inFile)) != 0)
     				MD5Update (&mdContext, data, bytes);
 
@@ -155,42 +172,59 @@ void URead::ignite(TiXmlElement *prop)
 			{
     				goto MyEnd;
 			}
+			load_dll();
   		}
-
-		ext =LoadLibrary(real_path);
-		if ( ext ) 
-		{
-			open_dev = (TP_open_dev) GetProcAddress(ext, "READER_open");
-			close_dev = (TP_close_dev) GetProcAddress(ext, "READER_close");
-
-			sam_reset  = (TP_sam_reset) GetProcAddress(ext, "SAM_reset");
-			card_open =(TP_card_open)GetProcAddress(ext, "CARD_open");
-			card_close=(TP_card_close)GetProcAddress(ext, "CARD_close");
-			pro_command=(TP_pro_command)GetProcAddress(ext, "PRO_command");
-			sam_command=(TP_sam_command)GetProcAddress(ext, "SAM_command");
-			pro_detect=(TP_pro_detect)GetProcAddress(ext, "PRO_detect");
-			get_info =(TP_get_info)GetProcAddress(ext, "GetOpInfo");
-
-			getcardno_rfid = (TP_GetCardNo_RFID) GetProcAddress(ext, "GetCardNo_RFID");
-			getcpcid_rfid = (TP_GetCPCID_RFID)  GetProcAddress(ext, "GetCPCID_RFID");
-			getflagstationinfo_rfid = (TP_GetFlagStationInfo_RFID ) GetProcAddress(ext, "GetFlagStationInfo_RFID");
-			getpowerinfo_rfid = (TP_GetPowerInfo_RFID)  GetProcAddress(ext, "GetPowerInfo_RFID") ;
-			set433cardmode_rfid = (TP_Set433CardMode_RFID) GetProcAddress(ext, "Set433CardMode_RFID") ;
-			get433cardmode_rfid = (TP_Get433CardMode_RFID) GetProcAddress(ext, "Get433CardMode_RFID") ;
-
-			icc_authenticate = (TP_ICC_authenticate) GetProcAddress(ext, "ICC_authenticate");
-			icc_readsector = (TP_ICC_readsector) GetProcAddress(ext, "ICC_readsector");
-			icc_writesector = (TP_ICC_writesector) GetProcAddress(ext, "ICC_writesector");
-			getreaderversion = (TP_GetReaderVersion) GetProcAddress(ext, "GetReaderVersion");
-			led_display = (TP_Led_display) GetProcAddress(ext, "Led_display") ;
-			audio_control = (TP_Audio_control) GetProcAddress(ext, "Audio_control");
-		} else {
-		}
 	}
 MyEnd:
 	return ;
 }
+int URead::unload_dll()
+{
+	int ret = 0;
+	if( !FreeLibrary(unireader_dll_hd) )
+	{
+		error_sys_pro("unload unireader.dll") ;
+		ret = -1;
+	}
+	unireader_dll_hd=NULL;
+	return ret;
+}
 
+int URead::load_dll()
+{
+	int ret = 0;
+	unireader_dll_hd=NULL;
+	unireader_dll_hd =LoadLibrary(unireader_dll_real_path);
+	if ( unireader_dll_hd ) 
+	{
+		open_dev = (TP_open_dev) GetProcAddress(unireader_dll_hd, "READER_open");
+		close_dev = (TP_close_dev) GetProcAddress(unireader_dll_hd, "READER_close");
+
+		sam_reset  = (TP_sam_reset) GetProcAddress(unireader_dll_hd, "SAM_reset");
+		card_open =(TP_card_open)GetProcAddress(unireader_dll_hd, "CARD_open");
+		card_close=(TP_card_close)GetProcAddress(unireader_dll_hd, "CARD_close");
+		pro_command=(TP_pro_command)GetProcAddress(unireader_dll_hd, "PRO_command");
+		sam_command=(TP_sam_command)GetProcAddress(unireader_dll_hd, "SAM_command");
+		pro_detect=(TP_pro_detect)GetProcAddress(unireader_dll_hd, "PRO_detect");
+		get_info =(TP_get_info)GetProcAddress(unireader_dll_hd, "GetOpInfo");
+		getcardno_rfid = (TP_GetCardNo_RFID) GetProcAddress(unireader_dll_hd, "GetCardNo_RFID");
+		getcpcid_rfid = (TP_GetCPCID_RFID)  GetProcAddress(unireader_dll_hd, "GetCPCID_RFID");
+		getflagstationinfo_rfid = (TP_GetFlagStationInfo_RFID ) GetProcAddress(unireader_dll_hd, "GetFlagStationInfo_RFID");
+		getpowerinfo_rfid = (TP_GetPowerInfo_RFID)  GetProcAddress(unireader_dll_hd, "GetPowerInfo_RFID") ;
+		set433cardmode_rfid = (TP_Set433CardMode_RFID) GetProcAddress(unireader_dll_hd, "Set433CardMode_RFID") ;
+		get433cardmode_rfid = (TP_Get433CardMode_RFID) GetProcAddress(unireader_dll_hd, "Get433CardMode_RFID") ;
+		icc_authenticate = (TP_ICC_authenticate) GetProcAddress(unireader_dll_hd, "ICC_authenticate");
+		icc_readsector = (TP_ICC_readsector) GetProcAddress(unireader_dll_hd, "ICC_readsector");
+		icc_writesector = (TP_ICC_writesector) GetProcAddress(unireader_dll_hd, "ICC_writesector");
+		getreaderversion = (TP_GetReaderVersion) GetProcAddress(unireader_dll_hd, "GetReaderVersion");
+		led_display = (TP_Led_display) GetProcAddress(unireader_dll_hd, "Led_display") ;
+		audio_control = (TP_Audio_control) GetProcAddress(unireader_dll_hd, "Audio_control");
+	} else {
+		error_sys_pro("load unireader.dll") ;
+		ret = -1;
+	}
+	return ret;
+}
 /* 返回ret=0正确, 其它错误 */
 /* 不同的读写器有完全不同的参数配置, Pro_Open的函数内容完全不同.  */
 int URead::Pro_Open(char uid[17])
@@ -255,7 +289,8 @@ int URead::Sam_Reset(char atr[64])
 		memcpy(atr, resp, len);
 		atr[len]=0;
 	} else {
-		sprintf(m_error_buf, "%s() 返回 %08X", "Sam_Reset" , ret);
+		sprintf(m_error_buf, "%s(face %d) 返回 %08X", "Sam_Reset" ,sam_face,  ret);
+		WLOG(ERR,"%s", m_error_buf);
 	}
 	return ret;	
 }
@@ -440,7 +475,7 @@ COMM:
 			card_place = *piSockID; 
 
 		*ret = CardCommand (comm, reply, which, psw);
-		WBUG("ProComm req(%s) res(%s) %04x",comm, reply, *psw);
+		WBUG("%s req(%s) res(%s) %04x", which==1?"Pro":"Sam", comm, reply, *psw);
 		if ( *ret != 0 ) 
 		{
 			if ( which == 1 ) 
@@ -567,7 +602,7 @@ COMM:
 		if ( !dev_ok ) return false;		//如果设备没有准备好, 这里根本不处理
 
 		ps = (void**)(pius->indic);
-		*((bool*)ps[0]) = getflagstationinfo_rfid( (char*)ps[2], (int*)ps[3], (char*)ps[4]);
+		*((bool*)ps[0]) = getflagstationinfo_rfid( (char*)ps[2], (char*)ps[3], (int*)ps[4], (char*)ps[5]);
 		break;
 
 	case Notitia::ICC_Get_Power_RFID:
@@ -607,6 +642,34 @@ COMM:
 			pro_ok = false;
 
 		break;
+
+	case Notitia::URead_UnLoad_Dll:
+		WBUG("facio URead_UnLoad_Dll");
+		ps = (void**)(pius->indic);
+		ret = (int*)ps[0];
+		m_error_buf = (char*)ps[1];
+
+		*ret = unload_dll();
+		break;
+
+	case Notitia::URead_Load_Dll:
+		WBUG("facio URead_Load_Dll");
+		ps = (void**)(pius->indic);
+		ret = (int*)ps[0];
+		m_error_buf = (char*)ps[1];
+
+		*ret = load_dll();
+		break;
+
+	case Notitia::URead_ReLoad_Dll:
+		WBUG("facio URead_ReLoad_Dll");
+		ps = (void**)(pius->indic);
+		ret = (int*)ps[0];
+		m_error_buf = (char*)ps[1];
+		*ret = unload_dll(); if ( *ret !=0 ) break;
+		*ret = load_dll();
+		break;
+
 	default:
 		return false;
 	}
@@ -636,6 +699,8 @@ URead::URead()
 	sam_command =0 ;
 	pro_detect =0 ;
 	sam_reset =0 ;
+
+	unireader_dll_hd=NULL;
 }
 
 URead::~URead()

@@ -3,14 +3,14 @@
 # Build: B01:created by octerboy 2006/05/28, Gaungzhou
 
 include ..\Rules.basemod.vc
-CFLAGS  = $(CFLAGS) -I..\baselib\include -I..\logdata\include -I..\unipac\include
-LDLIB = ..\baselib\libbase.lib $(LDLIB)
+CFLAGS  = $(CFLAGS) -I..\baselib\include -I..\logdata\include -I..\unipac\include   -I..\boost_1_34_1
+LDLIB = ..\baselib\libbase.lib $(LDLIB) ..\boost_1_34_1\libs\regex\build\vc6\boost_regex-vc6-mt-1_34.lib
 AMOROBJS=Unipac.obj 
 
 all: unipac.dll
 
 Unipac.obj: Unipac.cpp cupsDef.h const_para.h iso8583-87.h
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Unipac Unipac.cpp
+	$(CC) $(CFLAGS) -GX -DNNDEBUG -DAMOR_CLS_TYPE=Unipac Unipac.cpp
 
 unipac.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

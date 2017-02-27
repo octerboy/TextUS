@@ -13,7 +13,7 @@ L2Buffer.obj: L2Buffer.cpp
 	$(CC) $(CFLAGS) -DNDEBUG -DAMOR_CLS_TYPE=L2Buffer L2Buffer.cpp
 
 log2buff.dll: $(AMOROBJS)
-	$(LD) /NODEFAULTLIB  /NOLOGO -dll -out:$@ $(AMOROBJS) $(LDLIB)
+	$(LD)  $(LDFLAGS) -out:$@ $(AMOROBJS) $(LDLIB)
 	$(_VC_MANIFEST_PRO)
 	$(_POST_RPO_SUB)
 

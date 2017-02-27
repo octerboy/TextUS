@@ -38,15 +38,6 @@ public:
 	Slice();
 	~Slice();
 
-private:
-	Amor::Pius local_p;
-	TBuffer *ask_tb, *res_tb;	//上一级的请求区, 可能是原始或是帧分析区
-	TBuffer *ask_pa, *res_pa;		//下一级的数据缓冲区, 可能是帧分析区或是原始数据区
-	TBuffer r1st, r2nd;		//下一级的数据缓冲区, 可能是帧分析区或是原始数据区
-
-	bool isFraming;			/* 是否在一帧的分析正在进行 */
-	time_t when_frame_start;		/* 某一帧的开始时间 */
-
 	enum HEAD_TYPE {  
 		RIGID = 0, 	/* 固定类型 */
 		SJL06 = 1,	/* 多个字节表示长度, 网络字节顺序, 即power pc平台的字节顺序,
@@ -64,7 +55,16 @@ private:
 				char[0]和char[1]分别为传输中的第1和第2字节
 				*/
 		UNDEFINED = -1	/* 未定义 */
-	}  ;
+	};
+
+private:
+	Amor::Pius local_p;
+	TBuffer *ask_tb, *res_tb;	//上一级的请求区, 可能是原始或是帧分析区
+	TBuffer *ask_pa, *res_pa;		//下一级的数据缓冲区, 可能是帧分析区或是原始数据区
+	TBuffer r1st, r2nd;		//下一级的数据缓冲区, 可能是帧分析区或是原始数据区
+
+	bool isFraming;			/* 是否在一帧的分析正在进行 */
+	time_t when_frame_start;		/* 某一帧的开始时间 */
 
 	struct G_CFG { 
 		bool onlyOnce;	/* 有多个数据包只分析第一个 */
