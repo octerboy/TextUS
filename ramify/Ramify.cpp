@@ -20,6 +20,11 @@
 
 #include "Aptus.h"
 #include "BTool.h"
+#if defined(_WIN32) 
+#include "boost\regex.h"
+#else
+#include <regex.h>
+#endif
 #include "TBuffer.h"
 #include "Notitia.h"
 #include "PacData.h"
@@ -52,7 +57,8 @@ enum MatchType {	/* 匹配类型 */
 	VAR_ANY	=0,	/* 任意 */	
 	CONSTANT=1,	/* 完全相同 */
 	BEGIN_W	=2,	/* 以某个开头 */
-	END_W	=3	/* 以某个结尾 */
+	END_W	=3,	/* 以某个结尾 */
+	REGEX	=4	/* regular表达式 */
 };
 
 typedef struct _FldDef {
@@ -65,6 +71,7 @@ typedef struct _FldDef {
 		unsigned int len;	/* 内容长度 */
 		unsigned char *val;	/*  匹配规则内容  */
 		bool NOT;	/* 结果取反 */
+		regex_t rgx;	//规则
 		Match () {
 			NOT = false;
 		};
@@ -372,6 +379,15 @@ void Ramify::setDef(PacDef *pdef, TiXmlElement *fdset_ele, const char *which_pac
 					match.type = BEGIN_W;
 				if ( strcasecmp(comm_str, "end") == 0 )
 					match.type = END_W;
+				if ( strcasecmp(comm_str, "regex") == 0 )
+				{
+					match.type = REGEX;
+					if ( regcomp(&match.rgx, (const char*)match.val, 0) != 0 )
+					{
+						match.type = VAR_ANY;	/* 如果规则不合法，就设为无限制 */
+					}
+				}
+
 			GETTEXT:
 				match.len = BTool::unescape(m_ele->GetText(), match.val) ;
 				if ( match.len == 0 )
@@ -664,6 +680,8 @@ bool Ramify::do_match(FieldObj &field, FldDef &fld_def)
 	unsigned int i;
 	FldDef::Match *scan;
 	bool matched;
+	TBuffer m_con;
+
 	matched = false;
 
 	if ( field.no < 0 )	/* 此域不存在, 当然不行 */
@@ -702,6 +720,14 @@ bool Ramify::do_match(FieldObj &field, FldDef &fld_def)
 		case END_W:
 			if ( scan->len <= field.range 
 				&& memcmp(&field.val[field.range - scan->len], scan->val, scan->len) == 0 )
+				matched = true;
+			break;
+
+		case REGEX:
+			m_con.grant(field.range+1);
+			m_con.input(field.val, field.range);
+			m_con.base[field.range] = 0;	//null terminating string.
+			if ( regexec(&(scan->rgx), (const char*)m_con.base, 0,  0, 0) == 0 )
 				matched = true;
 			break;
 

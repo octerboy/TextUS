@@ -4,7 +4,7 @@
 
 include ..\Rules.basemod.vc
 CFLAGS  =  $(CFLAGS) -I..\baselib\include -I..\unipac\include -I..\logdata\include
-LDLIB = $(LDLIB) ..\baselib\libbase.lib
+LDLIB = $(LDLIB) ..\baselib\libbase.lib  $(OLDLIB)
 AMOROBJS=Unifom.obj 
 
 all: unifom.dll

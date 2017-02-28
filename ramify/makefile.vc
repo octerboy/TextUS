@@ -4,14 +4,14 @@
 #	B01:created by octerboy 2006/10/21, Panyu
 
 include ..\Rules.basemod.vc
-CFLAGS  =  $(CFLAGS) -I..\logdata\include -I..\baselib\include -I..\unipac\include
-LDLIB = ..\baselib\libbase.lib $(LDLIB)
+CFLAGS  =  $(CFLAGS) -I..\logdata\include -I..\baselib\include -I..\unipac\include  -I..\unipac\include   -I..\boost_1_34_1
+LDLIB = ..\baselib\libbase.lib $(LDLIB) ..\boost_1_34_1\libs\regex\build\vc6\boost_regex-vc6-mt-1_34.lib
 AMOROBJS=Ramify.obj 
 
 all: ramify.dll
 
 Ramify.obj: Ramify.cpp
-	$(CC) $(CFLAGS) -DNDEBUG -DAMOR_CLS_TYPE=Ramify Ramify.cpp
+	$(CC) $(CFLAGS) -GX -DNDEBUG -DAMOR_CLS_TYPE=Ramify Ramify.cpp
 
 ramify.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

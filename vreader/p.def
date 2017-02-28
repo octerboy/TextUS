@@ -23,4 +23,3 @@ EXPORTS
     GetPowerInfo_RFID
     Set433CardMode_RFID
     Get433CardMode_RFID
-  

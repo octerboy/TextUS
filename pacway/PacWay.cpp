@@ -1897,6 +1897,7 @@ bool PacWay::facio( Amor::Pius *pius)
 		{
 			WLOG(ERR,"%s", err_global_str);
 		}
+		tmp_pius.ordo = Notitia::SET_UNIPAC;
 		tmp_pius.indic = &hipa[0];
 		aptus->facio(&tmp_pius);
 		break;
@@ -1904,6 +1905,7 @@ bool PacWay::facio( Amor::Pius *pius)
 	case Notitia::CLONE_ALL_READY:
 		WBUG("facio CLONE_ALL_READY" );
 		mess.init(gCFG->person_defs.max_snap_num);
+		tmp_pius.ordo = Notitia::SET_UNIPAC;
 		tmp_pius.indic = &hipa[0];
 		aptus->facio(&tmp_pius);
 		break;

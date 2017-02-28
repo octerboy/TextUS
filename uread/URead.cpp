@@ -357,12 +357,14 @@ int URead::dev_init(void)
 	{
 		sprintf(m_error_buf, "动态库错误:无函数");
 		ret = -1;
+		WLOG(ERR, "%s", m_error_buf);
 		goto END;
 	}
 	if ( must_detect && !pro_detect )
 	{
 		sprintf(m_error_buf, "动态库错误:无探卡函数");
 		ret = -1;
+		WLOG(ERR, "%s", m_error_buf);
 		goto END;
 	}
 	if (hdev != 0 )
@@ -375,10 +377,14 @@ int URead::dev_init(void)
 	hdev = open_dev(comm_para);		//先按设置来设
 	if ( hdev > 0)
 	{
+		WBUG("READER_open ret handle %d", hdev);
 		ret = 0;
 	} else {
 		if ( get_info )
 			sprintf(m_error_buf, "设备打开错误, READER_open返回 %08x(%s)", hdev, get_info(hdev));
+		else
+			sprintf(m_error_buf, "设备打开错误, READER_open返回 %08x", hdev);
+		WLOG(ERR, "%s", m_error_buf);
 		ret = -1;
 		hdev = 0;
 	}
@@ -575,8 +581,6 @@ COMM:
 
 	case Notitia::ICC_GetOpInfo:
 		WBUG("facio ICC_GetOpInfo dev_ok %d", dev_ok);
-		if ( !dev_ok ) return false;		//如果设备没有准备好, 这里根本不处理
-
 		ps = (void**)(pius->indic);
 		*((char**)ps[0]) = get_info(*((int*)ps[2]));
 		break;
@@ -700,7 +704,7 @@ URead::URead()
 	pro_detect =0 ;
 	sam_reset =0 ;
 
-	unireader_dll_hd=NULL;
+	unireader_dll_hd = NULL;
 }
 
 URead::~URead()

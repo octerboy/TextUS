@@ -74,7 +74,9 @@ public:
 
 	enum WMOD { WM_TOP=0, WM_SAM= 1, WM_PRO=2, WM_BOTH=3};
 	enum WMOD wmod;	//工作模式: 0:SAM, 1:PRO, 2:both, 默认TOP,即顶层实例
+
 	int init_timeout;
+	bool will_reload_dll;
 	void error_sys_pro(const char *h_msg);
 	void rcv_pipe();
 	bool get_cli_pipe();
@@ -163,8 +165,6 @@ static int CardCommandCharSlot(char * command, char * reply, SHORT which, int *p
 END:
 	return ret;
 }
-
-
 
 static int CardCommandCharReader(SHORT which, int iSockID,int iCommandLength, char* sCommand ,int* iReplylength,char* sReply)
 {
@@ -311,17 +311,14 @@ END:
 bool inventory()
 {
 	//samory[0~3]
-	int iSlot,snum,i;
+	int iSlot;
 	int ret = 0;
 	int sw;
 	char answer[512], command[128];
 	int len, qry_num;
-	boot in_ret = true;
+	bool in_ret = true;
 
-
-
-
-#define SAM(C,Y,E) sw = 0; ret = CardCommandCharSlot(C, Y, 0, &sw, &iSlot); if ( ret !=0 || sw != 0x9000 ) { samory[iSlot].result = 5; TEXTUS_SPRINTF(samory[iSlot].err, "%s return %d, sw=%04X", C, ret, sw); continue; }	
+#define SAM(C,Y,E) sw = 0; ret = CardCommandCharSlot(C, Y, 0, &sw, &iSlot); if ( ret !=0 || sw != 0x9000 ) { samory[iSlot].result = E; TEXTUS_SPRINTF(samory[iSlot].err, "%s return %d, sw=%04X", C, ret, sw); continue; }	
 
 	qry_num = 0;
 QryAgain:
@@ -336,37 +333,40 @@ QryAgain:
 	}
 
 	isInventoring = true;
-	if (close_dev() != 0 ) 
-	{
-		in_ret = false;
-		goto IN_END;
-	}
 
-	if (reload_dll() != 0 ) 
-	{
-		in_ret = false;
-		goto IN_END;
-	}
-
-	if (open_dev() != 0 ) 
-	{
-		in_ret = false;
-		goto IN_END;
-	}
 
 	for ( iSlot = 1; iSlot <= PSAM_SLOT_NUM;iSlot++ )
 	{
+		if ( justme->will_reload_dll)
+		{
+			if (justme->close_dev() != 0 ) 
+			{
+				in_ret = false;
+				goto IN_END;
+			}
+
+			if (justme->reload_dll() != 0 ) 
+			{
+				in_ret = false;
+				goto IN_END;
+			}
+
+			if (justme->open_dev() == 0 ) 
+			{
+				in_ret = false;
+				goto IN_END;
+			}
+		}
 	
 		memset(&samory[iSlot], 0, sizeof (PsamInfo));
 		samory[iSlot].slot = 0;	//以此标志无PSAM卡。
 		len = 100;
 		ret = SAM_reset(1, iSlot, &len, samory[iSlot].rst_info);
 
-		samory[iSlot].result = 2;
-				printf("iSlot %d ret %d\n", iSlot, ret);
+		samory[iSlot].result = 2;	//假定无卡，即复位失败
+		printf("iSlot %d ret %d，%s\n", iSlot, ret, samory[iSlot].rst_info);
 		if (ret !=0 ) 
 		{
-
 			continue;
 		}
 
@@ -375,7 +375,7 @@ QryAgain:
 		samory[iSlot].datetime[0] = ' ';
 		samory[iSlot].err[0] = ' ';
 		samory[iSlot].slot = iSlot;		//复位成功，就算有卡了。
-		samory[iSlot].result = 4;
+		samory[iSlot].result = 4;	//先假定未检测
 	
 		SAM("00A40000023F00", answer,5)
 
@@ -383,7 +383,8 @@ QryAgain:
 		SAM("00B095000A", samory[iSlot].serial, 5)
 		/* 取SAM卡的终端号*/
 		SAM("00B0960006", samory[iSlot].device_termid, 5)
-		if ( memcmp( samory[iSlot].device_termid, "0144", 4) == 0 ) //国标卡
+		printf("serial %s\n", samory[iSlot].serial);
+		if ( memcmp( samory[iSlot].serial, "4401", 4) == 0 ) //国标卡
 		{
 			SAM("00A4000002DF01", answer, 1)
 			TEXTUS_SPRINTF(command, "801A480110%s%s", psam_challenge, "B9E3B6ABB9E3B6AB");
@@ -395,6 +396,7 @@ QryAgain:
 			{
 				samory[iSlot].result = 3;
 				TEXTUS_SPRINTF(samory[iSlot].err, "cipher is %s", answer);
+				//printf("cipher failed\n");
 				continue;
 			}
 		} else {	//地标卡
@@ -676,6 +678,8 @@ char* __stdcall GetOpInfo(int retcode)
 	
 	mary->facio(&para);
 END:
+	if ( retcode == 999987 )
+		printf("inventory %d\n",inventory());
 	return ret;
 }
 
@@ -929,9 +933,11 @@ bool ICPort::facio( Amor::Pius *pius)
 			hi_req.produce(32) ;
 			hi_reply.produce(32) ;
 			tmp_pius.indic = &hipa[0];
+			tmp_pius.ordo = Notitia::SET_UNIPAC;
 			aptus->facio(&tmp_pius);
 			memset(lane_ip,0,sizeof(lane_ip));	lane_ip[0] = ' ';
-			memset(psam_challenge,0,sizeof(psam_challenge));
+			memset(psam_challenge, 0, sizeof(psam_challenge));
+			memset(psam_challenge,'0', 16);
 			memset(psam_should_cipher_db44,0,sizeof(psam_challenge));
 			memset(psam_should_cipher_gb,0,sizeof(psam_challenge));
 
@@ -1248,6 +1254,16 @@ void ICPort::ignite(TiXmlElement *cfg)
 {  
 	const char *comm;
 	int vmany = 0;
+	will_reload_dll = false;
+
+	comm = cfg->Attribute("reload_dll");
+	if ( comm ) 
+	{
+		if ( comm[0] == 'y' ||  comm[0] == 'Y') 
+		{
+			will_reload_dll = true;
+		}
+	}
 
 	comm = cfg->Attribute("reader_call");
 	if ( comm ) 
@@ -1632,18 +1648,7 @@ int ICPort::close_dev()
 	int ret = 0;
 	void *ps[2];
 	Amor::Pius para;
-		int rlen;
-	char rply[128];
 		
-		ret = SAM_reset(1,3	,&rlen,rply);
-		printf("inventory %d ## sam_reset ret %d %s\n",1 ,ret,  rply);
-		Sleep(100);
-	
-		ret = SAM_reset(1,2	,&rlen,rply);
-		printf("inventory %d ## sam_reset ret %d %s\n",2 ,ret,  rply);
-
-
-	printf("inventory %d\n", inventory());
 	ret = -1;
 	m_error_buf[0] = 0;
 
@@ -1680,16 +1685,10 @@ int ICPort::close_dev()
 
 int ICPort::reload_dll()
 {
-	const int BUFFER_MAX_LEN = 32;  
-	char szBuffer[BUFFER_MAX_LEN];  
-	DWORD dwLen = 0;  
-
 	int ret = 0;
 	void *ps[2];
 	Amor::Pius para;
-		int rlen;
-	char rply[128];
-		
+	
 	ret = -1;
 	m_error_buf[0] = 0;
 
@@ -1704,7 +1703,6 @@ int ICPort::reload_dll()
 	}
 	return ret;
 }
-
 
 /* 与中心通讯的域定义 */
 #define Fun_Fld 2
@@ -1721,7 +1719,7 @@ int ICPort::reload_dll()
 #define PSamTermNo_Fld 13
 #define PSamStat_Fld 14
 #define PSamErrStr_Fld 15
-#define InventroyTime_Fld 16
+#define InventoryTime_Fld 16
 
 void ICPort::center_pac()
 {
@@ -1812,7 +1810,7 @@ void ICPort::to_center_ventory(bool can)
 			hi_req.input(PSamTermNo_Fld, samory[i].device_termid,strlen(samory[i].device_termid));
 			TEXTUS_SPRINTF(tmp, "%d", samory[i].result);
 			hi_req.input(PSamTermNo_Fld, samory[i].device_termid,strlen(samory[i].device_termid));
-			hi_req.input(InventroyTime_Fld, samory[i].datetime,strlen(samory[i].datetime));
+			hi_req.input(InventoryTime_Fld, samory[i].datetime,strlen(samory[i].datetime));
 			hi_req.input(PSamErrStr_Fld, samory[i].err,strlen(samory[i].err));
 			aptus->facio(&loc_pro_pac);     //向右发出
 		}

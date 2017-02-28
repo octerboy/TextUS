@@ -23,11 +23,6 @@
 #include "casecmp.h"
 #include "TBuffer.h"
 #include "BTool.h"
-#if defined(_WIN32) 
-#include "boost\regex.h"
-#else
-#include <regex.h>
-#endif
 #include "textus_string.h"
 #include <stdlib.h>
 #include <limits.h>
@@ -86,8 +81,7 @@ enum MatchType {	/* 匹配类型 */
 	VAR_ANY	=0,	/* 任意 */	
 	CONSTANT=1,	/* 完全相同 */
 	BEGIN_W	=2,	/* 以某个开头 */
-	END_W	=3,	/* 以某个结尾 */
-	REGEX	=4	/* regular表达式 */
+	END_W	=3
 };
 
 typedef struct _LenField {	/* 以某个域的内容来指明范围 */
@@ -286,7 +280,6 @@ typedef struct _FldDef {
 		unsigned int len;	/* 内容长度 */
 		unsigned char *val;	/*  匹配规则内容  */
 		bool NOT;	/* 结果取反 */
-		regex_t rgx;	//规则
 		Match () {
 			NOT = false;
 		};
@@ -788,14 +781,6 @@ void Unipac::ignite(TiXmlElement *cfg)
 						match.type = BEGIN_W;
 					if ( strcasecmp(comm_str, "end") == 0 )
 						match.type = END_W;
-					if ( strcasecmp(comm_str, "regex") == 0 )
-					{
-						match.type = REGEX;
-						if ( regcomp(&match.rgx, (const char*)match.val, 0) != 0 )
-						{
-							match.type = VAR_ANY;	/* 设为无限制 */
-						}
-					}
 				GETNEXT:
 					if ( match.len == 0 )
 						match.type = VAR_ANY;	/* 没有内容被设为无限制 */
@@ -2552,7 +2537,6 @@ PACINLINE bool Unipac::domatch(FieldObj &field, FldDef &fld_def)
 	unsigned int i;
 	FldDef::Match *scan;
 	bool matched;
-	TBuffer m_con;
 
 	if ( fld_def.m_num == 0 )	/* 没有限制 */
 		return true;
@@ -2615,14 +2599,6 @@ PACINLINE bool Unipac::domatch(FieldObj &field, FldDef &fld_def)
 		case END_W:
 			if ( scan->len <= field.range 
 				&& memcmp(&field.val[field.range - scan->len], scan->val, scan->len) == 0 )
-				matched = true;
-			break;
-
-		case REGEX:
-			m_con.grant(field.range+1);
-			m_con.input(field.val, field.range);
-			m_con.base[field.range] = 0;	//null terminating string.
-			if ( regexec(&(scan->rgx), (const char*)m_con.base, 0,  0, 0) == 0 )
 				matched = true;
 			break;
 
