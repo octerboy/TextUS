@@ -86,7 +86,7 @@ public:
 	void notify_friend(char *msg);
 	void SysInit();
 	int open_dev();
-	int close_dev();
+	int close_dev(bool should_notify=true);
 	int reload_dll();
 
 	PacketObj hi_req, hi_reply; /* 向中心传递的 */
@@ -113,6 +113,7 @@ static HANDLE h_recv_pipe_thread = INVALID_HANDLE_VALUE;	/* 接收管道线程 */
 static HANDLE h_srv_pipe= INVALID_HANDLE_VALUE;
 static HANDLE h_cli_pipe = INVALID_HANDLE_VALUE;
 static HANDLE pro_ev=NULL;		//event变量, 指示有工作要做
+static HANDLE samin_no_read_ev=NULL;		//event变量, 指示有samin已经关闭对读写器的连接。
 
 static Amor *mary=(Amor*)0;	//ignite时设这个值, 函数就调用mary啦
 static ICPort *justme=(ICPort*)0;	//ignite时设这个值, 函数就调用mary啦
@@ -225,19 +226,18 @@ int __stdcall  READER_open(char* Paras)
 	HINSTANCE ext=NULL;
 	int num = 10;
 	int ret = -1;
-
-	hMod = GetModuleHandle("vreader.dll");
-	if(hMod != NULL) 
-	{
-		GetModuleFileName(hMod, cur_path, 1000);
-		char *p;
-		GetModuleFileName(hMod, cur_path, 1000);
-		p = strstr(cur_path, "vreader.dll");
-		*p= 0;
-	}
+	char *p;
 
 	if ( !mary) 
 	{
+		hMod = GetModuleHandle("vreader.dll");
+		if(hMod != NULL) 
+		{
+			GetModuleFileName(hMod, cur_path, 1000);
+			p = strstr(cur_path, "vreader.dll");
+			*p= 0;
+		}
+
 		if ( (ext =LoadLibrary("libanimus.dll") ) 
 			&& ( pth.run = (Start_fun) GetProcAddress(ext, "textus_animus_start") ) )
 		{ 
@@ -262,6 +262,7 @@ int __stdcall  READER_open(char* Paras)
 		}
 	}
 	ret = justme->open_dev();
+
 END:
 	return ret;
 }
@@ -339,12 +340,7 @@ QryAgain:
 	{
 		if ( justme->will_reload_dll)
 		{
-			if (justme->close_dev() != 0 ) 
-			{
-				in_ret = false;
-				goto IN_END;
-			}
-
+			justme->close_dev(false);	//这是在toll模式下工作的，这里断开不要通知对方，因为自己要连
 			if (justme->reload_dll() != 0 ) 
 			{
 				in_ret = false;
@@ -367,6 +363,7 @@ QryAgain:
 		printf("iSlot %d ret %d，%s\n", iSlot, ret, samory[iSlot].rst_info);
 		if (ret !=0 ) 
 		{
+			//printf("get %s\n",GetOpInfo(ret));
 			continue;
 		}
 
@@ -880,11 +877,14 @@ void ICPort::error_sys_pro(const char *h_msg)
 { 
     char errstr[1024];
     DWORD dw = GetLastError(); 
+	char *s;
 
     FormatMessage( FORMAT_MESSAGE_FROM_SYSTEM, NULL, dw,
         MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
         errstr, 1024, NULL );
 
+	s= strstr(errstr, "\r\n") ; 
+	if (s )  *s = '\0'; 
     wsprintf(&m_error_buf[0], "%s failed with error %d: %s", (char*)h_msg, dw, errstr); 
 	WLOG(ERR, "%s", m_error_buf);
 }
@@ -1361,6 +1361,32 @@ PIPE_PRO:
 	if ( me_who == VR_toll)
 		s_pipe = toll_named_pipe_str;
 
+	if (pro_ev == NULL)
+	{
+		pro_ev = CreateEvent( NULL, // default security attributes
+			FALSE, //not Manual Reset (Auto Reset)
+			FALSE, // 开始无信号 
+			NULL);
+		if (pro_ev == NULL) 
+		{	
+			error_sys_pro("SysInit CreateEvent");
+			goto END;
+		}
+	}
+
+	if (samin_no_read_ev == NULL)
+	{
+		samin_no_read_ev = CreateEvent( NULL, // default security attributes
+			FALSE, //not Manual Reset (Auto Reset)
+			FALSE, // 开始无信号 
+			NULL);
+		if (samin_no_read_ev == NULL) 
+		{	
+			error_sys_pro("SysInit CreateEvent");
+			goto END;
+		}
+	}
+
 	WBUG("创建命名管道(%s)并等待连接", s_pipe);  
 	if ( h_srv_pipe !=INVALID_HANDLE_VALUE) goto Next_Step1;
 
@@ -1382,25 +1408,14 @@ PIPE_PRO:
 	}
 
 Next_Step1:
-	if (pro_ev == NULL)
-	{
-		pro_ev = CreateEvent( NULL, // default security attributes
-			FALSE, //not Manual Reset (Auto Reset)
-			FALSE, // 开始无信号 
-			NULL);
-		if (pro_ev == NULL) 
-		{	
-			error_sys_pro("SysInit CreateEvent");
-			goto END;
-		}
-	}
-
-	open_dev();
 	if ( (me_who == VR_toll && had_samin) || (me_who == VR_samin && had_toll))	/* 向对方通知自己的存在。这放在最后。 */
 	{
 		if ( get_cli_pipe() ) 
 			notify_me_up();     
 	}
+
+	if ( (me_who == VR_samin ))	/* samin在这种情况下去连接读写器。toll自己另外操作。 */
+		open_dev();
 
 END:
 	return;
@@ -1416,24 +1431,23 @@ void ICPort::rcv_pipe()
 LoopConnect:
 	if (ConnectNamedPipe(h_srv_pipe, NULL) != NULL)//等待连接
 	{  
-		printf("%s连接成功，开始接收数据\n", me_who_str );  
+		WBUG("%s连接成功，开始接收数据", me_who_str );  
       
 		//接收客户端发送的数据  
 LoopRead:
-		s_never = true;
+		s_never = true; //假定对方不关闭，所以管道存在
 		if ( !ReadFile(h_srv_pipe, szBuffer, BUFFER_MAX_LEN, &dwLen, NULL)) //读取管道中的内容（管道是一种特殊的文件）  
 		{
 			//要记一下错误日志
 			error_sys_pro("rcv_pipe ReadFile");
 			goto KillSrvPipe;
 		}
-		printf("%s接收到数据长度为%d字节: %s\n", me_who_str, dwLen, szBuffer);  
+		WBUG("%s接收到数据长度为%d字节: %s", me_who_str, dwLen, szBuffer);  
 
 		switch ( szBuffer[0] ) 
 		{
-		case 't':	//toll启动，这是samin才收到的， samin应该关闭自己的读卡器连接，并通知toll
+		case 't':	//toll启动，这是samin才收到的， 
 			get_cli_pipe();
-			close_dev();
 			break;
 
 		case 's':	//samin启动，这是toll才收到。
@@ -1441,11 +1455,22 @@ LoopRead:
 			break;
 
 		case 'T':	//toll关闭，这是samin才收到的
-			s_never = false;
+			s_never = false; //管道不存在了
+			close_cli_pipe();
 			break;
 
-		case 'S':	//samin关才，这是toll才收到。
-			s_never = false;
+		case 'S':	//samin关闭，这是toll才收到。
+			s_never = false;//管道不存在了
+			close_cli_pipe();
+			break;
+
+		case 'F':	//toll要连读卡器，这是samin收到的,samin应该关闭自己的读卡器连接，并通知toll
+			close_dev(false);	//这里就不通知了，下面特别通知。
+			notify_friend("f");	//告诉toll，应toll的要求，这里已经关闭。
+			break;
+
+		case 'f':	//toll收到的: samin已不再连读写器
+			SetEvent(samin_no_read_ev);
 			break;
 
 		case 'd':	//已关闭读卡器连接，samin和toll都可收到。各自应该自己连接读卡器
@@ -1470,14 +1495,12 @@ LoopRead:
 		default:
 			break;
 		}      
-		if (s_never ) 
+		if (s_never )  //管道存在，断续
 			goto LoopRead;            
 	}
-//now, s_never = false, 
+//now, s_never = true, 
 KillSrvPipe:
 	DisconnectNamedPipe(h_srv_pipe);   
-	CloseHandle(h_srv_pipe);//关闭管道  
-	h_srv_pipe = INVALID_HANDLE_VALUE;
 	goto LoopConnect;
 }
 
@@ -1608,6 +1631,17 @@ int ICPort::open_dev()
 
 	ret = -1;
 	m_error_buf[0] = 0;
+	if ( who_open_reader == VR_samin && me_who == VR_toll ) 
+	{
+		//toll要连读写器，而samin已经连上，则要求对方断开
+		ResetEvent(samin_no_read_ev);
+		notify_friend("F");
+		if (WaitForSingleObject(samin_no_read_ev, justme->init_timeout) != WAIT_OBJECT_0 )	//默认3秒
+		{
+			error_sys_pro("open_dev for wait samin_no_read_ev");
+			goto OEnd;
+		}
+	}
 
 	if ( who_open_reader == VR_none  ) 
 	{
@@ -1627,7 +1661,7 @@ int ICPort::open_dev()
 		{
 			who_open_reader = me_who;
 		} else {
-			WLOG(ERR, "%s",m_error_buf);
+			error_sys_pro("open_dev for wait pro_ev");
 		}
 	}
 
@@ -1635,11 +1669,11 @@ int ICPort::open_dev()
 		ret = 1;
 	else 
 		ret = 0;
-
+OEnd:
 	return ret;
 }
 
-int ICPort::close_dev()
+int ICPort::close_dev(bool should_notify)
 {
 	const int BUFFER_MAX_LEN = 32;  
 	char szBuffer[BUFFER_MAX_LEN];  
@@ -1661,23 +1695,26 @@ int ICPort::close_dev()
 		mary->facio(&para);
 		if ( ret != 0 ) 
 		{
-			WLOG(ERR, "%s", m_error_buf);
+			WLOG(ERR, "close_dev %s", m_error_buf);
 		}
 
 		who_open_reader = VR_none;
 		szBuffer[0] = 'd'; szBuffer[1] = '\0';
 		Sleep(100);
-		if ( h_cli_pipe != INVALID_HANDLE_VALUE)
+		if (should_notify)
 		{
-	        if ( !WriteFile(h_cli_pipe, szBuffer, 1, &dwLen, NULL)) //通知，这里已经断开读写器
+			if ( h_cli_pipe != INVALID_HANDLE_VALUE)
 			{
-				//记错误日志
-				error_sys_pro("close_dev write cli pipe");
-				close_cli_pipe();
-			} 
-		    WBUG("%s 数据d写入完毕共%d字节 in close_dev", me_who_str, dwLen);  
-		} else {
-			WLOG(ALERT, "close_dev: h_cli_pipe not ready");
+		        if ( !WriteFile(h_cli_pipe, szBuffer, 1, &dwLen, NULL)) //通知，这里已经断开读写器
+				{
+					//记错误日志
+					error_sys_pro("close_dev write cli pipe");
+					close_cli_pipe();
+				} 
+			    WBUG("%s 数据d写入完毕共%d字节 in close_dev", me_who_str, dwLen);  
+			} else {
+				WLOG(ALERT, "close_dev: h_cli_pipe not ready");
+			}
 		}
 	}
 	return ret;
@@ -1809,9 +1846,9 @@ void ICPort::to_center_ventory(bool can)
 			hi_req.input(PSamSerial_Fld, samory[i].serial,strlen(samory[i].serial));
 			hi_req.input(PSamTermNo_Fld, samory[i].device_termid,strlen(samory[i].device_termid));
 			TEXTUS_SPRINTF(tmp, "%d", samory[i].result);
-			hi_req.input(PSamTermNo_Fld, samory[i].device_termid,strlen(samory[i].device_termid));
-			hi_req.input(InventoryTime_Fld, samory[i].datetime,strlen(samory[i].datetime));
+			hi_req.input(PSamStat_Fld, tmp,strlen(tmp));
 			hi_req.input(PSamErrStr_Fld, samory[i].err,strlen(samory[i].err));
+			hi_req.input(InventoryTime_Fld, samory[i].datetime,strlen(samory[i].datetime));
 			aptus->facio(&loc_pro_pac);     //向右发出
 		}
 	}

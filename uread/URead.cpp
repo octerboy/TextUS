@@ -289,7 +289,7 @@ int URead::Sam_Reset(char atr[64])
 		memcpy(atr, resp, len);
 		atr[len]=0;
 	} else {
-		sprintf(m_error_buf, "%s(face %d) 返回 %08X", "Sam_Reset" ,sam_face,  ret);
+		sprintf(m_error_buf, "%s(face %d) 返回 %d %s", "Sam_Reset" ,sam_face,  ret,  get_info? get_info(ret): " ");
 		WLOG(ERR,"%s", m_error_buf);
 	}
 	return ret;	
@@ -344,6 +344,12 @@ int URead::dev_close(void)
 	if (hdev == 0 ) 
 		return 0;
 	ret = close_dev(hdev);
+	if ( ret != 0 ) 
+	{
+		sprintf(m_error_buf, "设备函数错误, READER_close返回 %d", ret);
+		WLOG(ERR, "%s", m_error_buf);
+	}
+
 	hdev = 0;
 	return ret;
 }
@@ -380,10 +386,7 @@ int URead::dev_init(void)
 		WBUG("READER_open ret handle %d", hdev);
 		ret = 0;
 	} else {
-		if ( get_info )
-			sprintf(m_error_buf, "设备打开错误, READER_open返回 %08x(%s)", hdev, get_info(hdev));
-		else
-			sprintf(m_error_buf, "设备打开错误, READER_open返回 %08x", hdev);
+		sprintf(m_error_buf, "设备打开错误, READER_open返回 %08x", hdev);
 		WLOG(ERR, "%s", m_error_buf);
 		ret = -1;
 		hdev = 0;
