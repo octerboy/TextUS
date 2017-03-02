@@ -56,6 +56,7 @@ static enum VReader_Who me_who = VR_none;	//自身的工作模式， 这不在共享数据段
 static bool isInventoring;	//是否在盘点
 static bool has_card;
 static int max_Qry_Card_num;
+static int cent_qry_interval=1; //向中心查询的时间间隔
 
 const char *me_who_str=0;
 const char *samin_named_pipe_str = "\\\\.\\pipe\\NamePipe_samin_serv";  
@@ -71,6 +72,7 @@ public:
 	bool facio( Pius *);
 	bool sponte( Pius *);
 	Amor *clone();
+	void deliver(Notitia::HERE_ORDO aordo);
 
 	enum WMOD { WM_TOP=0, WM_SAM= 1, WM_PRO=2, WM_BOTH=3};
 	enum WMOD wmod;	//工作模式: 0:SAM, 1:PRO, 2:both, 默认TOP,即顶层实例
@@ -920,6 +922,7 @@ bool ICPort::facio( Amor::Pius *pius)
 
 		if ( wmod == WM_TOP ) 
 			SysInit(); /* 顶层实例才做各种初始化 */
+
 		ret = false;
 /* 这样子, 如同最顶级调用, 到时以mary->facio的方式, 传到下级各节点. 各节点可能也是vreader，然后再各读写器. 
    ICPort的facio函数， 就知道是二层节点的unigo了。
@@ -1187,11 +1190,49 @@ COMM_PRO:
 		}
 		break;
 
+	case Notitia::TIMER:	/* 定时信号 */
+		WBUG("facio TIMER" );
+		deliver(Notitia::DMD_SET_ALARM);
+		if ( who_open_reader == VR_toll ) //对于toll打开的
+			notify_friend("P");	//通知要盘点,完成后，samin收到，即向中心报告。
+			else if ( who_open_reader == VR_samin )
+		{	
+			inventory();
+		}
+
+		break;
+
 	default:
 		return false;
 	}
 	return ret;
 }
+
+void ICPort::deliver(Notitia::HERE_ORDO aordo)
+{
+	Amor::Pius tmp_pius;
+	void *arr[3];
+
+	tmp_pius.ordo = aordo;
+	tmp_pius.indic = 0x0;
+	switch (aordo )
+	{
+	case Notitia::DMD_SET_ALARM:
+		WBUG("deliver(sponte) DMD_SET_ALARM");
+		tmp_pius.indic = &arr[0];
+		arr[0] = this;
+		arr[1] = &cent_qry_interval;
+		arr[2] = 0;
+		break;
+
+	default:
+		WBUG("deliver Notitia::%d", aordo);
+		break;
+	}
+
+	aptus->sponte(&tmp_pius);
+}
+
 
 bool ICPort::sponte( Amor::Pius *pius)
 {		
@@ -1415,7 +1456,10 @@ Next_Step1:
 	}
 
 	if ( (me_who == VR_samin ))	/* samin在这种情况下去连接读写器。toll自己另外操作。 */
+	{
+		deliver(Notitia::DMD_SET_ALARM); /* 设定时，sched来询问 */ 
 		open_dev();
+	}
 
 END:
 	return;
@@ -1457,11 +1501,13 @@ LoopRead:
 		case 'T':	//toll关闭，这是samin才收到的
 			s_never = false; //管道不存在了
 			close_cli_pipe();
+			open_dev();
 			break;
 
 		case 'S':	//samin关闭，这是toll才收到。
 			s_never = false;//管道不存在了
 			close_cli_pipe();
+			//open_dev();
 			break;
 
 		case 'F':	//toll要连读卡器，这是samin收到的,samin应该关闭自己的读卡器连接，并通知toll
@@ -1664,6 +1710,7 @@ int ICPort::open_dev()
 			error_sys_pro("open_dev for wait pro_ev");
 		}
 	}
+	WBUG("who_open_reader %d", who_open_reader);
 
 	if ( dev_ok )
 		ret = 1;
