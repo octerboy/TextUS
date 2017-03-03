@@ -23,8 +23,8 @@
 */
 enum VReader_Who { VR_toll=1,  VR_samin =3, VR_none = 0 };
 typedef struct _PSAM_Info{
-	char serial[20+1];	//PSAM卡序列号
-	char device_termid[12+1];	//终端机编号
+	char serial[64];	//PSAM卡序列号
+	char device_termid[64];	//终端机编号
 	char rst_info[128];	//Psam复位信息
 	char datetime[32];	//盘点时间，车道时间
 	int slot;		//PSAM卡所在槽号1~4
@@ -38,15 +38,15 @@ typedef struct _PSAM_Info{
 static enum VReader_Who who_open_reader = VR_none ;	//设备是否初始化, 若已经初始化, 每次计数++
 bool had_toll = false;	//若unitoll动态库已经调用，则设相应值
 bool had_samin = false;	//若samin已经调用，则设相应值
-PsamInfo samory[PSAM_SLOT_NUM];	//假定最多有4张卡。
+	static PsamInfo samory[PSAM_SLOT_NUM];	//假定最多有4张卡。
 
-	char lane_ip[64];		//车道 IP
-	char lane_road[8];
-	char lane_station[8];
-	char lane_no[8];
-	char psam_challenge[32];	//来自中心的挑战数
-	char psam_should_cipher_db44[32];//来自中心的应该的加密结果, 针对地标PSAM卡 
-	char psam_should_cipher_gb[32];//来自中心的应该的加密结果, 针对国标PSAM卡
+	static char lane_ip[64];		//车道 IP
+	static char lane_road[8];
+	static char lane_station[8];
+	static char lane_no[8];
+	static char psam_challenge[32];	//来自中心的挑战数
+	static char psam_should_cipher_db44[32];//来自中心的应该的加密结果, 针对地标PSAM卡 
+	static char psam_should_cipher_gb[32];//来自中心的应该的加密结果, 针对国标PSAM卡
 
 #pragma data_seg()
 
@@ -79,6 +79,7 @@ public:
 
 	int init_timeout;
 	bool will_reload_dll;
+
 	void error_sys_pro(const char *h_msg);
 	void rcv_pipe();
 	bool get_cli_pipe();
@@ -90,6 +91,8 @@ public:
 	int open_dev();
 	int close_dev(bool should_notify=true);
 	int reload_dll();
+
+	bool inventory();
 
 	PacketObj hi_req, hi_reply; /* 向中心传递的 */
 	PacketObj *hipa[3];
@@ -139,7 +142,7 @@ static int CardCommandCharSlot(char * command, char * reply, SHORT which, int *p
 	*psw = 0;
 	if ( !justme )
 	{
-		sprintf(m_error_buf, "system is not ready!");
+		TEXTUS_SPRINTF(m_error_buf, "system is not ready!");
 		goto END;
 	}
 	ps[0] = &ret;
@@ -276,7 +279,7 @@ int __stdcall READER_close(long DevHandle)
 	m_error_buf[0] = 0;
 	if ( !justme)
 	{
-		sprintf(m_error_buf, "system is not ready!");
+		TEXTUS_SPRINTF(m_error_buf, "system is not ready!");
 		goto END;
 	}
 	ret = justme->close_dev();
@@ -295,7 +298,7 @@ int __stdcall SAM_reset(long DevHandle,int iSockID,int* iReplylength,char* sRepl
 	m_error_buf[0] = 0;
 	if ( !justme)
 	{
-		sprintf(m_error_buf, "system is not ready!");
+		TEXTUS_SPRINTF(m_error_buf, "system is not ready!");
 		goto END;
 	}
 	ps[0] = &ret;
@@ -311,113 +314,6 @@ END:
 	return ret;
 }
 
-bool inventory()
-{
-	//samory[0~3]
-	int iSlot;
-	int ret = 0;
-	int sw;
-	char answer[512], command[128];
-	int len, qry_num;
-	bool in_ret = true;
-
-#define SAM(C,Y,E) sw = 0; ret = CardCommandCharSlot(C, Y, 0, &sw, &iSlot); if ( ret !=0 || sw != 0x9000 ) { samory[iSlot].result = E; TEXTUS_SPRINTF(samory[iSlot].err, "%s return %d, sw=%04X", C, ret, sw); continue; }	
-
-	qry_num = 0;
-QryAgain:
-	if (qry_num > max_Qry_Card_num ) 
-		return false;
-	if ( has_card ) 
-	{
-		printf("has card \n");
-		qry_num++;
-		Sleep(100);
-		goto QryAgain;
-	}
-
-	isInventoring = true;
-
-
-	for ( iSlot = 1; iSlot <= PSAM_SLOT_NUM;iSlot++ )
-	{
-		if ( justme->will_reload_dll)
-		{
-			justme->close_dev(false);	//这是在toll模式下工作的，这里断开不要通知对方，因为自己要连
-			if (justme->reload_dll() != 0 ) 
-			{
-				in_ret = false;
-				goto IN_END;
-			}
-
-			if (justme->open_dev() == 0 ) 
-			{
-				in_ret = false;
-				goto IN_END;
-			}
-		}
-	
-		memset(&samory[iSlot], 0, sizeof (PsamInfo));
-		samory[iSlot].slot = 0;	//以此标志无PSAM卡。
-		len = 100;
-		ret = SAM_reset(1, iSlot, &len, samory[iSlot].rst_info);
-
-		samory[iSlot].result = 2;	//假定无卡，即复位失败
-		printf("iSlot %d ret %d，%s\n", iSlot, ret, samory[iSlot].rst_info);
-		if (ret !=0 ) 
-		{
-			//printf("get %s\n",GetOpInfo(ret));
-			continue;
-		}
-
-		samory[iSlot].serial[0] = ' ';
-		samory[iSlot].device_termid[0] = ' ';
-		samory[iSlot].datetime[0] = ' ';
-		samory[iSlot].err[0] = ' ';
-		samory[iSlot].slot = iSlot;		//复位成功，就算有卡了。
-		samory[iSlot].result = 4;	//先假定未检测
-	
-		SAM("00A40000023F00", answer,5)
-
-		/* 取SAM卡的卡号*/
-		SAM("00B095000A", samory[iSlot].serial, 5)
-		/* 取SAM卡的终端号*/
-		SAM("00B0960006", samory[iSlot].device_termid, 5)
-		printf("serial %s\n", samory[iSlot].serial);
-		if ( memcmp( samory[iSlot].serial, "4401", 4) == 0 ) //国标卡
-		{
-			SAM("00A4000002DF01", answer, 1)
-			TEXTUS_SPRINTF(command, "801A480110%s%s", psam_challenge, "B9E3B6ABB9E3B6AB");
-			SAM(command, answer, 5)
-
-			TEXTUS_SPRINTF(command, "80FA000008%s", psam_challenge);
-			SAM(command, answer, 5)
-			if ( memcmp(answer, psam_should_cipher_gb, 16) != 0 ) 
-			{
-				samory[iSlot].result = 3;
-				TEXTUS_SPRINTF(samory[iSlot].err, "cipher is %s", answer);
-				//printf("cipher failed\n");
-				continue;
-			}
-		} else {	//地标卡
-			ret = CardCommandCharSlot("00A40000023F01", answer, 0, &sw,  &iSlot);
-			SAM("00A40000023F01", answer, 1)
-			TEXTUS_SPRINTF(command, "801A270108%s", psam_challenge);
-			SAM(command, answer, 5)
-			TEXTUS_SPRINTF(command, "80FA000008%s", psam_challenge);
-			SAM(command, answer, 5)
-			if ( memcmp(answer, psam_should_cipher_db44, 16) != 0 ) 
-			{
-				samory[iSlot].result = 3;
-				TEXTUS_SPRINTF(samory[iSlot].err, "cipher is %s", answer);
-				continue;
-			}
-		}
-		samory[iSlot].result = 0;	//至此， 检测OK.
-	}
-IN_END:
-	isInventoring = false;
-	return in_ret;
-}
 
 int   __stdcall SAM_command(long DevHandle,int iSockID,int iCommandLength, char* sCommand ,int* iReplylength,char* sReply)
 {
@@ -440,7 +336,7 @@ int   __stdcall CARD_open(long DevHandle, int RequestMode,char* PhysicsCardno, c
 	has_card = false;
 	if ( !justme)
 	{
-		sprintf(m_error_buf, "system is not ready!");
+		TEXTUS_SPRINTF(m_error_buf, "system is not ready!");
 		goto END;
 	}
 	if ( isInventoring ) 
@@ -479,7 +375,7 @@ int   __stdcall CARD_close(long DevHandle)
 	m_error_buf[0] = 0;
 	if ( !justme)
 	{
-		sprintf(m_error_buf, "system is not ready!");
+		TEXTUS_SPRINTF(m_error_buf, "system is not ready!");
 		goto END;
 	}
 	ps[0] = &ret;
@@ -502,7 +398,7 @@ int   __stdcall ICC_authenticate(long DevHandle, int CardPlace,int sector,int ke
 	m_error_buf[0] = 0;
 	if ( !justme)
 	{
-		sprintf(m_error_buf, "system is not ready!");
+		TEXTUS_SPRINTF(m_error_buf, "system is not ready!");
 		goto END;
 	}
 	ps[0] = (void*)&ret;
@@ -529,7 +425,7 @@ int   __stdcall ICC_readsector(long DevHandle, int CardPlace, int sector, int st
 	m_error_buf[0] = 0;
 	if ( !justme)
 	{
-		sprintf(m_error_buf, "system is not ready!");
+		TEXTUS_SPRINTF(m_error_buf, "system is not ready!");
 		goto END;
 	}
 	ps[0] = (void*)&ret;
@@ -557,7 +453,7 @@ int   __stdcall ICC_writesector(long DevHandle, int CardPlace, int sector, int s
 	m_error_buf[0] = 0;
 	if ( !justme)
 	{
-		sprintf(m_error_buf, "system is not ready!");
+		TEXTUS_SPRINTF(m_error_buf, "system is not ready!");
 		goto END;
 	}
 	ps[0] = (void*)&ret;
@@ -585,7 +481,7 @@ int   __stdcall GetReaderVersion(long DevHandle,char* sReaderVersion, int iRVerM
 	m_error_buf[0] = 0;
 	if ( !justme)
 	{
-		sprintf(m_error_buf, "system is not ready!");
+		TEXTUS_SPRINTF(m_error_buf, "system is not ready!");
 		goto END;
 	}
 	ps[0] = (void*)&ret;
@@ -613,7 +509,7 @@ int  __stdcall Led_display(long DevHandle,unsigned char cRed,unsigned char cGree
 	m_error_buf[0] = 0;
 	if ( !justme)
 	{
-		sprintf(m_error_buf, "system is not ready!");
+		TEXTUS_SPRINTF(m_error_buf, "system is not ready!");
 		goto END;
 	}
 	ps[0] = (void*)&ret;
@@ -640,7 +536,7 @@ int  __stdcall Audio_control(long DevHandle,unsigned  char cBeep)
 	m_error_buf[0] = 0;
 	if ( !justme)
 	{
-		sprintf(m_error_buf, "system is not ready!");
+		TEXTUS_SPRINTF(m_error_buf, "system is not ready!");
 		goto END;
 	}
 	ps[0] = (void*)&ret;
@@ -665,7 +561,7 @@ char* __stdcall GetOpInfo(int retcode)
 	m_error_buf[0] = 0;
 	if ( !justme)
 	{
-		sprintf(m_error_buf, "system is not ready!");
+		TEXTUS_SPRINTF(m_error_buf, "system is not ready!");
 		goto END;
 	}
 	ps[0] = (void*) &ret;
@@ -678,7 +574,7 @@ char* __stdcall GetOpInfo(int retcode)
 	mary->facio(&para);
 END:
 	if ( retcode == 999987 )
-		printf("inventory %d\n",inventory());
+		printf("inventory %d\n",justme->inventory());
 	return ret;
 }
 
@@ -692,7 +588,7 @@ bool  __stdcall GetCardNo_RFID(char* CardNo)
 	m_error_buf[0] = 0;
 	if ( !justme)
 	{
-		sprintf(m_error_buf, "system is not ready!");
+		TEXTUS_SPRINTF(m_error_buf, "system is not ready!");
 		goto END;
 	}
 	ps[0] = (void*) &ret;
@@ -717,7 +613,7 @@ bool  __stdcall GetCPCID_RFID(char* CPCID)
 	m_error_buf[0] = 0;
 	if ( !justme)
 	{
-		sprintf(m_error_buf, "system is not ready!");
+		TEXTUS_SPRINTF(m_error_buf, "system is not ready!");
 		goto END;
 	}
 	ps[0] = (void*) &ret;
@@ -743,7 +639,7 @@ bool  __stdcall GetFlagStationInfo_RFID(char* CPCID,char *InitData,int *FlagStat
 	m_error_buf[0] = 0;
 	if ( !justme)
 	{
-		sprintf(m_error_buf, "system is not ready!");
+		TEXTUS_SPRINTF(m_error_buf, "system is not ready!");
 		goto END;
 	}
 	ps[0] = (void*) &ret;
@@ -772,7 +668,7 @@ bool  __stdcall GetPowerInfo_RFID(char* CPCID,int *PowerInfo)
 	m_error_buf[0] = 0;
 	if ( !justme)
 	{
-		sprintf(m_error_buf, "system is not ready!");
+		TEXTUS_SPRINTF(m_error_buf, "system is not ready!");
 		goto END;
 	}
 	ps[0] = (void*) &ret;
@@ -798,7 +694,7 @@ bool  __stdcall Set433CardMode_RFID(char* CPCID,int iMode)
 	m_error_buf[0] = 0;
 	if ( !justme)
 	{
-		sprintf(m_error_buf, "system is not ready!");
+		TEXTUS_SPRINTF(m_error_buf, "system is not ready!");
 		goto END;
 	}
 	ps[0] = (void*) &ret;
@@ -824,7 +720,7 @@ bool  __stdcall Get433CardMode_RFID(char* CPCID,int* iMode)
 	m_error_buf[0] = 0;
 	if ( !justme)
 	{
-		sprintf(m_error_buf, "system is not ready!");
+		TEXTUS_SPRINTF(m_error_buf, "system is not ready!");
 		goto END;
 	}
 	ps[0] = (void*) &ret;
@@ -1195,7 +1091,7 @@ COMM_PRO:
 		deliver(Notitia::DMD_SET_ALARM);
 		if ( who_open_reader == VR_toll ) //对于toll打开的
 			notify_friend("P");	//通知要盘点,完成后，samin收到，即向中心报告。
-			else if ( who_open_reader == VR_samin )
+		else if ( who_open_reader == VR_samin )
 		{	
 			inventory();
 		}
@@ -1223,14 +1119,19 @@ void ICPort::deliver(Notitia::HERE_ORDO aordo)
 		arr[0] = this;
 		arr[1] = &cent_qry_interval;
 		arr[2] = 0;
+		aptus->sponte(&tmp_pius);
+		break;
+
+	case Notitia::DMD_START_SESSION:
+		WBUG("deliver(sponte) DMD_START_SESSION");
+		tmp_pius.indic = 0;
+		aptus->facio(&tmp_pius);
 		break;
 
 	default:
 		WBUG("deliver Notitia::%d", aordo);
 		break;
 	}
-
-	aptus->sponte(&tmp_pius);
 }
 
 
@@ -1250,13 +1151,22 @@ bool ICPort::sponte( Amor::Pius *pius)
 		break;
 
 	case Notitia::PRO_UNIPAC:    /* 有来自中心的报文 */
-		WBUG("facio PRO_UNIPAC");
+		WBUG("sponte PRO_UNIPAC");
 		center_pac();
 		break;
 
 	case Notitia::START_SESSION:    /* 与中心有连接 */
-		to_center_query();
+		WBUG("sponte START_SESSION");
+		//to_center_query();
+					inventory();
+			to_center_ventory(true);
+
 		break;
+
+	case Notitia::END_SESSION:    /* 与中心有连接 */
+		WBUG("sponte END_SESSION");
+		deliver(Notitia::DMD_START_SESSION);
+
 	default:
 		return false;
 	}
@@ -1475,7 +1385,7 @@ void ICPort::rcv_pipe()
 LoopConnect:
 	if (ConnectNamedPipe(h_srv_pipe, NULL) != NULL)//等待连接
 	{  
-		WBUG("%s连接成功，开始接收数据", me_who_str );  
+		WBUG("%s 连接 h_srv_pipe 成功，开始接收数据", me_who_str );  
       
 		//接收客户端发送的数据  
 LoopRead:
@@ -1501,7 +1411,13 @@ LoopRead:
 		case 'T':	//toll关闭，这是samin才收到的
 			s_never = false; //管道不存在了
 			close_cli_pipe();
-			open_dev();
+			if ( who_open_reader == VR_toll && me_who == VR_samin ) 
+			{
+				//toll居然不关闭读卡器，这里置标志
+				Sleep(1000);
+				who_open_reader = VR_none;
+				open_dev();
+			}
 			break;
 
 		case 'S':	//samin关闭，这是toll才收到。
@@ -1788,6 +1704,121 @@ int ICPort::reload_dll()
 	return ret;
 }
 
+bool ICPort::inventory()
+{
+	//samory[0~3]
+	int iSlot;
+	int ret = 0;
+	int sw;
+	char answer[512], command[128];
+	int len, qry_num;
+	bool in_ret = true;
+
+#define SAM(C,Y,E) sw = 0; ret = CardCommandCharSlot(C, Y, 0, &sw, &iSlot); if ( ret !=0 || sw != 0x9000 ) { samory[iSlot].result = E; TEXTUS_SPRINTF(samory[iSlot].err, "%s return %d, sw=%04X", C, ret, sw); continue; }	
+
+	qry_num = 0;
+QryAgain:
+	if (qry_num > max_Qry_Card_num ) 
+		return false;
+	if ( has_card ) 
+	{
+		printf("has card \n");
+		qry_num++;
+		Sleep(100);
+		goto QryAgain;
+	}
+
+	isInventoring = true;
+	for ( iSlot = 1; iSlot <= PSAM_SLOT_NUM;iSlot++ )
+	{
+		if ( justme->will_reload_dll)
+		{
+			justme->close_dev(false);	//这是在toll模式下工作的，这里断开不要通知对方，因为自己要连
+			if (justme->reload_dll() != 0 ) 
+			{
+				in_ret = false;
+				goto IN_END;
+			}
+
+			if (justme->open_dev() == 0 ) 
+			{
+				in_ret = false;
+				goto IN_END;
+			}
+		}
+			printf("-----%d load_road %s\n", strlen(lane_road), lane_road);
+			printf("-----%d lane_station %s\n", strlen(lane_station), lane_station);
+			printf("-----%d lane_no %s\n", strlen(lane_no), lane_no);
+		memset(&samory[iSlot], 0, sizeof (PsamInfo));
+		samory[iSlot].slot = 0;	//以此标志无PSAM卡。
+		len = 100;
+		ret = SAM_reset(1, iSlot, &len, samory[iSlot].rst_info);
+
+		samory[iSlot].result = 2;	//假定无卡，即复位失败
+		WBUG("iSlot %d ret %d，%s", iSlot, ret, samory[iSlot].rst_info);
+		if (ret !=0 ) 
+		{
+			//printf("get %s\n",GetOpInfo(ret));
+			continue;
+		}
+
+		samory[iSlot].serial[0] = ' ';
+		samory[iSlot].device_termid[0] = ' ';
+		samory[iSlot].datetime[0] = ' ';
+		samory[iSlot].err[0] = ' ';
+		samory[iSlot].slot = iSlot;		//复位成功，就算有卡了。
+		samory[iSlot].result = 4;	//先假定未检测
+	
+		SAM("00A40000023F00", answer,5)
+
+		/* 取SAM卡的卡号*/
+		SAM("00B095000A", samory[iSlot].serial, 5)
+		//SAM("00B095000A", answer, 5)
+		/* 取SAM卡的终端号*/
+		printf("00000 %d lane_station %s\n", strlen(lane_station), lane_station);
+		SAM("00B0960006", samory[iSlot].device_termid, 5)
+		WBUG("serial %s", samory[iSlot].serial);
+		if ( memcmp( samory[iSlot].serial, "4401", 4) == 0 ) //国标卡
+		{
+			SAM("00A4000002DF01", answer, 1)
+			TEXTUS_SPRINTF(command, "801A480110%s%s", psam_challenge, "B9E3B6ABB9E3B6AB");
+			SAM(command, answer, 5)
+			printf("00000%d lane_station %s\n", strlen(lane_station), lane_station);
+			TEXTUS_SPRINTF(command, "80FA000008%s", psam_challenge);
+			SAM(command, answer, 5)
+			if ( memcmp(answer, psam_should_cipher_gb, 16) != 0 ) 
+			{
+				samory[iSlot].result = 3;
+				TEXTUS_SPRINTF(samory[iSlot].err, "cipher is %s", answer);
+				//printf("cipher failed\n");
+				goto NEXTP;
+			}
+		} else {	//地标卡
+			ret = CardCommandCharSlot("00A40000023F01", answer, 0, &sw,  &iSlot);
+			SAM("00A40000023F01", answer, 1)
+			TEXTUS_SPRINTF(command, "801A270108%s", psam_challenge);
+			SAM(command, answer, 5)
+			TEXTUS_SPRINTF(command, "80FA000008%s", psam_challenge);
+			SAM(command, answer, 5)
+			if ( memcmp(answer, psam_should_cipher_db44, 16) != 0 ) 
+			{
+				samory[iSlot].result = 3;
+				TEXTUS_SPRINTF(samory[iSlot].err, "cipher is %s", answer);
+				goto NEXTP;
+			}
+		}
+		samory[iSlot].result = 0;	//至此， 检测OK.
+NEXTP:
+			printf("++++%d load_road %s\n", strlen(lane_road), lane_road);
+			printf("++++%d lane_station %s\n", strlen(lane_station), lane_station);
+			printf("++++%d lane_no %s\n", strlen(lane_no), lane_no);
+
+	}
+IN_END:
+	isInventoring = false;
+	return in_ret;
+}
+
 /* 与中心通讯的域定义 */
 #define Fun_Fld 2
 #define IP_Fld 3
@@ -1880,17 +1911,21 @@ void ICPort::to_center_ventory(bool can)
 	} else {
 		for ( i = 0; i < PSAM_SLOT_NUM; i++)
 		{
-			if (samory[i].slot == 0 ) continue;
+			if (samory[i].slot == 0  ) continue;
 			hi_req.reset();	//请求复位
 			hi_req.input(Fun_Fld, 'I');
 			hi_req.input(IP_Fld, lane_ip,strlen(lane_ip));
+			printf("%d load_road %s\n", strlen(lane_road), lane_road);
 			hi_req.input(Road_Fld, lane_road,strlen(lane_road));
+			printf("%d lane_station %s\n", strlen(lane_station), lane_station);
 			hi_req.input(Station_Fld, lane_station,strlen(lane_station));
+			printf("%d lane_no %s\n", strlen(lane_no), lane_no);
 			hi_req.input(Lane_Fld, lane_no,strlen(lane_no));
 			//PSAM
 			TEXTUS_SPRINTF(tmp, "%d", samory[i].slot);
 			hi_req.input(PSamSlot_Fld, tmp,strlen(tmp));
 			hi_req.input(PSamSerial_Fld, samory[i].serial,strlen(samory[i].serial));
+			printf("%d device_termid %s\n", strlen(samory[i].device_termid), samory[i].device_termid);
 			hi_req.input(PSamTermNo_Fld, samory[i].device_termid,strlen(samory[i].device_termid));
 			TEXTUS_SPRINTF(tmp, "%d", samory[i].result);
 			hi_req.input(PSamStat_Fld, tmp,strlen(tmp));
