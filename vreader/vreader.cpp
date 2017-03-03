@@ -38,7 +38,7 @@ typedef struct _PSAM_Info{
 static enum VReader_Who who_open_reader = VR_none ;	//设备是否初始化, 若已经初始化, 每次计数++
 bool had_toll = false;	//若unitoll动态库已经调用，则设相应值
 bool had_samin = false;	//若samin已经调用，则设相应值
-	static PsamInfo samory[PSAM_SLOT_NUM];	//假定最多有4张卡。
+	static PsamInfo samory[PSAM_SLOT_NUM+1];	//假定最多有4张卡。
 
 	static char lane_ip[64];		//车道 IP
 	static char lane_road[8];
@@ -1746,9 +1746,7 @@ QryAgain:
 				goto IN_END;
 			}
 		}
-			printf("-----%d load_road %s\n", strlen(lane_road), lane_road);
-			printf("-----%d lane_station %s\n", strlen(lane_station), lane_station);
-			printf("-----%d lane_no %s\n", strlen(lane_no), lane_no);
+
 		memset(&samory[iSlot], 0, sizeof (PsamInfo));
 		samory[iSlot].slot = 0;	//以此标志无PSAM卡。
 		len = 100;
@@ -1768,14 +1766,11 @@ QryAgain:
 		samory[iSlot].err[0] = ' ';
 		samory[iSlot].slot = iSlot;		//复位成功，就算有卡了。
 		samory[iSlot].result = 4;	//先假定未检测
-	
 		SAM("00A40000023F00", answer,5)
 
 		/* 取SAM卡的卡号*/
-		SAM("00B095000A", samory[iSlot].serial, 5)
-		//SAM("00B095000A", answer, 5)
+		SAM("00B095000A", &(samory[iSlot].serial[0]), 5)
 		/* 取SAM卡的终端号*/
-		printf("00000 %d lane_station %s\n", strlen(lane_station), lane_station);
 		SAM("00B0960006", samory[iSlot].device_termid, 5)
 		WBUG("serial %s", samory[iSlot].serial);
 		if ( memcmp( samory[iSlot].serial, "4401", 4) == 0 ) //国标卡
@@ -1783,15 +1778,13 @@ QryAgain:
 			SAM("00A4000002DF01", answer, 1)
 			TEXTUS_SPRINTF(command, "801A480110%s%s", psam_challenge, "B9E3B6ABB9E3B6AB");
 			SAM(command, answer, 5)
-			printf("00000%d lane_station %s\n", strlen(lane_station), lane_station);
 			TEXTUS_SPRINTF(command, "80FA000008%s", psam_challenge);
 			SAM(command, answer, 5)
 			if ( memcmp(answer, psam_should_cipher_gb, 16) != 0 ) 
 			{
 				samory[iSlot].result = 3;
 				TEXTUS_SPRINTF(samory[iSlot].err, "cipher is %s", answer);
-				//printf("cipher failed\n");
-				goto NEXTP;
+				continue;
 			}
 		} else {	//地标卡
 			ret = CardCommandCharSlot("00A40000023F01", answer, 0, &sw,  &iSlot);
@@ -1804,15 +1797,10 @@ QryAgain:
 			{
 				samory[iSlot].result = 3;
 				TEXTUS_SPRINTF(samory[iSlot].err, "cipher is %s", answer);
-				goto NEXTP;
+				continue;
 			}
 		}
 		samory[iSlot].result = 0;	//至此， 检测OK.
-NEXTP:
-			printf("++++%d load_road %s\n", strlen(lane_road), lane_road);
-			printf("++++%d lane_station %s\n", strlen(lane_station), lane_station);
-			printf("++++%d lane_no %s\n", strlen(lane_no), lane_no);
-
 	}
 IN_END:
 	isInventoring = false;
@@ -1909,7 +1897,7 @@ void ICPort::to_center_ventory(bool can)
 			aptus->facio(&loc_pro_pac);     //向右发出
 
 	} else {
-		for ( i = 0; i < PSAM_SLOT_NUM; i++)
+		for ( i = 1; i <= PSAM_SLOT_NUM; i++)
 		{
 			if (samory[i].slot == 0  ) continue;
 			hi_req.reset();	//请求复位
