@@ -366,7 +366,7 @@ bool Slice::sponte( Amor::Pius *pius)
 		break;
 
 	case Notitia::DMD_END_SESSION:	/* 高级会话关闭了 */
-		WBUG("sponte END_SESSION" );
+		WBUG("sponte DMD_END_SESSION" );
 		//reset();
 		break;
 
