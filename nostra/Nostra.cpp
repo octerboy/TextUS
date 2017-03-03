@@ -153,6 +153,7 @@ bool Nostra::sponte_n (Amor::Pius *pius, unsigned int from)
 	int here_num;
 	Amor::Pius ready2= {Notitia::CLONE_ALL_READY,0,0};
 	Amor::Pius cln_ps= {Notitia::DMD_CLONE_OBJ,0,0};
+	int i;
 
 	switch(pius->ordo)
 	{
@@ -229,7 +230,7 @@ bool Nostra::sponte_n (Amor::Pius *pius, unsigned int from)
 					产生的对象才进入filius */
 		here_num = maxium - *child_num;
 		if ( here_num > growth_rate ) here_num = growth_rate;
-		for ( int i =0; i < here_num; i++)
+		for ( i =0; i < here_num; i++)
 		if ( radical )
 		{	/* 这是根, 所以这里就进行clone(), prius不变 */
 			Animus *ans;
