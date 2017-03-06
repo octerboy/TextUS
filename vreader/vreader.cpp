@@ -38,15 +38,16 @@ typedef struct _PSAM_Info{
 static enum VReader_Who who_open_reader = VR_none ;	//设备是否初始化, 若已经初始化, 每次计数++
 bool had_toll = false;	//若unitoll动态库已经调用，则设相应值
 bool had_samin = false;	//若samin已经调用，则设相应值
-	static PsamInfo samory[PSAM_SLOT_NUM+1];	//假定最多有4张卡。
 
-	static char lane_ip[64];		//车道 IP
-	static char lane_road[8];
-	static char lane_station[8];
-	static char lane_no[8];
-	static char psam_challenge[32];	//来自中心的挑战数
-	static char psam_should_cipher_db44[32];//来自中心的应该的加密结果, 针对地标PSAM卡 
-	static char psam_should_cipher_gb[32];//来自中心的应该的加密结果, 针对国标PSAM卡
+static PsamInfo samory[PSAM_SLOT_NUM+1]={{" "," "," "," ",0,2,""}, {" "," "," "," ",0,2,""}, {" "," "," "," ",0,2,""}, {" "," "," "," ",0,2,""}, {" "," "," "," ",0,2,""	}};	//假定最多有4张卡,第0个不用。
+
+	static char lane_ip[64]= " " ;		//车道 IP
+	static char lane_road[8]= " " ;
+	static char lane_station[8]= " " ;
+	static char lane_no[8]= " " ;
+	static char psam_challenge[32]= " " ;	//来自中心的挑战数
+	static char psam_should_cipher_db44[32]= " " ;//来自中心的应该的加密结果, 针对地标PSAM卡 
+	static char psam_should_cipher_gb[32]= " " ;//来自中心的应该的加密结果, 针对国标PSAM卡
 
 #pragma data_seg()
 
@@ -845,8 +846,7 @@ bool ICPort::facio( Amor::Pius *pius)
 			memset(lane_no,0,sizeof(lane_no)); lane_no[0] = ' ';
 
 			isInventoring = false;	//不在盘点
-			has_card = false;
-			
+			has_card = false;	
 		}
 		dev_ok = false; //包括顶层实例。
 		break;
@@ -1158,9 +1158,13 @@ bool ICPort::sponte( Amor::Pius *pius)
 	case Notitia::START_SESSION:    /* 与中心有连接 */
 		WBUG("sponte START_SESSION");
 		//to_center_query();
-					inventory();
+		if ( who_open_reader == VR_toll ) //对于toll打开的
+			notify_friend("P");	//通知要盘点,完成后，samin收到，即向中心报告。
+		else if ( who_open_reader == VR_samin )
+		{	
+			inventory();
 			to_center_ventory(true);
-
+		}
 		break;
 
 	case Notitia::END_SESSION:    /* 与中心有连接 */
@@ -1523,7 +1527,7 @@ void ICPort::notify_friend(char *msg)
 		close_cli_pipe();
 		return;
 	}
-	WBUG("%s 数据写入完毕共 %d 字节 in notify_friend", me_who_str, dwLen);  
+	WBUG("%s 数据写入完毕共 %d 字节 %s in notify_friend", me_who_str, dwLen, msg);  
 }
 
 void ICPort::notify_me_up()
@@ -1722,7 +1726,7 @@ QryAgain:
 		return false;
 	if ( has_card ) 
 	{
-		printf("has card \n");
+		WBUG("has card");
 		qry_num++;
 		Sleep(100);
 		goto QryAgain;
@@ -1899,21 +1903,22 @@ void ICPort::to_center_ventory(bool can)
 	} else {
 		for ( i = 1; i <= PSAM_SLOT_NUM; i++)
 		{
+			WBUG("samory %d slot %d", i, samory[i].slot);
 			if (samory[i].slot == 0  ) continue;
 			hi_req.reset();	//请求复位
 			hi_req.input(Fun_Fld, 'I');
 			hi_req.input(IP_Fld, lane_ip,strlen(lane_ip));
-			printf("%d load_road %s\n", strlen(lane_road), lane_road);
+
 			hi_req.input(Road_Fld, lane_road,strlen(lane_road));
-			printf("%d lane_station %s\n", strlen(lane_station), lane_station);
+
 			hi_req.input(Station_Fld, lane_station,strlen(lane_station));
-			printf("%d lane_no %s\n", strlen(lane_no), lane_no);
+
 			hi_req.input(Lane_Fld, lane_no,strlen(lane_no));
 			//PSAM
 			TEXTUS_SPRINTF(tmp, "%d", samory[i].slot);
 			hi_req.input(PSamSlot_Fld, tmp,strlen(tmp));
 			hi_req.input(PSamSerial_Fld, samory[i].serial,strlen(samory[i].serial));
-			printf("%d device_termid %s\n", strlen(samory[i].device_termid), samory[i].device_termid);
+
 			hi_req.input(PSamTermNo_Fld, samory[i].device_termid,strlen(samory[i].device_termid));
 			TEXTUS_SPRINTF(tmp, "%d", samory[i].result);
 			hi_req.input(PSamStat_Fld, tmp,strlen(tmp));
