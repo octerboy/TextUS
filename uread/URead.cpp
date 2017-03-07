@@ -231,9 +231,9 @@ int URead::Pro_Open(char uid[17])
 {
 	int ret;
 	char rst_info[255];
-	char ctype;	//卡类类型
+	char ctype[2];	//卡类类型
 	
-	ret=card_open(hdev, 0, uid, rst_info, &card_place, &ctype);
+	ret=card_open(hdev, 0, uid, rst_info, &card_place, ctype);
 	if ( ret == 0) 
 	{
 /*
@@ -243,6 +243,7 @@ int URead::Pro_Open(char uid[17])
 			ret = -100;
 		}
 */
+		WBUG("ProOpen uid %s ,rst_info %s , card_place %d ,ctype %s", uid, rst_info, card_place, ctype);
 	} else {
 		sprintf(m_error_buf, "%s() 返回 %0X", "CARD_open" , ret);
 	}
@@ -404,6 +405,9 @@ bool URead::facio( Amor::Pius *pius)
 	int which;
 	bool *isPresent;
 	int *piSockID;
+	char rst_info[255], uid2[32];
+	char ctype[2];	//卡类类型
+
 	assert(pius);
 
 	switch(pius->ordo )
@@ -642,11 +646,19 @@ COMM:
 
 		ps = (void**)(pius->indic);
 		ret = (int*)ps[0];
-		*ret = card_open (hdev, *(int*)ps[2], (char*)ps[3], (char*)ps[4], (int*)ps[5], (char*)ps[6]);
+		*ret=card_open(hdev, *(int*)ps[2], uid2, rst_info, &card_place, ctype);
 		if ( *ret == 0 ) 
+		{
 			pro_ok = true;
-		else
+			WBUG("ProOpen uid %s ,rst_info %s , card_place %d ,ctype %s", uid2, rst_info, card_place, ctype);
+			memcpy((char*)ps[3], uid2, 8);
+			memcpy( (char*)ps[4], rst_info, strlen(rst_info));
+			*(int*)ps[5] = card_place;
+			memcpy((char*)ps[6], ctype, 2);
+		} else {
 			pro_ok = false;
+			*ret = -100;
+		}
 
 		break;
 
