@@ -12,41 +12,6 @@
 #define TEXTUS_BUILDNO  "$Revision: 16 $"
 /* $NoKeywords: $ */
 
-#define MINLINE inline
-#define ObtainHex(s,X)   ( (s) > 9 ? (s)-10+X :(s)+'0')
-#define Obtainx(s)   ObtainHex(s,'a')
-#define ObtainX(s)   ObtainHex(s,'A')
-#define Obtainc(s)   (s >= 'A' && s <='F' ? s-'A'+10 :(s >= 'a' && s <='f' ? s-'a'+10 : s-'0' ) )
-
-static char* byte2hex(const unsigned char *byte, size_t blen, char *hex) 
-{
-	size_t i;
-	for ( i = 0 ; i < blen ; i++ )
-	{
-		hex[2*i] =  ObtainX((byte[i] & 0xF0 ) >> 4 );
-		hex[2*i+1] = ObtainX(byte[i] & 0x0F );
-	}
-//	hex[2*i] = '\0';
-	return hex;
-}
-
-static unsigned char* hex2byte(unsigned char *byte, size_t blen, const char *hex)
-{
-	size_t i;
-	const char *p ;	
-
-	p = hex; i = 0;
-
-	while ( i < blen )
-	{
-		byte[i] =  (0x0F & Obtainc( hex[2*i] ) ) << 4;
-		byte[i] |=  Obtainc( hex[2*i+1] ) & 0x0f ;
-		i++;
-		p +=2;
-	}
-	return byte;
-}
-
 #define TYSAM_NAME "Tianyu SAM Card Reader"
 
 class ScPort: public Amor
@@ -529,7 +494,7 @@ bool ScPort::facio( Amor::Pius *pius)
 {
 	void **ps;
 	int *ret;
-	char *comm, *reply, *uid, *atr;
+	char *comm, *reply, *uid, *atr, uid2[32];
 	int *psw;
 	int *isPresent;
 	int *pslot;
@@ -677,6 +642,26 @@ COMM:
 		m_error_buf = (char*)ps[1];
 		if ( Pro_Present() == 0)
 			*isPresent = (*isPresent)+1;
+		break;
+
+	case Notitia::ICC_CARD_open:
+		WBUG("facio IC_OPEN_PRO dev_ok %d", dev_ok);
+		if ( !dev_ok ) return false;		//如果设备没有准备好, 这里根本不处理
+		ps = (void**)(pius->indic);
+		ret = (int*)ps[0];
+		*ret = Pro_Open(uid2);
+
+		if ( *ret == 0 ) 
+		{
+			card_ok = true;
+			WBUG("Pro_Open uid %s", uid2);
+			memcpy((char*)ps[3], uid2, 8);
+			*(int*)ps[5] = 1;
+			memcpy((char*)ps[6], "02", 2);
+		} else {
+			card_ok = false;
+		}
+
 		break;
 	default:
 		return false;
