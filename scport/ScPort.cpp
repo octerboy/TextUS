@@ -129,6 +129,7 @@ int ScPort::Pro_Open(char uid[17])
 	const char *t1="SCARD_PCI_T1";
 	const char *to="SCARD_PCI_OTHER";
 	const char *t;
+	bool isRe = false;
 	int m_try = 3;
 
 	ret = -1;
@@ -148,8 +149,15 @@ Again:
 	m_try--;
 	if ( m_try <= 0 ) 
 		goto END;
-	lReturn = SCardConnect(	gCFG->hSC, gCFG->name, SCARD_SHARE_SHARED, SCARD_PROTOCOL_T0|SCARD_PROTOCOL_T1,
-                        			&hCardHandle, &activeProtocol);
+	if ( hCardHandle == -1 ) 
+	{
+		lReturn = SCardConnect(	gCFG->hSC, gCFG->name, SCARD_SHARE_SHARED, SCARD_PROTOCOL_T0|SCARD_PROTOCOL_T1,&hCardHandle, &activeProtocol);
+		isRe=false;
+	} 	else  {
+		lReturn = SCardReconnect(hCardHandle, SCARD_SHARE_SHARED, SCARD_PROTOCOL_T0|SCARD_PROTOCOL_T1,SCARD_RESET_CARD, &activeProtocol);
+		isRe=true;
+	}
+
 	t= to;
 	if (activeProtocol == SCARD_PROTOCOL_T0 )
 		t= t0;
@@ -159,6 +167,7 @@ Again:
 	spci = (activeProtocol == SCARD_PROTOCOL_T0 ? SCARD_PCI_T0:SCARD_PCI_T1);
 	if ( SCARD_S_SUCCESS != lReturn )
 	{
+		hCardHandle = -1;
 		switch (lReturn)
 		{
 		case SCARD_E_NOT_READY:
@@ -173,7 +182,7 @@ Again:
 		}
 		goto TRY_NEXT;
 	} else {
-		WBUG("SCardConnect %s, at %s, hCard=%p", t, gCFG->name, hCardHandle);
+		WBUG("%s  %s, at %s, hCard=%p", isRe?"SCardReConnect":"SCardConnect", t, gCFG->name, hCardHandle);
 	}
 
 	if (gCFG->uid_ins /*&& activeProtocol == SCARD_PROTOCOL_T1 */ )
@@ -277,10 +286,18 @@ int ScPort::Sam_Reset(char atr[64])
 	const char *t1="SCARD_PCI_T1";
 	const char *to="SCARD_PCI_OTHER";
 	const char *t;
+	bool isRe;
 
 	ret = -1;
-	lReturn = SCardConnect(	gCFG->hSC, gCFG->name, SCARD_SHARE_SHARED, SCARD_PROTOCOL_T0|SCARD_PROTOCOL_T1,
-                        			&hCardHandle, &activeProtocol);
+	if ( hCardHandle == -1 ) 
+	{
+		lReturn = SCardConnect(	gCFG->hSC, gCFG->name, SCARD_SHARE_SHARED, SCARD_PROTOCOL_T0|SCARD_PROTOCOL_T1,&hCardHandle, &activeProtocol);
+		isRe=false;
+	} 	else  {
+		lReturn = SCardReconnect(hCardHandle, SCARD_SHARE_SHARED, SCARD_PROTOCOL_T0|SCARD_PROTOCOL_T1,SCARD_RESET_CARD, &activeProtocol);
+		isRe=true;
+	}
+
 	t= to;
 	if (activeProtocol == SCARD_PROTOCOL_T0 )
 		t= t0;
@@ -290,6 +307,7 @@ int ScPort::Sam_Reset(char atr[64])
 	spci = (activeProtocol == SCARD_PROTOCOL_T0 ? SCARD_PCI_T0:SCARD_PCI_T1);
 	if ( SCARD_S_SUCCESS != lReturn )
 	{
+		hCardHandle = -1;
 		switch (lReturn)
 		{
 		case SCARD_E_NOT_READY:
@@ -307,7 +325,7 @@ int ScPort::Sam_Reset(char atr[64])
 		}
 		goto END;
 	} else {
-		WBUG("SCardConnect %s, at %s", t, gCFG->name);
+		WBUG("%s  %s, at %s, hCard=%p", isRe?"SCardReConnect":"SCardConnect", t, gCFG->name, hCardHandle);
 	}
 
 	if ( gCFG->isTySam ) 
@@ -438,7 +456,18 @@ END:
 /* 不同的读写器, dev_close的函数内容完全不同.  */
 int ScPort::dev_close(void)
 {
+	long lReturn;
 	dev_ok = false;
+	if (gCFG->hSC == -1)  return 0;
+
+	lReturn = SCardReleaseContext(gCFG->hSC);
+	if ( SCARD_S_SUCCESS != lReturn )
+	{
+		WLOG(ERR, "SCardReleaseContext hSC=%p Failed error=%08X", gCFG->hSC, lReturn);
+		return -1;
+	} else {
+		WBUG("SCardReleaseContext OK, hSC=%p", gCFG->hSC);
+	}
 	return 0;
 }
 
@@ -451,6 +480,16 @@ int ScPort::dev_init(void)
 	DWORD cch;
 	dev_ok = false;
 	char *tmp;
+
+	lReturn = SCardEstablishContext(SCARD_SCOPE_SYSTEM,  NULL, NULL, &(gCFG->hSC));
+	if ( SCARD_S_SUCCESS != lReturn )
+	{
+		gCFG->hSC = -1;
+		WLOG(ERR, "Established Context Failed error=%08X", lReturn);
+		goto END;
+	} else {
+		WBUG("Established Context OK, hSC=%p", gCFG->hSC);
+	}
 
 	if ( gCFG->hSC == -1 ) 
 		goto END;
@@ -498,8 +537,6 @@ bool ScPort::facio( Amor::Pius *pius)
 	int *psw;
 	int *isPresent;
 	int *pslot;
-
-	long lReturn;
 	int which;
 
 	assert(pius);
@@ -510,18 +547,7 @@ bool ScPort::facio( Amor::Pius *pius)
 		if ( !gCFG->rd_name )
 		{
 			WLOG(ERR, "Not defined reader name!");
-			break;
-		}
-
-		lReturn = SCardEstablishContext(SCARD_SCOPE_SYSTEM,  NULL, NULL, &(gCFG->hSC));
-		if ( SCARD_S_SUCCESS != lReturn )
-		{
-			gCFG->hSC = -1;
-			WLOG(ERR, "Established Context Failed error=%08X", lReturn);
-		} else {
-			WBUG("Established Context OK, hSC=%p", gCFG->hSC);
-		}
-		
+		}	
 		break;
 
 	case Notitia::IC_DEV_INIT:
