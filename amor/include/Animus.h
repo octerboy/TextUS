@@ -70,16 +70,19 @@ public:
 	Aptus **consors;		/* the array of Aptus objects */
 	unsigned int num_real_ext;		/* the number of Aptus objects and index of positor */
 
+	enum BRA_DIRECT {BRA_LAEVE= 0, BRA_SPONTE = 1, BRA_DEXTRA = 2 };
+	enum BRA_ACT { 	ACCEPT_BRA = 0, REJECT_BRA = 1, SET_BRA = 2 };
+
 	struct Branch {			/* branch, a node will accept only a pius which has an ordo & sub if it matches */
 		TEXTUS_ORDO ordo;	/* if a pius.ordo == ordo, the node only accept it when the pius.subdo==sub (>0) */
 		int sub;
-		bool accept;
-		bool is_fac;
+		enum BRA_DIRECT coni;
+		enum BRA_ACT act;
 		inline Branch() {
 			ordo = 0;
 			sub = -1;
-			accept = true;
-			is_fac = true;
+			coni = BRA_DEXTRA;
+			act = ACCEPT_BRA;
 		};
 	};
 	struct Branch *branch;
@@ -105,7 +108,6 @@ private:
 	unsigned int num_dex;	
 
 	bool isTunnel;
-	//void *other;
-	inline bool branch_pro(Amor::Pius *pius, int act);
+	inline bool branch_pro(Amor::Pius *pius, enum BRA_DIRECT);
 };
 #endif

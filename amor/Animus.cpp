@@ -321,20 +321,24 @@ void Animus::stipes(const char *bran_tag)
 	{
 		if ( strcasecmp(bran_ele->Value(), "accept_dextra") == 0  )
 		{
-			branch[index].is_fac = true;
-			branch[index].accept = true;
+			branch[index].coni = BRA_DEXTRA;
+			branch[index].act = ACCEPT_BRA;
 		} else if ( strcasecmp(bran_ele->Value(), "reject_dextra") == 0  )
 		{
-			branch[index].is_fac = true;
-			branch[index].accept = false;
+			branch[index].coni = BRA_DEXTRA;
+			branch[index].act = REJECT_BRA;
 		} else if ( strcasecmp(bran_ele->Value(), "accept_laeve") == 0  )
 		{
-			branch[index].is_fac = false; 
-			branch[index].accept = true;
+			branch[index].coni = BRA_LAEVE; 
+			branch[index].act = ACCEPT_BRA;
 		} else if ( strcasecmp(bran_ele->Value(), "reject_laeve") == 0  )
 		{
-			branch[index].is_fac = false;
-			branch[index].accept = false;
+			branch[index].coni = BRA_LAEVE;
+			branch[index].act = REJECT_BRA;
+		} else if ( strcasecmp(bran_ele->Value(), "set_sponte") == 0  )
+		{
+			branch[index].coni = BRA_SPONTE;
+			branch[index].act = SET_BRA;
 		} else {
 			continue;
 		}
@@ -345,32 +349,8 @@ void Animus::stipes(const char *bran_tag)
 		index++;
 	}
 
-	for (aps= carbo->FirstChildElement(dex_tag);
-		aps; aps = aps->NextSiblingElement(dex_tag) )
-	{
-	}
-
-	for (aps= carbo->FirstChildElement(lae_tag);
-		aps; aps = aps->NextSiblingElement(lae_tag) )
-	{
-		branch[index].ordo = Notitia::get_ordo(aps->Attribute("ordo"));			
-		if ( aps->Attribute("sub"))
-			branch[index].sub = atoi(aps->Attribute("sub"));			
-		index++;
-	}
-
 	return ;
 }
-
-struct Other_ext {
-	TEXTUS_ORDO dex_skip_do, lae_skip_do, fac_skip_do, spo_skip_do;
-	inline Other_ext () {
-		dex_skip_do = Notitia::TEXTUS_RESERVED;
-		lae_skip_do = Notitia::TEXTUS_RESERVED;
-		fac_skip_do = Notitia::TEXTUS_RESERVED;
-		spo_skip_do = Notitia::TEXTUS_RESERVED;
-	};
-};
 
 void Animus::ignite(TiXmlElement *cfg)
 {
@@ -641,7 +621,6 @@ Animus::Animus()
 	
 	canAccessed = true;	/* it is not usefull although */
 	isTunnel = true;	/* if a owner does not proccess a pius, the pius wiil be passed through. */
-	//other = new struct Other_ext;
 	branch = 0;
 	bran_num = 0;
 }
@@ -678,13 +657,17 @@ Animus::~Animus()
 	if ( cons_spo ) 	delete []cons_spo;
 	if ( cons_lae ) 	delete []cons_lae;
 	if ( cons_dex ) 	delete []cons_dex;
-	//if ( other )		delete (struct Other_ext *) other;
 	if ( branch )		delete (struct Branch *) branch;
 }
 
 /* owner call this function */
 inline bool Animus::sponte( Amor::Pius *pius)
 {
+	if (  branch ) 
+	{
+		if ( !branch_pro(pius,BRA_SPONTE)) 
+			goto LAST;
+	}
 	switch ( pius->ordo )
 	{
 	case Notitia::CMD_GET_OWNER:
@@ -699,39 +682,23 @@ inline bool Animus::sponte( Amor::Pius *pius)
 			n->prius = prius;
 		}
 		break;
-/*
-	case Notitia:: SET_DEXTRA_SKIP:
-		((struct Other_ext *)other)->dex_skip_do = *((int *)pius->indic);
-		break;
-
-	case Notitia:: SET_LAEVE_SKIP:
-		((struct Other_ext *)other)->lae_skip_do = *((int *)pius->indic);
-		break;
-
-	case Notitia:: SET_FACIO_SKIP:
-		((struct Other_ext *)other)->fac_skip_do = *((int *)pius->indic);
-		break;
-
-	case Notitia:: SET_SPONTE_SKIP:
-		((struct Other_ext *)other)->spo_skip_do = *((int *)pius->indic);
-		break;
-*/
 	default:
 		return sponte_n(pius, 0);
 		break;
 	}
+LAST:
 	return true;
 }
 
 inline bool Animus::sponte_n( Amor::Pius *pius, unsigned int from)
 {
 	unsigned int i;
-	//if ( ((struct Other_ext*)other)->spo_skip_do != pius->ordo)
 	for ( i = from ; i < num_spo; i++ )
 		if (cons_spo[i]->sponte_n(pius, i))  
 			return true;
 	
-	if( prius)  prius->laeve(pius, 0) ;
+	if( prius)  
+		return prius->laeve(pius, 0) ;
 	return true;
 }
 
@@ -741,10 +708,9 @@ inline bool Animus::laeve( Amor::Pius *pius, unsigned int from)
 	unsigned int i;
 	if (  branch ) 
 	{
-		if ( !branch_pro(pius,1)) 
+		if ( !branch_pro(pius,BRA_LAEVE)) 
 			goto LAST;
 	}
-	//if ( ((struct Other_ext*)other)->lae_skip_do != pius->ordo)
 	for (i = from; i < num_lae; i++)
 		if (cons_lae[i]->laeve(pius, i))  
 			return true;
@@ -786,7 +752,6 @@ inline bool Animus::facio(Amor::Pius *pius)
 		}
 	}
 
-	//if ( ((struct Other_ext*)other)->fac_skip_do != pius->ordo)
 	for (i = 0 ; i < num_fac; i++ )
 		if ( cons_fac[i]->facio_n(pius,i) ) 
 			return true;
@@ -798,7 +763,6 @@ inline bool Animus::facio_n(Amor::Pius *pius, unsigned int from)
 {
 	register unsigned int i;
 
-	//if ( ((struct Other_ext*)other)->fac_skip_do != pius->ordo)
 	for (i = from ; i < num_fac; i++ )
 		if ( cons_fac[i]->facio_n(pius,i) ) 
 			return true;
@@ -830,10 +794,9 @@ inline bool Animus::dextra(Amor::Pius *pius, unsigned int from)
 	unsigned int i;
 	if (  branch ) 
 	{
-		if ( !branch_pro(pius,0)) 
+		if ( !branch_pro(pius,BRA_DEXTRA)) 
 			goto LAST;
 	}
-	//if ( ((struct Other_ext*)other)->dex_skip_do != pius->ordo)
 	for ( i = from;  i < num_dex;  i++ )
 		if (cons_dex[i]->dextra(pius, i)) 
 			return true;
@@ -852,38 +815,26 @@ LAST:
 	return true;
 }
 
-inline bool Animus::branch_pro( Amor::Pius *pius, int dir)
+inline bool Animus::branch_pro( Amor::Pius *pius, enum BRA_DIRECT dir)
 {
-	bool can, ord_match;
+	bool can;
 	unsigned int i;
 	can = true;
-	ord_match=false;
 	for ( i = 0; i < bran_num; i++ )
 	{
-		if ( dir ) 
-		{
-			if (branch[i].is_fac ) continue; //from Laeve, is_fac == false
-		} else { 
-			if (!branch[i].is_fac ) continue; //from Dextra, is_fac == true
-		}
-		if ( pius->ordo == branch[i].ordo ) 
-		{
-			ord_match = true;
-			if ( branch[i].sub == -1 ) 	//just ordo, usually reject
-			{
-				can = branch[i].accept;
-				break;
-			} 
+		if (branch[i].coni != dir || pius->ordo != branch[i].ordo  ) continue; 
 
-			if ( pius->subor == branch[i].sub ) 
-			{
-				can = branch[i].accept;
-				break;
-			} else {
-				can = !branch[i].accept;
-			}
+		if ( branch[i].act == SET_BRA)
+		{
+			can = true;
+			pius->subor = branch[i].sub ;
+		} else if ( branch[i].sub == -1 || pius->subor == branch[i].sub ) 
+		{
+			can = ( branch[i].act == ACCEPT_BRA);
+		} else {
+			can = !( branch[i].act == ACCEPT_BRA);
 		}
-
+		break;
 	}
 
 	return can;
@@ -1190,6 +1141,23 @@ unsigned long Notitia::get_ordo(const char *comm_str)
 	WHAT_ORDO(IC_SAM_COMMAND, Y); \
 	WHAT_ORDO(IC_RESET_SAM, Y); \
 	WHAT_ORDO(IC_PRO_PRESENT, Y); \
+	WHAT_ORDO(ICC_Authenticate, Y); \
+	WHAT_ORDO(ICC_Read_Sector, Y); \
+	WHAT_ORDO(ICC_Write_Sector, Y); \
+	WHAT_ORDO(ICC_Reader_Version, Y); \
+	WHAT_ORDO(ICC_Led_Display, Y); \
+	WHAT_ORDO(ICC_Audio_Control , Y); \
+	WHAT_ORDO(ICC_GetOpInfo, Y); \
+	WHAT_ORDO(ICC_Get_Card_RFID, Y); \
+	WHAT_ORDO(ICC_Get_CPC_RFID , Y); \
+	WHAT_ORDO(ICC_Get_Flag_RFID, Y); \
+	WHAT_ORDO(ICC_Get_Power_RFID, Y); \
+	WHAT_ORDO(ICC_Set433_Mode_RFID, Y); \
+	WHAT_ORDO(ICC_Get433_Mode_RFID, Y); \
+	WHAT_ORDO(ICC_CARD_open, Y); \
+	WHAT_ORDO(URead_ReLoad_Dll, Y); \
+	WHAT_ORDO(URead_UnLoad_Dll, Y); \
+	WHAT_ORDO(URead_Load_Dll, Y); \
 	if ( Y == Notitia::TEXTUS_RESERVED && comm_str && atoi(comm_str) >= 0) 	\
 		Y = atoi(comm_str);
 
