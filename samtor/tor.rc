@@ -1,0 +1,195 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#define APSTUDIO_HIDDEN_SYMBOLS
+#include "windows.h"
+#undef APSTUDIO_HIDDEN_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// 中文(中华人民共和国) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
+#ifdef _WIN32
+LANGUAGE LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED
+#pragma code_page(936)
+#endif //_WIN32
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_WHO                 ICON                    "who.ico"
+IDI_SMALL               ICON                    "small.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDC_WHO MENU 
+BEGIN
+    POPUP "文件(&F)"
+    BEGIN
+        MENUITEM "退出(&X)",                      IDM_EXIT
+        MENUITEM "测试(&T)",                      IDM_TEST
+        MENUITEM "制卡操作",                        IDM_MK_CARD
+    END
+    POPUP "帮助(&H)"
+    BEGIN
+        MENUITEM "关于(&A) ...",                  IDM_ABOUT
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Accelerator
+//
+
+IDC_WHO ACCELERATORS 
+BEGIN
+    "?",            IDM_ABOUT,              ASCII,  ALT
+    "/",            IDM_ABOUT,              ASCII,  ALT
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDC_SET_CIPHER DIALOGEX 0, 0, 252, 80
+STYLE DS_LOCALEDIT | DS_SETFONT | DS_MODALFRAME | DS_3DLOOK | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_APPWINDOW
+CAPTION "设置"
+FONT 12, "微软雅黑", 400, 0, 0x86
+BEGIN
+    CONTROL         135,IDC_STATIC,"Static",SS_BITMAP,1,0,240,76
+    DEFPUSHBUTTON   "确定",IDOK,190,8,50,14
+    LTEXT           "盘点挑战数:",IDC_STATIC,14,13,38,8
+    EDITTEXT        IDC_RANDOM,57,11,85,13,ES_AUTOHSCROLL
+    PUSHBUTTON      "取消",IDCANCEL,190,49,50,14
+    EDITTEXT        IDC_GBCIPHER,57,53,86,13,ES_AUTOHSCROLL
+    EDITTEXT        IDC_DB44CIPHER,57,32,86,13,ES_AUTOHSCROLL
+    LTEXT           "地标验证码:",IDC_STATIC,14,34,38,8
+    LTEXT           "国标验证码:",IDC_STATIC,14,55,38,8
+END
+
+IDD_INVENTORY DIALOGEX 0, 0, 533, 247
+STYLE DS_SETFONT | DS_3DLOOK | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "PSAM"
+FONT 12, "微软雅黑", 400, 0, 0x86
+BEGIN
+    CONTROL         135,IDC_STATIC,"Static",SS_BITMAP,226,82,300,84
+    CONTROL         "",IDC_SAM_INFO,"SysListView32",LVS_REPORT | LVS_ALIGNLEFT | LVS_NOSORTHEADER | WS_BORDER | WS_TABSTOP,7,7,479,233,WS_EX_STATICEDGE
+    DEFPUSHBUTTON   "盘点",IDOK,492,19,34,14
+    PUSHBUTTON      "退出",IDCANCEL,488,226,38,14
+    PUSHBUTTON      "设置 ",IDC_SET_CIPHER,490,201,36,14
+END
+
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#define APSTUDIO_HIDDEN_SYMBOLS\r\n"
+    "#include ""windows.h""\r\n"
+    "#undef APSTUDIO_HIDDEN_SYMBOLS\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO 
+BEGIN
+    IDC_SET_CIPHER, DIALOG
+    BEGIN
+        LEFTMARGIN, 1
+        RIGHTMARGIN, 243
+        VERTGUIDE, 17
+        VERTGUIDE, 57
+        BOTTOMMARGIN, 73
+        HORZGUIDE, 25
+        HORZGUIDE, 49
+        HORZGUIDE, 73
+    END
+
+    IDD_INVENTORY, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 526
+        VERTGUIDE, 402
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 240
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Bitmap
+//
+
+IDB_MOUNTAIN            BITMAP                  "mountain.bmp"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE 
+BEGIN
+    IDS_APP_TITLE           "ISSUE"
+    IDC_WHO                 "WHO"
+END
+
+#endif    // 中文(中华人民共和国) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+
