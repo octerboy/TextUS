@@ -56,6 +56,7 @@ static PsamInfo samory[PSAM_SLOT_NUM+1]={{" "," "," "," ",0,2,""}, {" "," "," ",
 static enum VReader_Who me_who = VR_none;	//自身的工作模式， 这不在共享数据段
 static bool isInventoring;	//是否在盘点
 static bool has_card;
+
 static int max_Qry_Card_num;
 static int cent_qry_interval=1; //向中心查询的时间间隔
 
@@ -268,6 +269,13 @@ int __stdcall  READER_open(char* Paras)
 		}
 	}
 	ret = justme->open_dev();
+	if (ret ) 
+	{
+		if ( justme->inventory() )
+			justme->notify_friend("p");	//告诉samin盘点完成。
+		else 
+			justme->notify_friend("q");	//告诉samin盘点无法进行。
+	}
 
 END:
 	return ret;
@@ -329,8 +337,9 @@ int   __stdcall PRO_command(long DevHandle,int CardPlace, int iCommandLength,cha
 int   __stdcall CARD_open(long DevHandle, int RequestMode,char* PhysicsCardno, char* ResetInformation, int* CardPlace, char* CardType)
 {
 	int ret;
-	void *ps[7];
+	void *ps[8];
 	Amor::Pius para;
+	int find_cards;
 
 	ret = HAS_NOT_OPEN_CARD;
 	m_error_buf[0] = 0;
@@ -343,6 +352,7 @@ int   __stdcall CARD_open(long DevHandle, int RequestMode,char* PhysicsCardno, c
 	if ( isInventoring ) 
 		goto END;
 
+	find_cards = 0;
 	ps[0] = &ret;
 	ps[1] = &m_error_buf[0];
 	ps[2] = (void*) &RequestMode;
@@ -350,6 +360,7 @@ int   __stdcall CARD_open(long DevHandle, int RequestMode,char* PhysicsCardno, c
 	ps[4] = &ResetInformation[0];
 	ps[5] = (void*)CardPlace;
 	ps[6] = &CardType[0];
+	ps[7] = &find_cards;
 	para.indic = ps;
 	para.ordo = Notitia::ICC_CARD_open;
 	
@@ -358,6 +369,13 @@ int   __stdcall CARD_open(long DevHandle, int RequestMode,char* PhysicsCardno, c
 	{
 		ret = -1;
 		goto END;
+	}
+	
+	if ( find_cards > 1 ) 
+	{
+		char msg[64];
+		sprintf(msg, "同时有%d张卡在读写器上, 请拿走其中的%d张。", find_cards, find_cards-1);
+		MessageBox(NULL, msg, TEXT("VReader"), MB_OK);
 	}
 	
 	if (ret ==0 ) 
@@ -791,9 +809,10 @@ void ICPort::error_sys_pro(const char *h_msg)
 
 bool ICPort::facio( Amor::Pius *pius)
 {
-	bool ret, *pexist, exist_old;
+	bool ret;
+	int *pexist, exist_old;
 	void **ps;
-	int *iRet, iRet_old;
+	int *iRet, iRet_old, *found_card;
 
 	int *pslot;
 	Amor::Pius tmp_pius;
@@ -1011,13 +1030,16 @@ bool ICPort::facio( Amor::Pius *pius)
 	case Notitia::ICC_CARD_open:
 		if ( wmod != WM_SAM && dev_ok)
 		{
-			WBUG("facio ICC_CARD_open %s", wm_str);
+			//WBUG("facio ICC_CARD_open %s", wm_str);
 			ps = (void**)(pius->indic);
 			iRet = (int*)ps[0];
+			found_card = (int*)ps[7];
 			iRet_old = *iRet;		//原值
 			aptus->facio(pius);
 			ps = (void**)(pius->indic);
 			iRet = (int*)ps[0];
+			if ( *iRet ==0 ) 
+				*found_card =  *found_card + 1;
 			if ( iRet_old == 0 )	//原来卡片就OK的, 保持
 			{
 				*iRet = 0;
@@ -1076,11 +1098,11 @@ COMM_PRO:
 		{
 			//WBUG("facio IC_PRO_PRESENT %s", wm_str);
 			ps = (void**)(pius->indic);
-			pexist = (bool*)ps[0];
+			pexist = (int*)ps[0];
 			exist_old = *pexist;		//原值
 			aptus->facio(pius);
 			ps = (void**)(pius->indic);
-			pexist = (bool*)ps[0];
+			pexist = (int*)ps[0];
 			if ( !(*pexist) ) 
 				*pexist = exist_old;	//赋回原值，也就是说，卡片不在的, 不更新原来的值. 原假定不存在。
 		}
@@ -1089,11 +1111,10 @@ COMM_PRO:
 	case Notitia::TIMER:	/* 定时信号 */
 		WBUG("facio TIMER" );
 		deliver(Notitia::DMD_SET_ALARM);
-		if ( who_open_reader == VR_toll ) //对于toll打开的
-			notify_friend("P");	//通知要盘点,完成后，samin收到，即向中心报告。
-		else if ( who_open_reader == VR_samin )
+		if ( who_open_reader == VR_samin ) //如果unitoll未启动，这里定时盘点
 		{	
 			inventory();
+			to_center_ventory(true);
 		}
 
 		break;
@@ -1157,10 +1178,7 @@ bool ICPort::sponte( Amor::Pius *pius)
 
 	case Notitia::START_SESSION:    /* 与中心有连接 */
 		WBUG("sponte START_SESSION");
-		//to_center_query();
-		if ( who_open_reader == VR_toll ) //对于toll打开的
-			notify_friend("P");	//通知要盘点,完成后，samin收到，即向中心报告。
-		else if ( who_open_reader == VR_samin )
+		if ( who_open_reader == VR_samin ) //如果unitoll未启动，这里连接时盘点
 		{	
 			inventory();
 			to_center_ventory(true);

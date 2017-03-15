@@ -403,7 +403,7 @@ bool URead::facio( Amor::Pius *pius)
 	char *comm, *reply, *uid, *atr;
 	int *psw;
 	int which;
-	bool *isPresent;
+	int *isPresent;
 	int *piSockID;
 	char rst_info[255], uid2[32];
 	char ctype[2];	//卡类类型
@@ -522,7 +522,7 @@ COMM:
 		if ( !dev_ok ) return false;		//如果设备没有准备好, 这里根本不处理
 
 		ps = (void**)(pius->indic);
-		isPresent = (bool*)ps[0];
+		isPresent = (int*)ps[0];
 		m_error_buf = (char*)ps[1];
 /*
 		if (WaitForSingleObject(op_mutex, 1000) != WAIT_OBJECT_0 )
@@ -535,7 +535,8 @@ COMM:
 	PSTOP:
 		ReleaseMutex(op_mutex);
 */
-		*isPresent = Pro_Present();
+		if ( Pro_Present())
+			*isPresent = (*isPresent)+1;
 		break;
 
 	case Notitia::ICC_Authenticate:
