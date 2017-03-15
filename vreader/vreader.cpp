@@ -10,6 +10,9 @@
 #define TEXTUS_MODTIME  "$Date: 16-12-09 16:02 $"
 #define TEXTUS_BUILDNO  "$Revision: 7 $"
 /* $NoKeywords: $ */
+#include <sys/types.h>
+#include <sys/timeb.h>
+#include <time.h>
 #include <stdio.h>
 #include <conio.h>  
 #include <stdlib.h>
@@ -29,18 +32,19 @@ typedef struct _PSAM_Info{
 	char datetime[32];	//盘点时间，车道时间
 	int slot;		//PSAM卡所在槽号1~4
 	int result;	//0：正常，1：被锁，2：无卡，3：伪卡，4：未检测，5：检测失败
+	int type;	//1: 国标, 2：地标, 0:未知
 	char err[128];
+	char desc[128];
 } PsamInfo;
 
 #define PSAM_SLOT_NUM 4
 #pragma data_seg("v_reader_status")
 
-static enum VReader_Who who_open_reader = VR_none ;	//设备是否初始化, 若已经初始化, 每次计数++
-bool had_toll = false;	//若unitoll动态库已经调用，则设相应值
-bool had_samin = false;	//若samin已经调用，则设相应值
+	static enum VReader_Who who_open_reader = VR_none ;	//设备是否初始化, 若已经初始化, 每次计数++
+	bool had_toll = false;	//若unitoll动态库已经调用，则设相应值
+	bool had_samin = false;	//若samin已经调用，则设相应值
 
-static PsamInfo samory[PSAM_SLOT_NUM+1]={{" "," "," "," ",0,2,""}, {" "," "," "," ",0,2,""}, {" "," "," "," ",0,2,""}, {" "," "," "," ",0,2,""}, {" "," "," "," ",0,2,""	}};	//假定最多有4张卡,第0个不用。
-
+	static PsamInfo samory[PSAM_SLOT_NUM+1]={{" "," "," "," ",0,2,0,"",""}, {" "," "," "," ",0,2,0,"",""}, {" "," "," "," ",0,2,0,"",""}, {" "," "," "," ",0,2,0,"",""}, {" "," "," "," ",0,2,0,"",""}};	//假定最多有4张卡,第0个不用。
 	static char lane_ip[64]= " " ;		//车道 IP
 	static char lane_road[8]= " " ;
 	static char lane_station[8]= " " ;
@@ -755,7 +759,6 @@ END:
 	return ret;
 }
 
-
 typedef void (__cdecl *my_thread_func)(void*);
 
 static void  rcv_pipe_thrd(ICPort  *arg)
@@ -854,15 +857,18 @@ bool ICPort::facio( Amor::Pius *pius)
 			tmp_pius.indic = &hipa[0];
 			tmp_pius.ordo = Notitia::SET_UNIPAC;
 			aptus->facio(&tmp_pius);
-			memset(lane_ip,0,sizeof(lane_ip));	lane_ip[0] = ' ';
-			memset(psam_challenge, 0, sizeof(psam_challenge));
-			memset(psam_challenge,'0', 16);
-			memset(psam_should_cipher_db44,0,sizeof(psam_challenge));
-			memset(psam_should_cipher_gb,0,sizeof(psam_challenge));
+			if ( me_who == VR_none )
+			{
+				memset(lane_ip,0,sizeof(lane_ip));	lane_ip[0] = ' ';
+				memset(psam_challenge, 0, sizeof(psam_challenge));
+				memset(psam_challenge,'0', 16);
+				memset(psam_should_cipher_db44,0,sizeof(psam_challenge));
+				memset(psam_should_cipher_gb,0,sizeof(psam_challenge));
 
-			memset(lane_road,0,sizeof(lane_road)); lane_road[0] = ' ';
-			memset(lane_station,0,sizeof(lane_station)); lane_station[0] = ' ';
-			memset(lane_no,0,sizeof(lane_no)); lane_no[0] = ' ';
+				memset(lane_road,0,sizeof(lane_road)); lane_road[0] = ' ';
+				memset(lane_station,0,sizeof(lane_station)); lane_station[0] = ' ';
+				memset(lane_no,0,sizeof(lane_no)); lane_no[0] = ' ';
+			}
 
 			isInventoring = false;	//不在盘点
 			has_card = false;	
@@ -1179,9 +1185,8 @@ bool ICPort::sponte( Amor::Pius *pius)
 	case Notitia::START_SESSION:    /* 与中心有连接 */
 		WBUG("sponte START_SESSION");
 		if ( who_open_reader == VR_samin ) //如果unitoll未启动，这里连接时盘点
-		{	
-			inventory();
-			to_center_ventory(true);
+		{
+			to_center_query();
 		}
 		break;
 
@@ -1736,7 +1741,18 @@ bool ICPort::inventory()
 	int len, qry_num;
 	bool in_ret = true;
 
-#define SAM(C,Y,E) sw = 0; ret = CardCommandCharSlot(C, Y, 0, &sw, &iSlot); if ( ret !=0 || sw != 0x9000 ) { samory[iSlot].result = E; TEXTUS_SPRINTF(samory[iSlot].err, "%s return %d, sw=%04X", C, ret, sw); continue; }	
+#if defined(_WIN32) && (_MSC_VER < 1400 )
+	struct _timeb now;
+#else
+	struct timeb now;
+#endif
+	struct tm *tdatePtr;
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+	struct tm tdate;
+#endif
+
+
+#define SAM(C,Y,E) sw = 0; ret = CardCommandCharSlot(C, Y, 0, &sw, &iSlot); if ( ret !=0 || sw != 0x9000 ) { samory[iSlot].result = E; TEXTUS_SPRINTF(samory[iSlot].err, "%s return %s, sw=%04X", C, Y, sw); goto LAST_JUDGE; }	
 
 	qry_num = 0;
 QryAgain:
@@ -1788,15 +1804,31 @@ QryAgain:
 		samory[iSlot].err[0] = ' ';
 		samory[iSlot].slot = iSlot;		//复位成功，就算有卡了。
 		samory[iSlot].result = 4;	//先假定未检测
-		SAM("00A40000023F00", answer,5)
+		samory[iSlot].type = 0;		//未知卡
+
+#if defined(_WIN32) && (_MSC_VER < 1400 )
+		_ftime(&now);
+#else
+		ftime(&now);
+#endif
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+		tdatePtr = &tdate;
+		localtime_s(tdatePtr, &now.time);
+#else
+		tdatePtr = localtime(&now.time);
+#endif
+		strftime(samory[iSlot].datetime, sizeof(samory[iSlot].datetime), "%y年%m月%d日 %H:%M:%S", tdatePtr);
+		
+		SAM("00A40000023F00", answer,1)
 
 		/* 取SAM卡的卡号*/
 		SAM("00B095000A", &(samory[iSlot].serial[0]), 5)
 		/* 取SAM卡的终端号*/
 		SAM("00B0960006", samory[iSlot].device_termid, 5)
-		WBUG("serial %s", samory[iSlot].serial);
+
 		if ( memcmp( samory[iSlot].serial, "4401", 4) == 0 ) //国标卡
 		{
+			samory[iSlot].type = 1;
 			SAM("00A4000002DF01", answer, 1)
 			TEXTUS_SPRINTF(command, "801A480110%s%s", psam_challenge, "B9E3B6ABB9E3B6AB");
 			SAM(command, answer, 5)
@@ -1806,9 +1838,10 @@ QryAgain:
 			{
 				samory[iSlot].result = 3;
 				TEXTUS_SPRINTF(samory[iSlot].err, "cipher is %s", answer);
-				continue;
-			}
+			} else
+				samory[iSlot].result = 0;	//至此， 检测OK.
 		} else {	//地标卡
+			samory[iSlot].type = 2;
 			ret = CardCommandCharSlot("00A40000023F01", answer, 0, &sw,  &iSlot);
 			SAM("00A40000023F01", answer, 1)
 			TEXTUS_SPRINTF(command, "801A270108%s", psam_challenge);
@@ -1819,10 +1852,46 @@ QryAgain:
 			{
 				samory[iSlot].result = 3;
 				TEXTUS_SPRINTF(samory[iSlot].err, "cipher is %s", answer);
-				continue;
-			}
+			} else
+				samory[iSlot].result = 0;	//至此， 检测OK.
 		}
-		samory[iSlot].result = 0;	//至此， 检测OK.
+		
+LAST_JUDGE:
+		switch (samory[iSlot].result)
+		{
+		case 0:
+			TEXTUS_STRCPY(samory[iSlot].desc, "正常");
+			break;
+		case 1:
+			TEXTUS_STRCPY(samory[iSlot].desc, "被锁");
+			break;
+		case 3:
+			TEXTUS_STRCPY(samory[iSlot].desc, "非法");
+			break;
+		case 5:
+			TEXTUS_STRCPY(samory[iSlot].desc, "指令失败");
+			break;
+		default:
+			TEXTUS_STRCPY(samory[iSlot].desc, "异常");
+			break;
+		}
+		switch (samory[iSlot].type)
+		{
+		case 2:
+			TEXTUS_STRCAT(samory[iSlot].desc, "地标卡");
+			break;
+
+		case 1:
+			TEXTUS_STRCAT(samory[iSlot].desc, "国标卡");
+			break;
+
+		default:
+			TEXTUS_STRCAT(samory[iSlot].desc, "未知卡");
+			break;
+
+		}
+
+		
 	}
 IN_END:
 	isInventoring = false;
@@ -1845,6 +1914,9 @@ IN_END:
 #define PSamStat_Fld 14
 #define PSamErrStr_Fld 15
 #define InventoryTime_Fld 16
+#define PSamDesc_Fld 17
+#define PSamType_Fld 18
+#define PSamRstInf_Fld 19
 
 void ICPort::center_pac()
 {
@@ -1879,7 +1951,7 @@ void ICPort::center_pac()
 
 	actp=hi_reply.getfld(GBCipher_Fld, &alen);
 	if ( alen == 16 ) 
-	{
+	{	
 		memcpy(psam_should_cipher_gb, actp, 16);
 		psam_should_cipher_gb[16] = 0; 
 	}
@@ -1921,27 +1993,27 @@ void ICPort::to_center_ventory(bool can)
 	} else {
 		for ( i = 1; i <= PSAM_SLOT_NUM; i++)
 		{
-			WBUG("samory %d slot %d", i, samory[i].slot);
 			if (samory[i].slot == 0  ) continue;
 			hi_req.reset();	//请求复位
 			hi_req.input(Fun_Fld, 'I');
+
 			hi_req.input(IP_Fld, lane_ip,strlen(lane_ip));
-
 			hi_req.input(Road_Fld, lane_road,strlen(lane_road));
-
 			hi_req.input(Station_Fld, lane_station,strlen(lane_station));
-
 			hi_req.input(Lane_Fld, lane_no,strlen(lane_no));
 			//PSAM
 			TEXTUS_SPRINTF(tmp, "%d", samory[i].slot);
 			hi_req.input(PSamSlot_Fld, tmp,strlen(tmp));
 			hi_req.input(PSamSerial_Fld, samory[i].serial,strlen(samory[i].serial));
-
 			hi_req.input(PSamTermNo_Fld, samory[i].device_termid,strlen(samory[i].device_termid));
 			TEXTUS_SPRINTF(tmp, "%d", samory[i].result);
 			hi_req.input(PSamStat_Fld, tmp,strlen(tmp));
 			hi_req.input(PSamErrStr_Fld, samory[i].err,strlen(samory[i].err));
 			hi_req.input(InventoryTime_Fld, samory[i].datetime,strlen(samory[i].datetime));
+			hi_req.input(PSamDesc_Fld, samory[i].desc,strlen(samory[i].desc));
+			TEXTUS_SPRINTF(tmp, "%d", samory[i].type);
+			hi_req.input(PSamType_Fld, tmp,strlen(tmp));
+			hi_req.input(PSamRstInf_Fld, samory[i].rst_info,strlen(samory[i].rst_info));
 			aptus->facio(&loc_pro_pac);     //向右发出
 		}
 	}
