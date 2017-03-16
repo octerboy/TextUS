@@ -321,7 +321,7 @@ void Samtor::handle_pac()
 		TEXTUS_SPRINTF(msg, "%d", tor_num);
 
 		lv.mask = LVIF_TEXT;
-		lv.iItem = 0;
+		lv.iItem = tor_num-1;
 		lv.pszText = msg;
 		lv.iSubItem = 0;
 		ListView_InsertItem(he, &lv);
@@ -334,7 +334,7 @@ void Samtor::handle_pac()
 			memcpy(msg, actp, alen);\
 			msg[alen] = 0;			\
 			lv.mask = LVIF_TEXT;	\
-			lv.iItem = 0;			\
+			lv.iItem = tor_num-1;			\
 			lv.pszText = msg;		\
 			lv.iSubItem = ITEM;		\
 			ListView_SetItem(he, &lv); \
@@ -350,6 +350,15 @@ void Samtor::handle_pac()
 
 		DISP_A_PSAM(InventoryTime_Fld, 6)
 		DISP_A_PSAM(PSamRstInf_Fld, 7)
+		actp=rcv_pac->getfld(PSamStat_Fld, &alen);
+
+		//if ( actp && *actp !='0' ) 
+		//{
+		//	ListView_SetCheckState(he, tor_num-1, true);
+		//} else {
+		//	ListView_SetCheckState(he, tor_num-1, false);
+		//}
+
 
 		break;
 	case 'i':
@@ -387,7 +396,7 @@ INT_PTR CALLBACK InventProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
 	{
 	case WM_INITDIALOG:
 		he = GetDlgItem(hDlg, IDC_SAM_INFO);
-		sret = SendMessage (he, LVM_SETEXTENDEDLISTVIEWSTYLE, 0, LVS_EX_FULLROWSELECT|LVS_EX_HEADERDRAGDROP|LVS_EX_GRIDLINES);
+		sret = SendMessage (he, LVM_SETEXTENDEDLISTVIEWSTYLE, 0, LVS_EX_FULLROWSELECT|LVS_EX_HEADERDRAGDROP|LVS_EX_GRIDLINES/*|LVS_EX_CHECKBOXES*/);
 
 		list.fmt = LVCFMT_CENTER;
 		list.iSubItem = 8;
@@ -419,7 +428,7 @@ INT_PTR CALLBACK InventProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
 
 		list.iSubItem = 4;
 		list.cx = 160;
-		list.pszText = "车道IP";
+		list.pszText = "车道网址";
 		list.cchTextMax = 50;
 		sret=SendMessage (he, LVM_INSERTCOLUMN, 0, (LPARAM)&list);
 
@@ -468,6 +477,11 @@ INT_PTR CALLBACK InventProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
 			return (INT_PTR)TRUE;
 			break;
 
+		case ID_CLEAR:	//清屏
+			he = GetDlgItem(hDlg, IDC_SAM_INFO);
+			tor_num = 0 ;
+			ListView_DeleteAllItems(he);
+			break;
 		case IDC_SET_CIPHER:
 			DialogBox(GetModuleHandle("samtor.dll"), MAKEINTRESOURCE(IDC_SET_CIPHER), GetForegroundWindow(), SetProc);
 			return (INT_PTR)TRUE;

@@ -2,6 +2,8 @@
 // Microsoft Visual C++ generated include file.
 // Used by tor.rc
 //
+#define IDOK2                           3
+#define ID_CLEAR                        3
 #define IDD_WHO_DIALOG                  102
 #define IDS_APP_TITLE                   103
 #define IDM_ABOUT                       104
@@ -16,7 +18,6 @@
 #define IDC_EDIT1                       1001
 #define IDC_RANDOM                      1001
 #define IDC_EDIT2                       1002
-#define IDC_D44CIPHER                   1002
 #define IDC_DB44CIPHER                  1002
 #define IDC_EDIT3                       1003
 #define IDC_GBCIPHER                    1003
