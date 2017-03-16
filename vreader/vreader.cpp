@@ -857,7 +857,7 @@ bool ICPort::facio( Amor::Pius *pius)
 			tmp_pius.indic = &hipa[0];
 			tmp_pius.ordo = Notitia::SET_UNIPAC;
 			aptus->facio(&tmp_pius);
-			if ( me_who == VR_none )
+			if ( !had_toll && !had_samin )
 			{
 				memset(lane_ip,0,sizeof(lane_ip));	lane_ip[0] = ' ';
 				memset(psam_challenge, 0, sizeof(psam_challenge));
@@ -1769,6 +1769,7 @@ QryAgain:
 	isInventoring = true;
 	for ( iSlot = 1; iSlot <= PSAM_SLOT_NUM;iSlot++ )
 	{
+		memset(&samory[iSlot], 0 ,sizeof(PsamInfo));
 		if ( justme->will_reload_dll)
 		{
 			justme->close_dev(false);	//这是在toll模式下工作的，这里断开不要通知对方，因为自己要连
@@ -1797,7 +1798,7 @@ QryAgain:
 			//printf("get %s\n",GetOpInfo(ret));
 			continue;
 		}
-
+		
 		samory[iSlot].serial[0] = ' ';
 		samory[iSlot].device_termid[0] = ' ';
 		samory[iSlot].datetime[0] = ' ';
