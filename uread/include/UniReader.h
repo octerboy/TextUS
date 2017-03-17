@@ -200,7 +200,7 @@ bool  __stdcall GetCPCID_RFID(char* CPCID);
 输出参数: FlagStationCnt   FlagStationInfo	
 返回说明: 
 *****************************************/
-bool  __stdcall GetFlagStationInfo_RFID(char* CPCID,int *FlagStationCnt,char* FlagStationInfo);
+bool  __stdcall GetFlagStationInfo_RFID(char* CPCID,char *InitData,int *FlagStationCnt, char *FlagStationInfo);
 
 
 /*****************************************

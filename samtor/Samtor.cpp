@@ -307,14 +307,15 @@ void Samtor::handle_pac()
 	unsigned long alen;
 	const int msg_size = 128;
 	char msg[msg_size];
+	char fun;
 	LVITEM lv;
 	HWND he= NULL;
 
 	actp=rcv_pac->getfld(Fun_Fld, &alen);		//取得功能代码，来自中心，只有一个。 有Fun_Fld， QryInterval_Fld， Challenge_Fld，Challenge_Fld，DB44Cipher_Fld，GBCipher_Fld
 	if ( !actp ) return ;
-
+	fun = *actp;
 	he = GetDlgItem(h_tory_dlg, IDC_SAM_INFO);
-	switch ( *actp ) 
+	switch ( fun ) 
 	{
 	case 'I':
 	case 'i':
@@ -331,7 +332,6 @@ void Samtor::handle_pac()
 		actp=rcv_pac->getfld(FLD, &alen);	\
 		if ( actp && alen < msg_size)		\
 		{							\
-									\
 			memcpy(msg, actp, alen);\
 			msg[alen] = 0;			\
 			lv.mask = LVIF_TEXT;	\
@@ -342,15 +342,14 @@ void Samtor::handle_pac()
 		}
 
 		DISP_A_PSAM(IP_Fld, 4)
-		if (*actp == 'i' )
+		if (fun == 'i' )
 		{
 			lv.mask = LVIF_TEXT;
 			lv.iItem = tor_num-1;
-			TEXTUS_STRCPY(msg, "can not");
+			TEXTUS_STRCPY(msg, "无法盘点");
 			lv.pszText = msg;
 			lv.iSubItem = 8;
-			ListView_InsertItem(he, &lv);
-
+			ListView_SetItem(he, &lv);
 			break;
 		}
 		DISP_A_PSAM(PSamSlot_Fld, 5)

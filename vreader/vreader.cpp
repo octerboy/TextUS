@@ -358,21 +358,24 @@ int   __stdcall PRO_command(long DevHandle,int CardPlace, int iCommandLength,cha
 
 int   __stdcall CARD_open(long DevHandle, int RequestMode,char* PhysicsCardno, char* ResetInformation, int* CardPlace, char* CardType)
 {
-	int ret;
+	int ret = -1;
 	void *ps[8];
 	Amor::Pius para;
 	int find_cards;
 
 	ret = HAS_NOT_OPEN_CARD;
 	m_error_buf[0] = 0;
-	has_card = false;
+
 	if ( !justme)
 	{
 		TEXTUS_SPRINTF(m_error_buf, "system is not ready!");
 		goto END;
 	}
+
 	if ( isInventoring ) 
+	{
 		goto END;
+	}
 
 	find_cards = 0;
 	ps[0] = &ret;
@@ -402,6 +405,8 @@ int   __stdcall CARD_open(long DevHandle, int RequestMode,char* PhysicsCardno, c
 	
 	if (ret ==0 ) 
 		has_card = true;
+	else
+		has_card = false;
 END:
 	return ret;
 }
@@ -2016,6 +2021,7 @@ void ICPort::to_center_ventory(bool can)
 		if ( !road_no )	//有路段号匹配这里不为0
 			can = false;
 	}
+
 	if ( !can) 
 	{
 			hi_req.reset();	//请求复位
