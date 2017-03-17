@@ -317,6 +317,7 @@ void Samtor::handle_pac()
 	switch ( *actp ) 
 	{
 	case 'I':
+	case 'i':
 		tor_num++;
 		TEXTUS_SPRINTF(msg, "%d", tor_num);
 
@@ -328,7 +329,7 @@ void Samtor::handle_pac()
 
 #define DISP_A_PSAM(FLD, ITEM) \
 		actp=rcv_pac->getfld(FLD, &alen);	\
-		if ( alen < msg_size)		\
+		if ( actp && alen < msg_size)		\
 		{							\
 									\
 			memcpy(msg, actp, alen);\
@@ -341,6 +342,17 @@ void Samtor::handle_pac()
 		}
 
 		DISP_A_PSAM(IP_Fld, 4)
+		if (*actp == 'i' )
+		{
+			lv.mask = LVIF_TEXT;
+			lv.iItem = tor_num-1;
+			TEXTUS_STRCPY(msg, "can not");
+			lv.pszText = msg;
+			lv.iSubItem = 8;
+			ListView_InsertItem(he, &lv);
+
+			break;
+		}
 		DISP_A_PSAM(PSamSlot_Fld, 5)
 		DISP_A_PSAM(PSamSerial_Fld, 2)
 		DISP_A_PSAM(PSamTermNo_Fld, 1)
@@ -358,10 +370,6 @@ void Samtor::handle_pac()
 		//} else {
 		//	ListView_SetCheckState(he, tor_num-1, false);
 		//}
-
-
-		break;
-	case 'i':
 		break;
 
 	case 'Q':

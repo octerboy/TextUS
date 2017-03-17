@@ -68,6 +68,8 @@ const char *me_who_str=0;
 const char *samin_named_pipe_str = "\\\\.\\pipe\\NamePipe_samin_serv";  
 const char *toll_named_pipe_str = "\\\\.\\pipe\\NamePipe_toll_serv";  
 
+static TiXmlElement *road_ele=0;	//路段表
+
 class ICPort: public Amor
 {
 public:
@@ -183,11 +185,27 @@ static int CardCommandCharReader(SHORT which, int iSockID,int iCommandLength, ch
 	int ret;
 	char command[1024];
 	int ipsw;
+	unsigned char byte[8];
 	
 	if ( iCommandLength > 1000  ) iCommandLength = 1000;
-
 	memcpy(command, sCommand, iCommandLength);
 	command[iCommandLength] = 0;
+	if ( iCommandLength > 26 && strncasecmp(command, "80DC44C83C443A00", 16) ==0 ) 
+	{
+		if (memcmp(&command[36], "01", 2) == 0 ||
+			memcmp(&command[36], "03", 2) == 0 ||
+			memcmp(&command[36], "05", 2) == 0 ||
+			memcmp(&command[36], "07", 2) == 0 ||
+			memcmp(&command[36], "09", 2) == 0 ) //入口
+		{
+			hex2byte(byte, 2 , &command[16]);
+			TEXTUS_SPRINTF(lane_road, "%d", byte[0]*256+byte[1]);
+			hex2byte(byte, 1 , &command[20]);
+			TEXTUS_SPRINTF(lane_station, "%d", byte[0]);
+			hex2byte(byte, 1 , &command[22]);
+			TEXTUS_SPRINTF(lane_no, "%d", byte[0]);
+		}
+	}
 	ret = CardCommandCharSlot(command, sReply, which, &ipsw,  &iSockID);
 	if ( ret ==0 ) 
 	{
@@ -1293,6 +1311,11 @@ void ICPort::ignite(TiXmlElement *cfg)
 		TEXTUS_STRCPY(wm_str,"TOP");
 	}
 
+	if ( !road_ele )
+	{
+		road_ele = cfg->FirstChildElement("Road");
+	}
+
 	return ;
 }
 
@@ -1981,6 +2004,18 @@ void ICPort::to_center_ventory(bool can)
 {
 	int i;
 	char tmp[32];
+	TiXmlElement *road_no = road_ele;
+	if ( !road_ele && lane_road[0] != ' ')	//有路段定义，且确定是入口的
+	{
+		while ( road_no )
+		{
+			if ( strcmp(road_no->GetText(), lane_road) ==0 ) //有路段号匹配就中止
+				break;
+			road_no = road_no->NextSiblingElement("Road");
+		}
+		if ( !road_no )	//有路段号匹配这里不为0
+			can = false;
+	}
 	if ( !can) 
 	{
 			hi_req.reset();	//请求复位
