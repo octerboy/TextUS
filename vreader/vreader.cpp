@@ -46,9 +46,9 @@ typedef struct _PSAM_Info{
 
 	static PsamInfo samory[PSAM_SLOT_NUM+1]={{" "," "," "," ",0,2,0,"",""}, {" "," "," "," ",0,2,0,"",""}, {" "," "," "," ",0,2,0,"",""}, {" "," "," "," ",0,2,0,"",""}, {" "," "," "," ",0,2,0,"",""}};	//假定最多有4张卡,第0个不用。
 	static char lane_ip[64]= " " ;		//车道 IP
-	static char lane_road[8]= " " ;
-	static char lane_station[8]= " " ;
-	static char lane_no[8]= " " ;
+	static char lane_road[16]= " " ;
+	static char lane_station[16]= " " ;
+	static char lane_no[16]= " " ;
 	static char psam_challenge[32]= " " ;	//来自中心的挑战数
 	static char psam_should_cipher_db44[32]= " " ;//来自中心的应该的加密结果, 针对地标PSAM卡 
 	static char psam_should_cipher_gb[32]= " " ;//来自中心的应该的加密结果, 针对国标PSAM卡
@@ -190,7 +190,7 @@ static int CardCommandCharReader(SHORT which, int iSockID,int iCommandLength, ch
 	if ( iCommandLength > 1000  ) iCommandLength = 1000;
 	memcpy(command, sCommand, iCommandLength);
 	command[iCommandLength] = 0;
-	if ( iCommandLength > 26 && strncasecmp(command, "80DC44C83C443A00", 16) ==0 ) 
+	if ( iCommandLength > 64 && strncasecmp(command, "80DC44C83C443A00", 16) ==0 ) 
 	{
 		if (memcmp(&command[36], "01", 2) == 0 ||
 			memcmp(&command[36], "03", 2) == 0 ||
@@ -198,11 +198,11 @@ static int CardCommandCharReader(SHORT which, int iSockID,int iCommandLength, ch
 			memcmp(&command[36], "07", 2) == 0 ||
 			memcmp(&command[36], "09", 2) == 0 ) //入口
 		{
-			hex2byte(byte, 2 , &command[16]);
-			TEXTUS_SPRINTF(lane_road, "%d", byte[0]*256+byte[1]);
 			hex2byte(byte, 1 , &command[20]);
-			TEXTUS_SPRINTF(lane_station, "%d", byte[0]);
+			TEXTUS_SPRINTF(lane_road, "%d", byte[0]);
 			hex2byte(byte, 1 , &command[22]);
+			TEXTUS_SPRINTF(lane_station, "%d", byte[0]);
+			hex2byte(byte, 1 , &command[24]);
 			TEXTUS_SPRINTF(lane_no, "%d", byte[0]);
 		}
 	}
@@ -2010,7 +2010,8 @@ void ICPort::to_center_ventory(bool can)
 	int i;
 	char tmp[32];
 	TiXmlElement *road_no = road_ele;
-	if ( !road_ele && lane_road[0] != ' ')	//有路段定义，且确定是入口的
+
+	if ( road_no && lane_road[0] != ' ')	//有路段定义，且确定是入口的
 	{
 		while ( road_no )
 		{
