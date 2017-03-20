@@ -17,7 +17,10 @@
 #include <stdarg.h>
 #include <commctrl.h>
 #include <process.h>
-
+#include <sys/types.h>
+#include <sys/timeb.h>
+#include <time.h>
+#include "md5.c"
 
 static HWND h_tory_dlg = 0;
 
@@ -42,7 +45,8 @@ public:
 	HANDLE h_console_thread;
 	void handle_pac();	//盘点报文
 	void tor_demand();
-
+	TiXmlDocument doc_c;	//挑战数定义；
+	const char *f_name;
 #include "wlog.h"
 };
 
@@ -56,11 +60,15 @@ static Samtor *samus[US_SIZE];
 static int sam_cur_max=0;
 
 static int tor_num = 0;
-
+static const char *road_magic = 0;
+#if defined(_WIN32) && (_MSC_VER < 1400 )
+static	struct _timeb start_when;
+#else
+static	struct timeb start_when;
+#endif
 
 INT_PTR CALLBACK	InventProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	SetProc(HWND, UINT, WPARAM, LPARAM);
-
 
 typedef void (__cdecl *my_thread_func)(void*);
 
@@ -91,10 +99,9 @@ void Samtor::error_sys_pro(const char *h_msg)
 bool Samtor::facio( Amor::Pius *pius)
 {
 	bool ret;
-
 	PacketObj **tmp;
-
 	int i;
+	const char *comm;
 
 	ret = true;
 
@@ -117,6 +124,39 @@ bool Samtor::facio( Amor::Pius *pius)
 
 	case Notitia::IGNITE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY" );
+	#if defined(_WIN32) && (_MSC_VER < 1400 )
+		_ftime(&start_when);
+#else
+		ftime(&start_when);
+#endif
+
+		doc_c.SetTabSize( 8 );
+		if ( !doc_c.LoadFile (f_name) || doc_c.Error()) 
+		{
+				WLOG(ERR,"Loading %s file failed in row %d and column %d, %s", f_name, doc_c.ErrorRow(), doc_c.ErrorCol(), doc_c.ErrorDesc());
+				break; ;
+		} 
+		
+
+		para_cfg = doc_c.RootElement();
+		comm = para_cfg->Attribute("psam_challeng");
+		if ( comm ) 
+		{
+			TEXTUS_STRCPY(psam_challeng, comm);
+		}
+
+		comm = para_cfg->Attribute("db44_cipher");
+		if ( comm ) 
+		{
+			TEXTUS_STRCPY(db44_cipher, comm);
+		}
+
+		comm = para_cfg->Attribute("gb_cipher");
+		if ( comm ) 
+		{
+			TEXTUS_STRCPY(gb_cipher, comm);
+		}
+
 		break;
 
 	case Notitia::END_SESSION:
@@ -253,29 +293,18 @@ Amor* Samtor::clone()
 
 void Samtor::ignite(TiXmlElement *cfg)
 {  
-	const char *comm;
-	para_cfg = cfg;
-
+	f_name = 0;;
 	memset(psam_challeng, 0, sizeof(psam_challeng));
 	memset(db44_cipher, 0, sizeof(db44_cipher));
 	memset(gb_cipher, 0, sizeof(gb_cipher));
-	comm = cfg->Attribute("psam_challeng");
-	if ( comm ) 
+
+	if ( !road_magic )
 	{
-		TEXTUS_STRCPY(psam_challeng, comm);
+		road_magic = cfg->Attribute("road_match");
 	}
 
-	comm = cfg->Attribute("db44_cipher");
-	if ( comm ) 
-	{
-		TEXTUS_STRCPY(db44_cipher, comm);
-	}
+	f_name = cfg->Attribute("cipher");
 
-	comm = cfg->Attribute("gb_cipher");
-	if ( comm ) 
-	{
-		TEXTUS_STRCPY(gb_cipher, comm);
-	}
 	memset(samus, 0, sizeof(Samtor*)*US_SIZE);
 
 	return ;
@@ -306,10 +335,22 @@ void Samtor::handle_pac()
 	unsigned char *actp;
 	unsigned long alen;
 	const int msg_size = 128;
-	char msg[msg_size];
+	char msg[msg_size], msg2[32];
 	char fun;
 	LVITEM lv;
 	HWND he= NULL;
+#if defined(_WIN32) && (_MSC_VER < 1400 )
+	struct _timeb now;
+#else
+	struct timeb now;
+#endif
+	struct tm *tdatePtr;
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+	struct tm tdate;
+#endif
+	MD5_CTX Md5Ctx;
+	unsigned char md2[32], md3[32];
+	unsigned int i;
 
 	actp=rcv_pac->getfld(Fun_Fld, &alen);		//取得功能代码，来自中心，只有一个。 有Fun_Fld， QryInterval_Fld， Challenge_Fld，Challenge_Fld，DB44Cipher_Fld，GBCipher_Fld
 	if ( !actp ) return ;
@@ -328,40 +369,145 @@ void Samtor::handle_pac()
 		lv.iSubItem = 0;
 		ListView_InsertItem(he, &lv);
 
+#define DISP_MSG(ITEM) \
+			lv.mask = LVIF_TEXT;	\
+			lv.iItem = tor_num-1;	\
+			lv.pszText = msg;		\
+			lv.iSubItem = ITEM;		\
+			ListView_SetItem(he, &lv);
+
 #define DISP_A_PSAM(FLD, ITEM) \
 		actp=rcv_pac->getfld(FLD, &alen);	\
 		if ( actp && alen < msg_size)		\
 		{							\
 			memcpy(msg, actp, alen);\
 			msg[alen] = 0;			\
-			lv.mask = LVIF_TEXT;	\
-			lv.iItem = tor_num-1;			\
-			lv.pszText = msg;		\
-			lv.iSubItem = ITEM;		\
-			ListView_SetItem(he, &lv); \
+			DISP_MSG(ITEM)			\
 		}
 
 		DISP_A_PSAM(IP_Fld, 4)
 		if (fun == 'i' )
 		{
-			lv.mask = LVIF_TEXT;
-			lv.iItem = tor_num-1;
 			TEXTUS_STRCPY(msg, "无法盘点");
-			lv.pszText = msg;
-			lv.iSubItem = 8;
-			ListView_SetItem(he, &lv);
+			DISP_MSG(8)
 			break;
 		}
-		DISP_A_PSAM(PSamSlot_Fld, 5)
-		DISP_A_PSAM(PSamSerial_Fld, 2)
-		DISP_A_PSAM(PSamTermNo_Fld, 1)
 
-		DISP_A_PSAM(PSamDesc_Fld, 3)
+#if defined(_WIN32) && (_MSC_VER < 1400 )
+		_ftime(&now);
+#else
+		ftime(&now);
+#endif
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+		tdatePtr = &tdate;
+		localtime_s(tdatePtr, &now.time);
+#else
+		tdatePtr = localtime(&now.time);
+#endif
+		if ( (now.time-start_when.time) > 30*24*3600)
+		{
+			TEXTUS_STRCPY(msg, "系统运行超过30天，请重新启动！");
+			DISP_MSG(8)
+			break;
+		}
+		strftime(msg, sizeof(msg), "%y%m%d", tdatePtr);
+
+		actp=rcv_pac->getfld(InventoryTime_Fld, &alen);
+		if ( alen == 12 && memcmp(actp, msg, 6) == 0 ) 
+		{
+			MD5Init (&Md5Ctx);
+			if ( road_magic)
+				MD5Update (&Md5Ctx, (unsigned char*)road_magic, strlen(road_magic));
+			MD5Update (&Md5Ctx, actp, alen);
+			MD5Update (&Md5Ctx, (unsigned char*)"213423_13axcc3q  3qqaab", 23);
+			MD5Final (&Md5Ctx);
+			strftime(msg, sizeof(msg), "%y年%m月%d日 ", tdatePtr);
+			memcpy(msg2, &actp[6], 2);	msg2[2]= ':';
+			memcpy(&msg2[3], &actp[8], 2); msg2[5]= ':';
+			memcpy(&msg2[6], &actp[10], 2); msg2[8]= '\0';
+			TEXTUS_STRCAT(msg, msg2);
+			DISP_MSG(6)
+		} else {
+			TEXTUS_STRCPY(msg, "车道日期错误");
+			DISP_MSG(8)
+			break;
+		}
+
+		DISP_A_PSAM(PSamSlot_Fld, 5)
+		
+		actp=rcv_pac->getfld(InventoryTime_Fld, &alen);
+		
+
+		actp=rcv_pac->getfld(PSamSerial_Fld, &alen);
+		if ( !isxdigit(*actp) )
+		{
+			DISP_A_PSAM(PSamSerial_Fld, 2)
+		} else {
+			if ( alen > sizeof(md2) ) alen = sizeof(md2);
+			hex2byte(md2, alen/2,  (char*)actp);
+			for ( i = 0 ; i < alen/2; i++) 
+				md3[i] = Md5Ctx.digest[i] ^ md2[i];
+			byte2hex(md3, alen/2,  msg); msg[alen] = 0;
+			DISP_MSG(2)
+		}
+		
+
+		actp=rcv_pac->getfld(PSamTermNo_Fld, &alen); 
+		if ( !isxdigit(*actp) )
+		{
+			DISP_A_PSAM(PSamTermNo_Fld, 1)
+		} else {
+			if ( alen > sizeof(md2) ) alen = sizeof(md2);
+			hex2byte(md2, alen/2,  (char*)actp);
+			for ( i = 0 ; i < alen/2; i++) 
+				md3[i] = Md5Ctx.digest[i] ^ md2[i];
+			byte2hex(md3, alen/2,  msg); msg[alen] = 0;
+			DISP_MSG(1)
+		}
+		
+		//DISP_A_PSAM(PSamDesc_Fld, 3)
 		DISP_A_PSAM(PSamErrStr_Fld, 8)
 
-		DISP_A_PSAM(InventoryTime_Fld, 6)
+		//DISP_A_PSAM(InventoryTime_Fld, 6)
 		DISP_A_PSAM(PSamRstInf_Fld, 7)
+
 		actp=rcv_pac->getfld(PSamStat_Fld, &alen);
+		switch (*actp)
+		{
+		case '0':
+			TEXTUS_STRCPY(msg, "正常");
+			break;
+		case '1':
+			TEXTUS_STRCPY(msg, "被锁");
+			break;
+		case '3':
+			TEXTUS_STRCPY(msg, "非法");
+			break;
+		case '5':
+			TEXTUS_STRCPY(msg, "指令失败");
+			break;
+		default:
+			TEXTUS_STRCPY(msg, "异常");
+			break;
+		}
+
+		actp=rcv_pac->getfld(PSamType_Fld, &alen);
+		switch (*actp)
+		{
+		case '2':
+			TEXTUS_STRCAT(msg, "地标卡");
+			break;
+
+		case '1':
+			TEXTUS_STRCAT(msg, "国标卡");
+			break;
+
+		default:
+			TEXTUS_STRCAT(msg, "未知卡");
+			break;
+		}
+		DISP_MSG(3)
+
 
 		//if ( actp && *actp !='0' ) 
 		//{

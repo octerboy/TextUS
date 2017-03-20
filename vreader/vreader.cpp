@@ -20,6 +20,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <process.h>
+#include "md5.c"
 
 /* VR_toll 工作状态，这是unitoll动态库来调用,
    VR_samin 工作状态， SAMIN客户端控制 
@@ -52,6 +53,7 @@ typedef struct _PSAM_Info{
 	static char psam_challenge[32]= " " ;	//来自中心的挑战数
 	static char psam_should_cipher_db44[32]= " " ;//来自中心的应该的加密结果, 针对地标PSAM卡 
 	static char psam_should_cipher_gb[32]= " " ;//来自中心的应该的加密结果, 针对国标PSAM卡
+	static char road_magic[64] = "\0";
 
 #pragma data_seg()
 
@@ -135,6 +137,7 @@ static char ok_reader=0;	//成功初始化的读写器字
 static char m_sysinfo_buf[2048] = {0};
 char cur_path[1024];
 char m_error_buf[1024] = {0};
+
 
 #define HAS_NOT_OPEN_CARD	-1111	//假定这个值都不用, 读写器底层不返回这样的码
 
@@ -1321,6 +1324,18 @@ void ICPort::ignite(TiXmlElement *cfg)
 		road_ele = cfg->FirstChildElement("Road");
 	}
 
+	comm=  cfg->Attribute("road_match");
+	if ( !road_magic[0] && comm )
+	{
+		memset(road_magic, 0, sizeof(road_magic));
+		if ( strlen(comm) > sizeof(road_magic) - 1)
+		{
+			memcpy(road_magic, comm, sizeof(road_magic) - 1);
+		} else {
+			memcpy(road_magic, comm, strlen(comm));
+		}
+	}
+
 	return ;
 }
 
@@ -1763,7 +1778,7 @@ bool ICPort::inventory()
 {
 	//samory[0~3]
 	int iSlot;
-	int ret = 0;
+	int ret = 0,i;
 	int sw;
 	char answer[512], command[128];
 	int len, qry_num;
@@ -1779,8 +1794,10 @@ bool ICPort::inventory()
 	struct tm tdate;
 #endif
 
+#define SAM(C,Y,E) sw = 0; ret = CardCommandCharSlot(C, Y, 0, &sw, &iSlot); if ( ret !=0 || sw != 0x9000 ) { samory[iSlot].result = E; TEXTUS_SPRINTF(samory[iSlot].err, "%s return %s, sw=%04X", C, Y, sw); continue; }	
+	MD5_CTX Md5Ctx;
+	unsigned char md2[32], md3[32];
 
-#define SAM(C,Y,E) sw = 0; ret = CardCommandCharSlot(C, Y, 0, &sw, &iSlot); if ( ret !=0 || sw != 0x9000 ) { samory[iSlot].result = E; TEXTUS_SPRINTF(samory[iSlot].err, "%s return %s, sw=%04X", C, Y, sw); goto LAST_JUDGE; }	
 
 	qry_num = 0;
 QryAgain:
@@ -1816,6 +1833,25 @@ QryAgain:
 
 		memset(&samory[iSlot], 0, sizeof (PsamInfo));
 		samory[iSlot].slot = 0;	//以此标志无PSAM卡。
+#if defined(_WIN32) && (_MSC_VER < 1400 )
+		_ftime(&now);
+#else
+		ftime(&now);
+#endif
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+		tdatePtr = &tdate;
+		localtime_s(tdatePtr, &now.time);
+#else
+		tdatePtr = localtime(&now.time);
+#endif
+		strftime(samory[iSlot].datetime, sizeof(samory[iSlot].datetime), "%y%m%d%H%M%S", tdatePtr);
+		MD5Init (&Md5Ctx);
+		if ( road_magic[0])
+			MD5Update (&Md5Ctx, (unsigned char*)road_magic, strlen(road_magic));
+		MD5Update (&Md5Ctx, (unsigned char*)&samory[iSlot].datetime[0], strlen(samory[iSlot].datetime));	
+		MD5Update (&Md5Ctx, (unsigned char*)"213423_13axcc3q  3qqaab", 23);
+		MD5Final (&Md5Ctx);
+
 		len = 100;
 		ret = SAM_reset(1, iSlot, &len, samory[iSlot].rst_info);
 
@@ -1829,29 +1865,17 @@ QryAgain:
 		
 		samory[iSlot].serial[0] = ' ';
 		samory[iSlot].device_termid[0] = ' ';
-		samory[iSlot].datetime[0] = ' ';
+		samory[iSlot].desc[0] = ' ';
 		samory[iSlot].err[0] = ' ';
 		samory[iSlot].slot = iSlot;		//复位成功，就算有卡了。
 		samory[iSlot].result = 4;	//先假定未检测
 		samory[iSlot].type = 0;		//未知卡
-
-#if defined(_WIN32) && (_MSC_VER < 1400 )
-		_ftime(&now);
-#else
-		ftime(&now);
-#endif
-#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
-		tdatePtr = &tdate;
-		localtime_s(tdatePtr, &now.time);
-#else
-		tdatePtr = localtime(&now.time);
-#endif
-		strftime(samory[iSlot].datetime, sizeof(samory[iSlot].datetime), "%y年%m月%d日 %H:%M:%S", tdatePtr);
 		
 		SAM("00A40000023F00", answer,1)
 
 		/* 取SAM卡的卡号*/
 		SAM("00B095000A", &(samory[iSlot].serial[0]), 5)
+
 		/* 取SAM卡的终端号*/
 		SAM("00B0960006", samory[iSlot].device_termid, 5)
 
@@ -1884,43 +1908,15 @@ QryAgain:
 			} else
 				samory[iSlot].result = 0;	//至此， 检测OK.
 		}
-		
-LAST_JUDGE:
-		switch (samory[iSlot].result)
-		{
-		case 0:
-			TEXTUS_STRCPY(samory[iSlot].desc, "正常");
-			break;
-		case 1:
-			TEXTUS_STRCPY(samory[iSlot].desc, "被锁");
-			break;
-		case 3:
-			TEXTUS_STRCPY(samory[iSlot].desc, "非法");
-			break;
-		case 5:
-			TEXTUS_STRCPY(samory[iSlot].desc, "指令失败");
-			break;
-		default:
-			TEXTUS_STRCPY(samory[iSlot].desc, "异常");
-			break;
-		}
-		switch (samory[iSlot].type)
-		{
-		case 2:
-			TEXTUS_STRCAT(samory[iSlot].desc, "地标卡");
-			break;
+		hex2byte(md2, 10,  &samory[iSlot].serial[0]); 
+		for ( i = 0 ; i < 10; i++)
+			md3[i] = Md5Ctx.digest[i] ^ md2[i];
+		byte2hex(md3, 10,  &samory[iSlot].serial[0]); 
 
-		case 1:
-			TEXTUS_STRCAT(samory[iSlot].desc, "国标卡");
-			break;
-
-		default:
-			TEXTUS_STRCAT(samory[iSlot].desc, "未知卡");
-			break;
-
-		}
-
-		
+		hex2byte(md2, 6,  &samory[iSlot].device_termid[0]);
+		for ( i = 0 ; i < 6; i++) 
+			md3[i] = Md5Ctx.digest[i] ^ md2[i];
+		byte2hex(md3, 6,  &samory[iSlot].device_termid[0]); 
 	}
 IN_END:
 	isInventoring = false;
