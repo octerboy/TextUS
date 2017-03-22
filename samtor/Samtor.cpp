@@ -43,7 +43,7 @@ public:
 	PacketObj *rcv_pac, *snd_pac; /* 向中心传递的 */
 	Amor::Pius loc_pro_pac;
 	HANDLE h_console_thread;
-	void handle_pac();	//盘点报文
+	bool handle_pac();	//盘点报文
 	void tor_demand();
 	TiXmlDocument doc_c;	//挑战数定义；
 	const char *f_name;
@@ -206,11 +206,13 @@ bool Samtor::facio( Amor::Pius *pius)
 		} else {
 			WBUG("facio SET_TBUF null");
 		}
+		ret = false;	//使之后传
 		break;
 
 	case Notitia::PRO_UNIPAC:    /* 有来自控制台的请求 */
 		WBUG("facio PRO_UNIPAC");
-		handle_pac();
+		if ( handle_pac() )
+		ret = false;	//使之后传
 		break;
 
 	default:
@@ -326,11 +328,11 @@ void Samtor::ignite(TiXmlElement *cfg)
 #define PSamStat_Fld 14
 #define PSamErrStr_Fld 15
 #define InventoryTime_Fld 16
-#define PSamDesc_Fld 17
+#define ReaderDesc_Fld 17
 #define PSamType_Fld 18
 #define PSamRstInf_Fld 19
 
-void Samtor::handle_pac()
+bool Samtor::handle_pac()
 {
 	unsigned char *actp;
 	unsigned long alen;
@@ -351,9 +353,11 @@ void Samtor::handle_pac()
 	MD5_CTX Md5Ctx;
 	unsigned char md2[32], md3[32];
 	unsigned int i;
+	bool h_ret = false;
 
 	actp=rcv_pac->getfld(Fun_Fld, &alen);		//取得功能代码，来自中心，只有一个。 有Fun_Fld， QryInterval_Fld， Challenge_Fld，Challenge_Fld，DB44Cipher_Fld，GBCipher_Fld
-	if ( !actp ) return ;
+	if ( !actp ) return h_ret;
+	rcv_pac->fld[Fun_Fld].raw = 0;
 	fun = *actp;
 	he = GetDlgItem(h_tory_dlg, IDC_SAM_INFO);
 	switch ( fun ) 
@@ -378,6 +382,7 @@ void Samtor::handle_pac()
 
 #define DISP_A_PSAM(FLD, ITEM) \
 		actp=rcv_pac->getfld(FLD, &alen);	\
+		rcv_pac->fld[FLD].raw = 0;			\
 		if ( actp && alen < msg_size)		\
 		{							\
 			memcpy(msg, actp, alen);\
@@ -413,6 +418,7 @@ void Samtor::handle_pac()
 		strftime(msg, sizeof(msg), "%y%m%d", tdatePtr);
 
 		actp=rcv_pac->getfld(InventoryTime_Fld, &alen);
+		rcv_pac->fld[InventoryTime_Fld].raw = 0;
 		if ( alen == 12 && memcmp(actp, msg, 6) == 0 ) 
 		{
 			MD5Init (&Md5Ctx);
@@ -426,6 +432,7 @@ void Samtor::handle_pac()
 			memcpy(&msg2[3], &actp[8], 2); msg2[5]= ':';
 			memcpy(&msg2[6], &actp[10], 2); msg2[8]= '\0';
 			TEXTUS_STRCAT(msg, msg2);
+			rcv_pac->input(InventoryTime_Fld, msg, strlen(msg));
 			DISP_MSG(6)
 		} else {
 			TEXTUS_STRCPY(msg, "车道日期错误");
@@ -433,12 +440,10 @@ void Samtor::handle_pac()
 			break;
 		}
 
-		DISP_A_PSAM(PSamSlot_Fld, 5)
-		
-		actp=rcv_pac->getfld(InventoryTime_Fld, &alen);
-		
+		h_ret = true;	//至此，数据可以向后传了
 
 		actp=rcv_pac->getfld(PSamSerial_Fld, &alen);
+		rcv_pac->fld[PSamSerial_Fld].raw = 0;
 		if ( !isxdigit(*actp) )
 		{
 			DISP_A_PSAM(PSamSerial_Fld, 2)
@@ -449,10 +454,11 @@ void Samtor::handle_pac()
 				md3[i] = Md5Ctx.digest[i] ^ md2[i];
 			byte2hex(md3, alen/2,  msg); msg[alen] = 0;
 			DISP_MSG(2)
+			rcv_pac->input(PSamSerial_Fld, msg, strlen(msg));
 		}
 		
-
 		actp=rcv_pac->getfld(PSamTermNo_Fld, &alen); 
+		rcv_pac->fld[PSamTermNo_Fld].raw = 0;
 		if ( !isxdigit(*actp) )
 		{
 			DISP_A_PSAM(PSamTermNo_Fld, 1)
@@ -463,15 +469,15 @@ void Samtor::handle_pac()
 				md3[i] = Md5Ctx.digest[i] ^ md2[i];
 			byte2hex(md3, alen/2,  msg); msg[alen] = 0;
 			DISP_MSG(1)
+			rcv_pac->input(PSamTermNo_Fld, msg, strlen(msg));
 		}
-		
-		//DISP_A_PSAM(PSamDesc_Fld, 3)
-		DISP_A_PSAM(PSamErrStr_Fld, 8)
 
-		//DISP_A_PSAM(InventoryTime_Fld, 6)
+		DISP_A_PSAM(PSamSlot_Fld, 5)
+		DISP_A_PSAM(PSamErrStr_Fld, 8)
 		DISP_A_PSAM(PSamRstInf_Fld, 7)
 
 		actp=rcv_pac->getfld(PSamStat_Fld, &alen);
+		rcv_pac->fld[PSamStat_Fld].raw = 0;
 		switch (*actp)
 		{
 		case '0':
@@ -492,6 +498,7 @@ void Samtor::handle_pac()
 		}
 
 		actp=rcv_pac->getfld(PSamType_Fld, &alen);
+		rcv_pac->fld[PSamType_Fld].raw = 0;
 		switch (*actp)
 		{
 		case '2':
@@ -508,13 +515,15 @@ void Samtor::handle_pac()
 		}
 		DISP_MSG(3)
 
-
-		//if ( actp && *actp !='0' ) 
-		//{
-		//	ListView_SetCheckState(he, tor_num-1, true);
-		//} else {
-		//	ListView_SetCheckState(he, tor_num-1, false);
-		//}
+		DISP_A_PSAM(ReaderDesc_Fld, 9)
+		/*
+		if ( actp && *actp !='0' ) 
+		{
+			ListView_SetCheckState(he, tor_num-1, true);
+		} else {
+			ListView_SetCheckState(he, tor_num-1, false);
+		}
+		*/
 		break;
 
 	case 'Q':
@@ -524,6 +533,7 @@ void Samtor::handle_pac()
 	default:
 		break;
 	}
+	return h_ret;
 }
 
 void Samtor::tor_demand()
@@ -552,15 +562,22 @@ INT_PTR CALLBACK InventProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
 		sret = SendMessage (he, LVM_SETEXTENDEDLISTVIEWSTYLE, 0, LVS_EX_FULLROWSELECT|LVS_EX_HEADERDRAGDROP|LVS_EX_GRIDLINES/*|LVS_EX_CHECKBOXES*/);
 
 		list.fmt = LVCFMT_CENTER;
-		list.iSubItem = 8;
+		list.iSubItem = 9;
 		list.cx = 120;
+		list.pszText = "读写器";
+		list.mask= LVCF_TEXT|LVCF_WIDTH|LVCF_FMT|LVCF_SUBITEM;
+		sret = SendMessage (he, LVM_INSERTCOLUMN, 0, (LPARAM)&list);
+
+		list.fmt = LVCFMT_CENTER;
+		list.iSubItem = 8;
+		list.cx = 130;
 		list.pszText = "错误描述";
 		list.mask= LVCF_TEXT|LVCF_WIDTH|LVCF_FMT|LVCF_SUBITEM;
 		sret = SendMessage (he, LVM_INSERTCOLUMN, 0, (LPARAM)&list);
 
 		list.fmt = LVCFMT_CENTER;
 		list.iSubItem = 7;
-		list.cx = 160;
+		list.cx = 170;
 		list.pszText = "复位信息";
 		list.mask= LVCF_TEXT|LVCF_WIDTH|LVCF_FMT|LVCF_SUBITEM;
 		sret = SendMessage (he, LVM_INSERTCOLUMN, 0, (LPARAM)&list);

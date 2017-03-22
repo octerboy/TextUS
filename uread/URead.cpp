@@ -729,7 +729,7 @@ URead::~URead()
 
 Amor* URead::clone()
 {
-	return (Amor*)new URead();
+	return (Amor*)this;
 }
 #define AMOR_CLS_TYPE URead
 #include "hook.c"

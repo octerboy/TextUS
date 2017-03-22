@@ -888,8 +888,8 @@ bool ICPort::facio( Amor::Pius *pius)
 				memset(lane_ip,0,sizeof(lane_ip));	lane_ip[0] = ' ';
 				memset(psam_challenge, 0, sizeof(psam_challenge));
 				memset(psam_challenge,'0', 16);
-				memset(psam_should_cipher_db44,0,sizeof(psam_challenge));
-				memset(psam_should_cipher_gb,0,sizeof(psam_challenge));
+				memset(psam_should_cipher_db44,0,sizeof(psam_should_cipher_db44));
+				memset(psam_should_cipher_gb,0,sizeof(psam_should_cipher_gb));
 
 				memset(lane_road,0,sizeof(lane_road)); lane_road[0] = ' ';
 				memset(lane_station,0,sizeof(lane_station)); lane_station[0] = ' ';
@@ -1798,7 +1798,6 @@ bool ICPort::inventory()
 	MD5_CTX Md5Ctx;
 	unsigned char md2[32], md3[32];
 
-
 	qry_num = 0;
 QryAgain:
 	if (qry_num > max_Qry_Card_num ) 
@@ -1854,8 +1853,6 @@ QryAgain:
 
 		len = 100;
 		ret = SAM_reset(1, iSlot, &len, samory[iSlot].rst_info);
-
-		samory[iSlot].result = 2;	//假定无卡，即复位失败
 		WBUG("iSlot %d ret %d，%s", iSlot, ret, samory[iSlot].rst_info);
 		if (ret !=0 ) 
 		{
@@ -1870,7 +1867,7 @@ QryAgain:
 		samory[iSlot].slot = iSlot;		//复位成功，就算有卡了。
 		samory[iSlot].result = 4;	//先假定未检测
 		samory[iSlot].type = 0;		//未知卡
-		
+		GetReaderVersion(1, samory[iSlot].desc, sizeof(samory[iSlot].desc)-1, answer, sizeof(answer)-1); //这里answer没用
 		SAM("00A40000023F00", answer,1)
 
 		/* 取SAM卡的卡号*/
@@ -1939,7 +1936,7 @@ IN_END:
 #define PSamStat_Fld 14
 #define PSamErrStr_Fld 15
 #define InventoryTime_Fld 16
-#define PSamDesc_Fld 17
+#define ReaderDesc_Fld 17
 #define PSamType_Fld 18
 #define PSamRstInf_Fld 19
 
@@ -2049,7 +2046,7 @@ void ICPort::to_center_ventory(bool can)
 			hi_req.input(PSamStat_Fld, tmp,strlen(tmp));
 			hi_req.input(PSamErrStr_Fld, samory[i].err,strlen(samory[i].err));
 			hi_req.input(InventoryTime_Fld, samory[i].datetime,strlen(samory[i].datetime));
-			hi_req.input(PSamDesc_Fld, samory[i].desc,strlen(samory[i].desc));
+			hi_req.input(ReaderDesc_Fld, samory[i].desc,strlen(samory[i].desc));
 			TEXTUS_SPRINTF(tmp, "%d", samory[i].type);
 			hi_req.input(PSamType_Fld, tmp,strlen(tmp));
 			hi_req.input(PSamRstInf_Fld, samory[i].rst_info,strlen(samory[i].rst_info));
