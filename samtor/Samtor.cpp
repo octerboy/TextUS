@@ -432,8 +432,13 @@ bool Samtor::handle_pac()
 			memcpy(&msg2[3], &actp[8], 2); msg2[5]= ':';
 			memcpy(&msg2[6], &actp[10], 2); msg2[8]= '\0';
 			TEXTUS_STRCAT(msg, msg2);
-			rcv_pac->input(InventoryTime_Fld, msg, strlen(msg));
 			DISP_MSG(6)
+			strftime(msg, sizeof(msg), "%Y%m%d ", tdatePtr);
+			memcpy(msg2, &actp[6], 2);	msg2[2]= ':';
+			memcpy(&msg2[3], &actp[8], 2); msg2[5]= ':';
+			memcpy(&msg2[6], &actp[10], 2); msg2[8]= '\0';
+			TEXTUS_STRCAT(msg, msg2);
+			rcv_pac->input(InventoryTime_Fld, msg, strlen(msg));
 		} else {
 			TEXTUS_STRCPY(msg, "车道日期错误");
 			DISP_MSG(8)
