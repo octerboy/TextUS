@@ -282,7 +282,7 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2};
 		Var_Type kind;	//动态类型,
 		int index;	//索引, 也就是下标值
 		unsigned char *val_p;	//p有时指向这里的val， 但也可能指向输入、输出的域.c_len就是长度。
-		unsigned char val[512];	//变量内容. 随时更新, 足够空间啦
+		char val[512];	//变量内容. 随时更新, 足够空间啦
 		unsigned long c_len;
 
 		struct PVar *def_var;	//文件中定义的变量
@@ -303,7 +303,7 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2};
 				val_p = p;
 				c_len = len;
 			} else {
-				val_p = &val[0];
+				val_p = (unsigned char*)&val[0];
 				if ( (len+1) < sizeof(val) )
 				{
 					memcpy(val, p, len);
@@ -315,10 +315,10 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2};
 
 		void input(int iv)
 		{
-			TEXTUS_SPRINTF((char*)&val[0], "%d", iv);
+			TEXTUS_SPRINTF(val, "%d", iv);
 			c_len = strlen((char*)&val[0]);
 			val[c_len] = 0;
-			val_p = &val[0];
+			val_p = (unsigned char*)&val[0];
 		};
 
 		void input(const char *p, bool link=false)
@@ -329,7 +329,7 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2};
 				val_p = (unsigned char*)p;
 			} else {
 				val[c_len] = 0;
-				val_p = &val[0];
+				val_p = (unsigned char*)&val[0];
 				memcpy(val, p, c_len);
 			}
 		};
@@ -338,7 +338,7 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2};
 		{
 			c_len = 1;
 			val[1] = 0;
-			val_p = &val[0];
+			val_p = (unsigned char*)&val[0];
 			val[0] = p;
 		};
 	};
@@ -1002,7 +1002,8 @@ struct PacIns:public Condition  {
 
 	const char *err_code; //这是直接从外部定义文件得到的内容，不作任何处理。 当本报文出现通信错误，包括报文不能解析的、通道关闭。
 	struct ComplexSubSerial *complex;	//如果这个不为0, 则返回此值，指示调度器调用一个子过程。
-	bool isIcc;
+	bool counted;		
+	bool isFunction;	//是否回调函数
 
 	PacIns() 
 	{
@@ -1014,7 +1015,8 @@ struct PacIns:public Condition  {
 
 		err_code = 0;
 		complex = 0;
-		isIcc = false;	/* 不计入icc_num计算 */
+		counted = false;	/* 不计入指令数计算 */
+		isFunction = false;
 		type = INS_None;
 	};
 
@@ -1105,8 +1107,15 @@ ErrRet:
 		}
 
 		subor=0; def_ele->QueryIntAttribute("subor", &subor);
-		if ( def_ele->Attribute("is_icc") )
-			isIcc = true;
+		if ( def_ele->Attribute("counted") )
+			counted = true;
+		else 
+			counted = false;
+
+		if ( def_ele->Attribute("function") )	//这是函数扩展，出现回调
+			isFunction = true;
+		else
+			isFunction = false;
 
 		/* 先预置发送的每个域，设定域号*/
 		snd_num = 0;
@@ -1216,7 +1225,7 @@ ANOTHER:
 		type = INS_Normal;
 LAST_CON:
 		set_condition ( pac_ele, g_vars, me_vars);
-		return isIcc ? 1:0 ;
+		return counted ? 1:0 ;
 	};
 };
 
@@ -1408,8 +1417,7 @@ struct User_Command : public Condition {		//INS_User指令定义
 
 				PUT_COMPLEX(0)
 				ret_ic = complex->pro_analyze(usr_ele->Attribute(pri_nm));
-					
-			} else {
+			} else {	//一个用户操作，包括几个复合指令的尝试，有一个成功，就算OK
 				for( pri = usr_ele->FirstChildElement(pri_nm), comp_num = 0; 
 					pri; pri = pri->NextSiblingElement(pri_nm) )
 				{
@@ -1802,6 +1810,10 @@ private:
 	} pac_wt;
 
 	int sub_serial_pro();
+	bool call_back;	/* 
+					false: 一般如此，向右发出后，在下一轮中再处理响应; 
+					true: 对于函数处理的扩展，有回调处理，在sponte时就即返回，由发出点处理响应数据，从而避免调用嵌套太深。
+					*/
 	#include "wlog.h"
 };
 
@@ -1838,6 +1850,8 @@ PacWay::PacWay()
 	loc_pro_pac.ordo = Notitia::PRO_UNIPAC;
 	loc_pro_pac.indic = 0;
 	loc_pro_pac.subor = -1;
+
+	call_back = false;
 }
 
 PacWay::~PacWay() 
@@ -1935,7 +1949,8 @@ bool PacWay::sponte( Amor::Pius *pius)
 	{
 	case Notitia::PRO_UNIPAC:
 		WBUG("sponte PRO_UNIPAC");
-		mk_hand();
+		if (!call_back) //对于回调函数，即返回。
+			mk_hand();
 		break;
 
 	case Notitia::DMD_END_SESSION:	//右节点关闭, 要处理
@@ -2080,9 +2095,13 @@ SUB_INS_PRO:
 			paci->prepair_snd_pac(&hi_req, loc_pro_pac.subor, &mess);
 			pac_wt.step++;
 			i_ret = 0;	/* 进行中 */
+			call_back = paci->isFunction; //对于函数，属回调的情况。
+			mess.right_status = RT_OUT;
+			aptus->facio(&loc_pro_pac);     //向右发出, 然后等待
+			if ( call_back ) goto GO_ON_FUNC; //调用返回时，这里响应报文已备，继续处理。
 			break;
-
 		case 1:
+GO_ON_FUNC:
 			if ( paci->pro_rcv_pac(&hi_reply, &mess)) 
 			{
 				if ( paci->valid_result(&mess) )
@@ -2096,7 +2115,7 @@ SUB_INS_PRO:
 			} else {
 				mess.iRet = ERROR_RECV_PAC;
 				TEXTUS_SPRINTF(mess.err_str, "fault at %d of %s", mess.pro_order, cur_def->flow_id);
-				i_ret = -2;	//这是基本报文错误，非脚本所控制
+				i_ret = -3;	//这是基本报文错误，非脚本所控制
 			}
 			break;
 
@@ -2136,6 +2155,7 @@ void PacWay::mk_hand()
 {
 	struct User_Command *usr_com;
 	int i_ret;
+
 INS_PRO:
 	usr_com = &(cur_def->ins_all.instructions[mess.ins_which]);
 	mess.pro_order = usr_com->order;	
@@ -2168,36 +2188,37 @@ NEXT_PRI_TRY:
 			}
 			pac_wt.step = 0;
 			if ( usr_com->comp_num ==1 )
-				mess.snap[Pos_WillErrPro].input('1');	//指标外部脚本：如果失败，就调用相应过程，否则不调用。
-			else 
-				mess.snap[Pos_WillErrPro].input('0');	//指标外部脚本：即使失败也不调用相应过程。因为这是一个中间步骤			
+				mess.snap[Pos_WillErrPro].input( '1' );	//指示外部脚本：如果失败，就调用相应过程(响应报文设置一些数据，或者向终端发些指令)，否则不调用。
+			else //一个用户操作，包括几个复合指令的尝试，有一个成功，就算OK
+				mess.snap[Pos_WillErrPro].input( '0' );	//指示外部脚本：即使失败也不调用相应过程。因为这是一个中间步骤			
 			command_wt.step++;	//指向下一步
-		case 1:	
+
+		case 1:
 			i_ret = sub_serial_pro();
 			if ( i_ret == -1 ) 
 			{
-				if ( command_wt.cur < (usr_com->comp_num-1) )	//脚本控制的错误才试下一个
+				if ( command_wt.cur < (usr_com->comp_num-1) )	//用户定义的Abort才试下一个
 				{
 					command_wt.cur++;
 					command_wt.step--;
-					if ( command_wt.cur == (usr_com->comp_num-1) )
-						mess.snap[Pos_WillErrPro].input('1');	//指标外部脚本：如果失败，就调用相应过程，否则不调用。
+					if ( command_wt.cur == (usr_com->comp_num-1) ) //最后一条复合指令啦，如果出错就调用自定义的出错过程(响应报文设置一些数据，或者向终端发些指令)
+						mess.snap[Pos_WillErrPro].input('1');	//指示外部脚本：如果失败，就调用相应过程，否则不调用。
 					goto NEXT_PRI_TRY;		//试另一个
-				} else {
+				} else {		//最后一条处理失败，定义出错值
 					mess.iRet = ERROR_USER_ABORT;			
 					TEXTUS_SPRINTF(mess.err_str, "user abort at %d of %s", mess.pro_order, cur_def->flow_id);
 				}
-			} else 	if ( i_ret ==0  ) 
-			{	//子序列正在进行, 这里中断
-				mess.right_status = RT_OUT;
-				aptus->facio(&loc_pro_pac);     //向右发出, 然后等待, 这个放在别处????
 			} else if ( i_ret < 0 )  //脚本控制或报文定义 的 错误
 			{
 				mk_result(); 
-			} else {
+			} else 	if ( i_ret > 0  ) 
+			{
 				mess.right_status = RT_READY;	//右端闲
 				WLOG(CRIT, "has completed %d, order %d", mess.ins_which, mess.pro_order);
 			}
+			/*if ( i_ret ==0  ) 子序列正在进行, 这里不作任何处理 */
+			break;
+		default:
 			break;
 	} //end of switch command_wt.step
 	if ( mess.right_status == RT_READY )	//可以下一条用户命令
