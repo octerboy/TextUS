@@ -208,10 +208,10 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2};
 				kind = VAR_ErrStr;
 			}
 
-			if ( strcasecmp(nm, "$WillErrPro" ) == 0 ) //错误描述
+			if ( strcasecmp(nm, "$WillErrPro" ) == 0 ) //供外部脚本使用，指示是否可以调用错误处理过程（向终端发出卡指令等)
 			{
 				dynamic_pos = Pos_WillErrPro;
-				kind = VAR_ErrStr;
+				kind = VAR_WillErrPro;
 			}
 
 			if ( var_ele->Attribute("link") )
@@ -1811,9 +1811,9 @@ private:
 
 	int sub_serial_pro();
 	bool call_back;	/* 
-					false: 一般如此，向右发出后，在下一轮中再处理响应; 
-					true: 对于函数处理的扩展，有回调处理，在sponte时就即返回，由发出点处理响应数据，从而避免调用嵌套太深。
-					*/
+				false: 一般如此，向右发出后，在下一轮中再处理响应; 
+				true: 对于函数处理的扩展，有回调处理，在sponte时就即返回，由发出点处理响应数据，从而避免调用嵌套太深。
+			*/
 	#include "wlog.h"
 };
 
