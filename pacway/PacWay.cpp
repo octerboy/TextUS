@@ -70,9 +70,9 @@ enum LEFT_STATUS { LT_Idle = 0, LT_Working = 3};
 /* 右边状态, 空闲, 发出报文等响应 */
 enum RIGHT_STATUS { RT_IDLE = 0, RT_OUT=7, RT_READY = 3};
 
-enum Var_Type {VAR_ErrCode=1, VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_CurOrder=4, VAR_CurCent=5, VAR_ErrStr=6, VAR_WillErrPro=7, VAR_Dynamic = 10, VAR_Me=12, VAR_Constant=98,  VAR_None=99};
+enum Var_Type {VAR_ErrCode=1, VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_CurOrder=4, VAR_CurCent=5, VAR_ErrStr=6, VAR_Dynamic = 10, VAR_Me=12, VAR_Constant=98,  VAR_None=99};
 /* 命令分几种，INS_Normal：标准，INS_Abort：终止 */
-enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2};
+enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Null};
 
 /* 包括SysTime这样的变量，都由外部函数计算，所以这里只保留脚本指纹数据 */	
 #define Pos_ErrCode 1 
@@ -81,10 +81,10 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2};
 #define Pos_CurOrder 4 
 #define Pos_CurCent 5 
 #define Pos_ErrStr 6 
-#define Pos_WillErrPro 7 
-#define Pos_Fixed_Next 8  //下一个动态变量的位置, 也是为脚本自定义动态变量的第1个位置
+#define Pos_Fixed_Next 7  //下一个动态变量的位置, 也是为脚本自定义动态变量的第1个位置
 #define VARIABLE_TAG_NAME "Var"
 #define ME_VARIABLE_HEAD "me."
+
 	struct PVar
 	{
 		Var_Type kind;
@@ -208,12 +208,6 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2};
 				kind = VAR_ErrStr;
 			}
 
-			if ( strcasecmp(nm, "$WillErrPro" ) == 0 ) //供外部脚本使用，指示是否可以调用错误处理过程（向终端发出卡指令等)
-			{
-				dynamic_pos = Pos_WillErrPro;
-				kind = VAR_WillErrPro;
-			}
-
 			if ( var_ele->Attribute("link") )
 			{
 				dy_link = true;
@@ -221,7 +215,7 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2};
 
 			if ( kind != VAR_None) goto P_RET; //已有定义，不再看这个Dynamic, 以上定义都与Dynamic相同处理
 
-			if (var_ele->Attribute("dynamic"))
+			if ( (p = var_ele->Attribute("dynamic")) && (*p == 'Y' || *p == 'y') )
 			{
 				dynamic_pos = dy_at;	//动态变量位置
 				kind = VAR_Dynamic;
@@ -344,16 +338,18 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2};
 	};
 
 	struct MK_Session {		//记录一个事务过程中的各种临时数据
-		struct DyVar *snap;		//随时的变量, 包括
+		struct DyVar *snap;	//随时的变量, 包括
 		int snap_num;
-		char err_str[1024];		//错误信息
+		bool willLast;		//最后一次试错. 通常，一个用户指令只尝试一次错, 此值为true。 有时有多次尝试, 此值先为false，最后一次为true.
+
+		char err_str[1024];	//错误信息
 		char flow_id[64];
 		int pro_order;		//当前处理的操作序号
 
 		LEFT_STATUS left_status;
 		RIGHT_STATUS right_status;
 		int ins_which;	//已经工作在哪个命令, 即为定义中数组的下标值
-		int iRet;		//事务最终结果
+		int iRet;	//事务最终结果
 
 		inline MK_Session ()
 		{
@@ -378,6 +374,7 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2};
 			ins_which = -1;
 			err_str[0] = 0;	
 			flow_id[0] = 0;
+			willLast = true;
 		};
 
 		inline void init(int m_snap_num) //这个m_snap_num来自各XML定义的最大动态变量数
@@ -390,11 +387,12 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2};
 			for ( int i = 0 ; i < snap_num; i++)
 				snap[i].index = i;
 
+			snap[Pos_ErrCode].kind = VAR_ErrCode;
 			snap[Pos_FlowPrint].kind = VAR_FlowPrint;
 			snap[Pos_TotalIns].kind = VAR_TotalIns;
-			snap[Pos_ErrCode].kind = VAR_ErrCode;
 			snap[Pos_CurOrder].kind = VAR_CurOrder;
 			snap[Pos_CurCent].kind = VAR_CurCent;
+			snap[Pos_ErrStr].kind = VAR_ErrStr; 
 			reset();
 		};
 
@@ -520,7 +518,6 @@ struct PVar_Set {
 		struct PVar *av = look(nm,0);
 		if ( av) av->put_still(val, len);
 	};
-
 
 	/* 找静态的变量, 获得实际内容 */
 	struct PVar *one_still( const char *nm, unsigned char *buf, unsigned long &len, struct PVar_Set *loc_v=0)
@@ -702,16 +699,20 @@ struct Match {		//一个匹配项
 };
 
 struct Condition {	//一个指令的匹配列表, 包括条件与结果的匹配
+	bool hasLastWill;	/* 通常此值为false,即执行某指令不需要判断Mess中的willLast。 当有子系列被尝试多次, 就需要判断willLast为true时才执行.
+				此值供外部脚本使用，指示是否可以调用错误处理过程（向终端发出卡指令等)
+				*/
 	int con_num;
 	int res_num;
 	struct Match *conie_list;
 	struct Match *result_list;
-	
+
 	Condition () { 
 		con_num = 0; 
 		conie_list= 0;
 		res_num = 0; 
 		result_list= 0;
+		hasLastWill = false;
 	};
 
 	void set_list( TiXmlElement *ele, struct PVar_Set *var_set, struct PVar_Set *loc_v, const char *vn, const char *vn_not, int &m_num, struct Match *&list)
@@ -740,6 +741,12 @@ struct Condition {	//一个指令的匹配列表, 包括条件与结果的匹配
 
 	void set_condition ( TiXmlElement *ele, struct PVar_Set *var_set, struct PVar_Set *loc_v)
 	{
+		const char *c;
+		hasLastWill = false;
+		c = ele->Attribute("has_last_will");
+		if ( c && ( c[0] == 'Y' || c[0] == 'y' ) ) 
+			hasLastWill = true;
+			
 		set_list(ele, var_set, loc_v, "if", "if_not", con_num, conie_list);
 		set_list(ele, var_set, loc_v, "must", "must_not", res_num, result_list);
 	};
@@ -759,6 +766,7 @@ struct Condition {	//一个指令的匹配列表, 包括条件与结果的匹配
 
 	bool valid_condition (MK_Session *sess)
 	{
+		if (hasLastWill && !sess->willLast ) return false;
 		return valid_list(sess, conie_list, con_num);
 	};
 	bool valid_result (MK_Session *sess)
@@ -1001,8 +1009,7 @@ struct PacIns:public Condition  {
 	int rcv_num;
 
 	const char *err_code; //这是直接从外部定义文件得到的内容，不作任何处理。 当本报文出现通信错误，包括报文不能解析的、通道关闭。
-	struct ComplexSubSerial *complex;	//如果这个不为0, 则返回此值，指示调度器调用一个子过程。
-	bool counted;		
+	bool counted;		//是否计数
 	bool isFunction;	//是否回调函数
 
 	PacIns() 
@@ -1014,10 +1021,10 @@ struct PacIns:public Condition  {
 		rcv_num = 0;
 
 		err_code = 0;
-		complex = 0;
 		counted = false;	/* 不计入指令数计算 */
 		isFunction = false;
 		type = INS_None;
+		
 	};
 
 	void prepair_snd_pac( PacketObj *snd_pac, int &bor, MK_Session *sess)
@@ -1098,21 +1105,25 @@ ErrRet:
 		int lnn;
 		const char *tag;
 
-		err_code = pac_ele->Attribute("error"); //每一个报文定义一个错误码，对于INS_Abort很有用。
-		if (!err_code ) err_code = def_ele->Attribute("error"); //一般INS_Normal不定义，那么取基础报文的定义
 		if ( strcasecmp( pac_ele->Value(), "abort") ==0 )
 		{
 			type = INS_Abort;
 			goto LAST_CON;
 		}
 
+		if ( strcasecmp( pac_ele->Value(), "null") ==0 )
+		{
+			type = INS_Null;
+			goto LAST_CON;
+		}
+
 		subor=0; def_ele->QueryIntAttribute("subor", &subor);
-		if ( def_ele->Attribute("counted") )
+		if ( (p = def_ele->Attribute("counted")) && ( *p == 'y' || *p == 'Y') )
 			counted = true;
 		else 
 			counted = false;
 
-		if ( def_ele->Attribute("function") )	//这是函数扩展，出现回调
+		if ((p = def_ele->Attribute("function")) && ( *p == 'y' || *p == 'Y') )	//这是函数扩展，出现回调
 			isFunction = true;
 		else
 			isFunction = false;
@@ -1224,8 +1235,24 @@ ANOTHER:
 
 		type = INS_Normal;
 LAST_CON:
-		set_condition ( pac_ele, g_vars, me_vars);
 		return counted ? 1:0 ;
+	};
+
+	void prepare(TiXmlElement *def_ele, TiXmlElement *pac_ele, TiXmlElement *usr_ele, struct PVar_Set *g_vars, struct PVar_Set *me_vars)
+	{
+		struct PVar *err_var;
+		
+		err_code = pac_ele->Attribute("error"); //每一个报文定义一个错误码，对于INS_Abort很有用。
+		if (!err_code && def_ele ) err_code = def_ele->Attribute("error"); //一般INS_Normal不定义，那么取基础报文的定义
+		if ( err_code ) 
+		{	
+			err_var = g_vars->look(err_code, me_vars);
+			if (err_var)
+			{
+				err_code = (const char*)&err_var->content[0];
+			} 
+		}
+		set_condition ( pac_ele, g_vars, me_vars);
 	};
 };
 
@@ -1309,12 +1336,12 @@ struct ComplexSubSerial {
 
 		char pro_nm[128];
 
-		TiXmlElement *pac_ele, *def_ele;
+		TiXmlElement *pac_ele, *def_ele, *spac_ele, *t_ele;
 		TiXmlElement *body;	//用户命令的第一个body元素
 		int which, icc_num=0 ;
 		int i;
 
-		sv_set.defer_vars(usr_def_entry); //局域变量定义完全还在那个自定义中, "imply"之类的不要了 
+		sv_set.defer_vars(usr_def_entry); //局域变量定义完全还在那个自定义中
 		for ( i = 0; i  < sv_set.many; i++ )
 		{
 			me_var = &(sv_set.vars[i]);
@@ -1354,8 +1381,19 @@ struct ComplexSubSerial {
 		pac_many = 0;
 		for ( pac_ele= sub_pro->FirstChildElement(); pac_ele; pac_ele = pac_ele->NextSiblingElement())
 		{
-			if ( pac_ele->Value() )	//直接拿一个元素就当基本指令了
+			if ( !pac_ele->Value() ) continue;
+			if ( def_root->FirstChildElement(pac_ele->Value()))	//如果在基础报文中有定义
+			{
 				pac_many++;
+			} else if ( (t_ele = map_root->FirstChildElement(pac_ele->Value()) ) )	//如果在map中有定义, 也就是一个嵌套(类似于宏)
+			{
+				for ( spac_ele= t_ele->FirstChildElement(); spac_ele; spac_ele = spac_ele->NextSiblingElement())
+				{
+					if ( !spac_ele->Value() ) continue;
+					if ( def_root->FirstChildElement(spac_ele->Value()) )	//如果在基础报文中有定义
+						pac_many++;
+				}
+			}
 		}
 		//确定变量数
 		if ( pac_many ==0 ) return 0;
@@ -1364,23 +1402,25 @@ struct ComplexSubSerial {
 		which = 0; icc_num = 0;
 		for ( pac_ele= sub_pro->FirstChildElement(); pac_ele; pac_ele = pac_ele->NextSiblingElement())
 		{
-			if ( pac_ele->Value() )
+			if ( !pac_ele->Value() ) continue;
+			def_ele = def_root->FirstChildElement(pac_ele->Value());	//如果在基础报文中有定义
+			if ( def_ele)	//如果在基础报文中有定义
 			{
-				def_ele = def_root->FirstChildElement(pac_ele->Value());	//如果在基础报文中有定义
-				if ( def_ele)
+				pac_inses[which].prepare(def_ele, pac_ele, usr_ele, g_var_set, &sv_set);
+				icc_num += pac_inses[which].hard_work(def_ele, pac_ele, usr_ele, g_var_set, &sv_set);
+				which++;
+			} else if ((t_ele = map_root->FirstChildElement(pac_ele->Value())))//如果在map中有定义, 也就是一个嵌套(类似于宏)
+			{
+				for ( spac_ele= t_ele->FirstChildElement(); spac_ele; spac_ele = spac_ele->NextSiblingElement())
 				{
-					icc_num += pac_inses[which].hard_work(def_ele, pac_ele, usr_ele, g_var_set, &sv_set);
-					which++;
-				} else if ( map_root->FirstChildElement(pac_ele->Value()) )	//如果在map中有定义, 也就是一个嵌套的子序列
-				{
-					pac_inses[which].complex = new ComplexSubSerial;
-					pac_inses[which].complex->usr_def_entry = map_root->FirstChildElement(pac_ele->Value());
-					pac_inses[which].complex->g_var_set = g_var_set;
-					pac_inses[which].complex->def_root = def_root;
-					pac_inses[which].complex->usr_ele = pac_ele; //这个就要如同用户命令
-					pac_inses[which].complex->map_root = map_root;
-					icc_num += pac_inses[which].complex->pro_analyze(0);
-					which++;
+					if ( !spac_ele->Value() ) continue;
+					def_ele = def_root->FirstChildElement(spac_ele->Value());	//如果在基础报文中有定义
+					if (def_ele)
+					{
+						pac_inses[which].prepare(def_ele, spac_ele, usr_ele, g_var_set, &sv_set);
+						icc_num += pac_inses[which].hard_work(def_ele, spac_ele, usr_ele, g_var_set, &sv_set);
+						which++;
+					}
 				}
 			}
 		}
@@ -1753,66 +1793,13 @@ private:
 	struct WKBase {
 		int step;	//0: just start, 1: doing 
 		int cur;
+		int pac_which;
+		int pac_step;	//0: send, 1: recv
 	} command_wt;
 
-	struct CompWKBase {
-		struct ComplexSubSerial *comp;
-		int which;
-	};
-
-#define SUB_DEPTH 10
-	struct SubWKBase {
-		struct CompWKBase comps[SUB_DEPTH];
-		int depth;	//指向当前的，
-		void reset()
-		{
-			int i;
-			depth = -1;	//一开始没有，
-			for ( i = 0; i < SUB_DEPTH; i++)
-			{
-				comps[i].comp = 0;
-				comps[i].which = 0;
-			}
-		};
-
-		SubWKBase () 
-		{
-			reset();
-		};
-		
-		bool push(struct ComplexSubSerial *c)
-		{
-			depth++; //先找一个位置
-			if (depth >= SUB_DEPTH )
-				return false;
-
-			comps[depth].comp = c;
-			comps[depth].which = 0;
-			return true;
-		};
-
-		struct CompWKBase *pop()
-		{
-			depth--;
-			if ( depth < 0 )
-				return 0;
-			return  &comps[depth];
-		};
-
-		struct CompWKBase *peek()
-		{
-			return &comps[depth];
-		}
-	} sub_wt;
-
-	struct PacWork {
-		int step;	//0: send, 1: recv 
-	} pac_wt;
-
-	int sub_serial_pro();
-	bool call_back;	/* 
-				false: 一般如此，向右发出后，在下一轮中再处理响应; 
-				true: 对于函数处理的扩展，有回调处理，在sponte时就即返回，由发出点处理响应数据，从而避免调用嵌套太深。
+	int sub_serial_pro(struct ComplexSubSerial *comp);
+	bool call_back;	/* false: 一般如此，向右发出后，在下一轮中再处理响应; 
+			true: 对于函数处理的扩展，有回调处理，在sponte时就即返回，由发出点处理响应数据，从而避免调用嵌套太深。
 			*/
 	#include "wlog.h"
 };
@@ -2066,18 +2053,17 @@ HERE_END:
 }
 
 /* 子序列入口 */
-int PacWay::sub_serial_pro()
+int PacWay::sub_serial_pro(struct ComplexSubSerial *comp)
 {
 	int i_ret=1;
 	struct PacIns *paci;
-	struct CompWKBase *wk = sub_wt.peek();
 
 SUB_INS_PRO:
-	paci = &(wk->comp->pac_inses[wk->which]);
+	paci = &(comp->pac_inses[command_wt.pac_which]);
 	switch ( paci->type)
 	{
 	case INS_Normal:
-		switch ( pac_wt.step )
+		switch ( command_wt.pac_step )
 		{
 		case 0:
 			if ( !paci->valid_condition(&mess) )		/* 不符合条件,就转下一条 */
@@ -2085,17 +2071,12 @@ SUB_INS_PRO:
 				i_ret = 1;
 				break;
 			}
-			if ( paci->complex ) 	/* 要执行另一个序列 */
-			{
-				sub_wt.push(paci->complex);
-				return sub_serial_pro();
-			}
 
 			hi_req.reset();	//请求复位
 			paci->prepair_snd_pac(&hi_req, loc_pro_pac.subor, &mess);
-			pac_wt.step++;
+			command_wt.pac_step++;
 			i_ret = 0;	/* 进行中 */
-			call_back = paci->isFunction; //对于函数，属回调的情况。
+			call_back = paci->isFunction; //对于函数，属回调的情况。这个call_back在sponte时被判断
 			mess.right_status = RT_OUT;
 			aptus->facio(&loc_pro_pac);     //向右发出, 然后等待
 			if ( call_back ) goto GO_ON_FUNC; //调用返回时，这里响应报文已备，继续处理。
@@ -2109,13 +2090,13 @@ GO_ON_FUNC:
 				else {
 					mess.iRet = ERROR_RESULT;
 					TEXTUS_SPRINTF(mess.err_str, "result error at %d of %s", mess.pro_order, cur_def->flow_id);
-					mess.snap[Pos_ErrCode].input(paci->err_code);
-					i_ret = -2;	//这是脚本所控制
+					if ( !paci->err_code) mess.snap[Pos_ErrCode].input(paci->err_code);
+					i_ret = -2;	//这是map所控制
 				}
 			} else {
 				mess.iRet = ERROR_RECV_PAC;
 				TEXTUS_SPRINTF(mess.err_str, "fault at %d of %s", mess.pro_order, cur_def->flow_id);
-				i_ret = -3;	//这是基本报文错误，非脚本所控制
+				i_ret = -3;	//这是基本报文错误，非map所控制
 			}
 			break;
 
@@ -2126,7 +2107,23 @@ GO_ON_FUNC:
 
 	case INS_Abort:
 		i_ret = -1;	//脚本所控制的错误
-		mess.snap[Pos_ErrCode].input(paci->err_code);
+		if (paci->err_code ) mess.snap[Pos_ErrCode].input(paci->err_code);
+		break;
+
+	case INS_Null:
+		if ( paci->valid_condition(&mess) )		/* 符合前提条件, 再判断结果 */
+		{
+			if ( paci->valid_result(&mess) )
+				i_ret = 1;
+			else {
+				mess.iRet = ERROR_RESULT;
+				TEXTUS_SPRINTF(mess.err_str, "result error at %d of %s", mess.pro_order, cur_def->flow_id);
+				if ( !paci->err_code) mess.snap[Pos_ErrCode].input(paci->err_code);
+				i_ret = -2;	//这是map所控制
+			}
+		} else {
+			i_ret = 1;
+		}
 		break;
 
 	default :
@@ -2135,16 +2132,11 @@ GO_ON_FUNC:
 
 	if ( i_ret > 0 )
 	{
-		wk->which++;	//指向下一条报文处理
-		pac_wt.step = 0;
-		if ( wk->which == wk->comp->pac_many )
+		command_wt.pac_which++;	//指向下一条报文处理
+		command_wt.pac_step = 0;
+		if (  command_wt.pac_which == comp->pac_many )
 		{
-			//各报文已经执行完成，包括嵌套的。
-			wk = sub_wt.pop();
-			if (wk)		//从嵌套中出来
-				goto SUB_INS_PRO;
-			else
-				return 1;	//整个已经完成
+			return 1;	//整个已经完成
 		} else
 			goto SUB_INS_PRO;
 	}
@@ -2162,7 +2154,6 @@ INS_PRO:
 
 	if ( mess.right_status  ==  RT_READY )	//终端空闲,各类工作单元清空复位
 	{
-		pac_wt.step = 0;
 		command_wt.step=0;
 		command_wt.cur = 0;
 	}
@@ -2177,32 +2168,24 @@ INS_PRO:
 			}
 			command_wt.cur = 0;
 NEXT_PRI_TRY:
-			sub_wt.reset();
-			if (!sub_wt.push(&(usr_com->complex[command_wt.cur])))
-			{
-				mess.iRet = ERROR_COMPLEX_TOO_DEEP;
-				TEXTUS_SPRINTF(mess.err_str, "too many nested complex at %d of %s", mess.pro_order, cur_def->flow_id);
-				mess.snap[Pos_ErrCode].input(mess.iRet);
-				mk_result();
-				return ;
-			}
-			pac_wt.step = 0;
-			if ( usr_com->comp_num ==1 )
-				mess.snap[Pos_WillErrPro].input( '1' );	//指示外部脚本：如果失败，就调用相应过程(响应报文设置一些数据，或者向终端发些指令)，否则不调用。
-			else //一个用户操作，包括几个复合指令的尝试，有一个成功，就算OK
-				mess.snap[Pos_WillErrPro].input( '0' );	//指示外部脚本：即使失败也不调用相应过程。因为这是一个中间步骤			
+			command_wt.pac_which = 0;	//新子系列, pac从第0个开始
+			command_wt.pac_step = 0;	//pac处理开始, 
+			if ( usr_com->comp_num == 1 )
+				mess.willLast = true;
+			else 
+				mess.willLast = false; //一个用户操作，包括几个复合指令的尝试，有一个成功，就算OK
 			command_wt.step++;	//指向下一步
 
 		case 1:
-			i_ret = sub_serial_pro();
+			i_ret = sub_serial_pro( &(usr_com->complex[command_wt.cur]) );
 			if ( i_ret == -1 ) 
 			{
 				if ( command_wt.cur < (usr_com->comp_num-1) )	//用户定义的Abort才试下一个
 				{
+					if ( command_wt.cur == (usr_com->comp_num-1) ) //最后一条复合指令啦，如果出错就调用自定义的出错过程(响应报文设置一些数据，或者向终端发些指令)
+						mess.willLast = true;
 					command_wt.cur++;
 					command_wt.step--;
-					if ( command_wt.cur == (usr_com->comp_num-1) ) //最后一条复合指令啦，如果出错就调用自定义的出错过程(响应报文设置一些数据，或者向终端发些指令)
-						mess.snap[Pos_WillErrPro].input('1');	//指示外部脚本：如果失败，就调用相应过程，否则不调用。
 					goto NEXT_PRI_TRY;		//试另一个
 				} else {		//最后一条处理失败，定义出错值
 					mess.iRet = ERROR_USER_ABORT;			
@@ -2214,13 +2197,14 @@ NEXT_PRI_TRY:
 			} else 	if ( i_ret > 0  ) 
 			{
 				mess.right_status = RT_READY;	//右端闲
-				WLOG(CRIT, "has completed %d, order %d", mess.ins_which, mess.pro_order);
+				WBUG("has completed %d, order %d", mess.ins_which, mess.pro_order);
 			}
 			/*if ( i_ret ==0  ) 子序列正在进行, 这里不作任何处理 */
 			break;
 		default:
 			break;
 	} //end of switch command_wt.step
+
 	if ( mess.right_status == RT_READY )	//可以下一条用户命令
 	{
 		mess.ins_which++;
