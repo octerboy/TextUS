@@ -150,6 +150,16 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Null};
 			kind = VAR_Constant;	//认为是常数
 		};
 
+		void put_var(struct PVar* att_var)
+		{
+			kind = att_var->kind;
+			c_len = att_var->c_len;
+			if ( c_len > 0 ) 
+				memcpy(content, att_var->content, c_len );
+			att_var->content[c_len] = 0;	
+			dynamic_pos = att_var->dynamic_pos;
+		};
+
 		struct PVar* prepare(TiXmlElement *var_ele, int &dy_at) //变量准备
 		{
 			const char *p, *nm;
@@ -225,22 +235,22 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Null};
 			if ( kind != VAR_None) goto P_RET; //已有定义，
 
 			/* 以下对Me变量进行处理， 在子序列中, 还是先要定义一下me.这些变量。 要不，还真是麻烦 */
-			if ( strncasecmp(nm, ME_VARIABLE_HEAD, sizeof(ME_VARIABLE_HEAD)) == 0 ) 
+			if ( strncasecmp(nm, ME_VARIABLE_HEAD, sizeof(ME_VARIABLE_HEAD)-1) == 0 ) 	//减1，啊, 最后有一个null字符
 			{
 				kind = VAR_Me;
-				me_sub_name = strpbrk(&nm[sizeof(ME_VARIABLE_HEAD)], ".");	//从Me变量名后找第一个点，后面就作为后缀名.
+				me_sub_name = strpbrk(&nm[sizeof(ME_VARIABLE_HEAD)-1], ".");	//从Me变量名后找第一个点，后面就作为后缀名.
 				if ( me_sub_name )	//如果存在后缀
 				{
-					me_nm_len = me_sub_name - &nm[sizeof(ME_VARIABLE_HEAD)];
+					me_nm_len = me_sub_name - &nm[sizeof(ME_VARIABLE_HEAD)-1];
 					me_sub_name++;	//当然，这个点本身不是后缀名, 从后一个开始才是后缀名
 					me_sub_nm_len = strlen(me_sub_name);
 				} else {			//如果不存在后缀
-					me_nm_len = strlen(&nm[sizeof(ME_VARIABLE_HEAD)]);
+					me_nm_len = strlen(&nm[sizeof(ME_VARIABLE_HEAD)-1]);
 				}
 
 				if ( me_nm_len >= sizeof ( me_name))	//Me变量名空间有限, 64字节最大。
 					me_nm_len = sizeof ( me_name)-1;
-				memcpy(me_name, &nm[sizeof(ME_VARIABLE_HEAD)], me_nm_len);
+				memcpy(me_name, &nm[sizeof(ME_VARIABLE_HEAD)-1], me_nm_len);
 				me_name[me_nm_len] = 0 ;
 			}
 
@@ -519,6 +529,12 @@ struct PVar_Set {
 		if ( av) av->put_still(val, len);
 	};
 
+	void put_var(const char *nm, struct PVar *att_var)
+	{
+		struct PVar *av = look(nm,0);
+		if ( av) av->put_var(att_var);
+	};
+
 	/* 找静态的变量, 获得实际内容 */
 	struct PVar *one_still( const char *nm, unsigned char *buf, unsigned long &len, struct PVar_Set *loc_v=0)
 	{
@@ -551,23 +567,26 @@ struct PVar_Set {
 	/* nxt 下一个变量, 对于多个tag元素，将之静态内容合成到 一个变量command中。对于非静态的，返回该tag元素是个动态变量 */
 	struct PVar *all_still( TiXmlElement *ele, const char*tag, unsigned char *command, unsigned long &ac_len, TiXmlElement *&nxt, struct PVar_Set *loc_v=0)
 	{
-		TiXmlElement *comp = ele;
+		TiXmlElement *comp;
 		unsigned long l;
 		struct PVar  *rt;
+		bool will_break= false;
 				
 		rt = 0;
 		/* ac_len从参数传进, 累计的, command就是原来的好了, 不用重设指针 */
-		while(comp)
+		for ( comp = ele; comp && !will_break ; comp = comp->NextSiblingElement(tag) )
         	{
+			if ( !comp->GetText() ) continue; //没有内容, 略过
+			//printf("tag %s  Text %s\n",tag, comp->GetText());
 			if ( command ) 
 				rt = one_still( comp->GetText(), &command[ac_len], l, loc_v);
 			else 
 				rt = one_still( comp->GetText(), 0, l, loc_v);
 			ac_len += l;
-			comp = comp->NextSiblingElement(tag);
-			if ( rt && rt->kind < VAR_Constant )		//如果有非静态的, 这里先中断
-				break;
+			if ( rt && rt->kind < VAR_Constant )		//如果有非静态的, 这里需要中断, comp指向下一个
+				will_break = true;
 		}
+		//printf("+++++++++++++++ %s \n",tag);
 		if (command) command[ac_len] = 0;	//结束NULL
 		nxt = comp;	//指示下一个变量
 		return rt;
@@ -818,6 +837,7 @@ struct CmdSnd {
 		e_tmp = pac_ele->FirstChildElement(tag); 
 		while ( e_tmp ) 
 		{
+			//printf("tag %s\n", tag);
 			vr_tmp = g_vars->all_still( e_tmp, tag, 0, cmd_len, n_ele, me_vars);
 			e_tmp = n_ele;
 			if ( !vr_tmp ) 		//还是常数, 这里应该结束了
@@ -1147,6 +1167,7 @@ ErrRet:
 				p_ele->QueryIntAttribute("field", &(snd_lst[i].fld_no));
 				tag = p_ele->Value();
 				snd_lst[i].tag =tag;
+				//printf("-- tag  %s\n", tag);
 				if ( strcasecmp(tag, "send") == 0 ) 
 				{
 					p = p_ele->GetText();
@@ -1293,31 +1314,36 @@ struct ComplexSubSerial {
 		vnm: 是一个变量名，如果在全局表中查不到，则当作变量内容
 		mid_num：是Me中指定的,是子元素或primay属性所指定的，局域变量名为: me.mid_num.xx
 	*/
-	struct PVar *set_loc_ref_var(struct PVar *ref_var, const char *mid_nm)
-	{
-		TiXmlAttribute *att; 
-		char loc_v_nm[128];
-
-		for ( att = ref_var->self_ele->FirstAttribute(); att; att = att->Next())
-		{
-			//把属性加到本地变量集 sv_set
-			TEXTUS_SPRINTF(loc_v_nm, "%s%s.%s", ME_VARIABLE_HEAD, mid_nm, att->Name()); 
-			sv_set.put_still(loc_v_nm, (unsigned char*)att->Value()); //原来没有定义的, 这里不会赋值的。所以, 前面不用判断属性了。
-		}
-		return ref_var;
-	};
-
 	struct PVar *set_loc_ref_var(const char *vnm, const char *mid_nm)
 	{
 		unsigned char buf[512];		//实际内容, 常数内容
 		char loc_v_nm[128];
+		TiXmlAttribute *att; 
 		unsigned long len;
-		struct PVar *ref_var = 0;
-
+		struct PVar *ref_var = 0, *att_var=0;
+		const char *att_val;
+		
+		len = 0;
 		ref_var = g_var_set->one_still(vnm, buf, len);	//找到已定义参考变量的
 		if ( ref_var)
 		{
-			set_loc_ref_var(ref_var, mid_nm);
+			for ( att = ref_var->self_ele->FirstAttribute(); att; att = att->Next())
+			{
+				//把属性加到本地变量集 sv_set
+				TEXTUS_SPRINTF(loc_v_nm, "%s%s.%s", ME_VARIABLE_HEAD, mid_nm, att->Name()); 
+				att_val = att->Value();
+				if ( !att_val ) continue;
+				len = 0;
+				/* 这里 att->Value() 可能指向另一个变量名 */
+				att_var = g_var_set->one_still(att_val, buf, len);	//找到已定义的变量
+				if ( att_var ) 
+				{
+					sv_set.put_var(loc_v_nm, att_var);
+				} else {
+					if ( len > 0 ) 
+						sv_set.put_still(loc_v_nm, buf, len);
+				}
+			}
 		}
 
 		if ( len > 0 )	//找到的全局变量可能有内容，加到本地中。
@@ -1340,13 +1366,14 @@ struct ComplexSubSerial {
 		TiXmlElement *body;	//用户命令的第一个body元素
 		int which, icc_num=0 ;
 		int i;
+		const char *pri_key = usr_def_entry->Attribute("primary");
 
 		sv_set.defer_vars(usr_def_entry); //局域变量定义完全还在那个自定义中
 		for ( i = 0; i  < sv_set.many; i++ )
 		{
 			me_var = &(sv_set.vars[i]);
 			if (me_var->kind != VAR_Me ) continue;		//只处理Me变量
-			if ( usr_def_entry->Attribute("primary") && strcmp(me_var->me_name, usr_def_entry->Attribute("primary")) == 0 ) continue; //主参考变量下面处理
+			if ( pri_key && strcmp(me_var->me_name, pri_key) == 0 ) continue; //主参考变量下面处理
 
 			if ( me_var->me_sub_name) //有后缀名, 这应该是参考变量
 			{
@@ -1365,7 +1392,7 @@ struct ComplexSubSerial {
 		TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s", "Pro"); //先假定子序列是Pro element，如果有主参考变量，下面会更新。
 		if ( pri_vnm ) //如果有主参考变量, 就即根据这个主参考变量中找到相应的sub_pro, pri_vnm就是$Main之类的。
 		{
-			ref_var = set_loc_ref_var(pri_vnm, usr_def_entry->Attribute("primary")); /* primary属性指明protect之类的, 实际上就是me.protect.*这样的东西。这里更新局部变量集 */
+			ref_var = set_loc_ref_var(pri_vnm, pri_key); /* primary属性指明protect之类的, 实际上就是me.protect.*这样的东西。这里更新局部变量集 */
 			if ( ref_var )
 			{
 				if (ref_var->self_ele->Attribute("pro") ) //参考变量的pro属性指示子序列
@@ -1403,6 +1430,7 @@ struct ComplexSubSerial {
 		for ( pac_ele= sub_pro->FirstChildElement(); pac_ele; pac_ele = pac_ele->NextSiblingElement())
 		{
 			if ( !pac_ele->Value() ) continue;
+			//printf("pac_ele->Value %s\n", pac_ele->Value());
 			def_ele = def_root->FirstChildElement(pac_ele->Value());	//如果在基础报文中有定义
 			if ( def_ele)	//如果在基础报文中有定义
 			{
@@ -1576,7 +1604,9 @@ struct  Personal_Def	//个人化定义
 	const char *flow_id;	//指令流标志
 
 	inline Personal_Def () {
-		c_root = k_root = v_root = 0;
+		c_root = k_root = v_root = pac_def_root = 0;
+		flow_id = 0;
+		memset(flow_md, 0, sizeof(flow_md));
 	};
 	inline ~Personal_Def () {};
 
@@ -1646,7 +1676,7 @@ struct  Personal_Def	//个人化定义
 		else
 			pac_def_root = per_ele->FirstChildElement("pac");
 
-		if ( (ic_nm = per_ele->Attribute("icc")))
+		if ( (ic_nm = per_ele->Attribute("flow")))
 			load_xml(ic_nm, doc_c,  c_root, per_ele->Attribute("md5"));
 		else
 			c_root = per_ele->FirstChildElement("IC_Personalize");
@@ -1675,7 +1705,8 @@ struct  Personal_Def	//个人化定义
 			else
 				person_vars.defer_vars(c_root);	//变量定义, map文件优先
 			flow_id = c_root->Attribute("flow");
-			squeeze(per_ele->Attribute("md5"), (unsigned char*)&flow_md[0]);
+			if ( per_ele->Attribute("md5") )
+				squeeze(per_ele->Attribute("md5"), (unsigned char*)&flow_md[0]);
 		}
 		set_here(c_root);	//再看本定义
 		set_here(v_root);	//看看其它变量定义,key.xml等
@@ -1728,6 +1759,7 @@ struct PersonDef_Set {	//User_Command集合之集合
 		}
 		num_icp = kk; //实际再更新一下
 		//if( kk > 0 ) {int *a =0 ; *a = 0; };
+		{int *a =0 ; *a = 0; };
 	};
 
 	/* 根据flowid, 找一个合适的个人化配置 */
