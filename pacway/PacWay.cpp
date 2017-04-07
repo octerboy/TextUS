@@ -829,6 +829,8 @@ struct CmdSnd {
 		TiXmlElement *e2_tmp, *n2_ele;
 		unsigned long g_ln;
 		unsigned char *cp;
+		int dy_cur;
+		bool now_still;
 
 		cmd_len = 0;
 		cmd_buf = 0;
@@ -837,7 +839,6 @@ struct CmdSnd {
 		e_tmp = pac_ele->FirstChildElement(tag); 
 		while ( e_tmp ) 
 		{
-			//printf("tag %s\n", tag);
 			vr_tmp = g_vars->all_still( e_tmp, tag, 0, cmd_len, n_ele, me_vars);
 			e_tmp = n_ele;
 			if ( !vr_tmp ) 		//还是常数, 这里应该结束了
@@ -894,12 +895,12 @@ struct CmdSnd {
 		dy_num = dy_num *2+1;	/* dy_num表示多少个动态变量, 实际分段数最多是其2倍再多1 */
 		dy_list = new struct DyList [dy_num];
 
-		cp = &cmd_buf[0]; dy_num = 0;
-		e_tmp = pac_ele->FirstChildElement(tag); 
+		cp = &cmd_buf[0]; dy_cur = 0;
+		e_tmp = pac_ele->FirstChildElement(tag);g_ln = 0; now_still = true;
 		while ( e_tmp ) 
 		{
-			dy_list[dy_num].con = cp;
-			dy_list[dy_num].len = 0;
+			dy_list[dy_cur].con = cp;
+			dy_list[dy_cur].len = 0;
 ALL_STILL:
 			g_ln = 0;
 			vr_tmp= g_vars->all_still( e_tmp, tag, cp, g_ln, n_ele, me_vars);
@@ -907,19 +908,21 @@ ALL_STILL:
 
 			if ( g_ln > 0 )	/* 刚处理的是静态内容 */
 			{
-				dy_list[dy_num].dy_pos = -1;
+				dy_list[dy_cur].dy_pos = -1;
 				cp = &cp[g_ln];	//指针后移
-				dy_list[dy_num].len += g_ln; //内容增加
+				dy_list[dy_cur].len += g_ln; //内容增加， 这里游标不变，因为下一个可能是Me变量的静态, 这要合并在一起
+				now_still = true;
 			}
 
 			if ( vr_tmp && vr_tmp->kind <= VAR_Dynamic )	//参考变量的, 不算作动态。
 			{
 				if ( g_ln > 0 )	/* 刚处理的是静态内容, 已经放在该dy中了 */
-					dy_num++;	//指向下一个
-				dy_list[dy_num].con = 0;
-				dy_list[dy_num].len = 0;
-				dy_list[dy_num].dy_pos = vr_tmp->dynamic_pos;
-				dy_num++;
+					dy_cur++;	//指向下一个, 以存放动态的
+				dy_list[dy_cur].con = 0;
+				dy_list[dy_cur].len = 0;
+				dy_list[dy_cur].dy_pos = vr_tmp->dynamic_pos;
+				dy_cur++;	//下一个位置留给静态的
+				now_still = false;
 				continue;
 			}
 
@@ -934,6 +937,7 @@ ALL_STILL:
 				memcpy(cp, vr_tmp->content, vr_tmp->c_len);
 				dy_list[dy_num].len += vr_tmp->c_len; //长度累加
 				cp = &cp[vr_tmp->c_len];	//指针后移
+				now_still = true;
 				goto ALL_STILL;	//这里处理的是静态，所以从该处继续
 			}
 
@@ -946,19 +950,21 @@ ALL_STILL:
 					vr2_tmp = g_vars->one_still( usr_ele->Attribute(vr_tmp->me_name), cp, g_ln);
 					if ( g_ln > 0 )	/* 刚处理的是静态内容 */
 					{
-						dy_list[dy_num].dy_pos = -1;
+						dy_list[dy_cur].dy_pos = -1;
 						cp = &cp[g_ln];	//指针后移
-						dy_list[dy_num].len += g_ln; //内容增加
+						dy_list[dy_cur].len += g_ln; //内容增加, 这里游标不变，因为下一个可能是静态, 这要合并在一起
+						now_still = true;
 					}
 
 					if ( vr2_tmp && vr2_tmp->kind <= VAR_Dynamic )
 					{
 						if ( g_ln > 0 )	/* 刚处理的是静态内容, 已经放在该dy中了 */
-							dy_num++;	//指向下一个
-						dy_list[dy_num].con = 0;
-						dy_list[dy_num].len = 0;
-						dy_list[dy_num].dy_pos = vr_tmp->dynamic_pos;
-						dy_num++;
+							dy_cur++;	//指向下一个
+						dy_list[dy_cur].con = 0;
+						dy_list[dy_cur].len = 0;
+						dy_list[dy_cur].dy_pos = vr_tmp->dynamic_pos;
+						now_still = false;
+						dy_cur++;
 					}
 					continue;	//有了属性，不管如何，不再看子元素了
 				}
@@ -971,9 +977,10 @@ ALL_STILL:
 					e2_tmp = n2_ele;
 					if ( g_ln > 0 )	/* 刚处理的是静态内容 */
 					{
-						dy_list[dy_num].dy_pos = -1;
+						dy_list[dy_cur].dy_pos = -1;
 						cp = &cp[g_ln];	//指针后移
-						dy_list[dy_num].len += g_ln; //内容增加
+						dy_list[dy_cur].len += g_ln; //内容增加, 这里游标不变，因为下一个可能是静态, 这要合并在一起
+						now_still = true;
 					}
 
 					if ( !vr2_tmp ) 		//还是常数, 这里应该结束了
@@ -985,15 +992,20 @@ ALL_STILL:
 					if ( vr2_tmp->kind <= VAR_Dynamic )	//参考变量的, 不算作动态
 					{
 						if ( g_ln > 0 )	/* 刚处理的是静态内容, 已经放在该dy中了 */
-							dy_num++;	//指向下一个
-						dy_list[dy_num].con = 0;
-						dy_list[dy_num].len = 0;
-						dy_list[dy_num].dy_pos = vr_tmp->dynamic_pos;
-						dy_num++;
+							dy_cur++;	//指向下一个
+						dy_list[dy_cur].con = 0;
+						dy_list[dy_cur].len = 0;
+						dy_list[dy_cur].dy_pos = vr_tmp->dynamic_pos;
+						now_still = false;
+						dy_cur++;
 					}
 				}
 			}
 		}
+		if ( now_still ) 
+			dy_num = dy_cur + 1;	//最后一个是静态, dy_cur并未增加
+		else
+			dy_num = dy_cur;
 	};
 };
 
@@ -1044,12 +1056,10 @@ struct PacIns:public Condition  {
 		counted = false;	/* 不计入指令数计算 */
 		isFunction = false;
 		type = INS_None;
-		
 	};
 
 	void prepair_snd_pac( PacketObj *snd_pac, int &bor, MK_Session *sess)
 	{
-		/* ..和get_current差不多... */
 		int i,j;
 		unsigned long t_len;
 
@@ -1057,9 +1067,10 @@ struct PacIns:public Condition  {
 		t_len = 0;
 		for ( i = 0 ; i < snd_num; i++ )
 		{
-			for ( j = 0; j < snd_lst[i].dy_num; j++ )
-			{
-				t_len += snd_lst[i].dy_list[j].len;
+			if ( snd_lst[i].dy_num ==0 ) t_len += snd_lst[i].cmd_len;	//这是在pacdef中send元素定义的
+			else {
+				for ( j = 0; j < snd_lst[i].dy_num; j++ )
+					t_len += snd_lst[i].dy_list[j].len;
 			}
 		}
 		snd_pac->buf.grant(t_len);
@@ -1067,10 +1078,16 @@ struct PacIns:public Condition  {
 		for ( i = 0 ; i < snd_num; i++ )
 		{
 			t_len = 0;
-			for ( j = 0; j < snd_lst[i].dy_num; j++ )
+			if ( snd_lst[i].dy_num ==0 )
 			{
-				snd_pac->buf.input(snd_lst[i].dy_list[j].con, snd_lst[i].dy_list[j].len);	//一个域的内容
-				t_len += snd_lst[i].dy_list[j].len;	//一个域的长度
+				t_len = snd_lst[i].cmd_len;	//这是在pacdef中send元素定义的
+				snd_pac->buf.input(snd_lst[i].cmd_buf, snd_lst[i].cmd_len);	//一个域的内容
+			} else {
+				for ( j = 0; j < snd_lst[i].dy_num; j++ )
+				{
+					snd_pac->buf.input(snd_lst[i].dy_list[j].con, snd_lst[i].dy_list[j].len);	//一个域的内容
+					t_len += snd_lst[i].dy_list[j].len;	//一个域的长度
+				}
 			}
 			snd_pac->commit(snd_lst[i].fld_no, t_len);	//域的确认
 		}
@@ -1164,12 +1181,11 @@ ErrRet:
 			if ( !p ) continue;
 			if ( strcasecmp(p, "send") == 0 || p_ele->Attribute("to")) 
 			{
-				p_ele->QueryIntAttribute("field", &(snd_lst[i].fld_no));
 				tag = p_ele->Value();
 				snd_lst[i].tag =tag;
-				//printf("-- tag  %s\n", tag);
 				if ( strcasecmp(tag, "send") == 0 ) 
 				{
+					p_ele->QueryIntAttribute("field", &(snd_lst[i].fld_no));
 					p = p_ele->GetText();
 					if ( p )
 					{
@@ -1177,12 +1193,15 @@ ErrRet:
 						snd_lst[i].cmd_buf = new unsigned char[lnn+1];
 						snd_lst[i].cmd_len = squeeze(p, snd_lst[i].cmd_buf);	
 					}
-				} else {
+					i++;
+				} else if ( pac_ele->FirstChildElement(tag)) {	// pacdef中有定义域, 但mapx不给内容, 这就不要了
+					p_ele->QueryIntAttribute("to", &(snd_lst[i].fld_no));
 					snd_lst[i].hard_work_2(pac_ele, usr_ele, g_vars, me_vars);
+					i++;
 				}
-				i++;
 			}
 		}
+		snd_num = i;	//最后再更新一次发送域的数目
 
 		/* 预置接收的每个域，设定域号*/
 		rcv_num = 0;
@@ -1359,13 +1378,10 @@ struct ComplexSubSerial {
 	{
 		struct PVar *ref_var, *me_var;
 		const char *ref_nm;
-
 		char pro_nm[128];
-
 		TiXmlElement *pac_ele, *def_ele, *spac_ele, *t_ele;
 		TiXmlElement *body;	//用户命令的第一个body元素
-		int which, icc_num=0 ;
-		int i;
+		int which, icc_num=0, i;
 		const char *pri_key = usr_def_entry->Attribute("primary");
 
 		sv_set.defer_vars(usr_def_entry); //局域变量定义完全还在那个自定义中
