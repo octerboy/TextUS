@@ -552,7 +552,7 @@ struct PVar_Set {
 		{
 		case VAR_Constant:	//静态常数变量
 			len = vt->c_len;
-			if ( buf ) memcpy(buf, vt->content, len);
+			if ( buf && len > 0 ) memcpy(buf, vt->content, len);
 			break;
 
 		default:
@@ -822,6 +822,7 @@ struct CmdSnd {
 		dy_list = 0;
 	};
 
+
 	void hard_work_2 ( TiXmlElement *pac_ele, TiXmlElement *usr_ele, struct PVar_Set *g_vars, struct PVar_Set *me_vars)
 	{
 		struct PVar *vr_tmp, *vr2_tmp=0;
@@ -831,6 +832,7 @@ struct CmdSnd {
 		unsigned char *cp;
 		int dy_cur;
 		bool now_still;
+
 
 		cmd_len = 0;
 		cmd_buf = 0;
@@ -847,7 +849,7 @@ struct CmdSnd {
 				continue;
 			}
 
-			if ( vr_tmp->kind <= VAR_Dynamic )	//参考变量的, 不算作动态
+			if ( vr_tmp->kind <= VAR_Dynamic )	//Me变量的, 不算作动态
 			{
 				dy_num++;
 				continue;
@@ -895,12 +897,36 @@ struct CmdSnd {
 		dy_num = dy_num *2+1;	/* dy_num表示多少个动态变量, 实际分段数最多是其2倍再多1 */
 		dy_list = new struct DyList [dy_num];
 
-		cp = &cmd_buf[0]; dy_cur = 0;
-		e_tmp = pac_ele->FirstChildElement(tag);g_ln = 0; now_still = true;
+	#define DY_NEXT_STILL	\
+		dy_cur++;	\
+		dy_list[dy_cur].con = cp;	\
+		dy_list[dy_cur].len = 0;	\
+		dy_list[dy_cur].dy_pos = -1;
+
+	#define DY_DYNAMIC(X)	\
+		now_still = false;		\
+		if ( dy_list[dy_cur].len > 0 )	\
+			dy_cur++;		\
+		dy_list[dy_cur].con = 0;	\
+		dy_list[dy_cur].len = 0;	\
+		dy_list[dy_cur].dy_pos = X;
+
+	#define DY_STILL(LEN)		\
+		cp = &cp[LEN];		\
+		now_still = true;	\
+		dy_list[dy_cur].dy_pos = -1;	\
+		dy_list[dy_cur].len += LEN;
+
+		memset(&cmd_buf[0], 0, sizeof(cmd_buf));
+		cp = &cmd_buf[0]; 
+		dy_cur = -1;	//下面的宏先加1，所以开始为0
+
+		DY_NEXT_STILL
+		now_still = true;
+
+		e_tmp = pac_ele->FirstChildElement(tag);
 		while ( e_tmp ) 
 		{
-			dy_list[dy_cur].con = cp;
-			dy_list[dy_cur].len = 0;
 ALL_STILL:
 			g_ln = 0;
 			vr_tmp= g_vars->all_still( e_tmp, tag, cp, g_ln, n_ele, me_vars);
@@ -908,21 +934,13 @@ ALL_STILL:
 
 			if ( g_ln > 0 )	/* 刚处理的是静态内容 */
 			{
-				dy_list[dy_cur].dy_pos = -1;
-				cp = &cp[g_ln];	//指针后移
-				dy_list[dy_cur].len += g_ln; //内容增加， 这里游标不变，因为下一个可能是Me变量的静态, 这要合并在一起
-				now_still = true;
+				DY_STILL(g_ln) //cp指针后移, 内容增加， 这里游标不变，因为下一个可能是Me变量的静态, 这要合并在一起
 			}
 
 			if ( vr_tmp && vr_tmp->kind <= VAR_Dynamic )	//参考变量的, 不算作动态。
 			{
-				if ( g_ln > 0 )	/* 刚处理的是静态内容, 已经放在该dy中了 */
-					dy_cur++;	//指向下一个, 以存放动态的
-				dy_list[dy_cur].con = 0;
-				dy_list[dy_cur].len = 0;
-				dy_list[dy_cur].dy_pos = vr_tmp->dynamic_pos;
-				dy_cur++;	//下一个位置留给静态的
-				now_still = false;
+				DY_DYNAMIC(vr_tmp->dynamic_pos)	//已有静态内容的， 先指向下一个, 以存放动态的
+				DY_NEXT_STILL
 				continue;
 			}
 
@@ -935,9 +953,7 @@ ALL_STILL:
 			if ( vr_tmp->kind == VAR_Me && vr_tmp->c_len > 0)	//Me变量已有内容,1、无后缀的，本身已有定义的; 2、或者带后缀的，前面的处理中已经设定了内容
 			{
 				memcpy(cp, vr_tmp->content, vr_tmp->c_len);
-				dy_list[dy_num].len += vr_tmp->c_len; //长度累加
-				cp = &cp[vr_tmp->c_len];	//指针后移
-				now_still = true;
+				DY_STILL(vr_tmp->c_len) //cp指针后移,内容增加， 这里游标不变，因为下一个可能是Me变量的静态, 这要合并在一起
 				goto ALL_STILL;	//这里处理的是静态，所以从该处继续
 			}
 
@@ -950,21 +966,13 @@ ALL_STILL:
 					vr2_tmp = g_vars->one_still( usr_ele->Attribute(vr_tmp->me_name), cp, g_ln);
 					if ( g_ln > 0 )	/* 刚处理的是静态内容 */
 					{
-						dy_list[dy_cur].dy_pos = -1;
-						cp = &cp[g_ln];	//指针后移
-						dy_list[dy_cur].len += g_ln; //内容增加, 这里游标不变，因为下一个可能是静态, 这要合并在一起
-						now_still = true;
+						DY_STILL(g_ln) //cp指针后移, 内容增加， 这里游标不变，因为下一个可能是Me变量的静态, 这要合并在一起
 					}
 
 					if ( vr2_tmp && vr2_tmp->kind <= VAR_Dynamic )
 					{
-						if ( g_ln > 0 )	/* 刚处理的是静态内容, 已经放在该dy中了 */
-							dy_cur++;	//指向下一个
-						dy_list[dy_cur].con = 0;
-						dy_list[dy_cur].len = 0;
-						dy_list[dy_cur].dy_pos = vr_tmp->dynamic_pos;
-						now_still = false;
-						dy_cur++;
+						DY_DYNAMIC(vr2_tmp->dynamic_pos)	//已有静态内容的， 先指向下一个, 以存放动态的
+						DY_NEXT_STILL
 					}
 					continue;	//有了属性，不管如何，不再看子元素了
 				}
@@ -977,10 +985,7 @@ ALL_STILL:
 					e2_tmp = n2_ele;
 					if ( g_ln > 0 )	/* 刚处理的是静态内容 */
 					{
-						dy_list[dy_cur].dy_pos = -1;
-						cp = &cp[g_ln];	//指针后移
-						dy_list[dy_cur].len += g_ln; //内容增加, 这里游标不变，因为下一个可能是静态, 这要合并在一起
-						now_still = true;
+						DY_STILL(g_ln) //cp指针后移, 内容增加， 这里游标不变，因为下一个可能是Me变量的静态, 这要合并在一起
 					}
 
 					if ( !vr2_tmp ) 		//还是常数, 这里应该结束了
@@ -989,15 +994,11 @@ ALL_STILL:
 						continue;
 					}
 
-					if ( vr2_tmp->kind <= VAR_Dynamic )	//参考变量的, 不算作动态
+					if ( vr2_tmp->kind <= VAR_Dynamic )	//Me变量的, 不算作动态
 					{
-						if ( g_ln > 0 )	/* 刚处理的是静态内容, 已经放在该dy中了 */
-							dy_cur++;	//指向下一个
-						dy_list[dy_cur].con = 0;
-						dy_list[dy_cur].len = 0;
-						dy_list[dy_cur].dy_pos = vr_tmp->dynamic_pos;
+						DY_DYNAMIC(vr2_tmp->dynamic_pos)	//已有静态内容的， 先指向下一个, 以存放动态的
+						DY_NEXT_STILL
 						now_still = false;
-						dy_cur++;
 					}
 				}
 			}
