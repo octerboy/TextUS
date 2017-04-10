@@ -10,6 +10,18 @@
 		<reply from="3"/>
  	</hsm>
 
+ 	<hsm_export_key subor="2" error="0A">
+		<send field="0" note="这里设置两字节, 预留长度空间, 那个aux的unifom就不要了">99</send>
+		<send field="2" >5A</send>
+		<key_index to="3" />
+		<key_head to="4" />
+		<random to="5" />
+		<mac_head to="6" />
+		<recv field="2" error="11" >5B</recv>
+		<status from="3" note="HSM指令响应头"/>
+		<reply from="4"/>
+ 	</hsm_export_key>
+
 	<icc subor="1" error="0B" is_icc="true">
 		<send field="0" note="这里设置两字节, 预留长度空间, 那个aux的unifom就不要了">99</send>
 		<send field="1" note="表示这是APDU指令">C</send>
@@ -20,28 +32,6 @@
 		<reply from="4" note="指令响应内容"/>
 		<sw from="5" note="指令状态字"/>
 	</icc>
-
-	<random subor="1" error="0B" is_icc="true">
-		<send field="0" note="这里设置两字节, 预留长度空间, 那个aux的unifom就不要了">99</send>
-		<send field="1" note="表示这是APDU指令">C</send>
-		<send to="2" note="卡槽" >0</send>
-		<send to="3" >0084000008</send>
-		<recv field="1" error="11" note="APDU指令响应标志">c</recv>
-		<recv field="3" error="0E" note="指令返回正常标志">0</recv>
-		<reply from="4" note="指令响应内容"/>
-		<recv field="5" error="0E" >9000</recv>
-	</random>
-
-	<sran subor="1" error="0B" is_icc="true">
-		<send field="0" note="这里设置两字节, 预留长度空间, 那个aux的unifom就不要了">99</send>
-		<send field="1" note="表示这是APDU指令">C</send>
-		<send to="2" note="卡槽" >0</send>
-		<send to="3" >0084000004</send>
-		<recv field="1" error="11" note="APDU指令响应标志">c</recv>
-		<recv field="3" error="0E" note="指令返回正常标志">0</recv>
-		<reply from="4" note="指令响应内容"/>
-		<recv field="5" error="0E" >9000</recv>
-	</sran>
 
 	<reset subor="1" error="0C">
 		<send field="0" note="这里设置两字节, 预留长度空间, 那个aux的unifom就不要了">99</send>
@@ -71,7 +61,7 @@
 		<send field="0" note="这里设置两字节, 预留长度空间, 那个aux的unifom就不要了">99</send>
 		<send field="1" note="表示这是出卡">O</send>
 		<slot to="2" note="卡槽" />
-		<stat to="3" note="制卡是否成功标志" />
+		<status to="3" note="制卡是否成功标志" />
 		<description to="4" note="卡号" />
 		<recv field="1" error="11" note="响应标志">o</recv>
 		<recv field="2" error="0E" note="返回正常标志">0</recv>
@@ -84,4 +74,6 @@
 		<recv field="1" error="11" note="响应标志">p</recv>
 		<recv field="2" error="0E" note="返回正常标志">0</recv>
 	</prompt>
+	<null/>
+	<abort/>
 </instructions>
