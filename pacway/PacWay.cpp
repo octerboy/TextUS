@@ -254,7 +254,7 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Null};
 				me_name[me_nm_len] = 0 ;
 			}
 
-			if ( kind == VAR_None && p) 
+			if ( kind == VAR_None && c_len > 0) 
 			{	//这里有内容但还没有类型, 那就定为常数, 其它的也可以有内容, 就要别处定义了
 				kind = VAR_Constant;	//认为是常数
 			}
@@ -1776,7 +1776,6 @@ struct PersonDef_Set {	//User_Command集合之集合
 		}
 		num_icp = kk; //实际再更新一下
 		//if( kk > 0 ) {int *a =0 ; *a = 0; };
-		{int *a =0 ; *a = 0; };
 	};
 
 	/* 根据flowid, 找一个合适的个人化配置 */
