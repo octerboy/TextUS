@@ -70,7 +70,7 @@ enum LEFT_STATUS { LT_Idle = 0, LT_Working = 3};
 /* 右边状态, 空闲, 发出报文等响应 */
 enum RIGHT_STATUS { RT_IDLE = 0, RT_OUT=7, RT_READY = 3};
 
-enum Var_Type {VAR_ErrCode=1, VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_CurOrder=4, VAR_CurCent=5, VAR_ErrStr=6, VAR_Dynamic = 10, VAR_Me=12, VAR_Constant=98,  VAR_None=99};
+enum Var_Type {VAR_ErrCode=1, VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_CurOrder=4, VAR_CurCent=5, VAR_ErrStr=6, VAR_FlowID=7, VAR_Dynamic = 10, VAR_Me=12, VAR_Constant=98,  VAR_None=99};
 /* 命令分几种，INS_Normal：标准，INS_Abort：终止 */
 enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Null};
 
@@ -81,7 +81,8 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Null};
 #define Pos_CurOrder 4 
 #define Pos_CurCent 5 
 #define Pos_ErrStr 6 
-#define Pos_Fixed_Next 7  //下一个动态变量的位置, 也是为脚本自定义动态变量的第1个位置
+#define Pos_FlowID 7 
+#define Pos_Fixed_Next 8  //下一个动态变量的位置, 也是为脚本自定义动态变量的第1个位置
 #define VARIABLE_TAG_NAME "Var"
 #define ME_VARIABLE_HEAD "me."
 
@@ -216,6 +217,12 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Null};
 			{
 				dynamic_pos = Pos_ErrStr;
 				kind = VAR_ErrStr;
+			}
+
+			if ( strcasecmp(nm, "$FlowID" ) == 0 ) //错误描述
+			{
+				dynamic_pos = Pos_FlowID;
+				kind = VAR_FlowID;
 			}
 
 			if ( var_ele->Attribute("link") )
@@ -375,7 +382,7 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Null};
 				snap[i].val[0] = 0;
 			}
 			for ( i = Pos_Fixed_Next ; i < snap_num; i++)
-			{	/* 这个Pos_Fixed_Next很重要, 要不然, 那些固有的动态变量会没有的！  *//* 这个Pos_Fixed_Next很重要, 要不然, 那些固有的动态变量会没有的！  */
+			{	/* 这个Pos_Fixed_Next很重要, 要不然, 那些固有的动态变量会没有的！  */
 				snap[i].kind = VAR_None;
 				snap[i].def_var = 0;
 			}
@@ -403,6 +410,7 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Null};
 			snap[Pos_CurOrder].kind = VAR_CurOrder;
 			snap[Pos_CurCent].kind = VAR_CurCent;
 			snap[Pos_ErrStr].kind = VAR_ErrStr; 
+			snap[Pos_FlowID].kind = VAR_FlowID; 
 			reset();
 		};
 
@@ -839,10 +847,13 @@ struct CmdSnd {
 		dy_num = 0;
 
 		e_tmp = pac_ele->FirstChildElement(tag); 
+		g_ln = 0 ;
 		while ( e_tmp ) 
 		{
-			vr_tmp = g_vars->all_still( e_tmp, tag, 0, cmd_len, n_ele, me_vars);
+			g_ln = 0 ;
+			vr_tmp = g_vars->all_still( e_tmp, tag, 0, g_ln, n_ele, me_vars);
 			e_tmp = n_ele;
+			if ( g_ln > 0 ) cmd_len += g_ln;
 			if ( !vr_tmp ) 		//还是常数, 这里应该结束了
 			{
 				if (e_tmp) printf("plain !!!!!!!!!!\n");	//这不应该
@@ -864,9 +875,11 @@ struct CmdSnd {
 			if ( vr_tmp->kind == VAR_Me && vr_tmp->me_sub_nm_len == 0)	//Me变量,且无后缀名, 则从用户命令中取，当然还没有内容
 			{
 				vr2_tmp = 0;
+				g_ln = 0 ;
 				if ( usr_ele->Attribute(vr_tmp->me_name) ) 	//用户命令中，属性优先
 				{
-					vr2_tmp = g_vars->one_still( usr_ele->Attribute(vr_tmp->me_name), 0, cmd_len);
+					vr2_tmp = g_vars->one_still( usr_ele->Attribute(vr_tmp->me_name), 0, g_ln);
+					if ( g_ln > 0 ) cmd_len += g_ln;
 					if ( vr2_tmp && vr2_tmp->kind <= VAR_Dynamic )
 					{
 						dy_num++;
@@ -877,8 +890,10 @@ struct CmdSnd {
 				e2_tmp = usr_ele->FirstChildElement(vr_tmp->me_name);
 				while (e2_tmp)
 				{
-					vr2_tmp = g_vars->all_still(e2_tmp, vr_tmp->me_name, 0, cmd_len, n2_ele, 0);
+					g_ln = 0 ;
+					vr2_tmp = g_vars->all_still(e2_tmp, vr_tmp->me_name, 0, g_ln, n2_ele, 0);
 					e2_tmp = n2_ele;
+					if ( g_ln > 0 ) cmd_len += g_ln;
 					if ( !vr2_tmp ) 		//还是常数, 这里应该结束了
 					{
 						if (e2_tmp) printf("plain !!!!!!!!!!\n");	//这不应该
@@ -917,7 +932,7 @@ struct CmdSnd {
 		dy_list[dy_cur].dy_pos = -1;	\
 		dy_list[dy_cur].len += LEN;
 
-		memset(&cmd_buf[0], 0, sizeof(cmd_buf));
+		memset(&cmd_buf[0], 0, cmd_len+1);
 		cp = &cmd_buf[0]; 
 		dy_cur = -1;	//下面的宏先加1，所以开始为0
 
@@ -937,16 +952,16 @@ ALL_STILL:
 				DY_STILL(g_ln) //cp指针后移, 内容增加， 这里游标不变，因为下一个可能是Me变量的静态, 这要合并在一起
 			}
 
-			if ( vr_tmp && vr_tmp->kind <= VAR_Dynamic )	//参考变量的, 不算作动态。
-			{
-				DY_DYNAMIC(vr_tmp->dynamic_pos)	//已有静态内容的， 先指向下一个, 以存放动态的
-				DY_NEXT_STILL
-				continue;
-			}
-
 			if ( !vr_tmp ) 		//还是常数, 这里应该结束了
 			{
 				if (e_tmp) printf("plain !!!!!!!!!!\n");	//这不应该
+				continue;
+			}
+
+			if ( vr_tmp->kind <= VAR_Dynamic )	//参考变量的, 不算作动态。
+			{
+				DY_DYNAMIC(vr_tmp->dynamic_pos)	//已有静态内容的， 先指向下一个, 以存放动态的
+				DY_NEXT_STILL
 				continue;
 			}
 
@@ -1473,7 +1488,7 @@ struct ComplexSubSerial {
 	};
 };
 
-struct User_Command : public Condition {		//INS_User指令定义
+struct User_Command : public Condition {
 	int order;
 	struct ComplexSubSerial *complex;
 	int comp_num; //一般只有一个，有时需要重试几个
@@ -1687,6 +1702,7 @@ struct  Personal_Def	//个人化定义
 	bool put_def( TiXmlElement *per_ele, TiXmlElement *key_ele_default)
 	{
 		const char *ic_nm, *map_nm, *v_nm, *df_nm;
+		if ( !per_ele) return false;
 
 		if ( (df_nm = per_ele->Attribute("pac")))
 			load_xml(df_nm, doc_pac_def,  pac_def_root, per_ele->Attribute("pac_md5"));
@@ -1752,10 +1768,9 @@ struct PersonDef_Set {	//User_Command集合之集合
 		num_icp = 0;
 	};
 
-	void put_def(TiXmlElement *prop)	//个人化集合输入定义PersonDef_Set
+	void put_def(TiXmlElement *prop, const char *vn)	//个人化集合输入定义PersonDef_Set
 	{
 		TiXmlElement *key_ele, *per_ele;
-		const char *vn = "personalize";
 		int kk;
 		int dy_at;
 		key_ele = prop->FirstChildElement("key"); //如有一个key元素(指明密码机), 则为以下personalize提供缺省
@@ -1816,6 +1831,7 @@ private:
 	{
 		TiXmlElement *prop;
 		struct PersonDef_Set person_defs;
+		struct Personal_Def null_icp_def;
 
 		int maxium_fldno;		/* 最大域号 */
 		int flowID_fld_no;	//流标识域, 业务代码域, 
@@ -1865,6 +1881,9 @@ void PacWay::ignite(TiXmlElement *prop)
 
 	if ( (comm_str = prop->Attribute("max_fld")) )
 		gCFG->maxium_fldno = atoi(comm_str);
+
+	if ( (comm_str = prop->Attribute("flow_fld")) )
+		gCFG->flowID_fld_no = atoi(comm_str);
 
 	if ( gCFG->maxium_fldno < 0 )
 		gCFG->maxium_fldno = 0;
@@ -1940,7 +1959,8 @@ bool PacWay::facio( Amor::Pius *pius)
 
 	case Notitia::IGNITE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY" );
-		gCFG->person_defs.put_def(gCFG->prop);
+		gCFG->person_defs.put_def(gCFG->prop, "bus");
+		gCFG->null_icp_def.put_def(gCFG->prop->FirstChildElement("bike"), 0);
 		mess.init(gCFG->person_defs.max_snap_num);
 		if ( err_global_str[0] != 0 )
 		{
@@ -2037,21 +2057,15 @@ void PacWay::handle_pac()
 		if (alen > 63 ) alen = 63;
 		memcpy(mess.flow_id, actp, alen);
 		mess.flow_id[alen] = 0;
+		mess.iRet = 0;	//假定一开始都是OK。
+		TEXTUS_STRCPY(mess.err_str, " ");
 
 		cur_def = gCFG->person_defs.look(mess.flow_id); //找一个相应的指令流定义
 		if ( !cur_def ) 
 		{
 			mess.iRet = ERROR_INS_DEF;	
-			TEXTUS_SPRINTF(mess.err_str, "not defined flow_id: %s ", mess.flow_id );
-			mess.snap[Pos_ErrCode].input(mess.iRet);
-			mk_result();	//工作结束
-			goto HERE_END;
+			cur_def = &(gCFG->null_icp_def);
 		}
-		/* 任务开始  */
-		mess.snap[Pos_TotalIns].input( cur_def->ins_all.many);
-		if ( cur_def->flow_md[0] )
-			mess.snap[Pos_FlowPrint].input( cur_def->flow_md);
-
 		/* 寻找变量集中所有动态的, 看看是否有start_pos和get_length的, 根据定义赋值到mess中 */
 		for ( i = 0 ; i <  cur_def->person_vars.many; i++)
 		{
@@ -2079,9 +2093,19 @@ void PacWay::handle_pac()
 				/* 所以从域取值为优先, 如果实际报文没有该域, 就取这里的静态定义 */
 			}
 		}
+		if (mess.iRet == ERROR_INS_DEF)
+		{
+			TEXTUS_SPRINTF(mess.err_str, "not defined flow_id: %s ", mess.flow_id );
+			mess.snap[Pos_ErrCode].input(mess.iRet);
+			mk_result();	//工作结束
+			goto HERE_END;
+		}
+		/* 任务开始  */
+		mess.snap[Pos_TotalIns].input( cur_def->ins_all.many);
+		if ( cur_def->flow_md[0] )
+			mess.snap[Pos_FlowPrint].input( cur_def->flow_md);
+
 		mess.ins_which = 0;
-		mess.iRet = 0;	//假定一开始都是OK。
-		TEXTUS_STRCPY(mess.err_str, " ");
 		mess.left_status = LT_Working;
 		mess.right_status = RT_READY;	//指示终端准备开始工作,
 
@@ -2287,7 +2311,7 @@ void PacWay::mk_result()
 			if ( dvr->kind != VAR_None )
 				snd_pac->input(vt->dest_fld_no, dvr->val_p, dvr->c_len);
 		} else {
-				snd_pac->input(vt->dest_fld_no, &vt->content[0], vt->c_len);
+			snd_pac->input(vt->dest_fld_no, &vt->content[0], vt->c_len);
 		}
 	}
 	aptus->sponte(&loc_pro_pac);    //制卡的结果回应给控制台
