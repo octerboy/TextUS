@@ -292,61 +292,61 @@ void Animus::tolero(const char *ext_mod)
 void Animus::stipes(const char *bran_tag)
 {
 	TiXmlElement *aps, *bran_ele;
-	const char *dex_tag="dextra", *lae_tag="laeve";
-	int index = 0;
+	int i_lae = 0, i_dex = 0, i_spo = 0;
 
-	#define IS_BRAN(x) strcasecmp(x, "accept_dextra") ==0  \
-		|| strcasecmp(x, "reject_dextra") ==0 \
-		|| strcasecmp(x, "accept_laeve") ==0 \
-		|| strcasecmp(x, "reject_laeve") ==0
-
-	bran_num = 0;
 	aps = carbo->FirstChildElement(bran_tag);
 	if ( !aps ) return;
 	/* how many of pius accept? bran_num. */
+	bran_num_lae = 0;
+	bran_num_dex = 0;
+	bran_num_spo = 0;
 	for ( bran_ele = aps->FirstChildElement();
 		bran_ele; bran_ele = bran_ele->NextSiblingElement() )
 	{
-		if ( IS_BRAN(bran_ele->Value()) )
-			bran_num++;
+		if (strcasecmp(bran_ele->Value(), "accept_dextra") ==0 || strcasecmp(bran_ele->Value(), "reject_dextra") ==0 ) bran_num_dex++;
+		if (strcasecmp(bran_ele->Value(), "accept_laeve") ==0 || strcasecmp(bran_ele->Value(), "reject_laeve") ==0 ) bran_num_lae++;
+		if (strcasecmp(bran_ele->Value(), "set_sponte") ==0 ) bran_num_spo++;
 	}
 
-	if ( bran_num == 0 )
-		return;
-	branch = new struct Branch[bran_num];
+	if ( bran_num_lae > 0 ) branch_lae = new struct Branch[bran_num_lae];
+	if ( bran_num_dex > 0 ) branch_dex = new struct Branch[bran_num_dex];
+	if ( bran_num_spo > 0 ) branch_spo = new struct Branch[bran_num_spo];
 	
-	index = 0;
+#define BRA_ORDO(ARR, INDEX)	\
+	ARR[INDEX].ordo = Notitia::get_ordo(bran_ele->Attribute("ordo")); \
+	bran_ele->QueryIntAttribute("sub", &ARR[INDEX].sub);
+
 	for ( bran_ele = aps->FirstChildElement();
 		bran_ele; bran_ele = bran_ele->NextSiblingElement() )
 	{
 		if ( strcasecmp(bran_ele->Value(), "accept_dextra") == 0  )
 		{
-			branch[index].coni = BRA_DEXTRA;
-			branch[index].act = ACCEPT_BRA;
+			BRA_ORDO(branch_dex, i_dex)
+			branch_dex[i_dex].act = ACCEPT_BRA; 
+			i_dex++;
 		} else if ( strcasecmp(bran_ele->Value(), "reject_dextra") == 0  )
 		{
-			branch[index].coni = BRA_DEXTRA;
-			branch[index].act = REJECT_BRA;
+			BRA_ORDO(branch_dex, i_dex)
+			branch_dex[i_dex].act = REJECT_BRA; 
+			i_dex++;
 		} else if ( strcasecmp(bran_ele->Value(), "accept_laeve") == 0  )
 		{
-			branch[index].coni = BRA_LAEVE; 
-			branch[index].act = ACCEPT_BRA;
+			BRA_ORDO(branch_lae, i_lae)
+			branch_lae[i_lae].act = ACCEPT_BRA; 
+			i_lae++;
 		} else if ( strcasecmp(bran_ele->Value(), "reject_laeve") == 0  )
 		{
-			branch[index].coni = BRA_LAEVE;
-			branch[index].act = REJECT_BRA;
+			BRA_ORDO(branch_lae, i_lae)
+			branch_lae[i_lae].act = REJECT_BRA; 
+			i_lae++;
 		} else if ( strcasecmp(bran_ele->Value(), "set_sponte") == 0  )
 		{
-			branch[index].coni = BRA_SPONTE;
-			branch[index].act = SET_BRA;
+			BRA_ORDO(branch_spo, i_spo)
+			branch_spo[i_spo].act = SET_BRA; 
+			i_spo++;
 		} else {
 			continue;
 		}
-		branch[index].ordo = Notitia::get_ordo(bran_ele->Attribute("ordo"));			
-		if ( aps->Attribute("sub"))
-			branch[index].sub = atoi(aps->Attribute("sub"));			
-		
-		index++;
 	}
 
 	return ;
@@ -529,6 +529,22 @@ Next:
 	child->owner	= owner_child;	/* new owner  */
 	if ( child->owner ) child->owner->aptus = child;
 
+#define COPY_BRA(ARR,NUM)	\
+	child->NUM = NUM;	\
+	if ( child->NUM > 0 )	\
+	{			\
+		child->ARR = new struct Branch[child->NUM]; 	\
+		for ( i = 0 ; i < child->NUM; i++ )		\
+		{						\
+			child->ARR[i].ordo = ARR[i].ordo;	\
+			child->ARR[i].sub = ARR[i].sub;		\
+			child->ARR[i].act = ARR[i].act;		\
+		}						\
+	}
+	COPY_BRA(branch_dex, bran_num_dex)
+	COPY_BRA(branch_spo, bran_num_spo)
+	COPY_BRA(branch_lae, bran_num_lae)
+
 	if ( duco_num > 0 )
 		child->compactor = new Aptus* [duco_num];
 	for ( i=0, j=0; i < duco_num; i++ )
@@ -621,8 +637,12 @@ Animus::Animus()
 	
 	canAccessed = true;	/* it is not usefull although */
 	isTunnel = true;	/* if a owner does not proccess a pius, the pius wiil be passed through. */
-	branch = 0;
-	bran_num = 0;
+	branch_lae = 0;
+	branch_spo = 0;
+	branch_dex = 0;
+	bran_num_lae = 0;
+	bran_num_spo = 0;
+	bran_num_dex = 0;
 }
 
 void Animus::destroy_right()
@@ -657,13 +677,15 @@ Animus::~Animus()
 	if ( cons_spo ) 	delete []cons_spo;
 	if ( cons_lae ) 	delete []cons_lae;
 	if ( cons_dex ) 	delete []cons_dex;
-	if ( branch )		delete (struct Branch *) branch;
+	if ( branch_dex )	delete (struct Branch *) branch_dex;
+	if ( branch_lae )	delete (struct Branch *) branch_lae;
+	if ( branch_spo )	delete (struct Branch *) branch_spo;
 }
 
 /* owner call this function */
 inline bool Animus::sponte( Amor::Pius *pius)
 {
-	if (  branch ) 
+	if (  branch_spo ) 
 	{
 		if ( !branch_pro(pius,BRA_SPONTE)) 
 			goto LAST;
@@ -706,7 +728,7 @@ inline bool Animus::sponte_n( Amor::Pius *pius, unsigned int from)
 inline bool Animus::laeve( Amor::Pius *pius, unsigned int from)
 {
 	unsigned int i;
-	if (  branch ) 
+	if (  branch_lae ) 
 	{
 		if ( !branch_pro(pius,BRA_LAEVE)) 
 			goto LAST;
@@ -792,7 +814,7 @@ bool Animus::to_dextra(Amor::Pius *pius, unsigned int from)
 inline bool Animus::dextra(Amor::Pius *pius, unsigned int from)
 {
 	unsigned int i;
-	if (  branch ) 
+	if (  branch_dex ) 
 	{
 		if ( !branch_pro(pius,BRA_DEXTRA)) 
 			goto LAST;
@@ -820,10 +842,27 @@ inline bool Animus::branch_pro( Amor::Pius *pius, enum BRA_DIRECT dir)
 	bool can;
 	unsigned int i;
 	can = true;
+	unsigned int bran_num = 0;
+	struct Branch *branch = 0;
+
+	switch (dir ) 
+	{
+		case BRA_LAEVE:
+			bran_num = bran_num_lae;
+			branch = branch_lae;
+		break;
+		case BRA_SPONTE:
+			bran_num = bran_num_spo;
+			branch = branch_spo;
+		break;
+		case BRA_DEXTRA:
+			bran_num = bran_num_dex;
+			branch = branch_dex;
+		break;
+	}
 	for ( i = 0; i < bran_num; i++ )
 	{
-		if (branch[i].coni != dir || pius->ordo != branch[i].ordo  ) continue; 
-
+		if (pius->ordo != branch[i].ordo ) continue; 
 		if ( branch[i].act == SET_BRA)
 		{
 			can = true;
