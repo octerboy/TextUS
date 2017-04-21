@@ -76,17 +76,15 @@ public:
 	struct Branch {			/* branch, a node will accept only a pius which has an ordo & sub if it matches */
 		TEXTUS_ORDO ordo;	/* if a pius.ordo == ordo, the node only accept it when the pius.subdo==sub (>0) */
 		int sub;
-		enum BRA_DIRECT coni;
 		enum BRA_ACT act;
 		inline Branch() {
 			ordo = 0;
 			sub = -1;
-			coni = BRA_DEXTRA;
 			act = ACCEPT_BRA;
 		};
 	};
-	struct Branch *branch;
-	unsigned int  bran_num;
+	struct Branch *branch_dex, *branch_lae, *branch_spo;
+	unsigned int  bran_num_dex, bran_num_lae, bran_num_spo;
 
 private:
 	void stipes(const char*);	/* set branch according to pius */
