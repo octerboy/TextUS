@@ -29,6 +29,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdarg.h>
+#include "BTool.h"
 #if defined(__APPLE__)
 #define COMMON_DIGEST_FOR_OPENSSL
 #include <CommonCrypto/CommonDigest.h>
@@ -1058,7 +1059,7 @@ struct PacIns:public Condition  {
 
 	const char *err_code; //这是直接从外部定义文件得到的内容，不作任何处理。 当本报文出现通信错误，包括报文不能解析的、通道关闭。
 	bool counted;		//是否计数
-	bool isFunction;	//是否回调函数
+	bool isFunction;	//是否为函数
 
 	PacIns() 
 	{
@@ -1074,7 +1075,7 @@ struct PacIns:public Condition  {
 		type = INS_None;
 	};
 
-	void prepair_snd_pac( PacketObj *snd_pac, int &bor, MK_Session *sess)
+	void get_snd_pac( PacketObj *snd_pac, int &bor, MK_Session *sess)
 	{
 		int i,j;
 		unsigned long t_len;
@@ -1089,20 +1090,28 @@ struct PacIns:public Condition  {
 					t_len += snd_lst[i].dy_list[j].len;
 			}
 		}
-		snd_pac->buf.grant(t_len);
-
+		snd_pac->grant(t_len);
 		for ( i = 0 ; i < snd_num; i++ )
 		{
 			t_len = 0;
 			if ( snd_lst[i].dy_num ==0 )
-			{
-				t_len = snd_lst[i].cmd_len;	//这是在pacdef中send元素定义的
-				snd_pac->buf.input(snd_lst[i].cmd_buf, snd_lst[i].cmd_len);	//一个域的内容
+			{	/* 这是在pacdef中send元素定义的一个域的内容 */
+				memcpy(snd_pac->buf.point, snd_lst[i].cmd_buf, snd_lst[i].cmd_len);
+				t_len = snd_lst[i].cmd_len;	
 			} else {
 				for ( j = 0; j < snd_lst[i].dy_num; j++ )
 				{
-					snd_pac->buf.input(snd_lst[i].dy_list[j].con, snd_lst[i].dy_list[j].len);	//一个域的内容
-					t_len += snd_lst[i].dy_list[j].len;	//一个域的长度
+					/* 由一个列表来构成一个域的内容 */
+					if (  snd_lst[i].dy_list[j].dy_pos < 0 ) 
+					{
+						/* 静态内容*/
+						memcpy(&snd_pac->buf.point[t_len], snd_lst[i].dy_list[j].con, snd_lst[i].dy_list[j].len);
+						t_len += snd_lst[i].dy_list[j].len;
+					} else {
+						/* 动态内容*/
+						memcpy(&snd_pac->buf.point[t_len], sess->snap[snd_lst[i].dy_list[j].dy_pos].val_p, sess->snap[snd_lst[i].dy_list[j].dy_pos].c_len);
+						t_len += sess->snap[snd_lst[i].dy_list[j].dy_pos].c_len;
+					}
 				}
 			}
 			snd_pac->commit(snd_lst[i].fld_no, t_len);	//域的确认
@@ -1121,15 +1130,15 @@ struct PacIns:public Condition  {
 		for (ii = 0; ii < rcv_num; ii++)
 		{
 			rply = &rcv_lst[ii];
+			fc = rcv_pac->getfld(rply->fld_no, &rlen);
+			if ( !fc ) goto ErrRet;
+			if (rply->must_con ) 
+			{
+				if ( !(rply->must_len == rlen && memcmp(rply->must_con, fc, rlen) == 0 ) ) goto ErrRet;
+			}
+
 			if ( rply->dyna_pos > 0)
 			{
-				fc = rcv_pac->getfld(rply->fld_no, &rlen);
-				if ( !fc ) goto ErrRet;
-				if (rply->must_con ) 
-				{
-					if ( !(rply->must_len == rlen && memcmp(rply->must_con, fc, rlen) == 0 ) ) goto ErrRet;
-				}
-
 				if ( rlen >= (rply->start ) )	
 				{
 					rlen -= (rply->start-1); //start是从1开始
@@ -1139,6 +1148,7 @@ struct PacIns:public Condition  {
 				}
 			}
 		}
+
 		return true;
 ErrRet:
 		if ( rply->err_code )
@@ -1207,7 +1217,7 @@ ErrRet:
 					{
 						lnn = strlen(p);
 						snd_lst[i].cmd_buf = new unsigned char[lnn+1];
-						snd_lst[i].cmd_len = squeeze(p, snd_lst[i].cmd_buf);	
+						snd_lst[i].cmd_len = BTool::unescape(p, snd_lst[i].cmd_buf) ;
 					}
 					i++;
 				} else if ( pac_ele->FirstChildElement(tag)) {	// pacdef中有定义域, 但mapx不给内容, 这就不要了
@@ -1253,7 +1263,7 @@ ErrRet:
 					{
 						lnn = strlen(p);
 						rcv_lst[i].must_con = new unsigned char[lnn+1];
-						rcv_lst[i].must_len = squeeze(p, rcv_lst[i].must_con);
+						rcv_lst[i].must_len = BTool::unescape(p, rcv_lst[i].must_con) ;
 						rcv_lst[i].err_code = p_ele->Attribute("error");	//接收域若有不符合，设此错误码
 					}
 					i++;
@@ -2145,7 +2155,7 @@ SUB_INS_PRO:
 			}
 
 			hi_req.reset();	//请求复位
-			paci->prepair_snd_pac(&hi_req, loc_pro_pac.subor, &mess);
+			paci->get_snd_pac(&hi_req, loc_pro_pac.subor, &mess);
 			command_wt.pac_step++;
 			i_ret = 0;	/* 进行中 */
 			call_back = paci->isFunction; //对于函数，属回调的情况。这个call_back在sponte时被判断
