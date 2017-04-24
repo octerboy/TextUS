@@ -1235,13 +1235,12 @@ ErrRet:
 		{
 			tag = p_ele->Value();
 			if ( !tag ) continue;
-			if ( strcasecmp(tag, "recv") == 0 )
+			if ( strcasecmp(tag, "recv") == 0 || p_ele->Attribute("from"))
 			{
 				rcv_num++;
-				continue;	/* recv 仅在基础报文定义中出现 */
-			}
-			if ( !p_ele->Attribute("from")) continue;
-			/*子序列中的返回元素也算上, 如果和用户命令都没有，则这里不需要分配了 */
+				if ( strcasecmp(tag, "recv") == 0 ) continue; /*recv 仅在基础报文定义中出现.在基础报文中，from项也算一项，如同recv */
+			} else continue;
+			/*子序列中的返回元素也算上 */
 			for (e_tmp = pac_ele->FirstChildElement(tag); e_tmp; e_tmp = e_tmp->NextSiblingElement(tag) ) 
 				rcv_num++;
 			/* 用户命令的返回元素也算上 */
@@ -1253,10 +1252,11 @@ ErrRet:
 		{
 			tag = p_ele->Value();
 			if ( !tag ) continue;
-			if ( strcasecmp(tag, "recv") == 0 )
+			if ( strcasecmp(tag, "recv") == 0 || p_ele->Attribute("from"))
 			{
 				rcv_lst[i].tag = tag;
 				p_ele->QueryIntAttribute("field", &(rcv_lst[i].fld_no));
+				p_ele->QueryIntAttribute("from", &(rcv_lst[i].fld_no));	/* 如果recv中有from ....?? */
 				p = p_ele->GetText();
 				if ( p )
 				{
@@ -1266,9 +1266,9 @@ ErrRet:
 					rcv_lst[i].err_code = p_ele->Attribute("error");	//接收域若有不符合，设此错误码
 				}
 				i++;
-				continue;	/* recv 仅在基础报文定义中出现 */
-			}
-			if ( !p_ele->Attribute("from")) continue;
+				if ( strcasecmp(tag, "recv") == 0 )
+					continue;	/* recv 仅在基础报文定义中出现, 对于from的，下面还要处理 */
+			} else continue;
 			/* 用户命令和子序列中的返回元素也算上, 如果两者都没有，则这里不需要分配了 */
 			some_ele = pac_ele;
 ANOTHER:
