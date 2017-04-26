@@ -164,7 +164,7 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Null};
 
 		struct PVar* prepare(TiXmlElement *var_ele, int &dy_at) //变量准备
 		{
-			const char *p, *nm;
+			const char *p, *nm, *esc;
 			kind = VAR_None;
 			self_ele = var_ele;
 
@@ -177,7 +177,14 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Null};
 			p = var_ele->GetText();
 			if ( p)
 			{
-				c_len = squeeze(p, content);
+				esc = var_ele->Attribute("escape");
+				if ( !esc ) 
+					esc = var_ele->GetDocument()->RootElement()->Attribute("escape");
+				if ( esc && (esc[0] == 'Y' || esc[0] == 'N') )
+				{
+					c_len = BTool::unescape(p, content) ;
+				} else 
+					c_len = squeeze(p, content);
 			}
 			/* 变量无内容, 才认为这是特殊变量 */
 			var_ele->QueryIntAttribute("from", &(source_fld_no));
@@ -273,11 +280,18 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Null};
 
 		void put_herev(TiXmlElement *h_ele) //分析一下本地变量
 		{
-			const char *p;
+			const char *p, *esc;
 
 			if( (p = h_ele->GetText()) )
 			{
-				c_len = squeeze(p, content);
+				esc = h_ele->Attribute("escape");
+				if ( !esc ) 
+					esc = h_ele->GetDocument()->RootElement()->Attribute("escape");
+				if ( esc && (esc[0] == 'Y' || esc[0] == 'N') )
+				{
+					c_len = BTool::unescape(p, content) ;
+				} else 
+					c_len = squeeze(p, content);
 				if (kind == VAR_None)	//只有原来没有定义类型的, 这里才定成常数. 
 					kind = VAR_Constant;
 			}
@@ -427,11 +441,13 @@ struct PVar_Set {
 	struct PVar *vars;
 	int many;
 	int dynamic_at;
+	TiXmlElement *command_ele;	/* 对于局域变量集, 指向子系列所相应的用户命令(Command)  */
 	PVar_Set () 
 	{
 		vars = 0;
 		many = 0;
 		dynamic_at = Pos_Fixed_Next; //0,等 已经给$FlowPrint等占了
+		command_ele = 0;
 	};
 
 	~PVar_Set () 
@@ -545,14 +561,28 @@ struct PVar_Set {
 	};
 
 	/* 找静态的变量, 获得实际内容 */
-	struct PVar *one_still( const char *nm, unsigned char *buf, unsigned long &len, struct PVar_Set *loc_v=0)
+	struct PVar *one_still(TiXmlElement *comp, const char *nm, unsigned char *buf, unsigned long &len, struct PVar_Set *loc_v=0)
 	{
 		struct PVar  *vt;
+		const char *esc = 0;
 		/* 在这时两种情况处理, 一个是有静态常数定义的, 另一个静态常数变量 */
 		vt = look(nm, loc_v);	//看看是否为一个定义的变量名
 		if ( !vt) 
 		{
-			len = squeeze(nm, buf); //非定义变量名, 这里直接处理了, 本身就是一个常数
+			if ( comp )
+			{
+				esc = comp->Attribute("escape");
+				if ( !esc ) 
+					esc = comp->GetDocument()->RootElement()->Attribute("escape");
+			}
+			if ( esc && (esc[0] == 'Y' || esc[0] == 'N') )
+			{
+				if ( buf)
+					len = BTool::unescape(nm, buf) ;
+				else 
+					len = strlen(nm);
+			} else 
+				len = squeeze(nm, buf); //非定义变量名, 这里直接处理了, 本身就是一个常数
 			goto VARET;
 		}
 
@@ -588,9 +618,9 @@ struct PVar_Set {
 			if ( !comp->GetText() ) continue; //没有内容, 略过
 			//printf("tag %s  Text %s\n",tag, comp->GetText());
 			if ( command ) 
-				rt = one_still( comp->GetText(), &command[ac_len], l, loc_v);
+				rt = one_still(comp,  comp->GetText(), &command[ac_len], l, loc_v);
 			else 
-				rt = one_still( comp->GetText(), 0, l, loc_v);
+				rt = one_still(comp, comp->GetText(), 0, l, loc_v);
 			ac_len += l;
 			if ( rt && rt->kind < VAR_Constant )		//如果有非静态的, 这里需要中断, comp指向下一个
 				will_break = true;
@@ -607,8 +637,24 @@ struct MatchDst {	//匹配目标
 	struct PVar *dst;
 	const char *con_dst;
 	int len_dst;
-	void set_val(struct PVar_Set *var_set, struct PVar_Set *loc_v, const char *p)
+	bool c_case;	/* 是否区分大小写, 默认为是 */
+	MatchDst ()
 	{
+		dst = 0;
+		con_dst = 0;
+		len_dst = 0;
+		c_case = true;
+	};
+	bool set_val(struct PVar_Set *var_set, struct PVar_Set *loc_v, const char *p, const char *case_str)
+	{
+		bool ret = false;
+		const char *val_nm;
+		TiXmlElement *body;
+
+		if ( case_str && ( case_str[0] == 'N' ||  case_str[0] == 'n') )
+			c_case= false;
+		else
+			c_case = true;
 		dst = var_set->look(p, loc_v);
 		if (!dst )
 		{
@@ -616,8 +662,37 @@ struct MatchDst {	//匹配目标
 			{	//变量名可能没有内容, 这里有内容是常数了, 其它的也可以有内容, 就要别处定义了
 				con_dst = p;
 				len_dst = strlen(con_dst);
+				ret = true;
 			}
-		} 
+		}  else if (dst->kind == VAR_Me && loc_v ) //只处理Me变量
+		{
+			if ( dst->c_len > 0 ) 
+			{
+				con_dst = (const char*)&dst->content[0];
+				len_dst = dst->c_len;
+				dst = 0;
+				ret = true;
+			} else {
+				val_nm = 0;
+				val_nm = loc_v->command_ele->Attribute(dst->me_name);
+				if (!val_nm )	//属性优先, 没有属性再看元素
+				{
+					body = loc_v->command_ele->FirstChildElement(dst->me_name);
+					if ( body ) val_nm = body->GetText();
+				}
+				if ( val_nm)
+				{
+					dst = var_set->look(val_nm);
+					if (!dst )
+					{
+						con_dst = val_nm;
+						len_dst = strlen(con_dst);
+					}
+					ret = true;
+				}
+			}
+		}
+		return ret;
 	};
 
 	bool valid_val (MK_Session *sess, struct PVar *src)
@@ -652,10 +727,14 @@ struct MatchDst {	//匹配目标
 			dst_con = (unsigned char*)con_dst;
 			dst_len = len_dst;
 		}
-		if ( dst_len == src_len && memcmp(dst_con, src_con, src_len) == 0 ) 
-			ret = true;
-		else 
+		if ( dst_len != src_len )
 			ret = false;
+		else {
+			if ( c_case )
+				ret = (memcmp(dst_con, src_con, src_len) == 0);
+			else
+				ret = (strncasecmp((const char*)dst_con, (const char*)src_con, src_len) == 0);
+		}
 
 		return ret;
 	};
@@ -698,7 +777,7 @@ struct Match {		//一个匹配项
 			dst_num = 1;
 			dst_arr = new struct MatchDst;
 			p = mch_ele->GetText();
-			dst_arr->set_val(var_set, loc_v, p);
+			dst_arr->set_val(var_set, loc_v, p, mch_ele->Attribute("case"));
 		} else {
 			dst_arr = new struct MatchDst[dst_num];
 			for (	i = 0, con_ele = mch_ele->FirstChildElement(vn); 
@@ -706,7 +785,7 @@ struct Match {		//一个匹配项
 				con_ele = con_ele->NextSiblingElement(vn),i++ ) 
 			{
 				p = con_ele->GetText();
-				dst_arr[i].set_val(var_set, loc_v, p);
+				dst_arr[i].set_val(var_set, loc_v, p, con_ele->Attribute("case"));
 			}
 		}
 		return this;
@@ -879,7 +958,7 @@ struct CmdSnd {
 				g_ln = 0 ;
 				if ( usr_ele->Attribute(vr_tmp->me_name) ) 	//用户命令中，属性优先
 				{
-					vr2_tmp = g_vars->one_still( usr_ele->Attribute(vr_tmp->me_name), 0, g_ln);
+					vr2_tmp = g_vars->one_still(0, usr_ele->Attribute(vr_tmp->me_name), 0, g_ln);
 					if ( g_ln > 0 ) cmd_len += g_ln;
 					if ( vr2_tmp && vr2_tmp->kind <= VAR_Dynamic )
 					{
@@ -979,7 +1058,7 @@ ALL_STILL:
 				g_ln = 0;
 				if (usr_ele->Attribute(vr_tmp->me_name)) //先看属性内容
 				{
-					vr2_tmp = g_vars->one_still( usr_ele->Attribute(vr_tmp->me_name), cp, g_ln);
+					vr2_tmp = g_vars->one_still(usr_ele, usr_ele->Attribute(vr_tmp->me_name), cp, g_ln);
 					if ( g_ln > 0 )	/* 刚处理的是静态内容 */
 					{
 						DY_STILL(g_ln) //cp指针后移, 内容增加， 这里游标不变，因为下一个可能是Me变量的静态, 这要合并在一起
@@ -1034,6 +1113,7 @@ struct CmdRcv {
 	unsigned char *must_con;
 	unsigned long must_len;
 	const char *err_code; //这是直接从外部定义文件得到的内容，不作任何处理。当本域不符合要求，设置此错误码。
+	bool err_disp_hex;
 
 	const char *tag;//比如： reply, sw
 	CmdRcv() {
@@ -1043,6 +1123,7 @@ struct CmdRcv {
 		must_con = 0;
 		must_len = 0;
 		err_code = 0;
+		err_disp_hex = false;
 	};
 };
 
@@ -1063,6 +1144,7 @@ struct PacIns:public Condition  {
 
 	PacIns() 
 	{
+		type = INS_None;
 		subor = 0;
 		snd_lst = 0;
 		snd_num = 0;
@@ -1072,7 +1154,6 @@ struct PacIns:public Condition  {
 		err_code = 0;
 		counted = false;	/* 不计入指令数计算 */
 		isFunction = false;
-		type = INS_None;
 	};
 
 	void get_snd_pac( PacketObj *snd_pac, int &bor, MK_Session *sess)
@@ -1084,10 +1165,19 @@ struct PacIns:public Condition  {
 		t_len = 0;
 		for ( i = 0 ; i < snd_num; i++ )
 		{
-			if ( snd_lst[i].dy_num ==0 ) t_len += snd_lst[i].cmd_len;	//这是在pacdef中send元素定义的
-			else {
+			if ( snd_lst[i].dy_num ==0 ) 
+			{ 
+				t_len += snd_lst[i].cmd_len;	//这是在pacdef中send元素定义的
+			} else {
 				for ( j = 0; j < snd_lst[i].dy_num; j++ )
-					t_len += snd_lst[i].dy_list[j].len;
+				{
+					if (  snd_lst[i].dy_list[j].dy_pos < 0 ) 
+					{
+						t_len += snd_lst[i].dy_list[j].len;
+					} else {
+						t_len += sess->snap[snd_lst[i].dy_list[j].dy_pos].c_len;
+					}
+				}
 			}
 		}
 		snd_pac->grant(t_len);
@@ -1124,17 +1214,37 @@ struct PacIns:public Condition  {
 	{
 		int ii;
 		unsigned char *fc;
-		unsigned long rlen;
+		unsigned long rlen, mlen;
 		struct CmdRcv *rply;
+		char con[512];
+					
 
 		for (ii = 0; ii < rcv_num; ii++)
 		{
 			rply = &rcv_lst[ii];
 			fc = rcv_pac->getfld(rply->fld_no, &rlen);
-			if ( !fc ) goto ErrRet;
+			if ( !fc ) 
+			{
+				TEXTUS_SPRINTF(mess->err_str, "field %d does not exist", rply->fld_no);
+				goto ErrRet;
+			}
 			if (rply->must_con ) 
 			{
-				if ( !(rply->must_len == rlen && memcmp(rply->must_con, fc, rlen) == 0 ) ) goto ErrRet;
+				if ( !(rply->must_len == rlen && memcmp(rply->must_con, fc, rlen) == 0 ) ) 
+				{
+					mlen = rlen > sizeof(con) ? sizeof(con):rlen;
+					
+					if ( rply->err_disp_hex )
+					{
+						byte2hex(fc, mlen, con);
+						con[mlen*2] = 0;
+					} else {
+						memcpy(con, fc, mlen);
+						con[mlen] = 0;
+					}
+					TEXTUS_SPRINTF(mess->err_str, "field %d contents %s", rply->fld_no, con);
+					goto ErrRet;
+				}
 			}
 
 			if ( rply->dyna_pos > 0)
@@ -1148,7 +1258,6 @@ struct PacIns:public Condition  {
 				}
 			}
 		}
-
 		return true;
 ErrRet:
 		if ( rply->err_code )
@@ -1235,28 +1344,28 @@ ErrRet:
 		{
 			tag = p_ele->Value();
 			if ( !tag ) continue;
-			if ( strcasecmp(tag, "recv") == 0 || p_ele->Attribute("from"))
+			if ( strcasecmp(tag, "recv") == 0 ||p_ele->Attribute("from") ) 
 			{
 				rcv_num++;
-				if ( strcasecmp(tag, "recv") == 0 ) continue; /*recv 仅在基础报文定义中出现.在基础报文中，from项也算一项，如同recv */
-			} else continue;
-			/*子序列中的返回元素也算上 */
-			for (e_tmp = pac_ele->FirstChildElement(tag); e_tmp; e_tmp = e_tmp->NextSiblingElement(tag) ) 
-				rcv_num++;
-			/* 用户命令的返回元素也算上 */
-			for (e_tmp = usr_ele->FirstChildElement(tag); e_tmp; e_tmp = e_tmp->NextSiblingElement(tag) ) 
-				rcv_num++;				
+				if ( strcasecmp(tag, "recv") == 0 ) continue;	/* recv 仅在基础报文定义中出现 */
+
+				/*子序列中的返回元素也算上 */
+				for (e_tmp = pac_ele->FirstChildElement(tag); e_tmp; e_tmp = e_tmp->NextSiblingElement(tag) ) rcv_num++;
+				/* 用户命令的返回元素也算上 */
+				for (e_tmp = usr_ele->FirstChildElement(tag); e_tmp; e_tmp = e_tmp->NextSiblingElement(tag) ) rcv_num++;
+			}
 		}
+		if ( rcv_num ==0 ) goto LAST_CON;	
 		rcv_lst = new struct CmdRcv[rcv_num];
 		for (p_ele= def_ele->FirstChildElement(),i = 0; p_ele; p_ele = p_ele->NextSiblingElement())
 		{
 			tag = p_ele->Value();
 			if ( !tag ) continue;
-			if ( strcasecmp(tag, "recv") == 0 || p_ele->Attribute("from"))
+			if ( strcasecmp(tag, "recv") == 0 || p_ele->Attribute("from")) 
 			{
 				rcv_lst[i].tag = tag;
 				p_ele->QueryIntAttribute("field", &(rcv_lst[i].fld_no));
-				p_ele->QueryIntAttribute("from", &(rcv_lst[i].fld_no));	/* 如果recv中有from ....?? */
+				p_ele->QueryIntAttribute("from", &(rcv_lst[i].fld_no));
 				p = p_ele->GetText();
 				if ( p )
 				{
@@ -1265,36 +1374,42 @@ ErrRet:
 					rcv_lst[i].must_len = BTool::unescape(p, rcv_lst[i].must_con) ;
 					rcv_lst[i].err_code = p_ele->Attribute("error");	//接收域若有不符合，设此错误码
 				}
+				p = p_ele->Attribute("disp");
+				if (!p) p = def_ele->Attribute("disp");
+				if (!p) p = def_ele->GetDocument()->RootElement()->Attribute("disp");
+				if ( p && strcasecmp(p, "hex") == 0 )
+					rcv_lst[i].err_disp_hex = true;
+					
 				i++;
-				if ( strcasecmp(tag, "recv") == 0 )
-					continue;	/* recv 仅在基础报文定义中出现, 对于from的，下面还要处理 */
-			} else continue;
-			/* 用户命令和子序列中的返回元素也算上, 如果两者都没有，则这里不需要分配了 */
-			some_ele = pac_ele;
+				if ( strcasecmp(tag, "recv") == 0 ) continue;	/* recv 仅在基础报文定义中出现 */
+
+				/* 用户命令和子序列中的返回元素也算上, 当然from已经算一个了 */
+				some_ele = pac_ele;
 ANOTHER:
-			for (e_tmp = some_ele->FirstChildElement(tag); e_tmp; e_tmp = e_tmp->NextSiblingElement(tag) ) 
-			{
-				rcv_lst[i].tag = tag;
-				p_ele->QueryIntAttribute("from", &(rcv_lst[i].fld_no));	//对第一个有点重复
-				if ( (p = e_tmp->Attribute("name")) )
+				for (e_tmp = some_ele->FirstChildElement(tag); e_tmp; e_tmp = e_tmp->NextSiblingElement(tag) ) 
 				{
-					vr_tmp = g_vars->look(p, me_vars);	//响应变量, 动态变量, 两个变量集
-					if (vr_tmp) 
+					p_ele->QueryIntAttribute("from", &(rcv_lst[i].fld_no));	//对第一个有点重复
+					rcv_lst[i].tag =tag;
+					if ( (p = e_tmp->Attribute("name")) )
 					{
-						rcv_lst[i].dyna_pos = vr_tmp->dynamic_pos;
-						lnn = 0;
-						e_tmp->QueryIntAttribute("start", &(lnn));
-						if ( lnn >= 1) 
-							rcv_lst[i].start = (unsigned int)lnn;
-						e_tmp->QueryIntAttribute("length", &(rcv_lst[i].length));
+						vr_tmp = g_vars->look(p, me_vars);	//响应变量, 动态变量, 两个变量集
+						if (vr_tmp) 
+						{
+							rcv_lst[i].dyna_pos = vr_tmp->dynamic_pos;
+							lnn = 0;
+							e_tmp->QueryIntAttribute("start", &(lnn));
+							if ( lnn >= 1) 
+								rcv_lst[i].start = (unsigned int)lnn;
+							e_tmp->QueryIntAttribute("length", &(rcv_lst[i].length));
+						}
 					}
+					i++;
 				}
-				i++;
-			}
-			if ( some_ele != usr_ele ) 
-			{
-				some_ele = usr_ele;
-				goto ANOTHER;
+				if ( some_ele != usr_ele ) 
+				{
+					some_ele = usr_ele;
+					goto ANOTHER;
+				}
 			}
 		}	/* 结束返回元素的定义*/
 
@@ -1368,7 +1483,7 @@ struct ComplexSubSerial {
 		const char *att_val;
 		
 		len = 0;
-		ref_var = g_var_set->one_still(vnm, buf, len);	//找到已定义参考变量的
+		ref_var = g_var_set->one_still(0,vnm, buf, len);	//找到已定义参考变量的
 		if ( ref_var)
 		{
 			for ( att = ref_var->self_ele->FirstAttribute(); att; att = att->Next())
@@ -1379,7 +1494,7 @@ struct ComplexSubSerial {
 				if ( !att_val ) continue;
 				len = 0;
 				/* 这里 att->Value() 可能指向另一个变量名 */
-				att_var = g_var_set->one_still(att_val, buf, len);	//找到已定义的变量
+				att_var = g_var_set->one_still(ref_var->self_ele, att_val, buf, len);	//找到已定义的变量
 				if ( att_var ) 
 				{
 					sv_set.put_var(loc_v_nm, att_var);
@@ -1410,6 +1525,7 @@ struct ComplexSubSerial {
 		const char *pri_key = usr_def_entry->Attribute("primary");
 
 		sv_set.defer_vars(usr_def_entry); //局域变量定义完全还在那个自定义中
+		sv_set.command_ele = usr_ele;
 		for ( i = 0; i  < sv_set.many; i++ )
 		{
 			me_var = &(sv_set.vars[i]);
@@ -1426,14 +1542,15 @@ struct ComplexSubSerial {
 					if ( body ) ref_nm = body->GetText();
 				}
 				if (ref_nm )
-					ref_var = set_loc_ref_var(ref_nm, me_var->me_name); /* primary属性指明protect之类的, 实际上就是me.protect.*这样的东西。这里更新局部变量集 */
+					ref_var = set_loc_ref_var(ref_nm, me_var->me_name); /* ref_nm是$Main之类的, 实际上就是me.protect.*这样的东西。这里更新局部变量集 */
 			}
 		}
 
 		TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s", "Pro"); //先假定子序列是Pro element，如果有主参考变量，下面会更新。
 		if ( pri_vnm ) //如果有主参考变量, 就即根据这个主参考变量中找到相应的sub_pro, pri_vnm就是$Main之类的。
 		{
-			ref_var = set_loc_ref_var(pri_vnm, pri_key); /* primary属性指明protect之类的, 实际上就是me.protect.*这样的东西。这里更新局部变量集 */
+			ref_var = set_loc_ref_var(pri_vnm, pri_key); 
+			/* pri_key是子系列入口primary属性指明的protect之类的,即me.protect.*这样的东西。这里更新局部变量集 */
 			if ( ref_var )
 			{
 				if (ref_var->self_ele->Attribute("pro") ) //参考变量的pro属性指示子序列
@@ -2063,7 +2180,7 @@ void PacWay::handle_pac()
 		mess.reset();	//会话复位
 		snd_pac->reset();
 		actp = rcv_pac->getfld(gCFG->flowID_fld_no, &alen);
-		if (alen > 63 ) alen = 63;
+		if (alen >= sizeof(mess.flow_id) ) alen = sizeof(mess.flow_id)-1 ;
 		memcpy(mess.flow_id, actp, alen);
 		mess.flow_id[alen] = 0;
 		mess.iRet = 0;	//假定一开始都是OK。
@@ -2113,6 +2230,7 @@ void PacWay::handle_pac()
 		mess.snap[Pos_TotalIns].input( cur_def->ins_all.many);
 		if ( cur_def->flow_md[0] )
 			mess.snap[Pos_FlowPrint].input( cur_def->flow_md);
+		mess.snap[Pos_FlowID].input(mess.flow_id);
 
 		mess.ins_which = 0;
 		mess.left_status = LT_Working;
@@ -2138,6 +2256,7 @@ int PacWay::sub_serial_pro(struct ComplexSubSerial *comp)
 {
 	int i_ret=1;
 	struct PacIns *paci;
+	char h_msg[1024];
 
 SUB_INS_PRO:
 	paci = &(comp->pac_inses[command_wt.pac_which]);
@@ -2159,7 +2278,14 @@ SUB_INS_PRO:
 			i_ret = 0;	/* 进行中 */
 			call_back = paci->isFunction; //对于函数，属回调的情况。这个call_back在sponte时被判断
 			mess.right_status = RT_OUT;
+			WBUG("mess.pro_order=%d command_wt.pac_which=%d", mess.pro_order, command_wt.pac_which);
 			aptus->facio(&loc_pro_pac);     //向右发出, 然后等待
+			if ( paci->rcv_num == 0 ) 	//没有接收域，直接下一条
+			{
+				i_ret = 1;
+				break;
+			}
+			//if ( mess.pro_order == 49 &&  command_wt.pac_which ==5 ) {int *a=0; *a=0;}
 			if ( call_back ) goto GO_ON_FUNC; //调用返回时，这里响应报文已备，继续处理。
 			break;
 		case 1:
@@ -2170,14 +2296,20 @@ GO_ON_FUNC:
 					i_ret = 1;
 				else {
 					mess.iRet = ERROR_RESULT;
-					TEXTUS_SPRINTF(mess.err_str, "result error at %d of %s", mess.pro_order, cur_def->flow_id);
-					if ( !paci->err_code) mess.snap[Pos_ErrCode].input(paci->err_code);
+					TEXTUS_SPRINTF(h_msg, "result error at %d of %s (%s)", mess.pro_order, cur_def->flow_id, mess.err_str);
+					if ( paci->err_code) mess.snap[Pos_ErrCode].input(paci->err_code);
 					i_ret = -2;	//这是map所控制
 				}
 			} else {
 				mess.iRet = ERROR_RECV_PAC;
-				TEXTUS_SPRINTF(mess.err_str, "fault at %d of %s", mess.pro_order, cur_def->flow_id);
+				TEXTUS_SPRINTF(h_msg, "fault at %d of %s (%s)", mess.pro_order, cur_def->flow_id, mess.err_str);
 				i_ret = -3;	//这是基本报文错误，非map所控制
+			}
+			//if ( mess.pro_order == 10 &&  command_wt.pac_which == 3 ) {int *a=0; *a=0;}
+			if ( mess.iRet != 0 ) 
+			{
+				memcpy(mess.err_str, h_msg, strlen(h_msg));
+				mess.err_str[strlen(h_msg)] = 0;
 			}
 			break;
 
@@ -2188,7 +2320,13 @@ GO_ON_FUNC:
 
 	case INS_Abort:
 		i_ret = -1;	//脚本所控制的错误
-		if (paci->err_code ) mess.snap[Pos_ErrCode].input(paci->err_code);
+		if ( paci->valid_condition(&mess) )		/* 符合前提条件, 再判断结果 */
+		{
+			if (paci->err_code ) mess.snap[Pos_ErrCode].input(paci->err_code);
+		} else {
+			i_ret = 1;
+		}
+		
 		break;
 
 	case INS_Null:
@@ -2199,7 +2337,7 @@ GO_ON_FUNC:
 			else {
 				mess.iRet = ERROR_RESULT;
 				TEXTUS_SPRINTF(mess.err_str, "result error at %d of %s", mess.pro_order, cur_def->flow_id);
-				if ( !paci->err_code) mess.snap[Pos_ErrCode].input(paci->err_code);
+				if ( paci->err_code) mess.snap[Pos_ErrCode].input(paci->err_code);
 				i_ret = -2;	//这是map所控制
 			}
 		} else {
@@ -2248,29 +2386,29 @@ INS_PRO:
 				break;
 			}
 			command_wt.cur = 0;
-NEXT_PRI_TRY:
-			command_wt.pac_which = 0;	//新子系列, pac从第0个开始
-			command_wt.pac_step = 0;	//pac处理开始, 
 			if ( usr_com->comp_num == 1 )
 				mess.willLast = true;
 			else 
 				mess.willLast = false; //一个用户操作，包括几个复合指令的尝试，有一个成功，就算OK
+NEXT_PRI_TRY:
+			command_wt.pac_which = 0;	//新子系列, pac从第0个开始
+			command_wt.pac_step = 0;	//pac处理开始, 
 			command_wt.step++;	//指向下一步
-
 		case 1:
 			i_ret = sub_serial_pro( &(usr_com->complex[command_wt.cur]) );
 			if ( i_ret == -1 ) 
 			{
 				if ( command_wt.cur < (usr_com->comp_num-1) )	//用户定义的Abort才试下一个
 				{
-					if ( command_wt.cur == (usr_com->comp_num-1) ) //最后一条复合指令啦，如果出错就调用自定义的出错过程(响应报文设置一些数据，或者向终端发些指令)
-						mess.willLast = true;
 					command_wt.cur++;
 					command_wt.step--;
+					if ( command_wt.cur == (usr_com->comp_num-1) ) //最后一条复合指令啦，如果出错就调用自定义的出错过程(响应报文设置一些数据，或者向终端发些指令)
+						mess.willLast = true;
 					goto NEXT_PRI_TRY;		//试另一个
 				} else {		//最后一条处理失败，定义出错值
 					mess.iRet = ERROR_USER_ABORT;			
 					TEXTUS_SPRINTF(mess.err_str, "user abort at %d of %s", mess.pro_order, cur_def->flow_id);
+					mk_result();		/* 结束 */
 				}
 			} else if ( i_ret < 0 )  //脚本控制或报文定义 的 错误
 			{
@@ -2323,6 +2461,7 @@ void PacWay::mk_result()
 			snd_pac->input(vt->dest_fld_no, &vt->content[0], vt->c_len);
 		}
 	}
+	//{int *a=0; *a=0;}
 	aptus->sponte(&loc_pro_pac);    //制卡的结果回应给控制台
 	mess.reset();
 }
