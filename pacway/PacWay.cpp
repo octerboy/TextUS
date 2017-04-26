@@ -324,6 +324,7 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Null};
 
 		void input(unsigned char *p, unsigned long len, bool link=false)
 		{
+			if ( !def_var ) return;
 			if ( def_var->dy_link || link)
 			{
 				val_p = p;
@@ -341,6 +342,7 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Null};
 
 		void input(int iv)
 		{
+			if ( !def_var ) return;
 			TEXTUS_SPRINTF(val, "%d", iv);
 			c_len = strlen((char*)&val[0]);
 			val[c_len] = 0;
@@ -349,6 +351,7 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Null};
 
 		void input(const char *p, bool link=false)
 		{
+			if ( !def_var ) return;
 			c_len = strlen(p);
 			if ( def_var->dy_link || link)
 			{
@@ -362,6 +365,7 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Null};
 
 		void input(const char p)
 		{
+			if ( !def_var ) return;
 			c_len = 1;
 			val[1] = 0;
 			val_p = (unsigned char*)&val[0];
