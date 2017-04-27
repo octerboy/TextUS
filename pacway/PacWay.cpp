@@ -1678,10 +1678,12 @@ struct User_Command : public Condition {
 struct INS_Set {	
 	struct User_Command *instructions;
 	int many;
+	int ic_num;
 	INS_Set () 
 	{
 		instructions= 0;
 		many = 0;
+		ic_num = 0;
 	};
 
 	~INS_Set () 
@@ -1705,7 +1707,7 @@ struct INS_Set {
 	void put_inses(TiXmlElement *root, struct PVar_Set *var_set, TiXmlElement *map_root, TiXmlElement *pac_def_root)
 	{
 		TiXmlElement *usr_ele, *sub;
-		int mor, cor, vmany, refny, i_num ;
+		int mor, cor, vmany, refny;
 
 		for ( usr_ele= root->FirstChildElement(), refny = 0; 
 			usr_ele; usr_ele = usr_ele->NextSiblingElement())
@@ -1722,7 +1724,7 @@ struct INS_Set {
 		instructions = new struct User_Command[many];
 			
 		mor = -999999;	//这样，顺序号可以从负数开始
-		i_num = 0;
+		ic_num = 0;
 		vmany = 0;
 		for ( usr_ele= root->FirstChildElement(); usr_ele; usr_ele = usr_ele->NextSiblingElement())
 		{
@@ -1735,7 +1737,7 @@ struct INS_Set {
 					usr_ele->QueryIntAttribute("order", &(cor)); 
 					if ( cor <= mor ) continue;	//order不符合顺序的，略过
 					instructions[vmany].order = cor;
-					i_num += instructions[vmany].set_sub(usr_ele, var_set, sub, pac_def_root, map_root);
+					ic_num += instructions[vmany].set_sub(usr_ele, var_set, sub, pac_def_root, map_root);
 					mor = cor;
 					vmany++;
 				}
@@ -2231,7 +2233,7 @@ void PacWay::handle_pac()
 			goto HERE_END;
 		}
 		/* 任务开始  */
-		mess.snap[Pos_TotalIns].input( cur_def->ins_all.many);
+		mess.snap[Pos_TotalIns].input( cur_def->ins_all.ic_num);
 		if ( cur_def->flow_md[0] )
 			mess.snap[Pos_FlowPrint].input( cur_def->flow_md);
 		mess.snap[Pos_FlowID].input(mess.flow_id);
@@ -2373,6 +2375,8 @@ void PacWay::mk_hand()
 
 INS_PRO:
 	usr_com = &(cur_def->ins_all.instructions[mess.ins_which]);
+	if ( mess.snap[Pos_CurCent].def_var) mess.snap[Pos_CurCent].input((mess.ins_which*100)/cur_def->ins_all.many);
+	
 	mess.pro_order = usr_com->order;	
 
 	if ( mess.right_status  ==  RT_READY )	//终端空闲,各类工作单元清空复位
