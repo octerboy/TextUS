@@ -18,3 +18,6 @@ DEBUG_FLAG= -DNNDEBUG
 LIBSOCKET= -lresolv
 _POST_RPO_SUB = cp $@ $(RELEASE_DIR)
 
+JDK_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0_92.jdk/Contents/Home
+JDK_INC_JNI=$(JDK_HOME)/include/darwin
+JavaVM=/System/Library/Frameworks/JavaVM.framework/JavaVM

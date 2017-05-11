@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="gb2312" ?>
+<Key >
+  <Variable name="$WillErrPro" />
+
+  <Variable name="$cardno"  from="4" start="25" length="16" dynamic="yes"/>
+  <Variable name="$Kind" dynamic="yes" from="4" start="17" length="2" desc="卡片类型" />  
+  <Variable name="$bas_info" dynamic="yes" from="4" start="21" length="66" desc="卡号,有效期,车牌等后面的数据" />
+  <Variable name="$Issuer" desc="发行方内容,包括卡类,版本,这里固定" >B9E3B6AB440100011604 </Variable>
+  <Variable name="$Iss_info" dynamic="yes" from="4" start="21" length="28" desc="卡号发行日" />
+
+  <Variable name="$PIN" dynamic="yes"/>
+  <Variable name="$PIN_LC" dynamic="yes"/>
+  <Variable name="FacFlag" />
+  <Variable name="CardDesc" />
+  <Variable name="CardVer" />
+  <Variable name="$Foot_Mark" dynamic="yes">FFFFFFFFFFFFFFFFFFFFFFFFFFFF ff ff ff</Variable>
+  <Variable name="$ink" />
+
+  <Variable name="$uid"  />
+  <Variable name="random" dynamic="yes" />
+  <Variable name="cipher" dynamic="yes" />
+  <Variable name="cipher_mac" dynamic="yes" />
+
+  <Variable name="hsm_status" dynamic="yes" />
+  <Variable name="icc_sw" dynamic="yes" />
+  <ExtAuth desc="主控外部认证" primary="key">
+	<!--location slot都不要了，在insdef.xml中区分-->
+  	<Variable name="me.key.para2" >
+  	<Variable name="me.key.para3" >
+  	<Variable name="me.key.para4" >
+  	<Variable name="me.sw" >
+  	<Variable name="me.sw2" >
+  	<Variable name="me.not_sw" >
+  	<Variable name="me.auth" >
+	<!--key.xxx xxx在变量定义中实现, me.key由分析实现，key是一个参考量, me.sw表明sw是输入参量-->
+
+	<Pro>
+		<icc>
+			<component >00840000 08</component>
+			<reply name="random"/>
+			<sw name="icc_sw"/>
+		</icc>
+	
+  		<Error code="1C">
+  			<if_not name="icc_sw">9000</if_not>
+  		</Error>
+
+	 	<hsm >
+			<head>70</head>
+			<component >01</component>
+			<component desc="密钥索引" >me.key.para2</component>
+			<component desc="分散因子1">me.key.para3</component>
+			<component desc="分散因子2">me.key.para4</component>
+			<component >008</component>
+			<component >random</component>
+			<reply name="cipher" start="9" length="16"/>
+			<status name="hsm_status"/>
+ 		</hsm>
+
+		<icc>
+			<component >me.auth</component>
+			<component >cipher</component>
+			<sw name="icc_sw"/>
+		</icc>
+  		<Error code="1C">
+  			<if name="icc_sw">me.not_sw</if>
+  		</Error>
+  		<Error code="1C">
+  			<if_not name="icc_sw">
+				<value>me.sw</value>
+				<value>me.sw2</value>
+				<value>9000</value>
+			</if_not>
+  		</Error>
+	</Pro>
+  </ExtAuth>
+  <Start>
+	<Pro>
+  	<!--ResetOnce  desc="一发卡复位" -->
+		<feed>
+			<card name="$cardno"/>
+			<flag name="FacFlag"/>
+			<description name="CardDesc"/>
+		</feed>
+		<reset>
+			<uid name="$uid"/>
+			<err name="$reset_info"/>
+		</reset>
+	</Pro>
+  </Start>
+  <End>
+	<Pro>
+	</Pro>
+  </End>
+  <Error>
+  	<Variable name="me.code" >
+	<Pro>
+	<Abort>
+	</Pro>
+  </Error>
+</Key>
+

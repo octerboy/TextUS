@@ -24,7 +24,7 @@ public class TBuffer {
 	public  static final int DEFAULT_TBUFFER_SIZE = 4096;
 	static  { System.loadLibrary("jvmport"); } 
 
-        public  byte[] portPtr;	/* c++ tbUffer 的指针, 以字节数组方式表达 */
+        public  byte[] portPtr;	/* c++ tbUffer 碌脛脰赂脮毛, 脪脭脳脰陆脷脢媒脳茅路陆脢陆卤铆麓茂 */
 
 	public native void grant(int space) ;
 	public native void input(byte[] val) ;

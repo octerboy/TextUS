@@ -23,7 +23,7 @@ import org.w3c.dom.*;
 public class TiXML {
 	
 	static  { System.loadLibrary("jvmport"); } 
-        public  byte[] portPtr;	/* C++ TiXmlElement 的指针, 以字节数组方式表达 */
+        public  byte[] portPtr;	/* C++ TiXmlElement pointer expressed by bytes array */
 
 	public native Document getDocument();
 	public native void putDocument(Document doc);

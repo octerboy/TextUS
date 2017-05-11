@@ -7,46 +7,47 @@ include ../Rules.basemod
 PACDIR = ./jetus/jvmport/
 PACPATH = jetus.jvmport.
 include ../Rules.java
-INCLUDE_DIR  +=  -I../logdata/include -I../baselib/include  -I$(JDK_HOME)/include -I$(JDK_HOME)/include/linux
+INCLUDE_DIR  +=  -I../logdata/include -I../baselib/include  -I$(JDK_HOME)/include -I$(JDK_INC_JNI)
 
-all:jvmport.so  $(PACDIR)/Pius.class $(PACDIR)/Amor.class $(PACDIR)/TBuffer.class $(PACDIR)/PacketData.class $(PACDIR)/TiXML.class
+all:jvmport.so
+all_class:$(PACDIR)/Pius.class $(PACDIR)/Amor.class $(PACDIR)/TBuffer.class $(PACDIR)/PacketData.class $(PACDIR)/TiXML.class
 
 JvmPort.o: JvmPort.cpp
 	${CC} ${CFLAGS} $(INCLUDE_DIR) -I../unipac/include $(DEBUG_FLAG) -DAMOR_CLS_TYPE=JvmPort -o $@ $^
 
 jvmport.so: JvmPort.o 
-	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS)
+	${LD} $(LDFLAGS) $(JavaVM) -o $@ $^ $(LDLIBS) -lbase
 	$(_POST_RPO_SUB)
 
 $(PACDIR)/Amor.class:Amor.java
-	${JC} $^
+	${JC} ${JCFLAGS} $^
 	mv Amor.class $(PACDIR)
 	${JH} $(PACPATH)Amor
 	${JAR} cvf jvmport.jar jetus
 	cp jvmport.jar $(RELEASE_DIR)
 
 $(PACDIR)/Pius.class:Pius.java
-	${JC} $^
+	${JC} ${JCFLAGS} $^
 	mv Pius.class $(PACDIR)
 	${JAR} cvf jvmport.jar jetus
 	cp jvmport.jar $(RELEASE_DIR)
 
 $(PACDIR)/TBuffer.class:TBuffer.java
-	${JC} $^
+	${JC} ${JCFLAGS} $^
 	mv TBuffer.class $(PACDIR)
 	${JH} $(PACPATH)TBuffer
 	${JAR} cvf jvmport.jar jetus
 	cp jvmport.jar $(RELEASE_DIR)
 
 $(PACDIR)/PacketData.class:PacketData.java
-	${JC} $^
+	${JC} ${JCFLAGS} $^
 	mv PacketData.class $(PACDIR)
 	${JH} $(PACPATH)PacketData
 	${JAR} cvf jvmport.jar jetus
 	cp jvmport.jar $(RELEASE_DIR)
 
 $(PACDIR)/TiXML.class: TiXML.java
-	${JC} $^
+	${JC} ${JCFLAGS} $^
 	mv TiXML.class $(PACDIR)
 	${JH} $(PACPATH)TiXML
 	${JAR} cvf jvmport.jar jetus

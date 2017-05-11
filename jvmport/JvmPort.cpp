@@ -18,8 +18,8 @@
 #define TEXTUS_BUILDNO  "$Revision: 20 $"
 /* $NoKeywords: $ */
 
-#include "Notitia.h"
 #include "Amor.h"
+#include "Notitia.h"
 #include "jetus_jvmport_TiXML.h"
 #include "jetus_jvmport_Amor.h"
 #include "jetus_jvmport_PacketData.h"

@@ -17,3 +17,5 @@ DEBUG_FLAG= -DNNDEBUG
 LIBSOCKET=
 _POST_RPO_SUB = cp $@ $(RELEASE_DIR)
 
+JDK_HOME=/usr/local/jdk1.6.0_01
+JDK_INC_JNI=$(JDK_HOME)/include/linux

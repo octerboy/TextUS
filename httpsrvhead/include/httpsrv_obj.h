@@ -94,7 +94,7 @@ Amor::Pius cmd_pius;  /* 仅用于向httpsrv取得HTTP请求数据或设置HTTP响应数据 */
 		return( request_cmd.valStrArr);
 	}; 
 	
-	inline bool headArrContain(const char* name, char *val) 
+	inline bool headArrContain(const char* name, const char *val) 
 	{
 		const char **p;
 		p = getHeadArr(name);
