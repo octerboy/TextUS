@@ -19,7 +19,6 @@
 /* $NoKeywords: $ */
 
 #include "casecmp.h"
-#include "textus_string.h"
 #include "DeHead.h"
 #include <stdio.h>
 #include <ctype.h>
@@ -378,6 +377,47 @@ const char* DeHead::getHead(const char* name)
 	    	}
 	}
 	return (char*)0; 			  	
+}
+
+const char** DeHead::getHeadArray(const char* name)
+{
+	int i,j;
+	char *p, *q;
+	for ( i = 0; i < field_num; i++ )
+	{
+		if ( !field_values[i].name )	//已经到了最后了
+		{
+			break;
+		} else if ( strcasecmp( name, field_values[i].name) == 0 )
+		{
+			if ( field_values[i].type == 0 )
+			{
+				if ( field_values[i].str_array[0] != 0 )
+					return field_values[i].str_array;
+				else {	//进行解析
+					p = field_values[i].str; //p开头不会有空格之类的空白字符, 开始解析时已经处理了.
+					j = 0;
+					while(*p)	
+					{
+						field_values[i].str_array[j] = p;
+						q= strpbrk(p, ",");
+						if ( q )
+						{ 
+    							*q++ = '\0';
+	    						q+= strspn( q, " \t" );
+						}
+						p = q;
+						j++;
+						if ( !p || j == sizeof(field_values[i].str_array)/sizeof(char*)-1 ) break;
+					}
+					field_values[i].str_array[j] = 0;
+					return field_values[i].str_array;
+				}
+			}
+			break;
+		}
+	}
+	return (const char**)0; 			  	
 }
 
 void DeHead::setHead(const char* name, const char* value)

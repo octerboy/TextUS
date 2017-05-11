@@ -45,24 +45,25 @@ public:
 	~Unifom();
 
 	enum WHAT_PAC {NONE_PACK = 0, LFirst = 1, LSecond = 2 , RFirst = 3, RSecond = 4 };
+	enum ACT {ACT_MAP = 0, ACT_FORWARD= 1,  ACT_ANSWER= 2 };
 
 	enum CODE_TYPE {
-	BCD	= 1,	/* Ç°??0, */
-	BCDF	= 2,	/* ????F */
-	DBCD	= 3,	/* ??Ò»Î»ÎªÒ»??????, ?????İ²????? */
-	BCD0	= 4,	/* ????0 */
+	BCD	= 1,	/* Ç°²¹0, */
+	BCDF	= 2,	/* ºó²¹F */
+	DBCD	= 3,	/* µÚÒ»Î»ÎªÒ»¸ö·ûºÅ, Õâ¸öÔİ²»´¦Àí */
+	BCD0	= 4,	/* ºó²¹0 */
 
-	ASCII	= 8,	/* ASCII???Ö·??? */
+	ASCII	= 8,	/* ASCIIÂë×Ö·û´® */
 
-	HEX	= 10,	/* ??Ã¿???Ö½???16???Æ±??? */
-	HEXCAP	= 11,	/* ??Ã¿???Ö½???16???Æ±??? */
+	HEX	= 10,	/* ½«Ã¿¸ö×Ö½Ú×÷16½øÖÆ±í´ï */
+	HEXCAP	= 11,	/* ½«Ã¿¸ö×Ö½Ú×÷16½øÖÆ±í´ï */
 
 	INTEGER	= 22,
 	FLOAT	= 27,
 	DOUBLE	= 28,
 
-	DATETIME	= 29,	/* Ê±???Ö·??? */
-	ASN1_OBJ	= 30,	/* ans.1?????Ä¶??? */
+	DATETIME	= 29,	/* Ê±¼ä×Ö·û´® */
+	ASN1_OBJ	= 30,	/* ans.1Ëù¶¨µÄ¶ÔÏó */
 	ASN1_OBJID	= 40,
 	ASN1_IP		= 41,
 	ASN1_OCT_STR	= 42,
@@ -90,17 +91,18 @@ public:
 		SUBSTR	= 6,
 		CALC	= 7,
 		ObuSNConv= 8,
+		Duplicate= 9,
 		UNKNOWN	= -1
 	};
 
-enum FMethod {		/* ??È¡Öµ???? */
-	GETVAL	=0,	/* Ô­Ê¼?????? */	
-	GETRAW	=1	/* Ô­Ê¼È«???? */	
+enum FMethod {		/* ÓòÈ¡Öµ·½·¨ */
+	GETVAL	=0,	/* Ô­Ê¼¾»ÄÚÈİ */	
+	GETRAW	=1	/* Ô­Ê¼È«ÄÚÈİ */	
 };
 
 typedef struct _Proc_Substr {
-	unsigned int begin;	/* ??Ê¼?? 0  */
-	unsigned int len;	/* ???Ô³???, 0:??Ä© */
+	unsigned int begin;	/* ÆğÊ¼µã 0  */
+	unsigned int len;	/* Ïà¶Ô³¤¶È, 0:µ½Ä© */
 
 	inline _Proc_Substr ()
 	{
@@ -110,9 +112,9 @@ typedef struct _Proc_Substr {
 } Proc_Substr;
 
 typedef struct _Proc_Let {
-	unsigned char *src;	/* ??Öµ???? */
-	unsigned int src_len;	/* ??Öµ???? */
-	FMethod method;	/* È¡Öµ???? */
+	unsigned char *src;	/* ³£ÖµÄÚÈİ */
+	unsigned int src_len;	/* ³£Öµ³¤¶È */
+	FMethod method;	/* È¡Öµ·½·¨ */
 
 	inline _Proc_Let ()
 	{
@@ -146,15 +148,15 @@ struct With_Map {
 	}
 };
 
-typedef struct _Proc_Map {	/* ??Ó¦ */
+typedef struct _Proc_Map {	/* ¶ÔÓ¦ */
 	struct With_Map *map;
 	int mapNum;
 } Proc_Map;
 
-typedef struct _Proc_Trim {	/* ???? */
-	char c;		/* ?????Ö·? */
-	int method;	/* 0: ????, 1: Ç°?? */
-	int len;	/* ?????ä³¤??, 0:Ê¹?äµ½Ò»??2?Ä±??? */
+typedef struct _Proc_Trim {	/* Ìî³ä */
+	char c;		/* ²¹µÄ×Ö·û */
+	int method;	/* 0: ºó²¹, 1: Ç°²¹ */
+	int len;	/* Âú×ãÆä³¤¶È, 0:Ê¹Æäµ½Ò»¸ö2µÄ±¶Êı */
 	inline _Proc_Trim () 
 	{
 		c = 0;
@@ -163,14 +165,14 @@ typedef struct _Proc_Trim {	/* ???? */
 	};
 } Proc_Trim;
 
-typedef struct _Proc_Now {	/* È¡??Ç°Ê±?? */
-	/* È¡??Ç°Ê±?? */
-	char *format;	/* ??Ê½, ????Îªnull, ??Ä¿????Ò»??int??*/	
+typedef struct _Proc_Now {	/* È¡µ±Ç°Ê±¼ä */
+	/* È¡µ±Ç°Ê±¼ä */
+	char *format;	/* ¸ñÊ½, Èç¹ûÎªnull, ÔòÄ¿±êÊÇÒ»¸öintĞÍ*/	
 	int use_milli;
 	inline _Proc_Now ()
 	{
 		format = 0;
-		use_milli = 0;	//???Ã¸???????
+		use_milli = 0;	//²»ÓÃ¸ø³öºÁÃë
 	}
 
 	inline ~_Proc_Now ()
@@ -181,23 +183,23 @@ typedef struct _Proc_Now {	/* È¡??Ç°Ê±?? */
 	};
 } Proc_Now;
 
-enum Calc_Type {	/* ???????ã·½?? */
+enum Calc_Type {	/* ËÄÔòÔËËã·½·¨ */
 	NONE_CALC	= 0,
-	ADD		= 1,	/* ?? */	
-	SUBTRACT	= 2,	/* ?? */
-	DIVIDE		= 3,	/* ?? */
-	MULTIPLY 	= 4	/* ?? */
+	ADD		= 1,	/* ¼Ó */	
+	SUBTRACT	= 2,	/* ¼õ */
+	DIVIDE		= 3,	/* ³Ë */
+	MULTIPLY 	= 4	/* ³ı */
 };
 
-typedef struct _Proc_Calc {	/* ???????? */
+typedef struct _Proc_Calc {	/* ËÄÔòÔËËã */
 	
-	Calc_Type type;	/* ???????? */
-	int source_1;	/* ??Ò»????, -1????Í¼È¡????, >=0 È¡Ä³????  */
+	Calc_Type type;	/* ¼ÆËãÀàĞÍ */
+	int source_1;	/* µÚÒ»Òò×Ó, -1ÔòÊÔÍ¼È¡³£Êı, >=0 È¡Ä³¸öÓò  */
 	int source_2;
 
-	const char *cons;	/* ??Á¿ */
-	int i_cons;		/* ???? */
-	double d_cons;		/* Ë«???? */
+	const char *cons;	/* ³£Á¿ */
+	int i_cons;		/* ÕûĞÍ */
+	double d_cons;		/* Ë«¾«¶È */
 
 		
 	inline _Proc_Calc ()
@@ -211,15 +213,15 @@ typedef struct _Proc_Calc {	/* ???????? */
 	};
 } Proc_Calc;
 
-typedef struct _Proc_Convert {	/* ??????Ê½×ª?? */
-	CODE_TYPE src_type;	/* Ô´???ë·½Ê½ */
-	CODE_TYPE dst_type;	/* Ä¿?????ë·½Ê½ */
-	char *format;		/* ??Ê½ */
-	int len;		/* ???????? */
-	/*	Ö§??????????, ???Ï·??ß²????? 
-		BCD(BCD0??) -> ASCII : 
-		BCD(BCD0??) -> INTEGER: 
-		ASCII -> BCD : ??16???Æ±?????, ??×ª
+typedef struct _Proc_Convert {	/* ±àÂë¸ñÊ½×ª»» */
+	CODE_TYPE src_type;	/* Ô´±àÂë·½Ê½ */
+	CODE_TYPE dst_type;	/* Ä¿±ê±àÂë·½Ê½ */
+	char *format;		/* ¸ñÊ½ */
+	int len;		/* ÕûÊı²ÎÊı */
+	/*	Ö§³ÖÒÔÏÂÀàĞÍ, ²»ºÏ·¨Õß²»´¦Àí 
+		BCD(BCD0µÈ) -> ASCII : 
+		BCD(BCD0µÈ) -> INTEGER: 
+		ASCII -> BCD : ·²16½øÖÆ±í´ïµÄ, ¶¼×ª
 		ASCII -> INGEGER
 		ANY  -> HEX:
 		HEX  -> ANY:
@@ -235,9 +237,9 @@ typedef struct _Proc_Convert {	/* ??????Ê½×ª?? */
 			ASN1_COUNTER64
 	
 		INTEGER	-> ASN1_INTEGER
-		INTEGER(FLOAT??) -> ASCII, Ò»????Ê½??×ª,?Ş¸?Ê½??Ö±????10???Æ±???
+		INTEGER(FLOATµÈ) -> ASCII, Ò»¶¨¸ñÊ½µÄ×ª,ÎŞ¸ñÊ½ÔòÖ±½ÓÊÇ10½øÖÆ±í´ï
 		INTEGER	-> BCD
-		INTEGER ??FLOAT?? DOUBLE??Ö®???Ä»?×ª
+		INTEGER ¡¢FLOAT¡¢ DOUBLEµÈÖ®¼äµÄ»¥×ª
 	*/
 	inline _Proc_Convert () {
 		format = 0;
@@ -245,18 +247,18 @@ typedef struct _Proc_Convert {	/* ??????Ê½×ª?? */
 	};
 } Proc_Convert;
 
-/* ???Ô¹ã¶«????OBU???????Åµ?×ª??, ??16Î»?Ä±???????, ?Ã³?OBU MAC, Í¬Ê±??????Ô­À´?Ä±??? */
-typedef struct _ObuSn_Convert {	/* ??????Ê½×ª?? */
+/* Õë¶Ô¹ã¶«¹ú±êOBU±íÃæ±àºÅµÄ×ª»», ´Ó16Î»µÄ±íÃæ±àºÅ, µÃ³öOBU MAC, Í¬Ê±»¹±£ÁôÔ­À´µÄ±àºÅ */
+typedef struct _ObuSn_Convert {	/* ±àÂë¸ñÊ½×ª»» */
 	Proc_Map factory_map;
 } Proc_ObuSN;
 
-/* Ã¿??????×ª?????? */
+/* Ã¿¶ÔÓòµÄ×ª»»¶¨Òå */
 typedef struct _ProcDef {
-	PROC_TYPE type;	/* ×ª?????? */
-	WHAT_PAC src_what, dst_what;	/* ??src_what (PacketObj)È¡, ?ä»»??dst_what */
-	int src_no;	/* Ô´???? */
-	int dst_no;	/* Ä¿?????? */
-	void *prc;	/* ????×ª?????Ì¶??? */
+	PROC_TYPE type;	/* ×ª»»ÀàĞÍ */
+	WHAT_PAC src_what, dst_what;	/* ´Ósrc_what (PacketObj)È¡, ±ä»»µ½dst_what */
+	int src_no;	/* Ô´ÓòºÅ */
+	int dst_no;	/* Ä¿±êÓòºÅ */
+	void *prc;	/* ¾ßÌå×ª»»¹ı³Ì¶¨Òå */
 	inline _ProcDef () {
 		type = UNKNOWN;
 		prc = 0;
@@ -309,30 +311,30 @@ typedef ProcDef* PProcDef;
 private:
 	Amor::Pius local_pius;
 
-	PacketObj *rcv_pac;	/* À´?????Úµ???PacketObj */
+	PacketObj *rcv_pac;	/* À´×Ô×ó½ÚµãµÄPacketObj */
 	PacketObj *snd_pac;
 
-	PacketObj *r1st_pac;	/* À´???Ò½Úµ???PacketObj */
+	PacketObj *r1st_pac;	/* À´×ÔÓÒ½ÚµãµÄPacketObj */
 	PacketObj *r2nd_pac;
 
 	PacketObj do_pac;
-	PacketObj un_pac;	/* ???Ò´??İµ? */
+	PacketObj un_pac;	/* ÏòÓÒ´«µİµÄ */
 	PacketObj *pa[3];
 
 	struct G_CFG {
-		int fldOffset;	/* ????PacketObjÊ±, ?????Ğµ????Å¼??Ï´?Öµ(Æ«??Á¿)??Êµ?Ê´???????, ??Ê¼Îª0 */
-		bool hasPacket;
-		bool onlyMap;
-		int maxium_fldno;		/* ???????? */
+		int fldOffset;	/* ´¦ÀíPacketObjÊ±, ¶¨ÒåÖĞµÄÓòºÅ¼ÓÉÏ´ËÖµ(Æ«ÒÆÁ¿)¼´Êµ¼Ê´¦ÀíµÄÓò, ³õÊ¼Îª0 */
+		enum ACT what_act;	/* Ê²Ã´¶¯×÷, ¸øÒÔÏìÓ¦, »¹ÊÇ½ömap, »òÔÙ×ª */
+		
+		int maxium_fldno;		/* ×î´óÓòºÅ */
 	
-		int both_defNum;		/* ???å´¦????Ä¿?? */
-		ProcDef	*both_defProcs;	/* ?????????? */
+		int both_defNum;		/* ¶¨Òå´¦ÀíÏîÄ¿Êı */
+		ProcDef	*both_defProcs;	/* ´¦ÀíÏîÊı×é */
 
-		int fac_defNum;		/* ???å´¦????Ä¿?? */
-		ProcDef	*fac_defProcs;	/* ?????????? */
+		int fac_defNum;		/* ¶¨Òå´¦ÀíÏîÄ¿Êı */
+		ProcDef	*fac_defProcs;	/* ´¦ÀíÏîÊı×é */
 
-		int spo_defNum;		/* ???å´¦????Ä¿?? */
-		ProcDef	*spo_defProcs;	/* ?????????? */
+		int spo_defNum;		/* ¶¨Òå´¦ÀíÏîÄ¿Êı */
+		ProcDef	*spo_defProcs;	/* ´¦ÀíÏîÊı×é */
 		inline G_CFG() {
 			fldOffset = 0;
 
@@ -343,8 +345,7 @@ private:
 			spo_defNum = 0;
 			spo_defProcs = 0;
 
-			hasPacket = false;
-			onlyMap = false;
+			what_act = ACT_MAP;
 			maxium_fldno = 0;
 		};	
 		inline ~G_CFG() {
@@ -353,7 +354,7 @@ private:
 			if ( both_defProcs ) delete[] both_defProcs;
 		};
 	};
-	struct G_CFG *gCFG;     /* È«?Ö¹??????? */
+	struct G_CFG *gCFG;     /* È«¾Ö¹²Ïí²ÎÊı */
 	bool has_config;
 
 	PACINLINE void handle(int defNum, PProcDef defProcs, bool negative=false);
@@ -362,6 +363,7 @@ private:
 	PACINLINE void dotrim(FieldObj &fldIn, PacketObj &, unsigned int out, bool &negatvie, Proc_Trim &def);
 	PACINLINE void dosubstr(FieldObj &fldIn, PacketObj &, unsigned int out, Proc_Substr &def);
 	PACINLINE void dolet(FieldObj *fldIn, PacketObj &, unsigned int out, Proc_Let &def);
+	PACINLINE void duplicate(PacketObj &in, PacketObj &out);
 	PACINLINE void donow(FieldObj *fldIn, PacketObj &, unsigned int out, Proc_Now &def);
 	PACINLINE void docalc(FieldObj *fldIn, PacketObj &, unsigned int out, Proc_Calc &def);
 	PACINLINE void do_obu_sn(FieldObj &fldIn, PacketObj &, unsigned int out, bool &negatvie, Proc_ObuSN &def);
@@ -386,13 +388,15 @@ void Unifom::ignite(TiXmlElement *prop)
 	if ( (comm_str = prop->Attribute("offset")) )
 		gCFG->fldOffset = atoi(comm_str);
 
-	gCFG->hasPacket = false;
-	if ( (comm_str = prop->Attribute("provide")) && strcasecmp(comm_str, "packet") == 0 )
-		gCFG->hasPacket = true;
-
-	gCFG->onlyMap = false;
-	if ( (comm_str = prop->Attribute("mapOnly")) && strcasecmp(comm_str, "yes") == 0 )
-		gCFG->onlyMap = true;
+	if ( (comm_str = prop->Attribute("act")) )
+	{
+		if (strcasecmp(comm_str, "map") == 0 )
+			gCFG->what_act = ACT_MAP;
+		if (strcasecmp(comm_str, "forward") == 0 )
+			gCFG->what_act = ACT_FORWARD;
+		if (strcasecmp(comm_str, "answer") == 0 )
+			gCFG->what_act = ACT_ANSWER;
+	}
 
 	if ( (comm_str = prop->Attribute("maxium")) )
 		gCFG->maxium_fldno = atoi(comm_str);
@@ -404,7 +408,7 @@ void Unifom::ignite(TiXmlElement *prop)
 	get_def(prop->FirstChildElement("sponte"), gCFG->spo_defNum, gCFG->spo_defProcs);
 	get_def(prop->FirstChildElement("both"), gCFG->both_defNum, gCFG->both_defProcs);
 
-	if ( gCFG->hasPacket )
+	if ( gCFG->maxium_fldno > 0)
 	{
 		do_pac.produce(gCFG->maxium_fldno) ;
 		un_pac.produce(gCFG->maxium_fldno) ;
@@ -426,12 +430,12 @@ void Unifom::get_def(TiXmlElement *cfg, int &defNum, PProcDef &defProcs)
 	Proc_Substr *prosubstr;
 	int i;
 
-	WHAT_PAC from_what = NONE_PACK, to_what = NONE_PACK;	/* È«?ÖµÄ¶??? */
+	WHAT_PAC from_what = NONE_PACK, to_what = NONE_PACK;	/* È«¾ÖµÄ¶¨Òå */
 
 	if ( !cfg )
 		return;
 	
-	if ( defProcs ) delete[] defProcs;	/* ??????Ç°?Ä¶??? */
+	if ( defProcs ) delete[] defProcs;	/* Çå³ıÒÔÇ°µÄ¶¨Òå */
 	defProcs = 0;
 
 #define GETONETYPEPAC(TAG, WHAT, VAR, ELE) \
@@ -444,10 +448,10 @@ void Unifom::get_def(TiXmlElement *cfg, int &defNum, PProcDef &defProcs)
 	GETONETYPEPAC(TAG, RFirst,  VAR, ELE);	\
 	GETONETYPEPAC(TAG, RSecond, VAR, ELE);	
 
-	GETPAC("from", from_what, cfg);	/* ????È«?Ö¶??? */
+	GETPAC("from", from_what, cfg);	/* ±¾¶ÎÈ«¾Ö¶¨Òå */
 	GETPAC("to", to_what, cfg);
 
-	/* ?????Ğ¶??Ù¶???Òª×ª?? */
+	/* ¼ÆËãÓĞ¶àÉÙ¶ÔÓòÒª×ª»» */
 	fld_ele= cfg->FirstChildElement(); defNum = 0;
 	while(fld_ele)
 	{
@@ -461,6 +465,7 @@ void Unifom::get_def(TiXmlElement *cfg, int &defNum, PProcDef &defProcs)
 			    ||	strcasecmp(fld_ele->Value(), "substr") ==0 
 			    ||	strcasecmp(fld_ele->Value(), "now") ==0 
 			    ||	strcasecmp(fld_ele->Value(), "calc") ==0
+			    ||	strcasecmp(fld_ele->Value(), "duplicate") ==0
 			    ||	strcasecmp(fld_ele->Value(), "get_obu_id") ==0 )
 
 				defNum++;
@@ -501,7 +506,7 @@ void Unifom::get_def(TiXmlElement *cfg, int &defNum, PProcDef &defProcs)
 		WHATCODE(IP_ADDR_STR,Y)		\
 		WHATCODE(IP_ADDR_BIN,Y)
 	
-	/* Ã¿Ò»?Î¶??å´¦?? */
+	/* Ã¿Ò»¶Î¶¨Òå´¦Àí */
 	fld_ele= cfg->FirstChildElement();
 	def = &defProcs[0] ; defNum= 0;
 	while(fld_ele)
@@ -516,13 +521,14 @@ void Unifom::get_def(TiXmlElement *cfg, int &defNum, PProcDef &defProcs)
 		WHATPROC(SUBSTR)
 		WHATPROC(LET)
 		WHATPROC(CALC)
+		WHATPROC(Duplicate)
 
 		if ( strcasecmp(fld_ele->Value(), "get_obu_id") ==0  ) 
 			def->type = ObuSNConv;
 
-		def->src_what = from_what;	/* ??È¡È«?? */
+		def->src_what = from_what;	/* ÏÈÈ¡È«¾Ö */
 		def->dst_what = to_what;
-		GETPAC("from", def->src_what, fld_ele);	/* ?Ö²????? */
+		GETPAC("from", def->src_what, fld_ele);	/* ¾Ö²¿ÓÅÏÈ */
 		GETPAC("to", def->dst_what, fld_ele);
 
 		switch(def->type )
@@ -695,6 +701,8 @@ MAP_DEF_PRO:
 				prosubstr->len = atoi(comm_str);
 
 			break;
+		case Duplicate:
+			break;
 		
 		default :
 			goto NEXTELE;
@@ -739,7 +747,7 @@ Amor* Unifom::clone()
 {
 	Unifom *child = new Unifom();
 	child->gCFG = gCFG;
-	if ( gCFG->hasPacket )
+	if ( gCFG->maxium_fldno >0 )
 	{
 		child->do_pac.produce(do_pac.max);
 		child->un_pac.produce(un_pac.max);
@@ -760,17 +768,22 @@ bool Unifom::facio( Amor::Pius *pius)
 		handle(gCFG->fac_defNum, gCFG->fac_defProcs);
 		handle(gCFG->both_defNum, gCFG->both_defProcs);
 	
-		if (gCFG->onlyMap)
-			break;
-
-		if ( gCFG->hasPacket )
-			aptus->facio(&local_pius);
-		else
-			aptus->sponte(&local_pius);
+		switch ( gCFG->what_act )
+		{
+			case ACT_MAP:
+				break;
+			case ACT_FORWARD:
+				aptus->facio(&local_pius);
+				break;
+			case ACT_ANSWER:
+				aptus->sponte(&local_pius);
+				break;
+			default:
+				break;
+		}
 		break;
 
 	case Notitia::SET_UNIPAC:
-		WBUG("facio SET_UNIPAC");
 		if ( (tmp = (PacketObj **)(pius->indic)))
 		{
 			if ( *tmp) rcv_pac = *tmp; 
@@ -780,11 +793,10 @@ bool Unifom::facio( Amor::Pius *pius)
 			if ( *tmp) snd_pac = *tmp;
 			else
 				WLOG(WARNING, "facio SET_UNIPAC snd_pac null");
+			WBUG("facio SET_UNIPAC rcv_pac(%p) snd_pac(%p)", rcv_pac, snd_pac);
 		} else 
 			WLOG(WARNING, "facio SET_UNIPAC null");
 		
-		if ( !gCFG->hasPacket )	/* ?Ô¼????????Ò±?PacketObj, ???????Ò±ß´???  */
-			aptus->facio(pius);
 		break;
 
 	case Notitia::IGNITE_ALL_READY:
@@ -795,7 +807,7 @@ bool Unifom::facio( Amor::Pius *pius)
 	case Notitia::CLONE_ALL_READY:
 		WBUG("facio CLONE_ALL_READY" );
 DEL_PAC:
-		if ( gCFG->hasPacket )
+		if ( gCFG->maxium_fldno > 0)
 			deliver(Notitia::SET_UNIPAC);
 		break;
 
@@ -817,17 +829,22 @@ bool Unifom::sponte( Amor::Pius *pius)
 		handle(gCFG->spo_defNum, gCFG->spo_defProcs);
 		handle(gCFG->both_defNum, gCFG->both_defProcs, true);
 
-		if (gCFG->onlyMap)
-			break;
-
-		aptus->sponte(&local_pius);
+		switch ( gCFG->what_act )
+		{
+			case ACT_MAP:
+				break;
+			case ACT_FORWARD:
+				aptus->facio(&local_pius);
+				break;
+			case ACT_ANSWER:
+				aptus->sponte(&local_pius);
+				break;
+			default:
+				break;
+		}
 		break;
 
 	case Notitia::SET_UNIPAC:
-		WBUG("sponte SET_UNIPAC");
-		if ( gCFG->hasPacket )	/* ?Ô¼???, ???????Ò±ßµ? */
-			break;
-
 		if ( (tmp = (PacketObj **)(pius->indic)))
 		{
 			if ( *tmp) r1st_pac = *tmp; 
@@ -837,8 +854,7 @@ bool Unifom::sponte( Amor::Pius *pius)
 			if ( *tmp) r2nd_pac = *tmp;
 			else
 				WLOG(WARNING, "sponte SET_UNIPAC snd_pac null");
-
-			aptus->sponte(pius);
+			WBUG("sponte SET_UNIPAC r1st_pac(%p) r2nd_pac(%p)", r1st_pac, r2nd_pac);
 		} else 
 			WLOG(WARNING, "sponte SET_UNIPAC null");
 
@@ -864,7 +880,7 @@ PACINLINE void Unifom::handle(int defNum, PProcDef defProcs, bool negative)
 	Proc_Let *prolet;
 
 	WBUG("defNum is %d", defNum);
-/*D:????, O:????Á¿ */
+/*D:¶¨Òå, O:°ü±äÁ¿ */
 #define SW(D, O)	\
 		switch (def->D)			\
 		{				\
@@ -907,7 +923,7 @@ PACINLINE void Unifom::handle(int defNum, PProcDef defProcs, bool negative)
 		PacketObj *pacIn = 0, *pacOut = 0;
 		int l_dstno = -1 , l_srcno = -1;
 
-		/* ????negative????, ??????first??second?à·´, È»????in??out?à·´ */
+		/* ¶ÔÓÚnegativeÇé¿ö, Ê×ÏÈÊÇfirstÓësecondÏà·´, È»ºóÊÇinºÍoutÏà·´ */
 		if ( !negative )
 		{
 			SW(src_what, pacIn)
@@ -920,6 +936,11 @@ PACINLINE void Unifom::handle(int defNum, PProcDef defProcs, bool negative)
 		if ( !pacIn || !pacOut )
 			continue;
 
+		if ( def->type == Duplicate )
+		{
+			duplicate(*pacIn, *pacOut);
+			continue;
+		}
 		if ( def->dst_no >=0 )
 			l_dstno = def->dst_no + gCFG->fldOffset;
 
@@ -928,7 +949,7 @@ PACINLINE void Unifom::handle(int defNum, PProcDef defProcs, bool negative)
 
 		fldIn = (FieldObj *)0;
 		if ( negative )
-		{	/* ?????à·´, ??pacIn??pacOut??È·??, ????È¡?? */
+		{	/* ÓòºÅÏà·´, µ«pacIn¡¢pacOut¶¼È·¶¨, ²»ÔÙÈ¡·´ */
 			out = l_srcno;
 			if ( pacIn->max >= l_dstno && l_dstno >= 0)
 				fldIn = &pacIn->fld[l_dstno];
@@ -938,11 +959,11 @@ PACINLINE void Unifom::handle(int defNum, PProcDef defProcs, bool negative)
 				fldIn = &pacIn->fld[l_srcno];
 		}
 	
-		if ( out > pacOut->max || out < 0 )	/* Ô½???Ä²????? */
+		if ( out > pacOut->max || out < 0 )	/* Ô½½çµÄ²»´¦Àí */
 			continue;
 
 		if ( !(def->type == LET || def->type == NOW)  )
-		{	/* ????LET NOW, Ô´?????Ç¿Õµ?,?Ó³?Á¿È¡, !fldIn ????????Ô½?? */
+		{	/* ¶ÔÓÚLET NOW, Ô´¿ÉÒÔÊÇ¿ÕµÄ,´Ó³£Á¿È¡, !fldIn ±íÃ÷¶¨ÒåÔ½½ç */
 			if (!fldIn || fldIn->no < 0 || fldIn->range <= 0 )
 				continue;	
 		}
@@ -992,7 +1013,6 @@ PACINLINE void Unifom::handle(int defNum, PProcDef defProcs, bool negative)
 			prolet = (Proc_Let *) def->prc;
 			dolet(fldIn, *pacOut, out, *prolet);
 			break;
-
 
 		default:
 			WBUG("%d UNKNOWN type %d", i, def->type);
@@ -1045,22 +1065,22 @@ void Unifom::convert(FieldObj &fldIn, PacketObj &pac, unsigned int fldOut, bool 
 					vbuf[0] = Obtainx((fldIn.val[0] & 0xF0 ) >> 4 );
 					vbuf[1] = Obtainx(fldIn.val[0] & 0x0F );
 					len = 2;
-				} else	/* ??BCD??????Îª????Ê±, ??Ò»?Ö½Úµ?Ç°???Ö½Ú±????? */
+				} else	/* ÔÚBCDÂë¸öÊıÎªÆæÊıÊ±, µÚÒ»×Ö½ÚµÄÇ°°ë×Ö½Ú±»ºöÂÔ */
 				{
 					vbuf[0] = Obtainx(fldIn.val[0] & 0x0F );
 					len = 1;
 				}
-				j = 1;	/* ?????Ö½Ú´ÓµÚ¶?????Ê¼ */
-				i = fldIn.range;	/* ???íµ½????Ò»?Ö½? */
+				j = 1;	/* ÊäÈë×Ö½Ú´ÓµÚ¶ş¸ö¿ªÊ¼ */
+				i = fldIn.range;	/* ´¦Àíµ½×îºóÒ»×Ö½Ú */
 				break;
 
 			default:
-				len = 0;/* ??????Ò»????Ê¼ */
-				j = 0;	/* ?????Ö½Ú´Óµ?Ò»????Ê¼ */
+				len = 0;/* Êä³öµÚÒ»¸ö¿ªÊ¼ */
+				j = 0;	/* ÊäÈë×Ö½Ú´ÓµÚÒ»¸ö¿ªÊ¼ */
 				if ( fldIn.len %2 == 0 )
 					i = fldIn.range ;
 				else
-					i = fldIn.range - 1;	/* ????Ò»?Ö½Ú²????? */
+					i = fldIn.range - 1;	/* ×îºóÒ»×Ö½Ú²»´¦Àí */
 				break;
 			}
 			
@@ -1078,7 +1098,7 @@ void Unifom::convert(FieldObj &fldIn, PacketObj &pac, unsigned int fldOut, bool 
 			case BCDF:
 				if ( fldIn.len %2 != 0 )
 				{
-					/* ???????Ö½Ú±????? */
+					/* ×îºó°ë×Ö½Ú±»ºöÂÔ */
 					vbuf[len] = Obtainx((fldIn.val[j] & 0xF0 ) >> 4 );
 					len++;
 				}
@@ -1096,18 +1116,18 @@ void Unifom::convert(FieldObj &fldIn, PacketObj &pac, unsigned int fldOut, bool 
 			result1 = 0;
 			for ( j = 0; j < fldIn.range-1; j++ )
 			{
-				/* ????Ò»?Ö½??İ²?????, ?Ó³??È¶??? */
+				/* ×îºóÒ»×Ö½ÚÔİ²»´¦Àí, ÊÓ³¤¶È¶ø¶¨ */
 				result1 *= 10;
 				result1 += (fldIn.val[j] & 0xF0) >> 4;
 				result1 *= 10;
 				result1 += fldIn.val[j] & 0x0F ;
 			}
 
-			/* j?Ñ¾?Ö¸??????Ò»?Ö½?,?È°Ñ¸?4Î»?????? */
+			/* jÒÑ¾­Ö¸Ïò×îºóÒ»×Ö½Ú,ÏÈ°Ñ¸ß4Î»´¦Àíµô */
 			result1 *= 10;
 			result1 += (fldIn.val[j] & 0xF0) >> 4;
 			if ( fldIn.len %2 == 0 || in == BCD  )
-			{	/* ???????å³¤??Îª??????BCDF??BCD0??????, ???????Ö½Ú±????? */
+			{	/* ¶ÔÓÚÃûÒå³¤¶ÈÎªÆæÊıµÄBCDF¡¢BCD0µÄÇé¿ö, ×îºó°ë×Ö½Ú±»ºöÂÔ */
 				result1 *= 10;
 				result1 += fldIn.val[j] & 0x0F ;
 			}
@@ -1201,12 +1221,12 @@ void Unifom::convert(FieldObj &fldIn, PacketObj &pac, unsigned int fldOut, bool 
 		case BCD0:
 		case BCDF:
 			len = fldIn.range/2;
-			/* ??Ò»?Ö½?, ????Ó¦?Ö½???Îª?????????? */
+			/* ¶àÒ»×Ö½Ú, ÒÔÊÊÓ¦×Ö½ÚÊıÎªÆæÊıµÄÇé¿ö */
 			if ( fldIn.range %2 != 0 ) len++;
 			pac.grant(len);		
 
 			vbuf = pac.buf.point;
-			pac.fld[fldOut].len = fldIn.range;		/* ???????å³¤?? */
+			pac.fld[fldOut].len = fldIn.range;		/* ¸ø³öÃûÒå³¤¶È */
 
 			i = 0;	
 			j = 0;
@@ -1216,22 +1236,22 @@ void Unifom::convert(FieldObj &fldIn, PacketObj &pac, unsigned int fldOut, bool 
 				{
 				case BCD:
 					vbuf[0] = 0x0F & Obtainc(fldIn.val[0]);	
-								/* ???Ú²?ÎªÅ¼????, ??Ò»Î»??0,??Ò»?Ö·??Ñ´??? */
-					i = 1;			/* Ö¸???Ú¶????????Ö½? */
-					j = 1;			/* Ö¸???Ú¶????????Ö·? */
+								/* ¶ÔÓÚ²»ÎªÅ¼ÊıµÄ, µÚÒ»Î»²¹0,µÚÒ»×Ö·ûÒÑ´¦Àí */
+					i = 1;			/* Ö¸ÏòµÚ¶ş¸öÊä³ö×Ö½Ú */
+					j = 1;			/* Ö¸ÏòµÚ¶ş¸öÊäÈë×Ö·û */
 					len2 = len;
 					break;
 
 				case BCD0:
 					vbuf[len-1] = (0x0F & Obtainc(fldIn.val[fldIn.range-1])) << 4;
-								/* ???Ú²?ÎªÅ¼????, ????Î»??0,????Ò»?Ö·??Ñ´??? */
-					len2 = len-1;		/* ???????í²»?????????Ö·? */
+								/* ¶ÔÓÚ²»ÎªÅ¼ÊıµÄ, ×îºóÎ»²¹0,×îºóÒ»×Ö·ûÒÑ´¦Àí */
+					len2 = len-1;		/* ºóĞø´¦Àí²»ÔÙÓĞ×îºó×Ö·û */
 					break;
 
 				case BCDF:
 					vbuf[len-1] = 0x0F | ((0x0F & Obtainc(fldIn.val[fldIn.range-1])) << 4);
-								/* ???Ú²?ÎªÅ¼????, ????Î»??F,????Ò»?Ö·??Ñ´??? */
-					len2 = len-1;		/* ???????í²»?????????Ö·? */
+								/* ¶ÔÓÚ²»ÎªÅ¼ÊıµÄ, ×îºóÎ»²¹F,×îºóÒ»×Ö·ûÒÑ´¦Àí */
+					len2 = len-1;		/* ºóĞø´¦Àí²»ÔÙÓĞ×îºó×Ö·û */
 					break;
 
 				default:
@@ -1286,14 +1306,14 @@ void Unifom::convert(FieldObj &fldIn, PacketObj &pac, unsigned int fldOut, bool 
 			vbuf = pac.buf.point;
 			pac.fld[fldOut].len = def.len; 
 
-			jj = len -1;	/* jÖ¸??????Ò»???????Ö½? */
+			jj = len -1;	/* jÖ¸Ïò×îºóÒ»¸öÊä³ö×Ö½Ú */
 			switch ( out )
 			{
 			case BCD0:
 			case BCDF:
 				if ( def.len %2 != 0 )
 				{
-					/* yes,????Ò»???????Ö½??Ñ¾????? */
+					/* yes,×îºóÒ»¸öÊä³ö×Ö½ÚÒÑ¾­´¦Àí */
 					vbuf[jj] =((result1%10) & 0x0f) << 4;
 					result1 /=10;
 					if( out == BCDF )
@@ -1387,7 +1407,7 @@ void Unifom::convert(FieldObj &fldIn, PacketObj &pac, unsigned int fldOut, bool 
 		{
 		case IP_ADDR_BIN:
 			len = 1;
-			for ( j = 0; j < fldIn.range; j++ )	/* ?Ğ¶??Ù¸?".", ???Ğ¶??Ù¸?(+1)?Ö½? */
+			for ( j = 0; j < fldIn.range; j++ )	/* ÓĞ¶àÉÙ¸ö".", ¼´ÓĞ¶àÉÙ¸ö(+1)×Ö½Ú */
 				if ( fldIn.val[j] == '.' ) len++;
 			pac.grant(len);
 			vbuf = pac.buf.point;
@@ -1472,7 +1492,7 @@ void Unifom::do_obu_sn(FieldObj &fldIn, PacketObj &pac, unsigned int out, bool &
 	if ( o_len < 16 || o_len > 100 ) 
 		return ;
 
-	memcpy(o_sn, fldIn.val, fldIn.range);	//????Ò»?Â¾ÉµÄ±??????Å¼?????????
+	memcpy(o_sn, fldIn.val, fldIn.range);	//±£´æÒ»ÏÂ¾ÉµÄ±íÃæ±àºÅ¼°ÆäËüÊı¾İ
 	memcpy(&fac_type[0], &o_sn[6], 2);
 
 	for ( i = 0, pmap = &(def.factory_map.map[0]); i < num; i++, pmap++)
@@ -1493,7 +1513,7 @@ void Unifom::do_obu_sn(FieldObj &fldIn, PacketObj &pac, unsigned int out, bool &
 		if ( from == (unsigned char*) 0 
 			|| ( 2 == flen && memcmp(&fac_type[0], from, flen) == 0 ) ) 
 		{
-			/* ???????????????Ë£??????????? */
+			/* ³§ÉÌÓëÀà±ğ¶ÔÉÏÁË£¬ÏÂÃæ×÷´¦Àí */
 			int obu_serial, j;
 			char obu_hex[16];
 	
@@ -1503,14 +1523,14 @@ void Unifom::do_obu_sn(FieldObj &fldIn, PacketObj &pac, unsigned int out, bool &
 				obu_serial *= 10;
 				obu_serial += Obtainc(o_sn[j]) ;
 			}
-			obu_serial = obu_serial%20000000;	//????Î»??2È¡Ä£, ?????????????ÎµÄ»??
+			obu_serial = obu_serial%20000000;	//×î¸ßÎ»¶Ô2È¡Ä£, Èç¹ûÕâÀïÓĞÅú´ÎµÄ»°¡
 			TEXTUS_SPRINTF(obu_hex, "%06X", obu_serial);
 			memcpy(&n_sn[0], &o_sn[0], 8);
-			memcpy(&n_sn[8], to, 2);		//16???ÆµÄ³??Ì´???
-			memcpy(&n_sn[10], &obu_hex[0], 6);	//16???Æµ?????
-			memcpy(&n_sn[16], &o_sn[16], o_len-16);	//?????Ä²???
+			memcpy(&n_sn[8], to, 2);		//16½øÖÆµÄ³§ÉÌ´úÂë
+			memcpy(&n_sn[10], &obu_hex[0], 6);	//16½øÖÆµÄĞòºÅ
+			memcpy(&n_sn[16], &o_sn[16], o_len-16);	//ÆäËüµÄ²¹ÉÏ
 			n_len = o_len;
-			pac.input(out, &n_sn[0], n_len);	//????????,Ò²??????Ô­À´????
+			pac.input(out, &n_sn[0], n_len);	//¸øµ½ĞÂÓò,Ò²Ğí¾ÍÊÇÔ­À´µÄÓò
 			break;
 		}
 	}
@@ -1521,14 +1541,14 @@ void Unifom::dotrim(FieldObj &fldIn, PacketObj &pac, unsigned int out, bool &neg
 	unsigned int len,i;
 	unsigned char *vbuf;
 	if ( !negative )
-	{	/* È¥????Ç°???????Ö·? */
+	{	/* È¥µô»òÇ°»òºóµÄ×Ö·û */
 		len = fldIn.range;
-		if ( def.method == 1 )	/* Ç°?? */
+		if ( def.method == 1 )	/* Ç°²¹ */
 		{
 			i = 0;
 			while ( i < len && fldIn.val[i] == def.c) i++;
 			pac.input(out, &fldIn.val[i], len-i);
-		} else if ( def.method == 0 )	/* ???? */
+		} else if ( def.method == 0 )	/* ºó²¹ */
 		{
 			i = len;
 			while ( i > 0 && fldIn.val[len-i-1] == def.c) i--;
@@ -1539,34 +1559,34 @@ void Unifom::dotrim(FieldObj &fldIn, PacketObj &pac, unsigned int out, bool &neg
 		if ( (def.len <=  (int ) fldIn.range && def.len != 0 ) 
 			|| (def.len == 0 && fldIn.range % 2 == 0) 
 		)
-		{	/* ????Êµ???????Ñ¾?????Ô¤??????, 
-			????def.len ==0 ??Ê¾????Å¼??, ???????Ñ¾???Å¼????
-			??Ã´, Êµ?????????ö¼´¿?.
+		{	/* Èç¹ûÊµ¼ÊÊı¾İÒÑ¾­³¬³öÔ¤¶¨³¤¶È, 
+			»òÕßdef.len ==0 ±íÊ¾²¹³ÉÅ¼Êı, ¶øÊı¾İÒÑ¾­ÊÇÅ¼Êı³¤
+			ÄÇÃ´, Êµ¼ÊÊı¾İÊä³ö¼´¿É.
 			 */
 			pac.input(out, fldIn.val, fldIn.range);
 			return ;
 		}
 		
-		if ( def.len == 0 )	/* ????Å¼??Î» */
+		if ( def.len == 0 )	/* ²¹³ÉÅ¼ÊıÎ» */
 		{	/* fldIn.range % 2 != 0 */
-			len = fldIn.range +1;	/* ?Ï¶???????????, Òª??Ç°???Í´??????? */
+			len = fldIn.range +1;	/* ¿Ï¶¨ÊÇÆæÊı³¤¶È, Òª²»Ç°Ãæ¾Í´¦Àí¹ıÁË */
 		} else 
 			len = def.len ;
 
-		pac.grant(len);		/* ?È±?Ö¤????Ã´???Õ¼? */
+		pac.grant(len);		/* ÏÈ±£Ö¤ÓĞÄÇÃ´¶à¿Õ¼ä */
 		vbuf = pac.buf.point;
 
-		sp = len - fldIn.range;	/* ????Òª?????Ù¸??Ö½? */
-		if ( def.method == 1 )	/* Ç°?? */
+		sp = len - fldIn.range;	/* Ëã³öÒª²¹¶àÉÙ¸ö×Ö½Ú */
+		if ( def.method == 1 )	/* Ç°²¹ */
 		{
 			memset(vbuf, def.c, sp);
 			memcpy(&vbuf[sp], fldIn.val, fldIn.range);
-		} else if ( def.method == 0 )	/* ???? */
+		} else if ( def.method == 0 )	/* ºó²¹ */
 		{
 			memset(&vbuf[fldIn.range], def.c, sp);
 			memcpy(vbuf, fldIn.val, fldIn.range);
 		} else
-			return;	/* ????Ã»?Ğ¶???, ???????İ²?Î´???? */
+			return;	/* Èç¹ûÃ»ÓĞ¶¨Òå, ×îÖÕÊı¾İ²¢Î´Êä³ö */
 		pac.commit(out, def.len);
 	}
 }
@@ -1600,9 +1620,9 @@ void Unifom::donow(FieldObj *fldIn, PacketObj &pac, unsigned int out, Proc_Now &
 	ftime(&now);
 #if defined(_MSC_VER) && (_MSC_VER >= 1400 )
 	tdatePtr = &tdate;
-	gmtime_s(&tdate, &now.time );
+	localtime_s(&tdate, &now.time );
 #else
-	tdatePtr = gmtime( &now.time );
+	tdatePtr = localtime( &now.time );
 #endif
 	if (def.format )
 	{
@@ -1622,7 +1642,7 @@ void Unifom::donow(FieldObj *fldIn, PacketObj &pac, unsigned int out, Proc_Now &
 void Unifom::dolet(FieldObj *fldIn, PacketObj &pac, unsigned int out, Proc_Let &def)
 {
 	if ( !fldIn )
-	{	/* ??????Ã»???è¶¨source???? */
+	{	/* ¶¨ÒåÖĞÃ»ÓĞÉè¶¨sourceÓòºÅ */
 		pac.input(out, def.src, def.src_len);
 	} else if ( fldIn->no >= 0 ) {
 		switch (def.method )
@@ -1638,10 +1658,21 @@ void Unifom::dolet(FieldObj *fldIn, PacketObj &pac, unsigned int out, Proc_Let &
 		default:
 			break;
 		}
-	} /* else; ????Ä³????, ??????????Öµ, ??Öµ??Ã»?Ğ·??? */
+	} /* else; ¶¨ÒåÄ³¸öÓò, µ«Õâ¸öÓòÎŞÖµ, ¸³Öµ¾ÍÃ»ÓĞ·¢Éú */
 }
 
-/* ????Á¦???á½» */
+void Unifom::duplicate(PacketObj &pac_in, PacketObj &pac_out)
+{
+	int i;
+	pac_out.reset();
+	for ( i = 0 ; i < pac_in.max; i++ )
+	{
+		if ( pac_in.fld[i].no >=0 ) 
+			pac_out.input(pac_in.fld[i].no, pac_in.fld[i].val, pac_in.fld[i].range);
+	}
+}
+
+/* Ïò½ÓÁ¦ÕßÌá½» */
 PACINLINE void Unifom::deliver(Notitia::HERE_ORDO aordo)
 {
 	Amor::Pius tmp_pius;

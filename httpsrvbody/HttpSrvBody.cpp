@@ -160,7 +160,7 @@ private:
 		inline _Websock ()
 		{
 			hitb[0] = &buf_1st;
-			hitb[1] = &buf_1st;
+			hitb[1] = &buf_2nd;
 			hitb[2] = 0;
 			reset();
 		};
@@ -256,7 +256,14 @@ bool HttpSrvBody::facio( Amor::Pius *pius)
 		mth =  getHeadInt("method");
 		content_length = getContentSize();
 		if ( mth ==  2 ) //GET
-			content_length = 0;
+		{
+			if ( lookSocket() )
+			{	/* look for websocket  */
+				WBUG("WebSocket begin....");
+				goto Next;
+			} else
+				content_length = 0;
+		}
 
 		if ( content_length != 0  && isProxy)	//从头就可知HTTP请求已经完整了, 就不需要再发HEAD消息了, 而是REQUEST
 			deliver(Notitia::PRO_HTTP_HEAD);	
@@ -265,15 +272,10 @@ bool HttpSrvBody::facio( Amor::Pius *pius)
 			goto BODYOK;
 
 		if ( content_length < -1 )
-		{	/* look for websocket  */
-			if ( !lookSocket() )
-			{
-				deliver(Notitia::PRO_HTTP_HEAD); //可能是什么古怪协议,发个HEAD消息，让后续模块处理。
-			 } else {
-				WBUG("WebSocket begin....");
-			}
+		{
+			deliver(Notitia::PRO_HTTP_HEAD); //可能是什么古怪协议,发个HEAD消息，让后续模块处理。
 		}
-
+	Next:
 		if ( rcv_buf->point > rcv_buf->base ) 
 			goto BODYPRO; /* 已经有body数据, 转向下一步 */
 		break; 
@@ -423,11 +425,12 @@ REAL_OUTPUT:		snd_buf->input((unsigned char*)res_cmd->valStr, len);
 		break;
 
 	case Notitia::PRO_TBUF:	
-		WBUG("sponte PRO_TBUF");
 		if ( isSocket )
 		{
+			WBUG("sponte PRO_TBUF for websocket opcode=%d", sock.opcode);
 			sndSocket(sock.opcode);
 		} else {
+			WBUG("sponte PRO_TBUF");
 			aptus->sponte(pius);	/* 转向httpsrvhead */
 		}
 		break;
@@ -506,7 +509,24 @@ HTTPSRVINLINE void HttpSrvBody::deliver(Notitia::HERE_ORDO aordo)
 {
 	Amor::Pius tmp_pius;
 	tmp_pius.ordo = aordo;
-	WBUG("deliver Notitia::%d", aordo);
+	switch ( aordo)
+	{
+		case Notitia::PRO_TBUF:
+			WBUG("deliver PRO_TBUF");
+			break;
+		case Notitia::PRO_HTTP_HEAD:
+			WBUG("deliver PRO_HTTP_HEAD");
+			break;
+		case Notitia::HTTP_ASKING:
+			WBUG("deliver HTTP_ASKING");
+			break;
+		case Notitia::WebSock_Start:
+			WBUG("deliver WebSock_Start");
+			break;
+		default:
+			WBUG("deliver Notitia::%d",aordo);
+			break;
+	}
 	if ( aordo == Notitia::PRO_TBUF ) 
 		tmp_pius.subor = cur_sub_ordo;
 	else
@@ -676,15 +696,17 @@ HTTPSRVINLINE void HttpSrvBody::outjs(const char *in)
 
 HTTPSRVINLINE bool HttpSrvBody::lookSocket()
 {
-	const char *conn, *upg, *socKey;
-	const char *protocol;
+	const char *upg, *socKey;
+	const char **protocol;
 	int i;
 	bool has_pro;
 
-	conn = getHead("Connection");	
+	//conn = getHead("Connection");	
+	//printf("conn %s\n", conn);
 	isSocket = false;	//假定开始不是socket
 	has_pro= false;
-	if ( conn && strcasecmp(conn, "Upgrade") == 0 )
+	//if ( conn && strcasecmp(conn, "Upgrade") == 0 )
+	if ( headArrContain("Connection", "Upgrade") )
 	{
 		upg = getHead("Upgrade");
 		socKey = getHead("Sec-WebSocket-Key");
@@ -700,7 +722,7 @@ HTTPSRVINLINE bool HttpSrvBody::lookSocket()
 				setStatus(426);
 				addHead("Title", "Upgrade Required");
 				setHead("Connection", "close");
-				addHead("Sec-WebSocket-Versiont", "13");
+				addHead("Sec-WebSocket-Version", "13");
 				goto S_END;
 			}
 			
@@ -717,12 +739,12 @@ HTTPSRVINLINE bool HttpSrvBody::lookSocket()
 			sock.reset();
 			sock.neo_frame();
 
-			protocol = getHead("Sec-WebSocket-Protocol");
+			protocol = getHeadArr("Sec-WebSocket-Protocol");
 			if (protocol) 
 			{
 				for ( i =0 ; i < gCFG->sock_num; i++)
 				{
-					if (strcmp(protocol, gCFG->sock_pro_def[i].name) ==0 ) //这样简单不行, protocol是用逗号隔开的，要形成一个数组。
+					if (headArrContain(protocol, gCFG->sock_pro_def[i].name) ) //protocol是一个数组。
 					{
 						cur_sub_ordo = gCFG->sock_pro_def[i].sub;
 						break;
@@ -1047,7 +1069,7 @@ HTTPSRVINLINE void HttpSrvBody::sndSocket(unsigned char op_code, unsigned char *
 	*p++ = 0x80 | (op_code & 0x0F);	//fin is  1, last frame 
 	if (msg_length < 126) 
 	{ 
-		*p++ = msg_length & 0x0F;	//mask is 0, no mask
+		*p++ = msg_length & 0x7F;	//mask is 0, no mask
 	} else { 
 		if (msg_length < 65536) 
 		{ 
@@ -1078,10 +1100,12 @@ HTTPSRVINLINE void HttpSrvBody::sndSocket(unsigned char op_code, unsigned char *
 HTTPSRVINLINE void HttpSrvBody::sndSocket(unsigned char op_code)
 {
 /* 数据都在sock.buf_2nd中 */
-	unsigned char*p = sock.buf_2nd.point;
+	unsigned char*p = sock.buf_2nd.base;
 	unsigned long len = sock.buf_2nd.point - sock.buf_2nd.base;
 	
+	//sndSocket(OPCODE_TEXT, (unsigned char*)"Oway-123", 8);
 	sndSocket(op_code, p, len);
+	//sndSocket(OPCODE_TEXT, p, 3);
 
 	/* 最后, 提交数据 */
 	local_pius.ordo = Notitia::PRO_TBUF;

@@ -21,7 +21,7 @@
 #include "casecmp.h"
 #include "TBuffer.h"
 #include "DeHead.h"
-#include "textus_string.h"
+//#include "textus_string.h"
 #include <sys/timeb.h>
 #include <stdarg.h>
 #ifndef TINLINE
@@ -277,6 +277,7 @@ END:
 bool HttpSrvHead::sponte( Amor::Pius *pius)
 {
 	const char *p;
+	const char **pp;
 	assert(pius);
 	struct GetRequestCmd *req_cmd = 0;
 	struct SetResponseCmd *res_cmd = 0;
@@ -291,6 +292,11 @@ bool HttpSrvHead::sponte( Amor::Pius *pius)
 		case GetRequestCmd::GetHead :
 			p = req_cmd->valStr = request.getHead(req_cmd->name);
 			WBUG("sponte CMD_HTTP_GET GetHead(\"%s\")=\"%s\"", req_cmd->name, p == 0? "": req_cmd->valStr);
+			break;
+						
+		case GetRequestCmd::GetHeadArr :
+			pp = req_cmd->valStrArr = request.getHeadArray(req_cmd->name);
+			WBUG("sponte CMD_HTTP_GET GetHeadArr(\"%s\")=\"%s\"", req_cmd->name, pp == 0? "": req_cmd->valStr);
 			break;
 						
 		case GetRequestCmd::GetHeadInt:

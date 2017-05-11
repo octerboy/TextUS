@@ -1976,6 +1976,7 @@ private:
 	};
 
 	PacketObj hi_req, hi_reply; /* 向右传递的, 可能是对HMS, 或是对IC终端 */
+	PacketObj *hi_req_p, *hi_reply_p; /* 向右传递的, 可能是对HMS, 或是对IC终端 */
 	PacketObj *hipa[3];
 	PacketObj *rcv_pac;	/* 来自左节点的PacketObj */
 	PacketObj *snd_pac;
@@ -2030,6 +2031,8 @@ PacWay::PacWay()
 	hipa[0] = &hi_req;
 	hipa[1] = &hi_reply;
 	hipa[2] = 0;
+	hi_req_p = &hi_req;
+	hi_reply_p = &hi_reply;
 
 	gCFG = 0;
 	has_config = false;
@@ -2129,11 +2132,29 @@ bool PacWay::facio( Amor::Pius *pius)
 
 bool PacWay::sponte( Amor::Pius *pius)
 {
+	PacketObj **tmp;
 	assert(pius);
 	if (!gCFG ) return false;
 
 	switch ( pius->ordo )
 	{
+	case Notitia::SET_UNIPAC:
+		WBUG("sponte SET_UNIPAC");
+		if ( (tmp = (PacketObj **)(pius->indic)))
+		{
+			if ( *tmp) hi_req_p = *tmp; 
+			else {
+				WLOG(WARNING, "sponte SET_UNIPAC rcv_pac null");
+			}
+			tmp++;
+			if ( *tmp) hi_reply_p = *tmp;
+			else {
+				WLOG(WARNING, "sponte SET_UNIPAC snd_pac null");
+			}
+		} else 
+			WLOG(WARNING, "sponte SET_UNIPAC null");
+
+		break;
 	case Notitia::PRO_UNIPAC:
 		WBUG("sponte PRO_UNIPAC");
 		if (!call_back) //对于回调函数，即返回。
@@ -2278,8 +2299,8 @@ SUB_INS_PRO:
 				break;
 			}
 
-			hi_req.reset();	//请求复位
-			paci->get_snd_pac(&hi_req, loc_pro_pac.subor, &mess);
+			hi_req_p->reset();	//请求复位
+			paci->get_snd_pac(hi_req_p, loc_pro_pac.subor, &mess);
 			command_wt.pac_step++;
 			i_ret = 0;	/* 进行中 */
 			call_back = paci->isFunction; //对于函数，属回调的情况。这个call_back在sponte时被判断
@@ -2296,7 +2317,7 @@ SUB_INS_PRO:
 			break;
 		case 1:
 GO_ON_FUNC:
-			if ( paci->pro_rcv_pac(&hi_reply, &mess)) 
+			if ( paci->pro_rcv_pac(hi_reply_p, &mess)) 
 			{
 				if ( paci->valid_result(&mess) )
 					i_ret = 1;

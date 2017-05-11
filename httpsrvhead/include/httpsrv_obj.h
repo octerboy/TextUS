@@ -18,7 +18,8 @@ struct GetRequestCmd {
 		GetFile=5,              /*5: getFile(char* name);          */
 		GetFileLen=6,           /*6: getFile(char* name, int *len);*/
 		GetFileLenType=7,       /*7: getFile(char* name, int *len, char **filename, char** type); */
-		GetQuery=8		/*8: getQuery() */
+		GetQuery=8,		/*8: getQuery() */
+		GetHeadArr=9		/*9: getHeadArr(char* name)  */
 	} fun;	/*  输入参数,指明功能*/
 	
 	const char *name; 	/*  输入参数
@@ -27,6 +28,7 @@ struct GetRequestCmd {
 			对于fun=7~12, 此参数无定义,不用设置
 			*/
 	const char *valStr;	/* 输出，用于fun=0,2~6,9~12，指向HTTP头内容、表单参数相应的内容、文件内容(char *) */
+	const char **valStrArr;	/* 输出，用于fun=0,2~6,9~12，指向HTTP头内容、表单参数相应的内容、文件内容(char *) */
 	long valInt;	/* 输出，用于fun=1，指向HTTP头内容  */	
 	long len;	/* 输出，用于fun=3,4,6,7，指向输出内容（表单相应参数的内容、文件内容）的长度，即字节数 */
 	char *filename;	/* 输出，用于fun=7，指向文件名（表单送上来的） */ 
@@ -83,6 +85,40 @@ Amor::Pius cmd_pius;  /* 仅用于向httpsrv取得HTTP请求数据或设置HTTP响应数据 */
 		return( request_cmd.valStr);
 	}; 
 	
+	inline const char** getHeadArr(const char* name) 
+	{
+		REQ_CMD
+		request_cmd.fun = GetRequestCmd::GetHeadArr ;
+		request_cmd.name = name;
+		SponteGetCmd;
+		return( request_cmd.valStrArr);
+	}; 
+	
+	inline bool headArrContain(const char* name, char *val) 
+	{
+		const char **p;
+		p = getHeadArr(name);
+		if ( !p ) return false;
+		while ( *p )
+		{
+			if (strcasecmp(*p, val) == 0 )
+				return true;
+			p++;
+		}
+		return false;
+	};
+
+	inline bool headArrContain(const char** arr, const char *val) 
+	{
+		if ( !arr ) return false;
+		while ( *arr )
+		{
+			if (strcasecmp(*arr, val) == 0 )
+				return true;
+			arr++;
+		}
+		return false;
+	};
 	inline long getHeadInt(const char* name)
 	{
 		REQ_CMD

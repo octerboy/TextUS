@@ -44,6 +44,7 @@ public:
 
 	/* 取得HTTP头内容 */
 	const char* 	getHead(const char* name); 
+	const char** 	getHeadArray(const char* name);
 	long 	getHeadInt(const char* name); 
 	/* 设置HTTP头内容 */
 	void 	setHead (const char* name, const char* value);
@@ -94,6 +95,7 @@ public:
 		char _name[128];
 		char type;
 		char *str;
+		const char *str_array[64];	//某些Head包含多个内容, 以逗号相隔. 这里假定最多63个。
 		char _str[1024];
 		long val;
 		time_t when;
@@ -110,6 +112,7 @@ public:
 			_str[255] ='\0';			
 			val =0;
 			when =0;
+			str_array[0] = 0;
 		};
 
 		inline void setn(const char *n)

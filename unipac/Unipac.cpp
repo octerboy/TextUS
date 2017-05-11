@@ -48,10 +48,10 @@ enum LocType {	/* 域定位方法 */
 	BLLVAR	= 14,	/* 变长, 低位在前, 高位在后, 下同 */
 	BLLLVAR	= 15,	
 	BL4VAR	= 16,	
-	ARRAY_FIXED	= 17,	/* 数组方式,固定个数 */
-	ARRAY_LVAR	= 18,	/* 数组方式,一个字节的值表示元个数 */
-	ARRAY_LLVAR	= 19,	/* 数组方式,两个字节的值表示元个数, 低位在前, 高位在后, 下同  */
-	ARRAY_LLLVAR	= 20,	/* 数组方式,三个字节的值表示元个数 */
+	//ARRAY_FIXED	= 17,	/* 数组方式,固定个数 */
+	//ARRAY_LVAR	= 18,	/* 数组方式,一个字节的值表示元个数 */
+	//ARRAY_LLVAR	= 19,	/* 数组方式,两个字节的值表示元个数, 低位在前, 高位在后, 下同  */
+	//ARRAY_LLLVAR	= 20,	/* 数组方式,三个字节的值表示元个数 */
 	AJP_STRING	= 21,	/* AJP的string方式, 如果发现长度2字节为0xffff, 则合法, 但无此域 */
 	AJP_HEAD	= 50,	/* AJP Head: num_headers      (integer)
 					request_headers *(req_header_name req_header_value) */
@@ -112,6 +112,7 @@ typedef struct _LenPara {
 		n->unit = unit;
 		n->length = length;
 		n->base = base;
+		n->element_sz = element_sz;
 		return n;
 	};
 } LenPara;
@@ -204,7 +205,7 @@ typedef struct _Locator {
 		if ( para )
 		{	LenPara *np;
 			TermPara *nt;
-			ArrayPara *na;
+			//ArrayPara *na;
 			AjpHeadPara *nj;
 
 			switch (type) {
@@ -217,13 +218,13 @@ typedef struct _Locator {
 				n.para = 0;
 				break;
 
-			case  ARRAY_FIXED:
-			case  ARRAY_LVAR:
-			case  ARRAY_LLVAR:
-			case  ARRAY_LLLVAR:
-				na = ((ArrayPara *) para)->clone();
-				n.para = na;
-				break;
+			//case  ARRAY_FIXED:
+			//case  ARRAY_LVAR:
+			//case  ARRAY_LLVAR:
+			//case  ARRAY_LLLVAR:
+			//	na = ((ArrayPara *) para)->clone();
+			//	n.para = na;
+			//	break;
 
 			case AJP_HEAD:
 			case AJP_ATTRIBUTE:
@@ -247,12 +248,12 @@ typedef struct _Locator {
 		if ( para )
 		{
 			switch (type) {
-			case ARRAY_FIXED:
-			case ARRAY_LVAR:
-			case ARRAY_LLVAR:
-			case ARRAY_LLLVAR:
-				delete (ArrayPara *) para;
-				break;
+			//case ARRAY_FIXED:
+			//case ARRAY_LVAR:
+			//case ARRAY_LLVAR:
+			//case ARRAY_LLLVAR:
+			//	delete (ArrayPara *) para;
+			//	break;
 			case AJP_HEAD:
 			case AJP_ATTRIBUTE:
 				delete (AjpHeadPara *) para;
@@ -539,7 +540,7 @@ void Unipac::ignite(TiXmlElement *cfg)
 			FldDef *fdef;
 			LenPara *pra;
 			TermPara *tra;
-			ArrayPara *ara;
+			//ArrayPara *ara;
 			AjpHeadPara *jra;
 
 			TiXmlElement *t_ele, *m_ele;
@@ -585,10 +586,10 @@ void Unipac::ignite(TiXmlElement *cfg)
 			LOC(YLBITMAP)	
 			LOC(LTERM)      
 			LOC(WANTON)	
-			LOC(ARRAY_FIXED)
-			LOC(ARRAY_LVAR)
-			LOC(ARRAY_LLVAR)
-			LOC(ARRAY_LLLVAR)
+			//LOC(ARRAY_FIXED)
+			//LOC(ARRAY_LVAR)
+			//LOC(ARRAY_LLVAR)
+			//LOC(ARRAY_LLLVAR)
 			LOC(AJP_HEAD)
 			LOC(AJP_ATTRIBUTE)
 			if ( comm_str && strcasecmp(comm_str, "toend") == 0 )
@@ -656,6 +657,8 @@ void Unipac::ignite(TiXmlElement *cfg)
 						pra->unit= ARRAY_ELE;
 						pra->element_sz = 0;
 						fld_ele->QueryIntAttribute("element", &pra->element_sz);
+						if ( pra->element_sz <= 0 )
+							pra->element_sz = 1;
 					}
 				}
 
@@ -701,16 +704,16 @@ void Unipac::ignite(TiXmlElement *cfg)
 				fdef->locator.para = 0;
 				break;
 
-			case ARRAY_FIXED:
-			case ARRAY_LVAR:
-			case ARRAY_LLVAR:
-			case ARRAY_LLLVAR:
-				fdef->locator.para = ara = new ArrayPara;
-				ara->var_head_sz = 0; 		/* 单元头字节数 */
-				ara->many = 0 ;
-				fld_ele->QueryIntAttribute("head_size", &ara->var_head_sz);
-				fld_ele->QueryIntAttribute("many", &ara->many);
-				break;
+			//case ARRAY_FIXED:
+			//case ARRAY_LVAR:
+			//case ARRAY_LLVAR:
+			//case ARRAY_LLLVAR:
+			//	fdef->locator.para = ara = new ArrayPara;
+			//	ara->var_head_sz = 0; 		/* 单元头字节数 */
+			//	ara->many = 0 ;
+			//	fld_ele->QueryIntAttribute("head_size", &ara->var_head_sz);
+			//	fld_ele->QueryIntAttribute("many", &ara->many);
+			//	break;
 
 			case AJP_HEAD:
 			case AJP_ATTRIBUTE:
@@ -1799,6 +1802,10 @@ PACINLINE int Unipac::unfield(unsigned char* base, long range, PacketObj &packet
 			field.range = len*4 ;
 			break;
 
+		case ARRAY_ELE:
+			field.range = len*lpra->element_sz ;
+			break;
+
 		default:
 			field.range = len ;
 			break;
@@ -2195,6 +2202,11 @@ NORM_LEN_PRO:	/* 简单数据类型 */
 		case UNI_DWORD:
 			nlen /=4;
 			field.range =4*nlen;
+			break;
+
+		case ARRAY_ELE:
+			nlen /=lpra->element_sz;
+			field.range = nlen*lpra->element_sz ;
 			break;
 
 		default:
