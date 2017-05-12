@@ -378,12 +378,12 @@ private:
 void Unifom::ignite(TiXmlElement *prop)
 {
 	const char *comm_str;
-	if (!prop) return;
 	if ( !gCFG ) 
 	{
 		gCFG = new struct G_CFG();
 		has_config = true;
 	}
+	if (!prop) return;
 
 	if ( (comm_str = prop->Attribute("offset")) )
 		gCFG->fldOffset = atoi(comm_str);
@@ -834,10 +834,10 @@ bool Unifom::sponte( Amor::Pius *pius)
 			case ACT_MAP:
 				break;
 			case ACT_FORWARD:
-				aptus->facio(&local_pius);
+				aptus->sponte(&local_pius);
 				break;
 			case ACT_ANSWER:
-				aptus->sponte(&local_pius);
+				aptus->facio(&local_pius);
 				break;
 			default:
 				break;

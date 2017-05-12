@@ -1103,13 +1103,7 @@ HTTPSRVINLINE void HttpSrvBody::sndSocket(unsigned char op_code)
 	unsigned char*p = sock.buf_2nd.base;
 	unsigned long len = sock.buf_2nd.point - sock.buf_2nd.base;
 	
-	//sndSocket(OPCODE_TEXT, (unsigned char*)"Oway-123", 8);
 	sndSocket(op_code, p, len);
-	//sndSocket(OPCODE_TEXT, p, 3);
-
-	/* 最后, 提交数据 */
-	local_pius.ordo = Notitia::PRO_TBUF;
-	aptus->sponte(&local_pius);
 }
 
 #include "hook.c"

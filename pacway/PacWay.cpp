@@ -384,6 +384,7 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Null};
 
 		LEFT_STATUS left_status;
 		RIGHT_STATUS right_status;
+		int right_subor;	//指示向右发出时的subor, 返回时核对。
 		int ins_which;	//已经工作在哪个命令, 即为定义中数组的下标值
 		int iRet;	//事务最终结果
 
@@ -407,6 +408,7 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Null};
 			}
 			left_status = LT_Idle;
 			right_status = RT_IDLE;
+			right_subor = 0;
 			ins_which = -1;
 			err_str[0] = 0;	
 			flow_id[0] = 0;
@@ -2157,6 +2159,24 @@ bool PacWay::sponte( Amor::Pius *pius)
 		break;
 	case Notitia::PRO_UNIPAC:
 		WBUG("sponte PRO_UNIPAC");
+		if ( mess.right_status != RT_OUT || mess.right_subor != pius->subor  )	//表明是制卡工作
+		{
+			const char *r_str;
+			switch (mess.right_status)
+			{
+			case RT_OUT:
+				r_str = "RT_OUT";
+				break;
+			case RT_IDLE:
+				r_str = "RT_IDLE";
+				break;
+			case RT_READY:
+				r_str = "RT_READY";
+				break;
+			}
+			WLOG(WARNING, "mess error right_status=%s right_subor=%d pius->subor=%d", r_str, mess.right_subor, pius->subor);
+			break;
+		}
 		if (!call_back) //对于回调函数，即返回。
 			mk_hand();
 		break;
@@ -2305,6 +2325,7 @@ SUB_INS_PRO:
 			i_ret = 0;	/* 进行中 */
 			call_back = paci->isFunction; //对于函数，属回调的情况。这个call_back在sponte时被判断
 			mess.right_status = RT_OUT;
+			mess.right_subor = loc_pro_pac.subor;
 			WBUG("mess.pro_order=%d command_wt.pac_which=%d", mess.pro_order, command_wt.pac_which);
 			aptus->facio(&loc_pro_pac);     //向右发出, 然后等待
 			if ( paci->rcv_num == 0 ) 	//没有接收域，直接下一条
