@@ -1081,6 +1081,11 @@ HTTPSRVINLINE void HttpSrvBody::sndSocket(unsigned char op_code, unsigned char *
 			*p++ = (msg_length >> (6*8))  & 0xFF;
 			*p++ = (msg_length >> (5*8))  & 0xFF;
 			*p++ = (msg_length >> (4*8))  & 0xFF;
+#else
+			*p++ = 0;
+			*p++ = 0;
+			*p++ = 0;
+			*p++ = 0;
 #endif
 			*p++ = (msg_length >> (3*8))  & 0xFF;
 			*p++ = (msg_length >> (2*8))  & 0xFF;
