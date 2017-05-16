@@ -259,7 +259,7 @@ bool HttpSrvBody::facio( Amor::Pius *pius)
 		{
 			if ( lookSocket() )
 			{	/* look for websocket  */
-				WBUG("WebSocket begin....");
+				//WBUG("WebSocket begin....");
 				goto Next;
 			} else
 				content_length = 0;
@@ -1054,10 +1054,10 @@ Pro_FRM_DATA:
 		sock.reset();
 		sndSocket(OPCODE_CLOSE, msg, (unsigned long)(2 + strlen((const char*)&msg[2])));
 		WBUG("will terminate websocket");
-		tmp_pius.ordo = Notitia::END_SESSION;
+		tmp_pius.ordo = Notitia::WebSock_End;
 		tmp_pius.indic = 0;
 		tmp_pius.subor = 0;
-		aptus->sponte(&tmp_pius);
+		aptus->facio(&tmp_pius);
 	}
 }
 

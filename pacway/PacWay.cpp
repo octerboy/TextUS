@@ -164,7 +164,7 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Null};
 
 		struct PVar* prepare(TiXmlElement *var_ele, int &dy_at) //变量准备
 		{
-			const char *p, *nm, *esc;
+			const char *p, *nm, *aval;
 			kind = VAR_None;
 			self_ele = var_ele;
 
@@ -177,10 +177,10 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Null};
 			p = var_ele->GetText();
 			if ( p)
 			{
-				esc = var_ele->Attribute("escape");
-				if ( !esc ) 
-					esc = var_ele->GetDocument()->RootElement()->Attribute("escape");
-				if ( esc && (esc[0] == 'Y' || esc[0] == 'N') )
+				aval = var_ele->Attribute("escape");
+				if ( !aval ) 
+					aval = var_ele->GetDocument()->RootElement()->Attribute("escape");
+				if ( aval && (aval[0] == 'Y' || aval[0] == 'y') )
 				{
 					c_len = BTool::unescape(p, content) ;
 				} else 
@@ -233,7 +233,8 @@ enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Null};
 				kind = VAR_FlowID;
 			}
 
-			if ( var_ele->Attribute("link") )
+			aval =  var_ele->Attribute("link");
+			if ( aval && (aval[0] == 'Y' || aval[0] == 'y') )
 			{
 				dy_link = true;
 			}
@@ -2333,7 +2334,7 @@ SUB_INS_PRO:
 				i_ret = 1;
 				break;
 			}
-			//if ( mess.pro_order == 49 &&  command_wt.pac_which ==5 ) {int *a=0; *a=0;}
+			//if ( mess.pro_order == 49 &&  command_wt.pac_which ==2 ) {int *a=0; *a=0;}
 			if ( call_back ) goto GO_ON_FUNC; //调用返回时，这里响应报文已备，继续处理。
 			break;
 		case 1:
@@ -2353,7 +2354,7 @@ GO_ON_FUNC:
 				TEXTUS_SPRINTF(h_msg, "fault at %d of %s (%s)", mess.pro_order, cur_def->flow_id, mess.err_str);
 				i_ret = -3;	//这是基本报文错误，非map所控制
 			}
-			//if ( mess.pro_order == 10 &&  command_wt.pac_which == 3 ) {int *a=0; *a=0;}
+			//if ( mess.pro_order == 49 &&  command_wt.pac_which == 1 ) {int *a=0; *a=0;}
 			if ( mess.iRet != 0 ) 
 			{
 				memcpy(mess.err_str, h_msg, strlen(h_msg));
