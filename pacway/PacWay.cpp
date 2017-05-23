@@ -12,7 +12,7 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: PacWay.cpp $"
-#define TEXTUS_MODTIME  "$Date: 16-08-04 9:01 $"
+#define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision: 48 $"
 /* $NoKeywords: $ */
 
@@ -59,7 +59,6 @@ int squeeze(const char *p, unsigned char *q)	//把空格等挤掉, 只留下16进制字符(大
 };
 
 #define ERROR_DEVICE_DOWN -100
-#define ERROR_COMPLEX_TOO_DEEP -201
 #define ERROR_RECV_PAC -202
 #define ERROR_RESULT -210
 #define ERROR_USER_ABORT -203
@@ -73,7 +72,7 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_OUT=7, RT_READY = 3};
 
 enum Var_Type {VAR_ErrCode=1, VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_CurOrder=4, VAR_CurCent=5, VAR_ErrStr=6, VAR_FlowID=7, VAR_Dynamic = 10, VAR_Me=12, VAR_Constant=98,  VAR_None=99};
 /* 命令分几种，INS_Normal：标准，INS_Abort：终止 */
-enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Null};
+enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_SetPeer=3, INS_GetPeer=4, INS_Get_CertNo=5, INS_Pro_DBFace=6, INS_Cmd_Ordo=7, INS_Null=99};
 
 /* 包括SysTime这样的变量，都由外部函数计算，所以这里只保留脚本指纹数据 */	
 #define Pos_ErrCode 1 
@@ -1457,6 +1456,8 @@ struct ComplexSubSerial {
 	TiXmlElement *map_root;
 	TiXmlElement *usr_ele;	//用户命令
 
+	int loop_n;	/* 本子序列循环次数: 0:无限, 直到某种失败, >0: 一定次数, 若失败则中止  */
+
 	ComplexSubSerial()
 	{
 		map_root = def_root = usr_ele = 0;
@@ -1467,6 +1468,7 @@ struct ComplexSubSerial {
 		pac_inses = 0;
 		pac_many = 0;
 		g_var_set = 0;
+		loop_n = 1;
 	};
 
 	~ComplexSubSerial()
@@ -1521,7 +1523,7 @@ struct ComplexSubSerial {
 	};
 
 	//ref_vnm是一个参考变量名, 如$Main之类的. 根据这个$Main从全局变量集找到相应的定义。
-	int pro_analyze( const char *pri_vnm)
+	int pro_analyze( const char *pri_vnm, const char *loop_str)
 	{
 		struct PVar *ref_var, *me_var;
 		const char *ref_nm;
@@ -1530,7 +1532,10 @@ struct ComplexSubSerial {
 		TiXmlElement *body;	//用户命令的第一个body元素
 		int which, icc_num=0, i;
 		const char *pri_key = usr_def_entry->Attribute("primary");
-
+		
+		if ( loop_str ) loop_n = atoi(loop_str);
+		if ( loop_n < 0 ) loop_n = 1;
+			
 		sv_set.defer_vars(usr_def_entry); //局域变量定义完全还在那个自定义中
 		sv_set.command_ele = usr_ele;
 		for ( i = 0; i  < sv_set.many; i++ )
@@ -1649,7 +1654,7 @@ struct User_Command : public Condition {
 						complex[X].map_root = map_root;
 
 				PUT_COMPLEX(0)
-				ret_ic = complex->pro_analyze(usr_ele->Attribute(pri_nm));
+				ret_ic = complex->pro_analyze(usr_ele->Attribute(pri_nm), usr_ele->Attribute("loop"));
 			} else {	//一个用户操作，包括几个复合指令的尝试，有一个成功，就算OK
 				for( pri = usr_ele->FirstChildElement(pri_nm), comp_num = 0; 
 					pri; pri = pri->NextSiblingElement(pri_nm) )
@@ -1662,7 +1667,7 @@ struct User_Command : public Condition {
 					pri; pri = pri->NextSiblingElement(pri_nm) )
 				{
 					PUT_COMPLEX(i)
-					ret_ic = complex[i].pro_analyze(pri->GetText()); //多个可选，指令数就计最后一个
+					ret_ic = complex[i].pro_analyze(pri->GetText(), pri->Attribute("loop")); //多个可选，指令数就计最后一个
 					i++;
 				}
 			}
@@ -1670,7 +1675,7 @@ struct User_Command : public Condition {
 			comp_num = 1;
 			complex = new struct ComplexSubSerial;
 			PUT_COMPLEX(0)
-			ret_ic = complex->pro_analyze(0);
+			ret_ic = complex->pro_analyze(0, usr_ele->Attribute("loop"));
 		}
 
 		set_condition ( usr_ele, vrset, 0);
