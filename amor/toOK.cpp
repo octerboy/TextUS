@@ -11,10 +11,10 @@
 	   2: 校验错
 	   3: 内容错误
 	   4: 文件错误
- $Header: /textus/amor/Animus.cpp 1    13-10-04 17:21 Octerboy $
+ $Id$
 */
-#define SCM_MODULE_ID  "$Id: Animus.cpp $"
-#define TEXTUS_MODTIME  "$Date: 13-10-04 17:21 $"
+#define SCM_MODULE_ID  "$Id$"
+#define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 #define DEBUG
 
