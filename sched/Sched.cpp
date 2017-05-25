@@ -14,8 +14,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: Sched.cpp $"
-#define TEXTUS_MODTIME  "$Date: 14-03-12 14:10 $"
-#define TEXTUS_BUILDNO  "$Revision: 34 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #define FD_SETSIZE 1024

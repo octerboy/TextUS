@@ -1,7 +1,7 @@
 /*
  $Header: /textus/amor/include/casecmp.h 6     07-12-31 21:37 Octerboy $
- $Date: 07-12-31 21:37 $
- $Revision: 6 $
+ $Date$
+ $Revision$
 */
 
 /* $NoKeywords: $ */

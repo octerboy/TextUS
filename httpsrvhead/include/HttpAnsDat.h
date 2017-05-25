@@ -10,8 +10,8 @@
  Titile: DeHead Definition
  Build: created by octerboy 2006/02/16
  $Header: /textus/httpsrvhead/DeHead.h 21    13-05-21 8:59 Octerboy $
- $Date: 13-05-21 8:59 $
- $Revision: 21 $
+ $Date$
+ $Revision$
 */
 
 /* $NoKeywords: $ */

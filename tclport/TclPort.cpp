@@ -14,8 +14,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: TclPort.cpp $"
-#define TEXTUS_MODTIME  "$Date: 14-07-07 16:39 $"
-#define TEXTUS_BUILDNO  "$Revision: 12 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #include "Amor.h"

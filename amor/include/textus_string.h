@@ -6,8 +6,8 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 
- $Date: 14-01-23 10:36 $
- $Revision: 8 $
+ $Date$
+ $Revision$
 */
 
 /* $NoKeywords: $ */

@@ -15,8 +15,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: Udp.cpp $"
-#define TEXTUS_MODTIME  "$Date: 07-01-25 23:59 $"
-#define TEXTUS_BUILDNO  "$Revision: 6 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 

@@ -8,8 +8,8 @@
 
  Title: enumerate the ordo of Pius 
  Build: created by octerboy, 2005/06/10
- $Date: 14-03-24 10:15 $
- $Revision: 57 $
+ $Date$
+ $Revision$
 */
 
 /* $NoKeywords: $ */

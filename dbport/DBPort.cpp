@@ -14,8 +14,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: DBPort.cpp $"
-#define TEXTUS_MODTIME  "$Date: 13-09-23 14:29 $"
-#define TEXTUS_BUILDNO  "$Revision: 39 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #include "Amor.h"

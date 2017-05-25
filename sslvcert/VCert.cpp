@@ -14,8 +14,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: VCert.cpp $"
-#define TEXTUS_MODTIME  "$Date: 10-12-14 20:04 $"
-#define TEXTUS_BUILDNO  "$Revision: 5 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #include "Amor.h"

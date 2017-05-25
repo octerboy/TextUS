@@ -12,8 +12,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: Route.cpp $"
-#define TEXTUS_MODTIME  "$Date: 08-01-01 23:19 $"
-#define TEXTUS_BUILDNO  "$Revision: 3 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #include "BTool.h"

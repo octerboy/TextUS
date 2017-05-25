@@ -5,8 +5,8 @@
 #include <stdio.h>
 
 #define SCM_MODULE_ID  "$Workfile: URead.cpp $"
-#define TEXTUS_MODTIME  "$Date: 16-03-01 8:17 $"
-#define TEXTUS_BUILDNO  "$Revision: 5 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 typedef int (__stdcall *TP_open_dev)(char* Paras);

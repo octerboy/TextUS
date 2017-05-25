@@ -14,8 +14,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: NetTcp.cpp $"
-#define TEXTUS_MODTIME  "$Date: 10-12-11 15:29 $"
-#define TEXTUS_BUILDNO  "$Revision: 8 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #include "Amor.h"

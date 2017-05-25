@@ -14,8 +14,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: Tcpsrv.cpp $"
-#define TEXTUS_MODTIME  "$Date: 08-01-16 20:02 $"
-#define TEXTUS_BUILDNO  "$Revision: 25 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 #include "version_1.c"
 /* $NoKeywords: $ */
 

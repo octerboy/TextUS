@@ -8,8 +8,8 @@
 #include <stdio.h>
 
 #define SCM_MODULE_ID  "$Workfile: ScPort.cpp $"
-#define TEXTUS_MODTIME  "$Date: 14-06-10 18:23 $"
-#define TEXTUS_BUILDNO  "$Revision: 16 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #define TYSAM_NAME "Tianyu SAM Card Reader"

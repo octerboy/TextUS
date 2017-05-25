@@ -14,8 +14,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: Keep.cpp $"
-#define TEXTUS_MODTIME  "$Date: 12-04-04 16:58 $"
-#define TEXTUS_BUILDNO  "$Revision: 12 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #include "Aptus.h"

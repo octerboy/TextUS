@@ -10,8 +10,8 @@
 /**
  Title:The public interface of textus module
  Build: Created by octerboy 2005/6/9
- $Date: 12-04-04 16:50 $
- $Revision: 19 $
+ $Date$
+ $Revision$
 */
 
 /* $NoKeywords: $ */

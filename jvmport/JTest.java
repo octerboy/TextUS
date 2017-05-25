@@ -13,8 +13,8 @@ import javax.xml.transform.*;
 import javax.xml.transform.dom.*;
 import javax.xml.transform.stream.*;
 import java.util.Properties;
-import org.apache.jasper.compiler.*;
-import org.apache.jasper.*;
+//import org.apache.jasper.compiler.*;
+//import org.apache.jasper.*;
 //import javax.servlet.jsp.*;
 
 public class JTest {
@@ -32,7 +32,7 @@ public class JTest {
 		//PrintStream log = new PrintStream(System.out, true, "ISO8859-1");
 		//PrintStream log = new PrintStream(System.out, true);
 		//JspC agc=new JspC();
-		JspC.main(args);
+		//JspC.main(args);
 		//System.out.println("JspC path : " + agc.getClassPath());
 		im = doc.getDocumentElement();
 		try {

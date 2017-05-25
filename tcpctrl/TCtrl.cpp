@@ -14,8 +14,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: TCtrl.cpp $"
-#define TEXTUS_MODTIME  "$Date: 14-04-14 7:25 $"
-#define TEXTUS_BUILDNO  "$Revision: 12 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #include "Amor.h"

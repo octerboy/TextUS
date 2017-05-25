@@ -12,8 +12,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: Udpuna.cpp $"
-#define TEXTUS_MODTIME  "$Date: 06-12-29 11:41 $"
-#define TEXTUS_BUILDNO  "$Revision: 6 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 #include "version_1.c"
 /* $NoKeywords: $ */
 

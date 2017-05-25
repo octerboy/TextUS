@@ -11,8 +11,8 @@
  Title: Wsdl class
  Build: created by octerboy, 2006/12/01
  $Header: /textus/tsoap/Wsdl.h 12    08-01-02 0:00 Octerboy $
- $Date: 08-01-02 0:00 $
- $Revision: 12 $
+ $Date$
+ $Revision$
 */
 
 /* $NoKeywords: $ */

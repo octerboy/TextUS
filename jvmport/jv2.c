@@ -7,7 +7,7 @@ int main()
     JNIEnv *env;       /* pointer to native method interface */ 
 	int res;
  
-    JDK1_1InitArgs vm_args; /* JDK 1.1 VM initialization arguments */ 
+    JDK1_8InitArgs vm_args; /* JDK 1.1 VM initialization arguments */ 
  
     vm_args.version = 0x00010001; /* New in 1.1.2: VM version */ 
     /* Get the default initialization arguments and set the class  

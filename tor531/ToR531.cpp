@@ -10,8 +10,8 @@
 #include "publicFunc.h"
 
 #define SCM_MODULE_ID  "$Workfile: ToR531.cpp $"
-#define TEXTUS_MODTIME  "$Date: 14-06-06 12:11 $"
-#define TEXTUS_BUILDNO  "$Revision: 14 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 

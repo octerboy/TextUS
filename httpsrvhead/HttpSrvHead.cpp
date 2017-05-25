@@ -12,8 +12,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: HttpSrvHead.cpp $"
-#define TEXTUS_MODTIME  "$Date: 13-11-01 9:42 $"
-#define TEXTUS_BUILDNO  "$Revision: 42 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #include "Amor.h"

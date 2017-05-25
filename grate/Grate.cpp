@@ -13,8 +13,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: Grate.cpp $"
-#define TEXTUS_MODTIME  "$Date: 07-08-02 21:22 $"
-#define TEXTUS_BUILDNO  "$Revision: 2 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #include "TBuffer.h"

@@ -14,8 +14,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: netrs.cpp $"
-#define TEXTUS_MODTIME  "$Date: 07-01-15 10:19 $"
-#define TEXTUS_BUILDNO  "$Revision: 5 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 #include "version_2.c"
 /* $NoKeywords: $ */
 

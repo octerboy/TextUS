@@ -13,8 +13,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: DeHead.cpp $"
-#define TEXTUS_MODTIME  "$Date: 13-05-21 8:51 $"
-#define TEXTUS_BUILDNO  "$Revision: 34 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 #include "version_1.c"
 /* $NoKeywords: $ */
 

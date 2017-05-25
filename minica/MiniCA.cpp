@@ -14,8 +14,8 @@ Build: created by octerboy, 2005/02/25
 */
 
 #define SCM_MODULE_ID  "$Workfile: Wsdl.cpp $"
-#define TEXTUS_MODTIME  "$Date: 06-12-29 11:28 $"
-#define TEXTUS_BUILDNO  "$Revision: 11 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 #include "version_2.c"
 /* $NoKeywords: $ */
 

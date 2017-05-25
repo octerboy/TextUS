@@ -14,8 +14,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: NTSvc.cpp $"
-#define TEXTUS_MODTIME  "$Date: $"
-#define TEXTUS_BUILDNO  "$Revision: 1 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #include <string.h>

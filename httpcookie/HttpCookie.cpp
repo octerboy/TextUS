@@ -14,8 +14,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: HttpCookie.cpp $"
-#define TEXTUS_MODTIME  "$Date: 08-01-01 21:56 $"
-#define TEXTUS_BUILDNO  "$Revision: 5 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #include "SetCookie.h"

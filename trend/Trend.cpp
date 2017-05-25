@@ -18,11 +18,11 @@
 #endif 
 
 #ifndef TEXTUS_MODTIME
-#define TEXTUS_MODTIME  "$Date: 13-10-04 17:26 $"
+#define TEXTUS_MODTIME  "$Date$"
 #endif 
 
 #ifndef TEXTUS_BUILDNO
-#define TEXTUS_BUILDNO  "$Revision: 17 $"
+#define TEXTUS_BUILDNO  "$Revision$"
 #endif
 /* $NoKeywords: $ */
 

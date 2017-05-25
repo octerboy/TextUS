@@ -13,8 +13,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: FileLet.cpp $"
-#define TEXTUS_MODTIME  "$Date: 12-04-04 16:57 $"
-#define TEXTUS_BUILDNO  "$Revision: 29 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #if !defined(_WIN32)

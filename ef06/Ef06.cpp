@@ -3,8 +3,8 @@
 #include <stdio.h>
 
 #define SCM_MODULE_ID  "$Workfile: Ef06.cpp $"
-#define TEXTUS_MODTIME  "$Date: 13-12-19 11:41 $"
-#define TEXTUS_BUILDNO  "$Revision: 3 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #include "PacData.h"

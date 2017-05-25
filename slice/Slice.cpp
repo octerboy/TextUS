@@ -14,8 +14,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: Slice.cpp $"
-#define TEXTUS_MODTIME  "$Date: 13-05-19 11:15 $"
-#define TEXTUS_BUILDNO  "$Revision: 4 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #include "Amor.h"

@@ -12,8 +12,8 @@
  $Header: /textus/baselib/BTool.cpp 24    13-09-12 14:26 Octerboy $
 */
 
-#define TEXTUS_MODTIME  "$Date: 13-09-12 14:26 $"
-#define TEXTUS_BUILDNO  "$Revision: 24 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 #include "casecmp.h"
 #include "BTool.h"

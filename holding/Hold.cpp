@@ -13,8 +13,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: Hold.cpp $"
-#define TEXTUS_MODTIME  "$Date: 12-04-04 16:56 $"
-#define TEXTUS_BUILDNO  "$Revision: 12 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #include "SetCookie.h"

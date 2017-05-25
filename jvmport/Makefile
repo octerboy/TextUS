@@ -2,12 +2,15 @@
 # ID: Textus-JvmPort-Makefile
 # Build:
 #	B01:created by octerboy 2007/05/01, Panyu
+#gcc $(INCLUDE_DIR) $(JavaVM) $^ -o jv -L$(RELEASE_DIR) -lverify -ljava -ljvm -ljava
 
 include ../Rules.basemod
 PACDIR = ./jetus/jvmport/
 PACPATH = jetus.jvmport.
 include ../Rules.java
 INCLUDE_DIR  +=  -I../logdata/include -I../baselib/include  -I$(JDK_HOME)/include -I$(JDK_INC_JNI)
+#${CC} $(INCLUDE_DIR) $^ -o jv -L$(RELEASE_DIR) -lverify -ljava -ljvm -ljava
+#gcc -I/System/Library/Frameworks/JavaVM.framework/Versions/A/Headers /System/Library/Frameworks/JavaVM.framework/Versions/A/JavaVM $^ -o jv 
 
 all:jvmport.so
 all_class:$(PACDIR)/Pius.class $(PACDIR)/Amor.class $(PACDIR)/TBuffer.class $(PACDIR)/PacketData.class $(PACDIR)/TiXML.class
@@ -16,7 +19,7 @@ JvmPort.o: JvmPort.cpp
 	${CC} ${CFLAGS} $(INCLUDE_DIR) -I../unipac/include $(DEBUG_FLAG) -DAMOR_CLS_TYPE=JvmPort -o $@ $^
 
 jvmport.so: JvmPort.o 
-	${LD} $(LDFLAGS) $(JavaVM) -o $@ $^ $(LDLIBS) -lbase
+	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase -L$(JDK_HOME)/jre/lib/server -ljvm
 	$(_POST_RPO_SUB)
 
 $(PACDIR)/Amor.class:Amor.java
@@ -54,8 +57,8 @@ $(PACDIR)/TiXML.class: TiXML.java
 	cp jvmport.jar $(RELEASE_DIR)
 
 jv:jv.c
-	gcc $(INCLUDE_DIR) jv.c -o jv -L../release/ -ljvm
-	
+	gcc -I$(INCLUDE_DIR) $^ -o jv -L$(RELEASE_DIR) -ljvm
+
 clean:
 	rm *.o
-	rm *.so
+	m *.so

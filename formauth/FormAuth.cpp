@@ -14,8 +14,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: FormAuth.cpp $"
-#define TEXTUS_MODTIME  "$Date: 08-01-01 20:28 $"
-#define TEXTUS_BUILDNO  "$Revision: 4 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #include "BTool.h"

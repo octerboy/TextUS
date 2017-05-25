@@ -14,8 +14,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: SSLsrvuna.cpp $"
-#define TEXTUS_MODTIME  "$Date: 15-01-25 17:43 $"
-#define TEXTUS_BUILDNO  "$Revision: 23 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #include "Amor.h"

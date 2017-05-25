@@ -14,8 +14,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: X2pac.cpp $"
-#define TEXTUS_MODTIME  "$Date: 08-01-10 1:17 $"
-#define TEXTUS_BUILDNO  "$Revision: 21 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #include "Amor.h"

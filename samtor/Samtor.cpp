@@ -6,8 +6,8 @@
 #include "resource.h"
 //#include "BTool.h"
 #define SCM_MODULE_ID  "$Workfile: samtor.cpp $"
-#define TEXTUS_MODTIME  "$Date: 16-12-09 16:02 $"
-#define TEXTUS_BUILDNO  "$Revision: 7 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 #include <stdio.h>
 #include <conio.h>  

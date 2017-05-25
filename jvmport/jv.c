@@ -1,18 +1,19 @@
-#include <jvmdi.h>
+#include <jni.h>
 int main() {
 int res,n;
 jsize sz;
 JavaVM *jvm;
 JNIEnv *env;
 JavaVMInitArgs vm_args;
-JavaVMOption options[4];
-vm_args.version=JNI_VERSION_1_2;
+JavaVMOption options[8];
+vm_args.version=JNI_VERSION_1_6;
 //这个字段必须设置为该值
 /*设置初始化参数*/
-options[0].optionString = "-Djava.compiler=NONE";
 options[1].optionString = "-Djava.class.path=.";
 options[2].optionString = "-verbose:jni";
-options[3].optionString = 0;
+options[0].optionString = "-Xdebug";
+options[3].optionString = "-Djava.compiler=NONE";
+options[4].optionString = 0;
 options[0].extraInfo = 0;
 options[1].extraInfo = 0;
 options[2].extraInfo = 0;
@@ -20,7 +21,7 @@ options[3].extraInfo = 0;
 //用于跟踪运行时的信息
 /*版本号设置不能漏*/
 //vm_args.version = JNI_VERSION_1_4;
-vm_args.nOptions = 2;
+vm_args.nOptions = 3;
 vm_args.options = options;
 vm_args.ignoreUnrecognized = JNI_FALSE;
 

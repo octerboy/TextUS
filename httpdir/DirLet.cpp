@@ -14,8 +14,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: DirLet.cpp $"
-#define TEXTUS_MODTIME  "$Date: 08-01-01 22:07 $"
-#define TEXTUS_BUILDNO  "$Revision: 13 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #include <string.h>

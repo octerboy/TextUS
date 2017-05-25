@@ -7,8 +7,8 @@
 #include "UniReader.h"
 //#include "BTool.h"
 #define SCM_MODULE_ID  "$Workfile: vreader.cpp $"
-#define TEXTUS_MODTIME  "$Date: 16-12-09 16:02 $"
-#define TEXTUS_BUILDNO  "$Revision: 7 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 #include <sys/types.h>
 #include <sys/timeb.h>

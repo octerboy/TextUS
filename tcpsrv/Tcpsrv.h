@@ -9,8 +9,8 @@
  Title: TCP Service class
  Build: created by octerboy, 2005/06/10
  $Header: /textus/tcpsrv/Tcpsrv.h 11    08-01-16 20:02 Octerboy $
- $Date: 08-01-16 20:02 $
- $Revision: 11 $
+ $Date$
+ $Revision$
 */
 
 /* $NoKeywords: $ */

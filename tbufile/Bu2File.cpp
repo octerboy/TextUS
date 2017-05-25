@@ -14,8 +14,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: Bu2File.cpp $"
-#define TEXTUS_MODTIME  "$Date: 14-03-13 21:06 $"
-#define TEXTUS_BUILDNO  "$Revision: 14 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #include "Amor.h"

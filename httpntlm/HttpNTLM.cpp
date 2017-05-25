@@ -14,8 +14,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: HttpNTLM.cpp $"
-#define TEXTUS_MODTIME  "$Date: 07-09-09 16:29 $"
-#define TEXTUS_BUILDNO  "$Revision: 17 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #include "BTool.h"

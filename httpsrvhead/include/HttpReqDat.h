@@ -10,8 +10,8 @@
  Titile: Http Request Head Data
  Build: created by octerboy 2013/06/27
  $Header: /textus/httpsrvhead/DeHead.h 21    13-05-21 8:59 Octerboy $
- $Date: 13-05-21 8:59 $
- $Revision: 21 $
+ $Date$
+ $Revision$
 */
 
 /* $NoKeywords: $ */

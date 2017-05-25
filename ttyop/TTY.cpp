@@ -13,8 +13,8 @@
  $Header: /textus/ttyop/TTY.cpp 4     12-04-04 17:54 Octerboy $
 */
 #define SCM_MODULE_ID	"$Workfile: TTY.cpp $"
-#define TEXTUS_MODTIME  "$Date: 12-04-04 17:54 $"
-#define TEXTUS_BUILDNO  "$Revision: 4 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #include "Amor.h"

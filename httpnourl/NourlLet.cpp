@@ -14,8 +14,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: NourlLet.cpp $"
-#define TEXTUS_MODTIME  "$Date: 13-11-02 15:25 $"
-#define TEXTUS_BUILDNO  "$Revision: 19 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #include "Amor.h"

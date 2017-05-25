@@ -17,8 +17,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: Pipe.cpp $"
-#define TEXTUS_MODTIME  "$Date: 12-04-05 9:15 $"
-#define TEXTUS_BUILDNO  "$Revision: 8 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #define P_IDLE 0

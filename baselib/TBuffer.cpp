@@ -13,8 +13,8 @@
  $Header: /textus/baselib/TBuffer.cpp 14    08-01-10 1:26 Octerboy $
 */
 
-#define TEXTUS_MODTIME  "$Date: 08-01-10 1:26 $"
-#define TEXTUS_BUILDNO  "$Revision: 14 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 #include "hook.h"
 
 #if defined(_WIN32) 

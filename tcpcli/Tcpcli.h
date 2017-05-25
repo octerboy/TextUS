@@ -2,8 +2,8 @@
  Title: TCP·þÎñ¶Ë
  Build: created by octerboy, 2005/08/1
  $Header: /textus/tcpcli/Tcpcli.h 8     08-01-16 20:02 Octerboy $
- $Date: 08-01-16 20:02 $
- $Revision: 8 $
+ $Date$
+ $Revision$
 */
 
 /* $NoKeywords: $ */

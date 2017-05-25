@@ -11,8 +11,8 @@
 Title: Array Template
 Build: created by octerboy, 2006/12/01
  $Header: /textus/tsoap/Array.h 12    10-12-12 16:36 Octerboy $
- $Date: 10-12-12 16:36 $
- $Revision: 12 $
+ $Date$
+ $Revision$
 */
 
 /* $NoKeywords: $ */

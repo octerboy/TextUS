@@ -11,8 +11,8 @@
  Title: The class definition of Animus
  Build: created by octerboy, 2006/03/10, Shenyang
  $Header: /textus/amor/include/Animus.h 27    10-12-11 21:07 Octerboy $
- $Date: 10-12-11 21:07 $
- $Revision: 27 $
+ $Date$
+ $Revision$
 */
 
 /* $NoKeywords: $ */

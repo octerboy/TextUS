@@ -14,8 +14,8 @@
 */
 
 #define SCM_MODULE_ID  "$Workfile: L2Buffer.cpp $"
-#define TEXTUS_MODTIME  "$Date: 07-06-03 17:23 $"
-#define TEXTUS_BUILDNO  "$Revision: 2 $"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #include "Amor.h"
