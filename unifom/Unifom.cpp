@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -10,10 +10,10 @@
 /**
  Title:Universal Transform Pro
  Build: created by octerboy, 2006/09/25, Guangzhou
- $Header: /textus/unifom/Unifom.cpp 40    14-03-10 8:13 Octerboy $
+ $Id$
 */
 
-#define SCM_MODULE_ID  "$Workfile: Unifom.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
@@ -1523,8 +1523,7 @@ void Unifom::do_obu_sn(FieldObj &fldIn, PacketObj &pac, unsigned int out, bool &
 				obu_serial *= 10;
 				obu_serial += Obtainc(o_sn[j]) ;
 			}
-			obu_serial = obu_serial%20000000;	//×î¸ßÎ»¶Ô2È¡Ä£, Èç¹ûÕâÀïÓÐÅú´ÎµÄ»°¡
-			TEXTUS_SPRINTF(obu_hex, "%06X", obu_serial);
+			obu_serial = obu_serial%20000000;	//×î¸ßÎ»¶Ô2È¡Ä£, Èç¹ûÕâÀïÓÐÅú´ÎµÄ»°?			TEXTUS_SPRINTF(obu_hex, "%06X", obu_serial);
 			memcpy(&n_sn[0], &o_sn[0], 8);
 			memcpy(&n_sn[8], to, 2);		//16½øÖÆµÄ³§ÉÌ´úÂë
 			memcpy(&n_sn[10], &obu_hex[0], 6);	//16½øÖÆµÄÐòºÅ
