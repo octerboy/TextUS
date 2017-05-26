@@ -21,6 +21,7 @@
 #include "Amor.h"
 #include "Notitia.h"
 #include "textus_string.h"
+#include "casecmp.h"
 #include <time.h>
 #include <stdarg.h>
 

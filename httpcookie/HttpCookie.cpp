@@ -21,6 +21,7 @@
 #include "SetCookie.h"
 #include "Amor.h"
 #include "Notitia.h"
+#include "casecmp.h"
 #include "textus_string.h"
 #include <stdarg.h>
 #include <stdlib.h>
