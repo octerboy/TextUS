@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -11,10 +11,10 @@
  Title: Joint attachment
  Desc: Extending of Aptus. 
  Build: created by octerboy, 2006/05/14£¬Guangzhou
- $Header: /textus/joint/Joint.cpp 11    08-01-10 1:14 Octerboy $
+ $Id$
 */
 
-#define SCM_MODULE_ID  "$Workfile: Joint.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */

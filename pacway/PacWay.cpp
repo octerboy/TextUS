@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2016-2018 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -7,13 +7,13 @@
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 
  Title:PacWay
- Build: created by octerboy, 2016/04/01 Guangzhou
- $Header: /textus/PacWay.cpp 48    16-08-04 9:01 Test $
+ Build: created by octerboy, 2016/12/01 Guangzhou
+ $Id$
 */
 
-#define SCM_MODULE_ID  "$Workfile: PacWay.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"
-#define TEXTUS_BUILDNO  "$Revision: 48 $"
+#define TEXTUS_BUILDNO  "$Rev$"
 /* $NoKeywords: $ */
 
 #include "Amor.h"
@@ -22,6 +22,7 @@
 #include "BTool.h"
 #include "casecmp.h"
 #include "textus_string.h"
+#include "DBFace.h"
 #include <stdlib.h>
 #include <time.h>
 #include <sys/timeb.h>
@@ -62,6 +63,8 @@ int squeeze(const char *p, unsigned char *q)	//把空格等挤掉, 只留下16进制字符(大
 #define ERROR_RECV_PAC -202
 #define ERROR_RESULT -210
 #define ERROR_USER_ABORT -203
+#define ERROR_DB_DEF -131
+#define ERROR_DB_PRO -131
 #define ERROR_INS_DEF -133
 
 char err_global_str[128]={0};
@@ -72,7 +75,8 @@ enum RIGHT_STATUS { RT_IDLE = 0, RT_OUT=7, RT_READY = 3};
 
 enum Var_Type {VAR_ErrCode=1, VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_CurOrder=4, VAR_CurCent=5, VAR_ErrStr=6, VAR_FlowID=7, VAR_Dynamic = 10, VAR_Me=12, VAR_Constant=98,  VAR_None=99};
 /* 命令分几种，INS_Normal：标准，INS_Abort：终止 */
-enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_SetPeer=3, INS_GetPeer=4, INS_Get_CertNo=5, INS_Pro_DBFace=6, INS_Cmd_Ordo=7, INS_Null=99};
+enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_SetPeer=3, INS_GetPeer=4, INS_Get_CertNo=5, INS_Pro_DBFace=6, INS_Cmd_Ordo=7, INS_Respond, INS_Null=99};
+enum ACT_DIR { FACIO=0, SPONTE=1 };
 
 /* 包括SysTime这样的变量，都由外部函数计算，所以这里只保留脚本指纹数据 */	
 #define Pos_ErrCode 1 
@@ -1147,6 +1151,10 @@ struct PacIns:public Condition  {
 	const char *err_code; //这是直接从外部定义文件得到的内容，不作任何处理。 当本报文出现通信错误，包括报文不能解析的、通道关闭。
 	bool counted;		//是否计数
 	bool isFunction;	//是否为函数
+	enum ACT_DIR fac_spo;	//动作方向
+	TEXTUS_ORDO ordo;	//其它动作
+	const char *dbface_name;
+	DBFace *dbface;
 
 	PacIns() 
 	{
@@ -1160,6 +1168,9 @@ struct PacIns:public Condition  {
 		err_code = 0;
 		counted = false;	/* 不计入指令数计算 */
 		isFunction = false;
+		fac_spo = SPONTE;
+		dbface_name = 0;
+		dbface = 0;
 	};
 
 	void get_snd_pac( PacketObj *snd_pac, int &bor, MK_Session *sess)
@@ -1294,7 +1305,53 @@ ErrRet:
 			type = INS_Null;
 			goto LAST_CON;
 		}
-
+		
+		if ( strcasecmp( pac_ele->Value(), "respond") ==0 )
+		{
+			type = INS_Respond;
+			goto LAST_CON;
+		}
+		
+		p = def_ele->Attribute("type");	
+		if ( !p ) goto DefaultUnipac;
+		if ( strcasecmp( p, "GetPeer") ==0 )
+		{
+			type =  INS_GetPeer;
+			fac_spo = SPONTE;
+		} else if ( strcasecmp( p, "SetPeer") ==0 )
+		{
+			type =  INS_SetPeer;
+			fac_spo = FACIO;
+		} else if ( strcasecmp( p, "GetCertNo") ==0 )
+		{
+			type =  INS_Get_CertNo;
+			fac_spo = SPONTE;
+		} else if ( strcasecmp( p, "ProDB") ==0 )
+		{
+			type =  INS_Pro_DBFace;
+			fac_spo = FACIO;
+			dbface_name = def_ele->Attribute("dbface");
+		} else if ( (p = def_ele->Attribute("ordo")) )
+		{
+			type =  INS_Cmd_Ordo;
+			fac_spo = FACIO;
+			ordo = Notitia::get_ordo(p);
+		} else {
+			goto DefaultUnipac;
+		}
+		p = def_ele->Attribute("dir");	
+		if ( p )
+		{
+			if ( strcasecmp( p, "facio") ==0 )
+			{
+				fac_spo = FACIO;
+			} else if ( strcasecmp( p, "sponte") ==0 )
+			{
+				fac_spo = SPONTE;
+			}
+		}
+		
+	DefaultUnipac:
 		subor=0; def_ele->QueryIntAttribute("subor", &subor);
 		if ( (p = def_ele->Attribute("counted")) && ( *p == 'y' || *p == 'Y') )
 			counted = true;
@@ -1965,7 +2022,7 @@ public:
 private:
 	void h_fail(char tmp[], char desc[], int p_len, int q_len, const char *p, const char *q, const char *fun);
 	void mk_hand();	//还有右边状态处理
-	void mk_result();
+	void mk_result(bool end_mess=true);
 
 	struct G_CFG 	//全局定义
 	{
@@ -2006,6 +2063,9 @@ private:
 	bool call_back;	/* false: 一般如此，向右发出后，在下一轮中再处理响应; 
 			true: 对于函数处理的扩展，有回调处理，在sponte时就即返回，由发出点处理响应数据，从而避免调用嵌套太深。
 			*/
+	bool multi_pac_end;	//对于DB查询, 如果没有一行数据, 则设此为true.
+	DBFace *get_dbface(const char *id_name);
+	Amor::Pius prodb_ps;
 	#include "wlog.h"
 };
 
@@ -2049,6 +2109,9 @@ PacWay::PacWay()
 	loc_pro_pac.subor = -1;
 
 	call_back = false;
+	prodb_ps.ordo =  Notitia::PRO_DBFACE;
+	prodb_ps.indic = 0;
+	prodb_ps.subor = -1;
 }
 
 PacWay::~PacWay() 
@@ -2163,9 +2226,16 @@ bool PacWay::sponte( Amor::Pius *pius)
 			WLOG(WARNING, "sponte SET_UNIPAC null");
 
 		break;
+	case Notitia::MULTI_UNIPAC_END:
+		WBUG("sponte MULTI_UNIPAC_END");
+		multi_pac_end = true;
+		goto BACK_PRO;
+		break;
+
 	case Notitia::PRO_UNIPAC:
 		WBUG("sponte PRO_UNIPAC");
-		if ( mess.right_status != RT_OUT || mess.right_subor != pius->subor  )	//表明是制卡工作
+	BACK_PRO:
+		if ( mess.right_status != RT_OUT || mess.right_subor != pius->subor  )	//表明是右端返回
 		{
 			const char *r_str;
 			switch (mess.right_status)
@@ -2316,6 +2386,7 @@ SUB_INS_PRO:
 	switch ( paci->type)
 	{
 	case INS_Normal:
+	case INS_Pro_DBFace:
 		switch ( command_wt.pac_step )
 		{
 		case 0:
@@ -2331,9 +2402,28 @@ SUB_INS_PRO:
 			i_ret = 0;	/* 进行中 */
 			call_back = paci->isFunction; //对于函数，属回调的情况。这个call_back在sponte时被判断
 			mess.right_status = RT_OUT;
-			mess.right_subor = loc_pro_pac.subor;
+			mess.right_subor = paci->subor;
 			WBUG("mess.pro_order=%d command_wt.pac_which=%d", mess.pro_order, command_wt.pac_which);
-			aptus->facio(&loc_pro_pac);     //向右发出, 然后等待
+			if ( paci->type == INS_Normal )
+				aptus->facio(&loc_pro_pac);     //向右发出, 然后等待
+			else if ( paci->type == INS_Pro_DBFace) {	//DB操作
+				multi_pac_end = false;
+				if (paci->dbface == 0 ) 
+				{
+					paci->dbface = 	get_dbface(paci->dbface_name);
+					if (paci->dbface == 0 ) 
+					{
+						mess.iRet = ERROR_DB_DEF;
+						TEXTUS_SPRINTF(mess.err_str, "no dbface error at %d of %s", mess.pro_order, cur_def->flow_id);
+						if ( paci->err_code) mess.snap[Pos_ErrCode].input(paci->err_code);
+						i_ret = -2;
+						break;
+					}
+				}
+				prodb_ps.indic = paci->dbface;
+				prodb_ps.subor = paci->subor;
+				aptus->facio(&prodb_ps);	//发出DB操作
+			}
 			if ( paci->rcv_num == 0 ) 	//没有接收域，直接下一条
 			{
 				i_ret = 1;
@@ -2379,6 +2469,14 @@ GO_ON_FUNC:
 			if (paci->err_code ) mess.snap[Pos_ErrCode].input(paci->err_code);
 		} else {
 			i_ret = 1;
+		}
+		
+		break;
+
+	case INS_Respond:
+		if ( paci->valid_condition(&mess) )		/* 符合前提条件, 再判断结果 */
+		{
+			mk_result(false);		//回应前端, 但不结束
 		}
 		
 		break;
@@ -2491,7 +2589,7 @@ NEXT_PRI_TRY:
 //{int *a =0 ; *a = 0; };
 }
 
-void PacWay::mk_result()
+void PacWay::mk_result(bool end_mess)
 {
 	struct DyVar *dvr;
 	struct PVar  *vt;
@@ -2519,6 +2617,18 @@ void PacWay::mk_result()
 	}
 	//{int *a=0; *a=0;}
 	aptus->sponte(&loc_pro_pac);    //制卡的结果回应给控制台
-	mess.reset();
+	if (end_mess) mess.reset();
 }
+
+DBFace *PacWay::get_dbface(const char *id_name)
+{
+	Pius get_face;
+	void *ind[2];
+	get_face.ordo = Notitia::CMD_GET_DBFACE;
+	get_face.indic = ind;
+	ind[0] = (void*) id_name;
+	aptus->facio(&get_face);
+	return (DBFace*) ind[1];
+}
+
 #include "hook.c"

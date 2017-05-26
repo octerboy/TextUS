@@ -11,11 +11,7 @@
 	   2: 校验错
 	   3: 内容错误
 	   4: 文件错误
- $Id$
-*/
-#define SCM_MODULE_ID  "$Id$"
-#define TEXTUS_MODTIME  "$Date$"
-#define TEXTUS_BUILDNO  "$Revision$"
+ */
 #define DEBUG
 
 const char *ld_lib_path = 0;

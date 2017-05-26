@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -11,7 +11,7 @@
  Title: Main loader
  desc: Loading all modules, deliver message between modules. 
  Build: created on 2006/03/10 in Shenyang
- $Header: /textus/amor/Animus.cpp 1    13-10-04 17:21 Octerboy $
+ $Id$
 */
 #define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"

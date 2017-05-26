@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -10,11 +10,11 @@
 /**
  Title: Aptus extension, trend ordo
  Build: created by octerboy, 2007/03/09, Panyu
- $Header: /textus/trend/Trend.cpp 17    13-10-04 17:26 Octerboy $
+ $Id$
 */
 
 #ifndef SCM_MODULE_ID
-#define SCM_MODULE_ID  "$Workfile: Trend.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #endif 
 
 #ifndef TEXTUS_MODTIME

@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -10,10 +10,10 @@
 /**
  Title: Port to the Java world
  Build:created by octerboy 2007/05/01, Panyu
- $Header: /textus/jvmport/JvmPort.cpp 20    08-05-04 22:21 Octerboy $
+ $Id$
 */
 
-#define SCM_MODULE_ID  "$Workfile: JvmPort.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */

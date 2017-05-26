@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -12,10 +12,10 @@
 	这些模块在clone出新对象时，是同步的。即这些模块子对象数目相同, 并且同时出现。
 	这些特定ordo的Pius将在同一阶（相同子对象序数号）对象之间传递。
  Build: created by octerboy, 2008/01/16, Guangzhou
- $Header: /textus/airline/Air.cpp 3     13-10-04 17:23 Octerboy $
+ $Id$
 */
 
-#define SCM_MODULE_ID  "$Workfile: Air.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */

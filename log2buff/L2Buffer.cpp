@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -10,10 +10,10 @@
 /**
  Title: logdata to TBuffer
  Build: created by octerboy, 2007/05/28
- $Header: /textus/log2buff/L2Buffer.cpp 2     07-06-03 17:23 Octerboy $
+ $Id$
 */
 
-#define SCM_MODULE_ID  "$Workfile: L2Buffer.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -10,10 +10,10 @@
 /**
  Title: 
  Build:created by octerboy 2014/08/15, guangzhou
- $Header: /textus/jsport/TclPort.cpp 12    14-07-07 16:39 Octerboy $
+ $Id$
 */
 
-#define SCM_MODULE_ID  "$Workfile: TclPort.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */

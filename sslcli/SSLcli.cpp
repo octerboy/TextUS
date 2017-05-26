@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -10,10 +10,10 @@
 /**
  Title: SSL客户端的数据处理, 不涉及通信
  Build: created by octerboy, 2007/12/18
- $Header: /textus/sslcli/SSLcli.cpp 5     10-12-14 19:58 Octerboy $
+ $Id$
 */
 
-#define SCM_MODULE_ID  "$Workfile: SSLcli.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 #include "version_1.c"

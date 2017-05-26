@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -9,7 +9,7 @@
 /**
  Titile: DeHead Definition
  Build: created by octerboy 2006/02/16
- $Header: /textus/httpsrvhead/DeHead.h 20    08-01-10 1:12 Octerboy $
+ $Id$
  $Date$
  $Revision$
 */

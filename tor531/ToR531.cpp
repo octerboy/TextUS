@@ -9,7 +9,7 @@
 #include "R531DeviceFunc.h"
 #include "publicFunc.h"
 
-#define SCM_MODULE_ID  "$Workfile: ToR531.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */

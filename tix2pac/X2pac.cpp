@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -10,10 +10,10 @@
 /**
  Title: TiXmlElement to Unipac 
  Build: createcd by octerboy on 2006/12/28, Guangzhou
- $Header: /textus/tix2pac/X2pac.cpp 21    08-01-10 1:17 Octerboy $
+ $Id$
 */
 
-#define SCM_MODULE_ID  "$Workfile: X2pac.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */

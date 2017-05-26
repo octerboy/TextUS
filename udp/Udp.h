@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -8,7 +8,7 @@
 
  Title: Udp class 
  Build: created by octerboy, 2005/06/10
- $Header: $
+ $Id$
 */
 
 /* $NoKeywords: $ */

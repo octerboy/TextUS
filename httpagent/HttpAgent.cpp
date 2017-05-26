@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -9,10 +9,10 @@
 /**
  Title: HTTP Agent
  Build: created by octerboy, 2006/09/13, Guangzhou
- $Header: /textus/httpagent/HttpAgent.cpp 23    08-01-10 1:11 Octerboy $
+ $Id$
 */
 
-#define SCM_MODULE_ID  "$Workfile: HttpAgent.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */

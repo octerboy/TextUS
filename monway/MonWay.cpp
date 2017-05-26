@@ -10,10 +10,10 @@
 /**
  Title:monitor business to  insway
  Build: created by octerboy, 2016/04/22, Guangzhou
- $Header: /textus/monway/MonWay.cpp     14-03-10 8:13 Octerboy $
+ $Id$
 */
 
-#define SCM_MODULE_ID  "$Workfile: MonWay.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -13,10 +13,10 @@
 	1¡¢multi request pipe to a server, response has the original order.
 	2¡¢respone will be delivered to the original object
  Build: created by octerboy, 2005/06/20, Guangzhou
- $Header: /textus/pipe/Pipe.cpp 8     12-04-05 9:15 Octerboy $
+ $Id$
 */
 
-#define SCM_MODULE_ID  "$Workfile: Pipe.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */

@@ -2,7 +2,7 @@
  Title: 	SSL通讯的数据处理
  Description:	纯粹的数据处理, 这比直接对fd操作要慢些, 慢多少?不知道.
  Build:	created by octerboy, 2005/06/10
- $Header: /textus/sslsrv/SSLsrv.h 11    15-01-25 17:43 Octerboy $
+ $Id$
  $Date$
  $Revision$
 */

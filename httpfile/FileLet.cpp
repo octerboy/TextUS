@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -9,10 +9,10 @@
 /**
  Title: HTTP Download File
  Build:created by octerboy 2005/04/12
- $Header: /textus/httpfile/FileLet.cpp 29    12-04-04 16:57 Octerboy $
+ $Id$
 */
 
-#define SCM_MODULE_ID  "$Workfile: FileLet.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */

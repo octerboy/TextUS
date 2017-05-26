@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2016-2018 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -10,10 +10,10 @@
 /**
  Title:route instruction from insway
  Build: created by octerboy, 2016/04/09, Panyu
- $Header: /textus/toway/ToWay.cpp     14-03-10 8:13 Octerboy $
+ $Id$
 */
 
-#define SCM_MODULE_ID  "$Workfile: ToWay.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */

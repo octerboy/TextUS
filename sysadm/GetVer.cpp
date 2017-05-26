@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -8,10 +8,10 @@
 
  Title: Get the version of all modules
  Build: created by octerboy 2006/12/23
- $Header: /textus/sysadm/GetVer.cpp 16    08-01-01 23:19 Octerboy $
+ $Id$
 */
 
-#define SCM_MODULE_ID  "$Workfile: GetVer.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */

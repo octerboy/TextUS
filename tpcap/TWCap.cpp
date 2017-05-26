@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -10,10 +10,10 @@
 /**
  Title:Internet Protocol Head pro
  Build: created by octerboy, 2007/08/02, Panyu
- $Header: /textus/tpcap/TWCap.cpp 3     12-04-04 17:53 Octerboy $
+ $Id$
 */
 
-#define SCM_MODULE_ID  "$Workfile: TWCap.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */

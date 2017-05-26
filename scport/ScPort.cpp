@@ -7,7 +7,7 @@
 #include <winsmcrd.h>
 #include <stdio.h>
 
-#define SCM_MODULE_ID  "$Workfile: ScPort.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */

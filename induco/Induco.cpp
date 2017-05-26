@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -11,10 +11,10 @@
  Title: Induco attachment
  Desc: Extending of Aptus. it makes another object cloned when one amor object clones
  Build: :created by octerboy, 2006/08/04, Guangzhou
- $Header: /textus/induco/Induco.cpp 9     08-01-10 1:14 Octerboy $
+ $Id$
 */
 
-#define SCM_MODULE_ID  "$Workfile: Induco.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */

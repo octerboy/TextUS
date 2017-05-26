@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -9,7 +9,7 @@
 /**
  Title: Basic Tool
  Build: Created by octerboy 2005/6/9
- $Header: /textus/baselib/BTool.cpp 24    13-09-12 14:26 Octerboy $
+ $Id$
 */
 
 #define TEXTUS_MODTIME  "$Date$"

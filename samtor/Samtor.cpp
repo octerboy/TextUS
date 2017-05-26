@@ -5,7 +5,7 @@
 #include "PacData.h"
 #include "resource.h"
 //#include "BTool.h"
-#define SCM_MODULE_ID  "$Workfile: samtor.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */

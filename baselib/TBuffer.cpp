@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -10,7 +10,7 @@
 /**
  Title: 	TBuffer
  Build: created by octerboy, 2005/06/10
- $Header: /textus/baselib/TBuffer.cpp 14    08-01-10 1:26 Octerboy $
+ $Id$
 */
 
 #define TEXTUS_MODTIME  "$Date$"

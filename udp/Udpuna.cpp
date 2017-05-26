@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -8,10 +8,10 @@
 
  Title: udp to textus
  Build: created by octerboy, 2006/10/10
- $Header: /textus/udp/Udpuna.cpp 6     06-12-29 11:41 Octerboy $
+ $Id$
 */
 
-#define SCM_MODULE_ID  "$Workfile: Udpuna.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 #include "version_1.c"

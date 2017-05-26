@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -10,10 +10,10 @@
 /**
  Title: HTML Content Filter
  Build: created by octerboy, 2006/08/27, Guangzhou
- $Header: /textus/htmlsift/Sift.cpp 8     07-03-23 16:11 Octerboy $
+ $Id$
 */
 
-#define SCM_MODULE_ID  "$Workfile: Sift.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */

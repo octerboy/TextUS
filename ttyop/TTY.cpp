@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -10,9 +10,9 @@
 /**
  Title: serial communication
  Build: created by octerboy, 2007/10/24
- $Header: /textus/ttyop/TTY.cpp 4     12-04-04 17:54 Octerboy $
+ $Id$
 */
-#define SCM_MODULE_ID	"$Workfile: TTY.cpp $"
+#define SCM_MODULE_ID	"$Id$"
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */

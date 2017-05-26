@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2010-2012 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -10,10 +10,10 @@
 /**
  Title: DWave
  Build:created by octerboy 2011/06/08
- $Header: /textus/dwave/DWave.cpp 1     12-03-28 21:39 Octerboy $
+ $Id$
 */
 
-#define SCM_MODULE_ID  "$Workfile: DWave.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
