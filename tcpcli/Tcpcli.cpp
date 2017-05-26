@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -10,10 +10,10 @@
 /**
  Title: TCP Client
  Build: created by octerboy, 2005/08/1
- $Header: /textus/tcpcli/Tcpcli.cpp 23    14-04-14 7:24 Octerboy $
+ $Id$
 */
 
-#define SCM_MODULE_ID  "$Workfile: Tcpcli.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 #include "version_1.c"
@@ -223,10 +223,10 @@ bool Tcpcli::annecto_done()
 {
 	int error = 0;
 	err_lev = -1;
-#if defined(__linux__) || defined(_AIX) || defined(__APPLE__)
+#if defined(__linux__) || defined(_AIX) || defined(__APPLE__) || defined(__SUNPRO_CC)
 	socklen_t len = sizeof(error);
 #else
-	int len = sizeof(error); //WIN32, SUN, SCO都这样
+	int len = sizeof(error); //WIN32, SCO都这样
 #endif
 	bool ret = true;
 	if (getsockopt(connfd, SOL_SOCKET, SO_ERROR, (GETSOCK_OPT_TYPE)&error, &len) < 0)

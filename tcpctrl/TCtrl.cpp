@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -10,10 +10,10 @@
 /**
  Title: Tcp连接控制扩展
  Build:created by octerboy, 2006/07/21
- $Header: /textus/tcpctrl/TCtrl.cpp 12    14-04-14 7:25 Octerboy $
+ $Id$
 */
 
-#define SCM_MODULE_ID  "$Workfile: TCtrl.cpp $"
+#define SCM_MODULE_ID  "$Id$"
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
@@ -154,7 +154,7 @@ void TCtrl::ignite(TiXmlElement *cfg)
 bool TCtrl::facio( Amor::Pius *pius)
 {
 	Amor::Pius tmp_pius;
-#if defined(__linux__) || defined(_AIX) || defined(__APPLE__)
+#if defined(__linux__) || defined(_AIX) || defined(__APPLE__) || defined(__SUNPRO_CC)
 	socklen_t clilen; 
 #else
 	int clilen;
