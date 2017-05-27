@@ -14,7 +14,7 @@
 */
 
 #define SCM_MODULE_ID  "$Id$"
-#define TEXTUS_MODTIME  "$Date"
+#define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 

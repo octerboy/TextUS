@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
+/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -20,9 +20,9 @@
 
 #include "Amor.h"
 #include "Notitia.h"
+#include "textus_string.h"
 #include <openssl/ssl.h>
 #include <openssl/err.h>
-#define CERT_MAX 10
 class VCert: public Amor
 {
 public:
@@ -33,9 +33,10 @@ public:
 	VCert();
 	~VCert();
 private:
-	char ssl_cert_no[CERT_MAX][128];/* WEB客户端的证书号, 共享 */
+	const char **cert_no;/* WEB客户端的证书号, 共享 */
+	int cert_num;
 	SSL* ssl;	/* */
-	char* current_no;	/* 当前证书号 */
+	char current_no[128];	/* 当前证书号 */
 
 	Amor::Pius local_pius;	//仅用于向mary传回数据
 	bool sessioning;
@@ -54,12 +55,18 @@ void VCert::ignite(TiXmlElement *cfg)
 	usrno_ele = cfg->FirstChildElement("client");
 	while ( usrno_ele )
 	{
-		str = usrno_ele->Attribute("certno");
-		if( str )
-		{
-			TEXTUS_SPRINTF(ssl_cert_no[i], str, 127);
-		}
-		if ( i == CERT_MAX) break;
+		i++;
+		usrno_ele = usrno_ele->NextSiblingElement("client");
+	}
+	cert_num = i;
+	if ( cert_num > 0 ) 
+	{
+		cert_no = new const char* [cert_num];
+	}
+	i = 0; usrno_ele = cfg->FirstChildElement("client");
+	while ( usrno_ele )
+	{
+		cert_no[i] = usrno_ele->Attribute("certno");
 		i++;
 		usrno_ele = usrno_ele->NextSiblingElement("client");
 	}
@@ -76,13 +83,13 @@ bool VCert::facio( Amor::Pius *pius)
 	case Notitia::DMD_END_SESSION:	
 		WBUG("facio DMD_END_SESSION");
 		sessioning = false;
-		current_no = (char *) 0;
 		break;
 
 	case Notitia::START_SESSION:	
 		WBUG("facio START_SESSION");	/* 一个SSL会话刚建立, 这里获取其证书并进行判断 */
 		local_pius.ordo = Notitia::CMD_GET_SSL;
 		local_pius.indic = 0;
+		local_pius.subor = 0;
 		aptus->sponte(&local_pius);
 		ssl = (SSL *)local_pius.indic;
 		if ( !ssl ) {
@@ -90,7 +97,7 @@ bool VCert::facio( Amor::Pius *pius)
 			break;	/* 前面没有实现, 这里放过 */
 		}
 
-		current_no = (char *) 0;
+		BZERO(current_no);
 		if( (verify_result = SSL_get_verify_result(ssl)) != X509_V_OK) 
 		{
 			WLOG(ALERT, "SSL_get_verify_result %s", ERR_error_string(ERR_get_error(), (char *)NULL));
@@ -110,25 +117,18 @@ bool VCert::facio( Amor::Pius *pius)
 			}
 
 			serial = X509_get_serialNumber(peer); 
-			memset(nostring, 0, sizeof(nostring));
-			for ( i =0; i < serial->length; i++ )
-			{
-				TEXTUS_SPRINTF(tmp,"%02X",serial->data[i]);
-				memcpy(&nostring[2*i],tmp,2);
-			}
-			WBUG("SSL_get_serialNumber %s",nostring);
+			byte2hex(serial->data, serial->length, current_no);
+			current_no[serial->length*2] = 0;
+			WBUG("SSL_get_peer_serialNumber %s",current_no);
 			X509_free(peer);
 
-			for ( i = 0 ; i < CERT_MAX; i++)
+			for ( i = 0 ; i < cert_num; i++)
 			{
-				if ( strcmp(nostring, ssl_cert_no[i]) == 0 ) 
-				{
-					current_no = ssl_cert_no[i];
+				if ( strcmp(current_no, cert_no[i]) == 0 ) 
 					break;
-				}
 			}
 
-			if ( i >= CERT_MAX )
+			if ( cert_num > 0 && i >= cert_num )
 			{
 				/* 没有可符合的证书, 先关闭它, 还有什么下次再处理  */
 				WLOG(ERR, "invalid cert");
@@ -168,7 +168,8 @@ bool VCert::sponte( Amor::Pius *pius)
 Amor* VCert::clone()
 {
 	VCert *child = new VCert();
-	memcpy(child->ssl_cert_no, ssl_cert_no, sizeof(ssl_cert_no));
+	child->cert_no = cert_no;
+	child->cert_num = cert_num;
 	return (Amor*)child;
 }
 
@@ -176,6 +177,9 @@ VCert::VCert()
 {
 	local_pius.indic = 0;
 	sessioning = false;
+	cert_no = 0;
+	cert_num = 0;
+	BZERO(current_no);
 }
 
 VCert::~VCert()

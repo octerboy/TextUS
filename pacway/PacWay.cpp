@@ -1513,7 +1513,7 @@ struct ComplexSubSerial {
 	TiXmlElement *map_root;
 	TiXmlElement *usr_ele;	//用户命令
 
-	int loop_n;	/* 本子序列循环次数: 0:无限, 直到某种失败, >0: 一定次数, 若失败则中止  */
+	long loop_n;	/* 本子序列循环次数: 0:无限, 直到某种失败, >0: 一定次数, 若失败则中止  */
 
 	ComplexSubSerial()
 	{
@@ -2057,6 +2057,7 @@ private:
 		int cur;
 		int pac_which;
 		int pac_step;	//0: send, 1: recv
+		long sub_loop;	//循环次数
 	} command_wt;
 
 	int sub_serial_pro(struct ComplexSubSerial *comp);
@@ -2615,13 +2616,22 @@ INS_PRO:
 			else 
 				mess.willLast = false; //一个用户操作，包括几个复合指令的尝试，有一个成功，就算OK
 NEXT_PRI_TRY:
+			command_wt.sub_loop = usr_com->complex[command_wt.cur].loop_n; //软失败的重试次数
+LOOP_PRI_TRY:
 			command_wt.pac_which = 0;	//新子系列, pac从第0个开始
 			command_wt.pac_step = 0;	//pac处理开始, 
 			command_wt.step++;	//指向下一步
 		case 1:
 			i_ret = sub_serial_pro( &(usr_com->complex[command_wt.cur]) );
-			if ( i_ret == -1 ) 
+			if ( i_ret == -1 ) 	//这是软失败
 			{
+				command_wt.sub_loop--;
+				if ( command_wt.sub_loop != 0 ) 	//如果原为是0,则为负,几乎到不了0
+				{
+					command_wt.sub_loop--;
+					command_wt.step--;
+					goto LOOP_PRI_TRY;
+				}
 				if ( command_wt.cur < (usr_com->comp_num-1) )	//用户定义的Abort才试下一个
 				{
 					command_wt.cur++;

@@ -43,15 +43,13 @@ public:
 	struct Pius {
 		 TEXTUS_ORDO ordo;	/* the type of inidc */
 		 int subor;		/* the sub type of inidc
-						比如同为PRO_UNIPAC, 子节点Module有几个dbport, 到不同数据库等, 或其它unipac接口的. 
-						此量区分不同的Module. 父节点的Module可以设置不同值, 以便不同的PacketObj传到不同的子Module。 */
+						此量区分不同的Module. */
+						
 		 void *indic;		/* data pointer for any type */
 	};
-
 	virtual bool facio( Pius *) = 0 ;
 	virtual bool sponte( Pius *) = 0;
 	virtual Amor *clone() = 0;
-	
 	virtual ~Amor() {};
 };
 #endif
