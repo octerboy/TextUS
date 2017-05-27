@@ -77,6 +77,7 @@ enum Var_Type {VAR_ErrCode=1, VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_CurOrder=4,
 /* 命令分几种，INS_Normal：标准，INS_Abort：终止 */
 enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_SetPeer=3, INS_GetPeer=4, INS_Get_CertNo=5, INS_Pro_DBFace=6, INS_Cmd_Ordo=7, INS_Respond, INS_Null=99};
 enum ACT_DIR { FACIO=0, SPONTE=1 };
+enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 
 /* 包括SysTime这样的变量，都由外部函数计算，所以这里只保留脚本指纹数据 */	
 #define Pos_ErrCode 1 
@@ -2056,7 +2057,7 @@ private:
 		int step;	//0: just start, 1: doing 
 		int cur;
 		int pac_which;
-		int pac_step;	//0: send, 1: recv
+		PAC_STEP pac_step;	//0: send, 1: recv
 		long sub_loop;	//循环次数
 	} command_wt;
 
@@ -2444,19 +2445,22 @@ void PacWay::get_peer(PacketObj *pac, int sub)
 /* 子序列入口 */
 int PacWay::sub_serial_pro(struct ComplexSubSerial *comp)
 {
-	int i_ret=1;	//一进来，就假定一次完成即同步完成, 但很多情况是异步完成
+	int i_ret = 0;
 	struct PacIns *paci;
 	char h_msg[1024];
 	Amor::Pius tmp_ps;
 
 SUB_INS_PRO:
 	paci = &(comp->pac_inses[command_wt.pac_which]);
-	if ( command_wt.pac_step == 0 )
+	if ( command_wt.pac_step == Pac_Idle )
 	{
 		if ( !paci->valid_condition(&mess) )		/* 不符合条件,就转下一条 */
 		{
-			i_ret = 1;
-			goto RESULT_PRO;
+			command_wt.pac_which++;	//指向下一条报文处理
+			if (  command_wt.pac_which == comp->pac_many )
+				return 1;	//整个已经完成
+			 else
+				goto SUB_INS_PRO;
 		}
 	}
 
@@ -2466,18 +2470,16 @@ SUB_INS_PRO:
 	case INS_Pro_DBFace:
 		switch ( command_wt.pac_step )
 		{
-		case 0:
+		case Pac_Idle:
 			hi_req_p->reset();	//请求复位
 			paci->get_snd_pac(hi_req_p, loc_pro_pac.subor, &mess);
-			command_wt.pac_step++;
+			command_wt.pac_step = Pac_Working;
 
-			if ( paci->rcv_num > 0 ) 	//没有接收域(无响应数据)，就视为同步完成,直接下一条
-				i_ret = 0;	/* 进行中, 否则认为是已经完成 */
 			call_back = paci->isFunction; //对于函数，属回调的情况。这个call_back在sponte时被判断
 
 			mess.right_status = RT_OUT;
 			mess.right_subor = paci->subor;
-			WBUG("mess.pro_order=%d command_wt.pac_which=%d", mess.pro_order, command_wt.pac_which);
+			WBUG("mess.pro_order=%d command_wt.pac_which=%d callback(%s)", mess.pro_order, command_wt.pac_which, call_back ? "yes":"no");
 			if ( paci->type == INS_Normal )
 				aptus->facio(&loc_pro_pac);     //向右发出, 然后等待
 			else if ( paci->type == INS_Pro_DBFace) 
@@ -2491,7 +2493,7 @@ SUB_INS_PRO:
 						TEXTUS_SPRINTF(mess.err_str, "no dbface error at %d of %s", mess.pro_order, cur_def->flow_id);
 						if ( paci->err_code) mess.snap[Pos_ErrCode].input(paci->err_code);
 						i_ret = -2;
-						break;
+						goto END_RET;	
 					}
 				}
 				prodb_ps.indic = paci->dbface;
@@ -2499,12 +2501,14 @@ SUB_INS_PRO:
 				aptus->facio(&prodb_ps);	//发出DB操作
 			}
 			//if ( mess.pro_order == 49 &&  command_wt.pac_which ==2 ) {int *a=0; *a=0;}
-			if ( call_back ) goto GO_ON_FUNC; //调用返回时，这里响应报文已备，继续处理。
+			if ( call_back || paci->rcv_num == 0 ) 
+				goto GO_ON_FUNC; /* 调用返回时，这里响应报文已备，继续处理。 
+						没有接收域(无响应数据)，就视为同步完成,直接下一条 */
 			break;
-		case 1:
+		case Pac_Working:
 GO_ON_FUNC:
 			//if ( mess.pro_order == 49 &&  command_wt.pac_which == 1 ) {int *a=0; *a=0;}
-			command_wt.pac_step++;
+			command_wt.pac_step = Pac_End;
 			break;
 
 		default:
@@ -2514,47 +2518,47 @@ GO_ON_FUNC:
 
 	case INS_Abort:
 		if (paci->err_code ) mess.snap[Pos_ErrCode].input(paci->err_code);
-		command_wt.pac_step =2;
+		command_wt.pac_step = Pac_End;
 		i_ret = -1;	//脚本所控制的错误
 		break;
 
 	case INS_Respond:
-		mk_result(false);		//回应前端, 但不结束
-		command_wt.pac_step =2;
+		mk_result(false);		//回应前端, 但整个业务不结束
+		command_wt.pac_step = Pac_End;
 		break;
 
 	case INS_SetPeer:
 		hi_req_p->reset();	//请求复位
 		paci->get_snd_pac(hi_req_p, loc_pro_pac.subor, &mess);
 		set_peer(hi_req_p, loc_pro_pac.subor);
-		command_wt.pac_step =2;
+		command_wt.pac_step = Pac_End;
 		break;
 
 	case INS_GetPeer:
 		hi_reply_p->reset();
 		get_peer(hi_reply_p, paci->subor);
-		command_wt.pac_step =2;
+		command_wt.pac_step = Pac_End;
 		break;
 
 	case INS_Cmd_Ordo:
-		command_wt.pac_step =2;
+		command_wt.pac_step = Pac_End;
 		break;
 
 	case INS_Get_CertNo:
 		hi_reply_p->reset();
 		get_cert(hi_reply_p, paci->subor);
-		command_wt.pac_step =2;
+		command_wt.pac_step = Pac_End;
 		break;
 
 	case INS_Null:
-		command_wt.pac_step =2;
+		command_wt.pac_step =Pac_End;
 		break;
 
 	default :
 		break;
 	}
 
-	if ( command_wt.pac_step ==2 )
+	if ( command_wt.pac_step == Pac_End )
 	{
 		if ( paci->rcv_num > 0 && !paci->pro_rcv_pac(hi_reply_p, &mess)) 
 		{
@@ -2569,19 +2573,16 @@ GO_ON_FUNC:
 			TEXTUS_SPRINTF(mess.err_str, "result error at %d of %s", mess.pro_order, cur_def->flow_id);
 			if ( paci->err_code) mess.snap[Pos_ErrCode].input(paci->err_code);
 			i_ret = -2;	//这是map所控制
+		} else {
+			command_wt.pac_which++;	//指向下一条报文处理
+			command_wt.pac_step = Pac_Idle;
+			if (  command_wt.pac_which == comp->pac_many )
+				return 1;	//整个已经完成
+			else
+				goto SUB_INS_PRO;
 		}
 	}
-RESULT_PRO:
-	if ( i_ret > 0 )
-	{
-		command_wt.pac_which++;	//指向下一条报文处理
-		command_wt.pac_step = 0;
-		if (  command_wt.pac_which == comp->pac_many )
-		{
-			return 1;	//整个已经完成
-		} else
-			goto SUB_INS_PRO;
-	}
+END_RET:
 	return i_ret;
 }
 
@@ -2619,7 +2620,7 @@ NEXT_PRI_TRY:
 			command_wt.sub_loop = usr_com->complex[command_wt.cur].loop_n; //软失败的重试次数
 LOOP_PRI_TRY:
 			command_wt.pac_which = 0;	//新子系列, pac从第0个开始
-			command_wt.pac_step = 0;	//pac处理开始, 
+			command_wt.pac_step = Pac_Idle;	//pac处理开始, 
 			command_wt.step++;	//指向下一步
 		case 1:
 			i_ret = sub_serial_pro( &(usr_com->complex[command_wt.cur]) );
