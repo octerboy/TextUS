@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018 by Ju Haibo (octerboy@gmail.com)
+/* Copyright (c) 2016-2018 by Ju Haibo (octerboy@21cn.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -7,7 +7,7 @@
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 
  Title:PacWay
- Build: created by octerboy, 2016/12/01 Guangzhou
+ Build: created by octerboy, 2016/08/04 Guangzhou
  $Id$
 */
 
@@ -2063,8 +2063,10 @@ private:
 	bool call_back;	/* false: 一般如此，向右发出后，在下一轮中再处理响应; 
 			true: 对于函数处理的扩展，有回调处理，在sponte时就即返回，由发出点处理响应数据，从而避免调用嵌套太深。
 			*/
-	bool multi_pac_end;	//对于DB查询, 如果没有一行数据, 则设此为true.
 	DBFace *get_dbface(const char *id_name);
+	void set_peer(PacketObj *pac, int sub);
+	void get_cert(PacketObj *pac, int sub);
+	void get_peer(PacketObj *pac, int sub);
 	Amor::Pius prodb_ps;
 	#include "wlog.h"
 };
@@ -2228,13 +2230,10 @@ bool PacWay::sponte( Amor::Pius *pius)
 		break;
 	case Notitia::MULTI_UNIPAC_END:
 		WBUG("sponte MULTI_UNIPAC_END");
-		multi_pac_end = true;
-		goto BACK_PRO;
 		break;
 
 	case Notitia::PRO_UNIPAC:
 		WBUG("sponte PRO_UNIPAC");
-	BACK_PRO:
 		if ( mess.right_status != RT_OUT || mess.right_subor != pius->subor  )	//表明是右端返回
 		{
 			const char *r_str;
@@ -2374,15 +2373,92 @@ HERE_END:
 	return;
 }
 
+void PacWay::get_cert(PacketObj *pac, int sub)
+{
+	Amor::Pius peer_ps;
+
+	/* 外部配置文件中, 必须设置第1域 */
+	peer_ps.ordo = Notitia::CMD_GET_CERT_NO;
+	peer_ps.subor = sub;
+	peer_ps.indic = 0;
+	aptus->facio(&peer_ps);
+	if (peer_ps.indic)
+	{
+		pac->input(1, (unsigned char*)peer_ps.indic, strlen((const char*)peer_ps.indic));
+	}
+}
+
+void PacWay::set_peer(PacketObj *pac, int sub)
+{
+	TiXmlElement peer_xml("peer");
+	Amor::Pius peer_ps;
+	char ip[64], port[32];
+	unsigned char *p;
+	unsigned long rlen;
+
+	/* 外部配置文件中, 必须将ip设置1域, port设置为2域 */
+	p = pac->getfld(1, &rlen);
+	if ( rlen > 30 ) rlen = 30;
+	memcpy(ip, p, rlen); ip[rlen] = 0;
+
+	p = pac->getfld(2, &rlen);
+	if ( rlen > 30 ) rlen = 30;
+	memcpy(port, p, rlen); port[rlen] = 0;
+
+	peer_xml.SetAttribute("ip", ip);
+	peer_xml.SetAttribute("port",port);
+	peer_ps.ordo = Notitia::CMD_SET_PEER;
+	peer_ps.subor = sub;
+	peer_ps.indic = &peer_xml;
+	aptus->facio(&peer_ps);
+}
+
+void PacWay::get_peer(PacketObj *pac, int sub)
+{
+	TiXmlElement *peer = 0;
+	Amor::Pius g_peer;
+	const char *p;
+
+	/* 外部配置文件中, 必须将ip设置1域, port设置为2域 */
+	g_peer.ordo = Notitia::CMD_GET_PEER;
+	g_peer.subor = sub;
+	g_peer.indic = 0;
+	aptus->sponte(&g_peer);
+	peer = (TiXmlElement *) g_peer.indic;
+	if ( peer )
+	{
+		p = peer->Attribute("cliip");
+		pac->input(1, p, strlen(p));
+		p = peer->Attribute("cliport");
+		pac->input(2, p, strlen(p));
+		p = peer->Attribute("srvip");
+		pac->input(3, p, strlen(p));
+		p = peer->Attribute("srvport");
+		pac->input(4, p, strlen(p));
+	} else {
+		WBUG("get_peer return null");
+	}
+}
+
 /* 子序列入口 */
 int PacWay::sub_serial_pro(struct ComplexSubSerial *comp)
 {
-	int i_ret=1;
+	int i_ret=1;	//一进来，就假定一次完成即同步完成, 但很多情况是异步完成
 	struct PacIns *paci;
 	char h_msg[1024];
+	Amor::Pius tmp_ps;
 
 SUB_INS_PRO:
 	paci = &(comp->pac_inses[command_wt.pac_which]);
+	if ( command_wt.pac_step == 0 )
+	{
+		if ( !paci->valid_condition(&mess) )		/* 不符合条件,就转下一条 */
+		{
+			i_ret = 1;
+			goto RESULT_PRO;
+		}
+	}
+
 	switch ( paci->type)
 	{
 	case INS_Normal:
@@ -2390,24 +2466,21 @@ SUB_INS_PRO:
 		switch ( command_wt.pac_step )
 		{
 		case 0:
-			if ( !paci->valid_condition(&mess) )		/* 不符合条件,就转下一条 */
-			{
-				i_ret = 1;
-				break;
-			}
-
 			hi_req_p->reset();	//请求复位
 			paci->get_snd_pac(hi_req_p, loc_pro_pac.subor, &mess);
 			command_wt.pac_step++;
-			i_ret = 0;	/* 进行中 */
+
+			if ( paci->rcv_num > 0 ) 	//没有接收域(无响应数据)，就视为同步完成,直接下一条
+				i_ret = 0;	/* 进行中, 否则认为是已经完成 */
 			call_back = paci->isFunction; //对于函数，属回调的情况。这个call_back在sponte时被判断
+
 			mess.right_status = RT_OUT;
 			mess.right_subor = paci->subor;
 			WBUG("mess.pro_order=%d command_wt.pac_which=%d", mess.pro_order, command_wt.pac_which);
 			if ( paci->type == INS_Normal )
 				aptus->facio(&loc_pro_pac);     //向右发出, 然后等待
-			else if ( paci->type == INS_Pro_DBFace) {	//DB操作
-				multi_pac_end = false;
+			else if ( paci->type == INS_Pro_DBFace) 
+			{	//DB操作
 				if (paci->dbface == 0 ) 
 				{
 					paci->dbface = 	get_dbface(paci->dbface_name);
@@ -2424,37 +2497,13 @@ SUB_INS_PRO:
 				prodb_ps.subor = paci->subor;
 				aptus->facio(&prodb_ps);	//发出DB操作
 			}
-			if ( paci->rcv_num == 0 ) 	//没有接收域，直接下一条
-			{
-				i_ret = 1;
-				break;
-			}
 			//if ( mess.pro_order == 49 &&  command_wt.pac_which ==2 ) {int *a=0; *a=0;}
 			if ( call_back ) goto GO_ON_FUNC; //调用返回时，这里响应报文已备，继续处理。
 			break;
 		case 1:
 GO_ON_FUNC:
-			if ( paci->pro_rcv_pac(hi_reply_p, &mess)) 
-			{
-				if ( paci->valid_result(&mess) )
-					i_ret = 1;
-				else {
-					mess.iRet = ERROR_RESULT;
-					TEXTUS_SPRINTF(h_msg, "result error at %d of %s (%s)", mess.pro_order, cur_def->flow_id, mess.err_str);
-					if ( paci->err_code) mess.snap[Pos_ErrCode].input(paci->err_code);
-					i_ret = -2;	//这是map所控制
-				}
-			} else {
-				mess.iRet = ERROR_RECV_PAC;
-				TEXTUS_SPRINTF(h_msg, "fault at %d of %s (%s)", mess.pro_order, cur_def->flow_id, mess.err_str);
-				i_ret = -3;	//这是基本报文错误，非map所控制
-			}
 			//if ( mess.pro_order == 49 &&  command_wt.pac_which == 1 ) {int *a=0; *a=0;}
-			if ( mess.iRet != 0 ) 
-			{
-				memcpy(mess.err_str, h_msg, strlen(h_msg));
-				mess.err_str[strlen(h_msg)] = 0;
-			}
+			command_wt.pac_step++;
 			break;
 
 		default:
@@ -2463,44 +2512,65 @@ GO_ON_FUNC:
 		break;
 
 	case INS_Abort:
+		if (paci->err_code ) mess.snap[Pos_ErrCode].input(paci->err_code);
+		command_wt.pac_step =2;
 		i_ret = -1;	//脚本所控制的错误
-		if ( paci->valid_condition(&mess) )		/* 符合前提条件, 再判断结果 */
-		{
-			if (paci->err_code ) mess.snap[Pos_ErrCode].input(paci->err_code);
-		} else {
-			i_ret = 1;
-		}
-		
 		break;
 
 	case INS_Respond:
-		if ( paci->valid_condition(&mess) )		/* 符合前提条件, 再判断结果 */
-		{
-			mk_result(false);		//回应前端, 但不结束
-		}
-		
+		mk_result(false);		//回应前端, 但不结束
+		command_wt.pac_step =2;
+		break;
+
+	case INS_SetPeer:
+		hi_req_p->reset();	//请求复位
+		paci->get_snd_pac(hi_req_p, loc_pro_pac.subor, &mess);
+		set_peer(hi_req_p, loc_pro_pac.subor);
+		command_wt.pac_step =2;
+		break;
+
+	case INS_GetPeer:
+		hi_reply_p->reset();
+		get_peer(hi_reply_p, paci->subor);
+		command_wt.pac_step =2;
+		break;
+
+	case INS_Cmd_Ordo:
+		command_wt.pac_step =2;
+		break;
+
+	case INS_Get_CertNo:
+		hi_reply_p->reset();
+		get_cert(hi_reply_p, paci->subor);
+		command_wt.pac_step =2;
 		break;
 
 	case INS_Null:
-		if ( paci->valid_condition(&mess) )		/* 符合前提条件, 再判断结果 */
-		{
-			if ( paci->valid_result(&mess) )
-				i_ret = 1;
-			else {
-				mess.iRet = ERROR_RESULT;
-				TEXTUS_SPRINTF(mess.err_str, "result error at %d of %s", mess.pro_order, cur_def->flow_id);
-				if ( paci->err_code) mess.snap[Pos_ErrCode].input(paci->err_code);
-				i_ret = -2;	//这是map所控制
-			}
-		} else {
-			i_ret = 1;
-		}
+		command_wt.pac_step =2;
 		break;
 
 	default :
 		break;
 	}
 
+	if ( command_wt.pac_step ==2 )
+	{
+		if ( paci->rcv_num > 0 && !paci->pro_rcv_pac(hi_reply_p, &mess)) 
+		{
+			mess.iRet = ERROR_RECV_PAC;
+			TEXTUS_SPRINTF(h_msg, "fault at %d of %s (%s)", mess.pro_order, cur_def->flow_id, mess.err_str);
+			memcpy(mess.err_str, h_msg, strlen(h_msg));
+			mess.err_str[strlen(h_msg)] = 0;
+			i_ret = -3;	//这是基本报文错误，非map所控制
+		}  else if ( !paci->valid_result(&mess) )
+		{
+			mess.iRet = ERROR_RESULT;
+			TEXTUS_SPRINTF(mess.err_str, "result error at %d of %s", mess.pro_order, cur_def->flow_id);
+			if ( paci->err_code) mess.snap[Pos_ErrCode].input(paci->err_code);
+			i_ret = -2;	//这是map所控制
+		}
+	}
+RESULT_PRO:
 	if ( i_ret > 0 )
 	{
 		command_wt.pac_which++;	//指向下一条报文处理

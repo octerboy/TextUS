@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
+/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -1038,14 +1038,7 @@ ULONG Consumer::fetch(int para_offset)
 		chunk_rows = 1;
 
 	hr = pIRowset->GetNextRows( 0, 0, chunk_rows, &cRowsObtained, &rghRows ) ;
-	if ( hr == DB_S_ENDOFROWSET  && cRowsObtained > 0 )
-		goto NORMAL_PRO;
-	else  {
-		if ( hasError("Rowset GetNextRows", hr ) )
-			goto END;
-	}
 
-NORMAL_PRO:
 	WBUG("get %d row(s)", cRowsObtained);
 	// All done; there are no more rows left to get.
 	if ( snd_pac && dbface->cRowsObt_fld >= 0
@@ -1054,6 +1047,13 @@ NORMAL_PRO:
 		snd_pac->input((unsigned int) dbface->cRowsObt_fld, (unsigned char*)&cRowsObtained, sizeof(cRowsObtained));
 	}
 
+	if ( hr == DB_S_ENDOFROWSET  && cRowsObtained > 0 )
+	{
+		hasError("Rowset GetNextRows", S_OK);		//仅仅是为了让snd_pac记一下S_OK这个返回码
+	} else  {
+		if ( hasError("Rowset GetNextRows", hr ) )	//一条记录都没有的话, 这里返DB_S_ENDOFROWSET错误
+			goto END;
+	}
 	// Loop over rows obtained, getting data for each.
 	for (iRow=0; iRow < cRowsObtained; iRow++)
 	{
