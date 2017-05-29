@@ -3,7 +3,7 @@
 # Build:
 #	B01:created by octerboy 2016/08/15, Guangzhou
 include ../Rules.basemod
-INCLUDE_DIR  += -I../baselib/include -I../logdata/include -I../unipac/include
+INCLUDE_DIR  += -I../baselib/include -I../logdata/include -I../unipac/include -I../dbport/include
 
 all:pacway.so
 

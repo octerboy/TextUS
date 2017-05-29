@@ -2445,7 +2445,6 @@ void PacWay::get_peer(PacketObj *pac, int sub)
 /* 子序列入口 */
 int PacWay::sub_serial_pro(struct ComplexSubSerial *comp)
 {
-	int i_ret = 0;
 	struct PacIns *paci;
 	char h_msg[1024];
 	Amor::Pius tmp_ps;
@@ -2492,8 +2491,7 @@ SUB_INS_PRO:
 						mess.iRet = ERROR_DB_DEF;
 						TEXTUS_SPRINTF(mess.err_str, "no dbface error at %d of %s", mess.pro_order, cur_def->flow_id);
 						if ( paci->err_code) mess.snap[Pos_ErrCode].input(paci->err_code);
-						i_ret = -2;
-						goto END_RET;	
+						return -2;
 					}
 				}
 				prodb_ps.indic = paci->dbface;
@@ -2502,8 +2500,9 @@ SUB_INS_PRO:
 			}
 			//if ( mess.pro_order == 49 &&  command_wt.pac_which ==2 ) {int *a=0; *a=0;}
 			if ( call_back || paci->rcv_num == 0 ) 
-				goto GO_ON_FUNC; /* 调用返回时，这里响应报文已备，继续处理。 
-						没有接收域(无响应数据)，就视为同步完成,直接下一条 */
+				goto GO_ON_FUNC; /* facio函数返回时，响应报文已备，继续处理。没有接收域(无响应数据)，就视为同步完成*/
+			else
+				return 0; 	/* 正在进行 */
 			break;
 		case Pac_Working:
 GO_ON_FUNC:
@@ -2519,7 +2518,7 @@ GO_ON_FUNC:
 	case INS_Abort:
 		if (paci->err_code ) mess.snap[Pos_ErrCode].input(paci->err_code);
 		command_wt.pac_step = Pac_End;
-		i_ret = -1;	//脚本所控制的错误
+		return  -1;	//脚本所控制的错误, 软失败
 		break;
 
 	case INS_Respond:
@@ -2566,13 +2565,13 @@ GO_ON_FUNC:
 			TEXTUS_SPRINTF(h_msg, "fault at %d of %s (%s)", mess.pro_order, cur_def->flow_id, mess.err_str);
 			memcpy(mess.err_str, h_msg, strlen(h_msg));
 			mess.err_str[strlen(h_msg)] = 0;
-			i_ret = -3;	//这是基本报文错误，非map所控制
+			return -3;	//这是基本报文错误，非map所控制
 		}  else if ( !paci->valid_result(&mess) )
 		{
 			mess.iRet = ERROR_RESULT;
 			TEXTUS_SPRINTF(mess.err_str, "result error at %d of %s", mess.pro_order, cur_def->flow_id);
 			if ( paci->err_code) mess.snap[Pos_ErrCode].input(paci->err_code);
-			i_ret = -2;	//这是map所控制
+			return -2;	//这是map所控制
 		} else {
 			command_wt.pac_which++;	//指向下一条报文处理
 			command_wt.pac_step = Pac_Idle;
@@ -2582,8 +2581,7 @@ GO_ON_FUNC:
 				goto SUB_INS_PRO;
 		}
 	}
-END_RET:
-	return i_ret;
+	return 0;
 }
 
 void PacWay::mk_hand()

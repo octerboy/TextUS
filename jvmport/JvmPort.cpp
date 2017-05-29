@@ -687,6 +687,7 @@ JNIEXPORT void JNICALL Java_jetus_jvmport_Amor_log (JNIEnv *env, jobject amor, j
 	msg = env->GetStringUTFChars(jmsg,0);
 	pius.ordo = ordo;
 	pius.indic = (void*)msg;
+	pius.subor = 0;
 	
 	port->aptus->sponte(&pius);
 	env->ReleaseStringUTFChars(jmsg, msg);
@@ -967,17 +968,20 @@ void toDocument (JNIEnv *env, TiXmlDocument *docp, jobject jdoc)
 static void allocPiusIndic (JNIEnv *env,  Amor::Pius &pius, jobject ps, jobject amor)
 {
 	jclass pius_cls;
-	jfieldID ordo_fld, indic_fld;
+	jfieldID ordo_fld, indic_fld, sub_fld;
 
 	pius.ordo = Notitia::TEXTUS_RESERVED;
 	pius.indic = 0;
+	pius.subor = 0;
 	pius_cls = env->FindClass("jetus/jvmport/Pius");
 	if ( jvmError(env) )
 		return;
 
-	ordo_fld = env->GetFieldID(pius_cls, "ordo", "I");
+	ordo_fld = env->GetFieldID(pius_cls, "ordo", "J");
+	sub_fld = env->GetFieldID(pius_cls, "subor", "I");
 	indic_fld = env->GetFieldID(pius_cls, "indic", "Ljava/lang/Object;");
-	pius.ordo = env->GetIntField(ps, ordo_fld);
+	pius.ordo = env->GetLongField(ps, ordo_fld);
+	pius.subor = env->GetIntField(ps, sub_fld);
 
 	if ( (TEST_NOTITIA_FLAG & pius.ordo) == JAVA_NOTITIA_DOM )
 	{
@@ -1130,14 +1134,16 @@ jobject JvmPort::allocPiusObj( Pius *pius)
 {
 	jobject ps_obj;
 	jmethodID psInit;
-	jfieldID ordo_fld, indic_fld;
+	jfieldID ordo_fld, indic_fld, sub_fld;
 	jobjectArray indic;
 
 	psInit = jvmcfg->env->GetMethodID(gCFG->pius_cls, "<init>", "()V");
 	ps_obj = jvmcfg->env->NewObject(gCFG->pius_cls, psInit);
 
-	ordo_fld = jvmcfg->env->GetFieldID(gCFG->pius_cls, "ordo", "I");
-	jvmcfg->env->SetIntField(ps_obj, ordo_fld, pius->ordo);		/* java的pius的ordo已设定 */
+	ordo_fld = jvmcfg->env->GetFieldID(gCFG->pius_cls, "ordo", "J");
+	sub_fld = jvmcfg->env->GetFieldID(gCFG->pius_cls, "subor", "I");
+	jvmcfg->env->SetLongField(ps_obj, ordo_fld, pius->ordo);		/* java的pius的ordo已设定 */
+	jvmcfg->env->SetIntField(ps_obj, ordo_fld, pius->subor);		/* java的pius的subor已设定 */
 
 	indic_fld = jvmcfg->env->GetFieldID(gCFG->pius_cls, "indic", "Ljava/lang/Object;");
 	if ( jvmError() )
@@ -1335,7 +1341,7 @@ void JvmPort::freePiusObj( jobject ps_obj)
 	jobject sm_obj;
 	int loopi;
 
-	ordo_fld = jvmcfg->env->GetFieldID(gCFG->pius_cls, "ordo", "I");
+	ordo_fld = jvmcfg->env->GetFieldID(gCFG->pius_cls, "ordo", "J");
 	indic_fld = jvmcfg->env->GetFieldID(gCFG->pius_cls, "indic", "Ljava/lang/Object;");
 	ordo = jvmcfg->env->GetIntField(ps_obj, ordo_fld);
 
