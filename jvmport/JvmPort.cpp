@@ -143,6 +143,11 @@ public:
 
 				if (strcmp(comm_str, "1.6") == 0 )
 					vm_args.version=JNI_VERSION_1_6;
+
+#ifdef JNI_VERSION_1_8
+				if (strcmp(comm_str, "1.8") == 0 )
+					vm_args.version=JNI_VERSION_1_8;
+#endif
 			}
 
 			/* 先计算有多少个options */
@@ -177,6 +182,7 @@ public:
 				if ( k+1 < vm_args.nOptions )
 					vm_args.options[k+1].optionString =  vm_args.options[k].optionString+ len +1;
 			}
+	
 	NEXT_STEP1:
 			return;
 		};
@@ -352,6 +358,12 @@ bool JvmPort::facio( Amor::Pius *pius)
 	{
 	case Notitia::IGNITE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY");
+		if ( !gCFG->bean_cls)
+		{
+  			WLOG(ERR, "Not found class of %s", gCFG->cls_name);
+			break;
+		}
+
 		gCFG->bean_init = jvmcfg->env->GetMethodID(gCFG->bean_cls, "<init>", "()V");
 
 		gCFG->pius_cls = jvmcfg->env->FindClass("jetus/jvmport/Pius");
@@ -1186,6 +1198,7 @@ jobject JvmPort::allocPiusObj( Pius *pius)
 			port_fld  = jvmcfg->env->GetFieldID(tbuf_cls, "portPtr", "[B");
 			if ( jvmError()) break;
 
+			/* 这里, tbuf_cls也指 PacketData.class 和 TiXML.class */
 			indic = jvmcfg->env->NewObjectArray(2, tbuf_cls, 0); 
 			tbo1 = jvmcfg->env->AllocObject(tbuf_cls); 
 			tbo2 = jvmcfg->env->AllocObject(tbuf_cls); 
