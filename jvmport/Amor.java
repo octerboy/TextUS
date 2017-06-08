@@ -16,9 +16,9 @@
 
 /* $NoKeywords: $ */
 
-package jetus.jvmport;
+package textor.jvmport;
 import java.lang.Object;
-import jetus.jvmport.Pius;
+import textor.jvmport.Pius;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 
@@ -40,10 +40,18 @@ public class Amor {
 		logbuf =  new ByteArrayOutputStream();
 		out = new PrintStream(logbuf);
 	}
+	public Amor(String dec) {
+		logbuf =  new ByteArrayOutputStream();
+		try {
+		out = new PrintStream(logbuf, true, dec);
+		} catch (Exception e) {
+		}
+	}
 	
 	public void log(int ordo, Object obj)
 	{
 		out.print(obj);
+		System.out.println(logbuf);
 		String s = logbuf.toString();
 		log(ordo, s);
 		logbuf.reset();

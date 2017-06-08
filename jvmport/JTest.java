@@ -1,8 +1,9 @@
-import jetus.jvmport.Amor;
-import jetus.jvmport.Pius;
-import jetus.jvmport.TBuffer;
-import jetus.jvmport.PacketData;
-import jetus.jvmport.TiXML;
+import textor.jvmport.Amor;
+import textor.jvmport.Pius;
+import textor.jvmport.TBuffer;
+import textor.jvmport.PacketData;
+import textor.jvmport.TiXML;
+import textor.jvmport.DBFace;
 import java.io.ByteArrayInputStream;
 import java.io.*;
 import javax.xml.parsers.*;
@@ -18,9 +19,10 @@ import java.util.Properties;
 //import javax.servlet.jsp.*;
 
 public class JTest {
-	public Amor aptus;
+	public Amor aptus = new Amor("ISO8859-1");
 	public Element im;
 	public int count;
+	public DBFace face;
 
 	public static final String JETUS_MODTIME = "$Date: 07-11-16 8:39 $";
 	public static final String JETUS_BUILDNO =  "$Revision: 3 $";
@@ -29,7 +31,6 @@ public class JTest {
 
 	public void ignite (Document doc) {
 		String args[]={"-uriroot",  "/tmp/jsp", "-source","/tmp/jsp", "-d", "/tmp/let", "m.jsp"};
-		//PrintStream log = new PrintStream(System.out, true, "ISO8859-1");
 		//PrintStream log = new PrintStream(System.out, true);
 		//JspC agc=new JspC();
 		//JspC.main(args);
@@ -37,8 +38,11 @@ public class JTest {
 		im = doc.getDocumentElement();
 		try {
 		
+		PrintStream log = new PrintStream(System.out, true, "ISO8859-1");
 		Text txt = (Text) im.getFirstChild();
+		face = new DBFace();
 		System.out.println("my text : " + txt.getData() );
+		log.println("my text : " + txt.getData() );
 		
 		} catch ( Exception e) {
 		}
@@ -46,6 +50,7 @@ public class JTest {
 	}
 
 	public boolean facio(Pius ps ) {
+		NamedNodeMap atts;
 		Pius nps = new Pius();
 		if ( ps.ordo == Pius.TIMER)
 		{
@@ -64,7 +69,8 @@ public class JTest {
 			//myps.indic = new Integer(1);
 			aptus.sponte(myps);
 		}
-		aptus.log_bug("ordo " + ps.ordo + " count " + count + " I 对象 am "+ ((Text) im.getFirstChild()).getData());
+		aptus.log_bug("ordo " + ps.ordo + " count " + count + " I 对象 am.. "+ ((Text) im.getFirstChild()).getData());
+		aptus.log_bug("ordo " + ps.ordo + " count " + count + " I 对象 am "+ ((Attr) im.getAttributes().getNamedItem("ver")).getValue());
 		try {
 			if ( ps.ordo == Pius.SET_TBUF )
 			{	/* SET_TBUF */

@@ -1,5 +1,5 @@
-import jetus.jvmport.Amor;
-import jetus.jvmport.Pius;
+import textor.jvmport.Amor;
+import textor.jvmport.Pius;
 import org.w3c.dom.*;
 
 public class MTest {

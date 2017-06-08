@@ -16,7 +16,7 @@
 
 /* $NoKeywords: $ */
 
-package jetus.jvmport;
+package textor.jvmport;
 import java.lang.Object;
 import org.w3c.dom.*;
 

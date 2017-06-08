@@ -16,148 +16,126 @@
 
 /* $NoKeywords: $ */
 
-package jetus.jvmport;
+package textor.jvmport;
 import java.lang.Object;
 
 public class DBFace {
-
-	public static final int PARA_IN =1;
-	public static final int PARA_OUT =2;
-	public static final int PARA_INOUT =3;
-	public static final int 	JAVA_NOTITIA_DOM =  0x01000000; /* JAVAè¯­è¨€ */
-	
-	enum DIRECTION {
-		PARA_IN =1, 
-		PARA_OUT =2, 
-		PARA_INOUT =3, 
-		UNKNOWN = 0
-	};
-	enum PROCTYPE {DBPROC = 0 , QUERY=1, FUNC = 2, FETCH = 3, DML=4, CURSOR=5} ;
-	enum DataType {
-		UNKNOWN_TYPE = 0,
-		BigInt	= 1,
-		SmallInt= 2,
-		TinyInt	= 3,
-		Binary	= 4,
-		Boolean	= 5,
-		Byte	= 6,
-		Char	= 7,
-		String	= 8,
-		Currency= 9,
-		Date	= 10,
-		Decimal	= 11,
-		Double	= 12,
-		Float	= 13,
-		GUID	= 14,
-		Integer	= 15,
-		Long	= 16,
-		LongBinary =17,
-		Memo	= 18,
-		Numeric	= 19,
-		Single	= 20,
-		Text	= 21,
-		Time	= 22,
-		TimeStamp =23,
-		VarBinary =24
-	};
-
-	enum WHAT {FIRST, SECOND} ;
-	struct Para {
-		unsigned int pos;	/* å‚æ•°ä½ç½®, posåº”ç”¨ç­‰äºå…¶æ•°ç»„ä¸‹æ ‡å€¼ */
-		int fld;		/* ç›¸åº”åŸŸå·, -1 æŒ‡æœªç¡®å®š, å¯¹è¾“å‡ºæ›´æ˜¯ */
-		const char *name;	/* å‚æ•°åç§°, posä¼˜å…ˆ */
-		int namelen;		/* å‚æ•°åç§°çš„é•¿åº¦ */
-		DataType type;		/* æ•°æ®ç±»å‹ */
-		DIRECTION inout;	/* å®šä¹‰å‚æ•°æ–¹å‘, PARA_INä¸ºè¾“å…¥, PARA_OUTä¸ºè¾“å‡º, PARA_INOUTè¾“å…¥ä¸è¾“å‡º */
-		unsigned long outlen;		/* è¾“å‡ºé•¿åº¦ */
-		unsigned char scale;		/* å¯¹äºDecimalç­‰ç±»å‹çš„è¾“å‡ºå®šä¹‰ */
-		unsigned char precision;
-		inline Para () {
-			pos = 0;
-			fld = 0;
-			name = (const char*)0;
-			namelen = 0;
-			type = DBFace::UNKNOWN_TYPE;
-			inout = DBFace::UNKNOWN;
-			outlen = 0;
-			scale = 0;
-			precision = 0;
-		};
-	};
-	
-	struct Rowset {
-		unsigned int para_pos; 	/* æŸ¥è¯¢ç»“æœé›†æ—¶, å‚æ•°çš„èµ·å§‹ä½ç½®ã€‚ 
-				è¿™ç”¨äºå­˜å‚¨è¿‡ç¨‹ä¸­èƒ½è¿”å›æŸ¥è¯¢ç»“æœé›†çš„æƒ…å†µ */
-		int  trace_field;	/* å¤šæ¬¡å–æ—¶çš„è·Ÿè¸ªfield */
-		unsigned int chunk;	/* ä¸€æ¬¡å–å¤šå°‘è¡Œ, è‡³å°‘ä¸º1, é»˜è®¤ä¸º1è¡Œ */
-		bool useEnd;
-		inline Rowset ()
+	public class RowSet {
+		public int para_pos; 	/* ²éÑ¯½á¹û¼¯Ê±,	²ÎÊıµÄÆğÊ¼Î»ÖÃ¡£ ÕâÓÃÓÚ´æ´¢¹ı³ÌÖĞÄÜ·µ»Ø²éÑ¯½á¹û¼¯µÄÇé¿ö */
+		public int trace_field;/* ¶à´ÎÈ¡Ê±µÄ¸ú×Ùfield */
+		public int chunk;	/* Ò»´ÎÈ¡¶àÉÙĞĞ, ÖÁÉÙÎª1, Ä¬ÈÏÎª1ĞĞ */
+		public boolean useEnd;
+		public RowSet ()
 		{
 			para_pos = 0;
 			trace_field = -1;
 			chunk = 1;
 			useEnd = false;
 		};
-	};
-
- 	unsigned int num;		/* å‚æ•°ä¸ªæ•° */
-  	struct Para  *paras;		/* å‚æ•°å®šä¹‰æ•°ç»„ */
-
- 	unsigned int outNum;		/* è¾“å‡º(PARA_OUT)å‚æ•°ä¸ªæ•° */
-	unsigned int outSize;		/* è¾“å‡º(PARA_OUT)å‚æ•°æ‰€éœ€ç©ºé—´ */
-
-	WHAT in, out;		/* è¾“å…¥/è¾“å‡ºæ‰€æŒ‡çš„packet */
-	const char *sentence;	/* æè¿°sqlè¯­å, å­˜å‚¨è¿‡ç¨‹åç­‰ */
-	PROCTYPE pro;		/* å¤„ç†ç±»å‹ */
-	const char *id_name;	/* åç§°, ä¹Ÿä½œä¸ºCMD_GET_DBFACEçš„ç´¢å¼•å,æ‰€ä»¥è¿™ä¸ªåç§°è¿˜æ˜¯å”¯ä¸€çš„å¥½ã€‚è¿™æ˜¯æ¥æºäºXMLæ–‡ä»¶çš„ */
-	int offset;		/* åŸŸå·åç§»é‡ */
-	struct Rowset *rowset;
+	}
 	
-	struct {
-		int fldNo;	/* -1:è¡¨ç¤ºæ— å‚è€ƒ */
-		unsigned char *content;	/* å‚è€ƒå†…å®¹ */
-		unsigned int len;	/* å‚è€ƒé•¿åº¦ */
-	} ref;			/* å‚è€ƒåŸŸ, å¯¹è¾“å…¥packetè€Œè¨€ */
+	public class Para {
+		public int pos;		/* ²ÎÊıÎ»ÖÃ, posÓ¦ÓÃµÈÓÚÆäÊı×éÏÂ±êÖµ */
+		public int fld;		/* ÏàÓ¦ÓòºÅ, -1 Ö¸Î´È·¶¨, ¶ÔÊä³ö¸üÊÇ */
+		public String name;	/* ²ÎÊıÃû³Æ, posÓÅÏÈ */
+		public int namelen;	/* ²ÎÊıÃû³ÆµÄ³¤¶È */
+		public int data_type;	/* Êı¾İÀàĞÍ */
+		public int inout;	/* ¶¨Òå²ÎÊı·½Ïò, PARA_INÎªÊäÈë, PARA_OUTÎªÊä³ö, PARA_INOUTÊäÈëÓëÊä³ö */
+		public long outlen;	/* Êä³ö³¤¶È */
+		public int scale;	/* ¶ÔÓÚDecimalµÈÀàĞÍµÄÊä³ö¶¨Òå */
+		public int precision;
+		public Para () {
+			pos = 0;
+			fld = 0;
+			name = "";
+			namelen = 0;
+			data_type = 0;
+			inout = 0;
+			outlen = 0;
+			scale = 0;
+			precision = 0;
+		};
+	}
 
-	int	cRows_field;	/* è®°å½•æ•°æ‰€å­˜æ”¾çš„PacketObjåŸŸå·, < 0 è¡¨ç¤ºä¸éœ€è¦ */
-	int 	cRowsObt_fld;	/* å–äº†å¤šå°‘è¡Œ, åœ¨å“ªä¸ªåŸŸ */
+	public static final int PARA_IN =31;
+	public static final int PARA_OUT =32;
+	public static final int PARA_INOUT =33;
+	public static final int DBPROC = 40;
+	public static final int QUERY=41 ;
+	public static final int FUNC = 42;
+	public static final int FETCH = 43;
+	public static final int DML = 44;	
+	public static final int CURSOR= 45;
+	public static final int BigInt	= 1;
+	public static final int SmallInt= 2;
+	public static final int TinyInt	= 3;
+	public static final int Binary	= 4;
+	public static final int Boolean	= 5;
+	public static final int Byte	= 6;
+	public static final int Char	= 7;
+	public static final int String	= 8;
+	public static final int	Currency= 9;
+	public static final int	Date	= 10;
+	public static final int	Decimal	= 11;
+	public static final int	Double	= 12;
+	public static final int	Float	= 13;
+	public static final int	GUID	= 14;
+	public static final int	Integer	= 15;
+	public static final int	Long	= 16;
+	public static final int	LongBinary =17;
+	public static final int	Memo	= 18;
+	public static final int	Numeric	= 19;
+	public static final int	Single	= 20;
+	public static final int	Text	= 21;
+	public static final int	Time	= 22;
+	public static final int	TimeStamp =23;
+	public static final int	VarBinary =24;
 
-	int	errCode_field;	/* é”™è¯¯ä»£ç æ‰€å­˜æ”¾çš„PacketObjåŸŸå·, < 0 è¡¨ç¤ºä¸éœ€è¦ */
-	int	errStr_field;	/* é”™è¯¯ä¿¡æ¯æ‰€å­˜æ”¾çš„PacketObjåŸŸå·, < 0 è¡¨ç¤ºä¸éœ€è¦ */
+	public static final int	FIRST =101;
+	public static final int	SECOND =102;	
 
+ 	public int num;		/* ²ÎÊı¸öÊı */
+  	public Para[]  paras;	/* ²ÎÊı¶¨ÒåÊı×é */
 
-	inline DBFace() {
+ 	public int outNum;	/* Êä³ö(PARA_OUT)²ÎÊı¸öÊı */
+	public int outSize;	/* Êä³ö(PARA_OUT)²ÎÊıËùĞè¿Õ¼ä */
+
+	public int in;
+	public int out;		/* ÊäÈë/Êä³öËùÖ¸µÄpacket */
+	public String sentence;	/* ÃèÊösqlÓïÃû, ´æ´¢¹ı³ÌÃûµÈ */
+	public int pro;		/* ´¦ÀíÀàĞÍ */
+	public String id_name;	/* Ãû³Æ, Ò²×÷ÎªCMD_GET_DBFACEµÄË÷ÒıÃû,ËùÒÔÕâ¸öÃû³Æ»¹ÊÇÎ¨Ò»µÄºÃ¡£ÕâÊÇÀ´Ô´ÓÚXMLÎÄ¼şµÄ */
+	public int offset;	/* ÓòºÅÆ«ÒÆÁ¿ */
+	public RowSet rowset;
+	
+	public int ref_fldNo;	/* -1:±íÊ¾ÎŞ²Î¿¼ ²Î¿¼Óò, ¶ÔÊäÈëpacket¶øÑÔ */
+	public String ref_content;	/* ²Î¿¼ÄÚÈİ */
+	public int ref_len;	/* ²Î¿¼³¤¶È */
+
+	public int cRows_field;	/* ¼ÇÂ¼ÊıËù´æ·ÅµÄPacketObjÓòºÅ, < 0 ±íÊ¾²»ĞèÒª */
+	public int cRowsObt_fld;	/* È¡ÁË¶àÉÙĞĞ, ÔÚÄÄ¸öÓò */
+	public int errCode_field;	/* ´íÎó´úÂëËù´æ·ÅµÄPacketObjÓòºÅ, < 0 ±íÊ¾²»ĞèÒª */
+	public int errStr_field;	/* ´íÎóĞÅÏ¢Ëù´æ·ÅµÄPacketObjÓòºÅ, < 0 ±íÊ¾²»ĞèÒª */
+
+	public DBFace() 
+	{
 		num =0;
-		paras = 0;
 		outNum = 0;
 		outSize = 0;
 
-		sentence = 0;
+		sentence = "";
+		id_name = "";
 		offset = 0;
 		in = FIRST;
 		out = SECOND;
 		pro = DBPROC;
-		ref.fldNo = -1;	/* åˆå§‹æ— å‚è€ƒåŸŸ */
-		ref.content = 0;
-		rowset = 0;
+		ref_fldNo = -1;	/* ³õÊ¼ÎŞ²Î¿¼Óò */
+		ref_content = "";
 
 		errCode_field = -1;
 		errStr_field = -1;
 		cRows_field = -1;
 		cRowsObt_fld = -1;
 	};
-
-	inline ~DBFace() {
-		if (paras )
-			delete []paras;
-
-		if ( ref.content)
-			delete []ref.content;
-	
-		if ( rowset )
-			delete rowset;
-		rowset = 0;
-	};
-
 }
 
