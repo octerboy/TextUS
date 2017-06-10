@@ -1,3 +1,18 @@
+/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
+ * All rights reserved.
+ *
+ * This file is part of the TextUS.
+ *
+ * See the file "license.terms" for information on usage and redistribution
+ * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+ */
+
+/**
+ Title: JDBC Client
+ Build: created by octerboy,  2017/05/30, Panyu
+ $Id$
+*/
+
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -24,19 +39,50 @@ public class JdbCli {
   
 	public static final String JETUS_MODTIME = "$Date$";
 	public static final String JETUS_BUILDNO =  "$Revision$";
-	public Element db_cfg;	
+
+	Element db_cfg;	
+	String connect_url;	
+     	String username ;   
+     	String password ;   
+
+	PacketData rcv_pac;
+	PacketData snd_pac;
+
 	public JdbCli () { }
 
 	public void ignite (Document doc) 
 	{
 		String drv_cls;
+		NamedNodeMap atts;
+		Attr attr;
 		db_cfg = doc.getDocumentElement();
-		drv_cls = ((Attr) db_cfg.getFirstChild().getAttributes().getNamedItem("driver")).getValue();
+		drv_cls = ((Attr) db_cfg.getAttributes().getNamedItem("driver")).getValue();
 		try {   //加载数据库的驱动类   
     			//Class.forName("com.mysql.jdbc.Driver") ;   
-    			Class.forName(drv_cls);   
+			atts = db_cfg.getAttributes();
+			if ( atts != null ) 
+			{
+				attr = atts.getNamedItem("connect");
+				if ( attr != null )
+					connect_url = attr.getValue();
+				attr = atts.getNamedItem("user");
+				if ( attr != null )
+					username = attr.getValue();
+				attr = atts.getNamedItem("password");
+				if ( attr != null )
+					password = attr.getValue();
+				attr = atts.getNamedItem("driver");
+				if ( attr != null )
+					drv_cls = attr.getValue();
+			}
+			if ( drv_cls != null)
+			{
+    				Class.forName(drv_cls);   
+			} else {
+				aptus.log_err("no database driver class");
+			}
     		} catch(ClassNotFoundException e) {   
-    			System.out.println("找不到驱动程序类 ，加载驱动失败！");   
+			aptus.log_err("Can not found class of " + drv_cls);
     			e.printStackTrace() ;   
 		} 
 
@@ -46,28 +92,52 @@ public class JdbCli {
 		Pius nps = new Pius();
 		switch(pius.ordo) 
 		{ 
-   			case 1: 
-       				System.out.println(1); 
-       			break; 	
+   			case Pius.MAIN_PARA: 
+				aptus.log_bug("facio MAIN_PARA");
+       				break; 	
+
+   			case Pius.PRO_UNIPAC: 
+				aptus.log_bug("facio PRO_UNIPAC");
+       				break; 	
+
+   			case Pius.CMD_DBFETCH: 
+				aptus.log_bug("facio CMD_DBFETCH");
+       				break; 	
+
+   			case Pius.CMD_SET_DBFACE: 
+				aptus.log_bug("facio CMD_SET_DBFACE");
+       				break; 	
+
+   			case Pius.IGNITE_ALL_READY: 
+				aptus.log_bug("facio IGNITE_ALL_READY");
+       				break; 	
+
+   			case Pius.DMD_END_SESSION: 
+				aptus.log_bug("facio DMD_END_SESSION");
+       				break; 	
+
+   			case Pius.DMD_START_SESSION: 
+				aptus.log_bug("facio DMD_START_SESSION");
+       				break; 	
+
+   			case Pius.CLONE_ALL_READY: 
+				aptus.log_bug("facio CLONE_ALL_READY");
+       				break; 	
+
+   			case Pius.SET_UNIPAC: 
+				aptus.log_bug("facio SET_UNIPAC");
+				PacketData[] tbs = (PacketData[])ps.indic;
+				rcv_pac = tbs[0];
+				snd_pac = tbs[1];
+       				break; 	
+
+   			case Pius.CMD_DB_CANCEL: 
+				aptus.log_bug("facio CMD_DB_CANCEL");
+       				break; 	
+
 			default: 
-       			break; 
-		}
-		if ( ps.ordo == Pius.TIMER)
-		{
-			//System.out.println("timer " + (Integer) ps.indic);
-		}
-		if ( ps.ordo == Pius.MAIN_PARA)
-		{
-			String argv[] = (String[])ps.indic;
-			System.out.print("main paras ");
-			for ( int j = 0 ; j < argv.length; j++ )
-			System.out.print(" " + argv[j]);
-			System.out.print("\n");
-			Pius myps = new Pius();
-			//myps.ordo = Pius.DMD_SET_ALARM;
-			myps.ordo = Pius.DMD_SET_TIMER;
-			//myps.indic = new Integer(1);
-			aptus.sponte(myps);
+				aptus.log_bug("facio " + pius.ordo);
+       				break; 
 		}
 		aptus.log_bug("ordo " + ps.ordo + " count " + count + " I 对象 am "+ ((Text) im.getFirstChild()).getData());
 		try {
