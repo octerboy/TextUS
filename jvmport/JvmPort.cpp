@@ -1660,6 +1660,9 @@ void toJFace (JNIEnv *env, DBFace *dface, jobject face_obj, jclass face_cls,  co
 			case DBFace::PARA_INOUT:
 				OBJ_PARA_SET_STATIC_INT("inout", "PARA_INOUT")
 				break;
+			case DBFace::UNKNOWN:
+				OBJ_PARA_SET_STATIC_INT("inout", "PARA_UNKNOWN")
+				break;
 			}
 			env->SetLongField(para_obj, env->GetFieldID(dbpara_cls, "outlen", "J"), dface->paras[i].outlen);
 			OBJ_PARA_SET_INT("scale", scale)
@@ -1695,6 +1698,7 @@ void toJFace (JNIEnv *env, DBFace *dface, jobject face_obj, jclass face_cls,  co
 			OBJ_DAT_TYPE_SET(Time)
 			OBJ_DAT_TYPE_SET(TimeStamp)
 			OBJ_DAT_TYPE_SET(VarBinary)
+			OBJ_DAT_TYPE_SET(UNKNOWN_TYPE)
 			}
 			env->SetObjectArrayElement(para_obj_arr, i, para_obj); 
 		}

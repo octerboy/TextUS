@@ -33,6 +33,7 @@ import javax.xml.transform.*;
 import javax.xml.transform.dom.*;
 import javax.xml.transform.stream.*;
 import java.util.Properties;
+import textor.jvmport.DBFace;
 
 public class JdbCli {
 	public Amor aptus;
@@ -44,19 +45,33 @@ public class JdbCli {
 	String connect_url;	
      	String username ;   
      	String password ;   
+	DBFace face;
+
+    	Connection connection;
+	bool shared_session;
 
 	PacketData rcv_pac;
 	PacketData snd_pac;
+	boolean isTalking;
 
-	public JdbCli () { }
+	public JdbCli () { 
+		isTalking = false;
+		face = null;
+		connect_url = null;
+		password = null;
+		username = null;
+		rcv_pac = null;
+		snd_pac = null;
+		shared_session = null;
+	}
 
 	public void ignite (Document doc) 
 	{
-		String drv_cls;
+		String drv_str;
 		NamedNodeMap atts;
 		Attr attr;
 		db_cfg = doc.getDocumentElement();
-		drv_cls = ((Attr) db_cfg.getAttributes().getNamedItem("driver")).getValue();
+		drv_str = ((Attr) db_cfg.getAttributes().getNamedItem("driver")).getValue();
 		try {   //加载数据库的驱动类   
     			//Class.forName("com.mysql.jdbc.Driver") ;   
 			atts = db_cfg.getAttributes();
@@ -75,7 +90,7 @@ public class JdbCli {
 				if ( attr != null )
 					drv_cls = attr.getValue();
 			}
-			if ( drv_cls != null)
+			if ( drv_str != null)
 			{
     				Class.forName(drv_cls);   
 			} else {
@@ -98,6 +113,12 @@ public class JdbCli {
 
    			case Pius.PRO_UNIPAC: 
 				aptus.log_bug("facio PRO_UNIPAC");
+				if ( !isTalking) logon();
+				if ( isTalking)) 
+				{ 
+					handle_pac();
+					aptus.log_bug("handle end");
+				}
        				break; 	
 
    			case Pius.CMD_DBFETCH: 
@@ -106,6 +127,7 @@ public class JdbCli {
 
    			case Pius.CMD_SET_DBFACE: 
 				aptus.log_bug("facio CMD_SET_DBFACE");
+				face = (DBFace ) pius.indic;
        				break; 	
 
    			case Pius.IGNITE_ALL_READY: 
@@ -114,10 +136,12 @@ public class JdbCli {
 
    			case Pius.DMD_END_SESSION: 
 				aptus.log_bug("facio DMD_END_SESSION");
+				logout();
        				break; 	
 
    			case Pius.DMD_START_SESSION: 
 				aptus.log_bug("facio DMD_START_SESSION");
+				logon();
        				break; 	
 
    			case Pius.CLONE_ALL_READY: 
@@ -137,63 +161,8 @@ public class JdbCli {
 
 			default: 
 				aptus.log_bug("facio " + pius.ordo);
-       				break; 
+				return false;
 		}
-		aptus.log_bug("ordo " + ps.ordo + " count " + count + " I 对象 am "+ ((Text) im.getFirstChild()).getData());
-		try {
-			if ( ps.ordo == Pius.SET_TBUF )
-			{	/* SET_TBUF */
-			System.out.println("测试数据, 来自Java程序");
-/*
-				TiXML ti = new TiXML();
-				ti.alloc();
-				ti.putDocument(Hell.parseXmlFile("demo.xml", false));
-				Document doc = ti.getDocument();
-		try{ 
-			TransformerFactory tFactory = TransformerFactory.newInstance(); 
-			Transformer transformer = tFactory.newTransformer(); 
-
-			DOMSource source = new DOMSource(doc); 
-			ByteArrayOutputStream outs = new ByteArrayOutputStream();
-			StreamResult result = new StreamResult(outs); 
-			
-			Properties properties = transformer.getOutputProperties(); 
-			properties.setProperty(OutputKeys.ENCODING,"GB2312"); 
-			transformer.setOutputProperties(properties); 
-			transformer.transform(source,result); 
-			
-			System.out.println(outs.toString());
-		} catch(Exception e){
-			System.out.println("error4 " + e.getMessage());
-		} 
-*/
-				TBuffer[] tbs = (TBuffer[])ps.indic;
-				tbs[0].grant(100);
-				tbs[1].grant(100);
-				aptus.facio(ps);
-			}
-
-			if ( ps.ordo == Pius.SET_UNIPAC )
-			{	/* SET_UNIPAC */
-				PacketData[] tbs = (PacketData[])ps.indic;
-				tbs[0].grant(100);
-				tbs[1].grant(100);
-				aptus.facio(ps);
-			}
-			if ( ps.ordo != (2000 | Pius.JAVA_NOTITIA_DOM) )
-			{
-			//System.out.println("in java pius.ordo "+ ps.ordo);       
-			//nps.ordo = 2000 | 0x00100000;
-			//nps.indic = new String("完全是是Java的String对象");
-			//aptus.facio(nps);
-			} else {
-				//String str = (String)ps.indic;
-				//System.out.println("Java String is "+ str);       
-			}
-		} catch (Exception e) {
-                        System.err.println("excption: " + e.getMessage());
-                }
-
 		return true;
 	}
 	
@@ -202,23 +171,39 @@ public class JdbCli {
 	}
 	
 	public Object clone() {
-		JTest child;
-		child = new JTest();
-		count = count+1;
-		child.im = im;
-		child.count = count;
+		JdbCli child;
+		child = new JdbCli();
 		return (Object)child;
 	}
 
+	void logon() {
+     		try{   
+			if ( username != null && password != null )
+			{
+    				connection = DriverManager.getConnection(connect_url , username , password ) ;   
+			} else {
+    				connection = DriverManager.getConnection(connect_url) ;   
+			}
+			isTalking = true;
+     		}catch(SQLException se){   
+			isTalking = false;
+    			System.out.println("数据库连接失败！");   
+    			se.printStackTrace() ;   
+		}
+	}
+
+	void logout(){
+		isTalking = false;
+     		try{   
+    			connection.close();
+     		}catch(SQLException se){   
+    			System.out.println("数据库关闭失败！");   
+    			se.printStackTrace() ;   
+		}
+	}
 String url = "jdbc:mysql://localhost:3306/test" ;    
      String username = "root" ;   
      String password = "root" ;   
-     try{   
-    Connection con =    
-             DriverManager.getConnection(url , username , password ) ;   
-     }catch(SQLException se){   
-    System.out.println("数据库连接失败！");   
-    se.printStackTrace() ;   
      }   
 
 

@@ -10,6 +10,7 @@
 /**
  Title: DBFace Class for Java
  Build: Created by octerboy 2017/06/03 Panyu
+ $Id$
  $Date$
  $Revision$
 */
@@ -60,6 +61,7 @@ public class DBFace {
 	public static final int PARA_IN =31;
 	public static final int PARA_OUT =32;
 	public static final int PARA_INOUT =33;
+	public static final int PARA_UNKNOWN =34;
 	public static final int DBPROC = 40;
 	public static final int QUERY=41 ;
 	public static final int FUNC = 42;
@@ -90,6 +92,7 @@ public class DBFace {
 	public static final int	Time	= 22;
 	public static final int	TimeStamp =23;
 	public static final int	VarBinary =24;
+	public static final int	UNKNOWN_TYPE =25;
 
 	public static final int	FIRST =101;
 	public static final int	SECOND =102;	
