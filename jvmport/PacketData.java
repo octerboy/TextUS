@@ -18,6 +18,8 @@
 
 package textor.jvmport;
 import java.lang.Object;
+import java.sql.*;
+import java.math.*;
 
 public class PacketData {
 	
@@ -30,9 +32,28 @@ public class PacketData {
 	public native void free();
 	public native void grant(int space);
 	public native byte[] getfld(int no);
+	public native String getString(int no);
+	public native int getInt(int no);
+	public native long getLong(int no);
+	public native Boolean getBoolean(int no);
+	public native short getShort(int no);
+	public native float getFloat(int no);
+	public native double getDouble(int no);
+	public native BigDecimal getBigDecimal(int no);
+	public native Date getDate(int no);
+	public native Time getTime(int no);
+	public native Timestamp getTimestamp(int no);
 	public native void input(int no, byte[] val);
 	public native void input(int no, int iVal);
 	public native void input(int no, long lVal);
 	public native void input(int no, String str);
+	public native void input(int no, Boolean val);
+	public native void input(int no, short val);
+	public native void input(int no, float val);
+	public native void input(int no, double val);
+	public native void input(int no, BigDecimal val);
+	public native void input(int no, Date val);
+	public native void input(int no, Time val);
+	public native void input(int no, Timestamp val);
 	public PacketData() { }
 }
