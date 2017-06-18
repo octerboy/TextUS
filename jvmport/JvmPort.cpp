@@ -143,10 +143,10 @@ public:
 
 				if (strcmp(comm_str, "1.4") == 0 )
 					vm_args.version=JNI_VERSION_1_4;
-
+#ifdef JNI_VERSION_1_6
 				if (strcmp(comm_str, "1.6") == 0 )
 					vm_args.version=JNI_VERSION_1_6;
-
+#endif
 #ifdef JNI_VERSION_1_8
 				if (strcmp(comm_str, "1.8") == 0 )
 					vm_args.version=JNI_VERSION_1_8;
@@ -764,18 +764,48 @@ JNIEXPORT jbyteArray JNICALL Java_textor_jvmport_PacketData_getfld (JNIEnv *env,
 	return reta;
 }
 
-JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input (JNIEnv *env, jobject paco, jint no , jbyteArray val)
+JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__I_3B (JNIEnv *env, jobject paco, jint no , jbyteArray val)
 {
 	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
 	if ( pcp)
 	{
-        	int len = env->GetArrayLength(val);
+        int len = env->GetArrayLength(val);
 		pcp->grant(len);
-        	env->GetByteArrayRegion(val, 0, len, (jbyte*)pcp->buf.point);
+		env->GetByteArrayRegion(val, 0, len, (jbyte*)pcp->buf.point);
 		pcp->commit(no, len);
 	}
 	return;
 }
+
+JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__II (JNIEnv *env, jobject paco, jint no , jint iVal)
+{
+	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
+	if ( pcp)
+	{
+		pcp->input(no, (unsigned char*)&iVal, sizeof(jint));
+	}
+	return;
+}
+
+JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ILjava_lang_String_2 (JNIEnv *env, jobject paco, jint no , jstring sVal)
+{
+	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
+	jclass str_cls = env->FindClass("java/lang/String");
+	jmethodID getBytes_mid = env->GetMethodID(str_cls, "getBytes", "()[B");
+	jbyteArray strBytes;
+	int len;
+
+	if ( pcp)
+	{
+		strBytes = (jbyteArray)env->CallObjectMethod(sVal, getBytes_mid);
+		len = env->GetArrayLength(strBytes);
+		pcp->grant(len);
+		env->GetByteArrayRegion(strBytes, 0, len, (jbyte*)pcp->buf.point);
+		pcp->commit(no, len);
+	}
+	return;
+}
+
 
 JNIEXPORT void JNICALL Java_textor_jvmport_TBuffer_alloc
   (JNIEnv *env , jobject tbo, jint size)
@@ -1524,12 +1554,10 @@ void toInt (JNIEnv *env, int *val, jobject jInt )
 
 void toJFace (JNIEnv *env, DBFace *dface, jobject face_obj, jclass face_cls,  const char *encoding)
 {
-	jfieldID a_fld;
-	jobject jstr, encStr, rowset_obj, para_obj;
+	jobject jstr, encStr, rowset_obj;
 	jbyteArray  args;
 	int len; 
 	jmethodID strInit_mid;
-	const char *c_tmp;
 	jclass str_cls = env->FindClass("java/lang/String");
 	jclass rowset_cls = env->FindClass("textor/jvmport/DBFace$RowSet");
 	if ( jvmError(env)) return;
@@ -1626,7 +1654,7 @@ void toJFace (JNIEnv *env, DBFace *dface, jobject face_obj, jclass face_cls,  co
 	{
 		jobjectArray para_obj_arr;
 		jobject para_obj;
-		int i;
+		unsigned int i;
 		para_obj_arr = env->NewObjectArray(dface->num, dbpara_cls, 0); 
 		for ( i = 0 ; i < dface->num; i++)
 		{

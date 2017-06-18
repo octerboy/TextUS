@@ -121,6 +121,8 @@ public:
 	void *devInitPs[4];	//最后一个指向读写器字符
 	int  devInitRet;	//
 	HANDLE h_init_thread;
+	HANDLE h_wait_usr_thread;
+	int samin_start_max_delay;
 #include "wlog.h"
 };
 
@@ -1187,7 +1189,6 @@ void ICPort::deliver(Notitia::HERE_ORDO aordo)
 	}
 }
 
-
 bool ICPort::sponte( Amor::Pius *pius)
 {		
 	void **ps_ind;
@@ -1231,6 +1232,8 @@ ICPort::ICPort()
 	wmod = WM_TOP;
 	dev_ok = false;
 	h_init_thread = INVALID_HANDLE_VALUE;
+	h_wait_usr_thread = INVALID_HANDLE_VALUE;
+	samin_start_max_delay = 30000;	//默认samin等待30秒再起动
 
 	hipa[0] = &hi_req;
 	hipa[1] = &hi_reply;
@@ -1251,6 +1254,15 @@ Amor* ICPort::clone()	//其实用不到
 	child->wmod =wmod;
 	return (Amor*)child;
 }
+
+static void  wait_user_put_start(ICPort  *arg)
+{
+	printf("Samin will delay %d seconds to start untill you press any key to start right now!\n", arg->samin_start_max_delay/1000);
+	getch();
+	printf("Delay cancelled.\n");
+	_endthreadex(0);
+}
+
 
 
 /* 这个以后看有什么参数可以搞 */
@@ -1289,6 +1301,8 @@ void ICPort::ignite(TiXmlElement *cfg)
 
 	init_timeout = 3000;
 	cfg->QueryIntAttribute("init_timeout", &init_timeout);
+	cfg->QueryIntAttribute("samin_start_delay", &samin_start_max_delay);
+	
 	max_Qry_Card_num = 10;
 	cfg->QueryIntAttribute("try_num_while_has_card", &max_Qry_Card_num);
 
@@ -1346,7 +1360,22 @@ void ICPort::SysInit()
 	char host_name[255];
 	struct hostent *phe;
 	WSADATA wsaData;
-	int iResult = WSAStartup(MAKEWORD(2,2), &wsaData);
+	int iResult;
+	if ( me_who == VR_samin)
+	{
+			if (  (h_wait_usr_thread=(HANDLE)_beginthread((my_thread_func)wait_user_put_start, 1024000, this)) == INVALID_HANDLE_VALUE )
+			{
+				WLOG(ERR, "_beginthread (wait_user_put_start) error= %08x",  GetLastError());
+				Sleep(samin_start_max_delay);
+			} else {
+				Sleep(500);	//等0.5秒，让用户键盘干预线程启动。
+				WaitForSingleObject( h_wait_usr_thread, samin_start_max_delay); //等30秒, 不管怎么样, 关闭线程
+				CloseHandle(h_init_thread);
+				h_wait_usr_thread = INVALID_HANDLE_VALUE;
+			}
+			WBUG("samin start ...");
+	}
+	iResult = WSAStartup(MAKEWORD(2,2), &wsaData);
 	if (iResult != NO_ERROR)
 	{
 		error_sys_pro("SysInit WSAStartup");
@@ -1390,7 +1419,7 @@ PIPE_PRO:
 			NULL);
 		if (pro_ev == NULL) 
 		{	
-			error_sys_pro("SysInit CreateEvent");
+			error_sys_pro("SysInit CreateEvent of pro_ev");
 			goto END;
 		}
 	}
@@ -1403,7 +1432,7 @@ PIPE_PRO:
 			NULL);
 		if (samin_no_read_ev == NULL) 
 		{	
-			error_sys_pro("SysInit CreateEvent");
+			error_sys_pro("SysInit CreateEvent of samin_no_read_ev");
 			goto END;
 		}
 	}
@@ -1417,13 +1446,13 @@ PIPE_PRO:
 
 	if ( h_srv_pipe == INVALID_HANDLE_VALUE)
 	{
-		error_sys_pro("SysInit CreateNamedPipe");
+		error_sys_pro("SysInit CreateNamedPipe of h_srv_pipe");
 		return; 
 	}
 
 	if (  (h_recv_pipe_thread=(HANDLE)_beginthread((my_thread_func)rcv_pipe_thrd, 1024000, this)) == INVALID_HANDLE_VALUE )
 	{
-			WLOG(ERR, "_beginthread error= %08x",  GetLastError());
+			WLOG(ERR, "_beginthread (rcv_pipe_thrd) error= %08x",  GetLastError());
 			CloseHandle(h_srv_pipe);
 			h_srv_pipe = INVALID_HANDLE_VALUE;
 	}
