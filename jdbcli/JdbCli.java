@@ -34,8 +34,15 @@ import javax.xml.transform.dom.*;
 import javax.xml.transform.stream.*;
 import java.util.Properties;
 import textor.jvmport.DBFace;
+import textor.jvmport.Amor;
+import textor.jvmport.Pius;
+import textor.jvmport.TBuffer;
+import textor.jvmport.PacketData;
 
-public class JdbCli {
+
+
+public class JdbCli 
+{
 	public Amor aptus;
   
 	public static final String JETUS_MODTIME = "$Date$";
@@ -72,7 +79,7 @@ public class JdbCli {
 		Attr attr;
 		db_cfg = doc.getDocumentElement();
 		drv_str = ((Attr) db_cfg.getAttributes().getNamedItem("driver")).getValue();
-		try {   //åŠ è½½æ•°æ®åº“çš„é©±åŠ¨ç±»   
+		try {   //¼ÓÔØÊı¾İ¿âµÄÇı¶¯Àà   
     			//Class.forName("com.mysql.jdbc.Driver") ;   
 			atts = db_cfg.getAttributes();
 			if ( atts != null ) 
@@ -187,7 +194,7 @@ public class JdbCli {
 			isTalking = true;
      		}catch(SQLException se){   
 			isTalking = false;
-    			System.out.println("æ•°æ®åº“è¿æ¥å¤±è´¥ï¼");   
+    			System.out.println("Êı¾İ¿âÁ¬½ÓÊ§°Ü£¡");   
     			se.printStackTrace() ;   
 		}
 	}
@@ -197,10 +204,144 @@ public class JdbCli {
      		try{   
     			connection.close();
      		}catch(SQLException se){   
-    			System.out.println("æ•°æ®åº“å…³é—­å¤±è´¥ï¼");   
+    			System.out.println("Êı¾İ¿â¹Ø±ÕÊ§°Ü£¡");   
     			se.printStackTrace() ;   
 		}
 	}
+
+	void handle_pac(boolean isDBFetch)
+	{
+		PreparedStatement p_stmt;
+		CallableStatement c_stmt;
+		DBFace:Para para;
+		snd_pac.input(face.errCode_field, 0); //Ê×ÏÈ¼Ù¶¨½á¹ûOK£¬°ÑÖµÉèµ½·µ»ØÓòÖĞ
+
+		if ( isDBFetch)
+		{
+			fetch_data ( CS_ROW_RESULT ) ;	//È¡½á¹û¼¯µÄ
+			return ;
+		}
+
+		//·²ÊÇ×î½üQUERYµÄ, Òªcancel,to do....
+
+		switch ( face.pro )
+		{
+			case DBFace.DBPROC:
+			case DBFace.FUNC:
+				aptus.log_bug("handle DBPROC/FUNC " + face.sentence +" para num "+face.num);
+				break;
+			case DBFace.DML:
+				aptus.log_bug("handle DML (\"" + face.sentence +" \")" + " param num " + face.num);
+				para = face.paras[i];
+				p_stmt = connection.prepareStatement(face.sentence);
+				/* ÊäÈëÊä³öÖµµÄÉè¶¨ */
+				for ( i = 0 ; i <  face.num; i++ )
+				{
+					DBFace.Para para = face.paras[i]; 
+					int j = i+1;
+					if ( para.inout != DBFace.PARA_IN) continue; 
+					switch (  )
+					{
+						case DBFace.PARA_IN:
+							p_stmt.setFloat(1, 11.99f);
+							p_stmt.setInt(2, key);
+
+							break;
+					}
+					switch ( para.type )
+					{
+						case DBFace.Integer:
+							p_stmt.setInt(j, );
+							break;
+
+						case DBFace.SmallInt:
+							p_stmt.setShort(j, );
+							break;
+
+						case DBFace.TinyInt:
+							p_stmt.(j, );
+							break;
+
+						case DBFace.Char:
+							p_stmt.setByte(j, );
+							break;
+
+						case DBFace.String:
+							p_stmt.setString(j, );
+							break;
+
+						case DBFace.Decimal:
+							p_stmt.setBigDecimal(j, );
+							
+							break;
+
+						case DBFace.Numeric:
+							p_stmt.(j, );
+							break;
+
+						case DBFace.Currency:
+							p_stmt.(j, );
+							break;
+
+						case DBFace.Double:
+							p_stmt.setDouble(j, );
+							break;
+
+						case DBFace.VarBinary:
+							p_stmt.(j, );
+							break;
+
+						case DBFace.Long:
+							p_stmt.setLong(j, );
+							break;
+
+						case DBFace.Text:
+							p_stmt.(j, );
+							break;
+
+						case DBFace.Binary:
+							p_stmt.(j, );
+							break;
+
+						case DBFace.Date:
+							p_stmt.setDate(j, );
+							break;
+
+						case DBFace.LongBinary:
+							p_stmt.(j, );
+							break;
+
+						case DBFace.Boolean:
+							p_stmt.(j, );
+							break;
+
+						default:
+							WLOG(CRIT, "Unknown data type %d!", type);
+							dty = CS_ILLEGAL_TYPE;
+					}
+				}
+				break;
+
+			case DBFace.QUERY:
+				aptus.log_bug("handle QUERY (\"" + face.sentence +" \")" + " param num " + face.num);
+				break;
+				
+			case DBFace.CURSOR:
+				aptus.log_bug("handle CURSOR");
+				break;
+		}
+	}
+
+	void fetch_data ()
+	{
+	}
+
+	void handle_pac()
+	{
+		handle_pac(false);
+
+	}
+
 String url = "jdbc:mysql://localhost:3306/test" ;    
      String username = "root" ;   
      String password = "root" ;   
@@ -221,26 +362,26 @@ String url = "jdbc:mysql://localhost:3306/test" ;
 
     while(rs.next()){   
          String name = rs.getString("name") ;   
-    String pass = rs.getString(1) ; // æ­¤æ–¹æ³•æ¯”è¾ƒé«˜æ•ˆ   
+    String pass = rs.getString(1) ; // ´Ë·½·¨±È½Ï¸ßĞ§   
      }   
 
 
 
-    if(rs != null){   // å…³é—­è®°å½•é›†   
+    if(rs != null){   // ¹Ø±Õ¼ÇÂ¼¼¯   
         try{   
             rs.close() ;   
         }catch(SQLException e){   
             e.printStackTrace() ;   
         }   
           }   
-          if(stmt != null){   // å…³é—­å£°æ˜   
+          if(stmt != null){   // ¹Ø±ÕÉùÃ÷   
         try{   
             stmt.close() ;   
         }catch(SQLException e){   
             e.printStackTrace() ;   
         }   
           }   
-          if(conn != null){  // å…³é—­è¿æ¥å¯¹è±¡   
+          if(conn != null){  // ¹Ø±ÕÁ¬½Ó¶ÔÏó   
          try{   
             conn.close() ;   
          }catch(SQLException e){   
