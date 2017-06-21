@@ -69,6 +69,8 @@ static int cent_qry_interval=1; //向中心查询的时间间隔
 const char *me_who_str=0;
 const char *samin_named_pipe_str = "\\\\.\\pipe\\NamePipe_samin_serv";  
 const char *toll_named_pipe_str = "\\\\.\\pipe\\NamePipe_toll_serv";  
+const char *samin_mutex_str= "samin_mutex";
+const char *reader_dev_mutex_str= "reader_dev_mutex";
 
 static TiXmlElement *road_ele=0;	//路段表
 
@@ -97,7 +99,7 @@ public:
 	void notify_me_up();
 	void notify_me_down();
 	void notify_friend(char *msg);
-	void SysInit();
+	bool SysInit();
 	int open_dev();
 	int close_dev(bool should_notify=true);
 	int reload_dll();
@@ -116,13 +118,14 @@ public:
 	bool dev_ok;	//顶层实例和二层实例
 
 	char reader_ch;	//读写器特征字，以下仅用于二层实例， 顶层不用。
+	const char *reader_call_str;
 	char wm_str[16];
 	void relay_dev_init();
 	void *devInitPs[4];	//最后一个指向读写器字符
 	int  devInitRet;	//
 	HANDLE h_init_thread;
-	HANDLE h_wait_usr_thread;
-	int samin_start_max_delay;
+	HANDLE h_samin_mutex;
+	HANDLE h_reader_dev_mutex;
 #include "wlog.h"
 };
 
@@ -885,7 +888,7 @@ bool ICPort::facio( Amor::Pius *pius)
 			tmp_pius.indic = &hipa[0];
 			tmp_pius.ordo = Notitia::SET_UNIPAC;
 			aptus->facio(&tmp_pius);
-			if ( !had_toll && !had_samin )
+			if ( !had_toll && !had_samin ) //had_toll, had_samin在SysInit()中赋值,  也即在MAIN_PARA(在IGNITE_ALL_READY之后）。当samin或vtoll启动后，就不再赋空值。
 			{
 				memset(lane_ip,0,sizeof(lane_ip));	lane_ip[0] = ' ';
 				memset(psam_challenge, 0, sizeof(psam_challenge));
@@ -919,14 +922,12 @@ bool ICPort::facio( Amor::Pius *pius)
 		break;
 
 	case Notitia::IC_DEV_QUIT:
-		
 		if ( dev_ok)
 		{
 			WBUG("facio IC_DEV_QUIT, %s", dev_ok ? "dev_ok" : "dev_failed");
 			aptus->facio(pius);
 			dev_ok = false;
 		}
-		
 		break;
 
 	case Notitia::IC_OPEN_PRO:
@@ -1232,8 +1233,8 @@ ICPort::ICPort()
 	wmod = WM_TOP;
 	dev_ok = false;
 	h_init_thread = INVALID_HANDLE_VALUE;
-	h_wait_usr_thread = INVALID_HANDLE_VALUE;
-	samin_start_max_delay = 30000;	//默认samin等待30秒再起动
+	h_samin_mutex = INVALID_HANDLE_VALUE;
+	h_reader_dev_mutex = INVALID_HANDLE_VALUE;
 
 	hipa[0] = &hi_req;
 	hipa[1] = &hi_reply;
@@ -1255,16 +1256,6 @@ Amor* ICPort::clone()	//其实用不到
 	return (Amor*)child;
 }
 
-static void  wait_user_put_start(ICPort  *arg)
-{
-	printf("Samin will delay %d seconds to start untill you press any key to start right now!\n", arg->samin_start_max_delay/1000);
-	getch();
-	printf("Delay cancelled.\n");
-	_endthreadex(0);
-}
-
-
-
 /* 这个以后看有什么参数可以搞 */
 void ICPort::ignite(TiXmlElement *cfg)
 {  
@@ -1281,28 +1272,11 @@ void ICPort::ignite(TiXmlElement *cfg)
 		}
 	}
 
-	comm = cfg->Attribute("reader_call");
-	if ( comm ) 
-	{
-		me_who_str = comm;
-		if ( strcasecmp(comm, "toll") == 0 ) 
-		{
-			/* 如果 从unitoll动态库调用来的，xml文件中就设置此值 */
-			me_who = VR_toll;
-			had_toll = true;
-		}
-		if ( strcasecmp(comm, "samin") == 0 ) 
-		{
-			/* 如果 从samin客户端启动来的，xml文件中就设置此值 */
-			me_who = VR_samin;
-			had_samin = true;
-		}
-	}
+	reader_call_str = cfg->Attribute("reader_call");
 
 	init_timeout = 3000;
 	cfg->QueryIntAttribute("init_timeout", &init_timeout);
-	cfg->QueryIntAttribute("samin_start_delay", &samin_start_max_delay);
-	
+
 	max_Qry_Card_num = 10;
 	cfg->QueryIntAttribute("try_num_while_has_card", &max_Qry_Card_num);
 
@@ -1353,7 +1327,7 @@ void ICPort::ignite(TiXmlElement *cfg)
 	return ;
 }
 
-void ICPort::SysInit()
+bool ICPort::SysInit()
 {
 	const char *s_pipe = 0;
 	int i;
@@ -1361,20 +1335,54 @@ void ICPort::SysInit()
 	struct hostent *phe;
 	WSADATA wsaData;
 	int iResult;
-	if ( me_who == VR_samin)
+
+	if (pro_ev == NULL)
 	{
-			if (  (h_wait_usr_thread=(HANDLE)_beginthread((my_thread_func)wait_user_put_start, 1024000, this)) == INVALID_HANDLE_VALUE )
-			{
-				WLOG(ERR, "_beginthread (wait_user_put_start) error= %08x",  GetLastError());
-				Sleep(samin_start_max_delay);
-			} else {
-				Sleep(500);	//等0.5秒，让用户键盘干预线程启动。
-				WaitForSingleObject( h_wait_usr_thread, samin_start_max_delay); //等30秒, 不管怎么样, 关闭线程
-				CloseHandle(h_init_thread);
-				h_wait_usr_thread = INVALID_HANDLE_VALUE;
-			}
-			WBUG("samin start ...");
+		pro_ev = CreateEvent( NULL, // default security attributes
+			FALSE, //not Manual Reset (Auto Reset)
+			FALSE, // 开始无信号 
+			NULL);
+		if (pro_ev == NULL) 
+		{	
+			error_sys_pro("SysInit CreateEvent of pro_ev");
+			goto END;
+		}
 	}
+
+	h_samin_mutex = CreateMutex(NULL, FALSE, samin_mutex_str);
+	if ( h_samin_mutex == NULL)
+	{
+		error_sys_pro("SysInit CreateMutex");
+		return false;
+	}
+	if (WaitForSingleObject(h_samin_mutex, 15000) != WAIT_OBJECT_0 )	//默认最大15秒
+	{
+		error_sys_pro("SysInit WaitForSingleObject for h_samin_mutex");
+		CloseHandle(h_samin_mutex);
+		h_samin_mutex = NULL;
+		return false;
+	}
+
+	if ( reader_call_str ) 
+	{
+		me_who_str = reader_call_str;
+		if ( strcasecmp(reader_call_str, "toll") == 0 ) 
+		{
+			/* 如果 从unitoll动态库调用来的，xml文件中就设置此值 */
+			me_who = VR_toll;
+			had_toll = true;
+		}
+		if ( strcasecmp(reader_call_str, "samin") == 0 ) 
+		{
+			/* 如果 从samin客户端启动来的，xml文件中就设置此值 */
+			me_who = VR_samin;
+			had_samin = true;
+			printf("Wait key 220 \n");
+			getchar();
+
+		}
+	}
+
 	iResult = WSAStartup(MAKEWORD(2,2), &wsaData);
 	if (iResult != NO_ERROR)
 	{
@@ -1387,7 +1395,6 @@ void ICPort::SysInit()
 		error_sys_pro("SysInit gethostname");
 		goto PIPE_PRO;
 	}
-
 
 	phe = gethostbyname(host_name);
 	if (phe == 0) {
@@ -1411,18 +1418,6 @@ PIPE_PRO:
 	if ( me_who == VR_toll)
 		s_pipe = toll_named_pipe_str;
 
-	if (pro_ev == NULL)
-	{
-		pro_ev = CreateEvent( NULL, // default security attributes
-			FALSE, //not Manual Reset (Auto Reset)
-			FALSE, // 开始无信号 
-			NULL);
-		if (pro_ev == NULL) 
-		{	
-			error_sys_pro("SysInit CreateEvent of pro_ev");
-			goto END;
-		}
-	}
 
 	if (samin_no_read_ev == NULL)
 	{
@@ -1447,7 +1442,7 @@ PIPE_PRO:
 	if ( h_srv_pipe == INVALID_HANDLE_VALUE)
 	{
 		error_sys_pro("SysInit CreateNamedPipe of h_srv_pipe");
-		return; 
+		return false; 
 	}
 
 	if (  (h_recv_pipe_thread=(HANDLE)_beginthread((my_thread_func)rcv_pipe_thrd, 1024000, this)) == INVALID_HANDLE_VALUE )
@@ -1469,9 +1464,9 @@ Next_Step1:
 		deliver(Notitia::DMD_SET_ALARM); /* 设定时，sched来询问 */ 
 		open_dev();
 	}
-
 END:
-	return;
+	ReleaseMutex(h_samin_mutex);
+	return true;
 }
 
 void ICPort::rcv_pipe()
@@ -1507,7 +1502,7 @@ LoopRead:
 			get_cli_pipe();
 			break;
 
-		case 'T':	//toll关闭，这是samin才收到的
+		case 'T':	//toll退出，这是samin才收到的
 			s_never = false; //管道不存在了
 			close_cli_pipe();
 			if ( who_open_reader == VR_toll && me_who == VR_samin ) 
@@ -1519,7 +1514,7 @@ LoopRead:
 			}
 			break;
 
-		case 'S':	//samin关闭，这是toll才收到。
+		case 'S':	//samin退出，这是toll才收到。
 			s_never = false;//管道不存在了
 			close_cli_pipe();
 			//open_dev();
@@ -1587,20 +1582,19 @@ bool ICPort::get_cli_pipe()
 	if ( me_who == VR_toll)
 		c_pipe= samin_named_pipe_str;
 
-	if (WaitNamedPipe(c_pipe, NMPWAIT_WAIT_FOREVER) == FALSE)  
+	if (WaitNamedPipe(c_pipe, 30000) == FALSE)  //3秒
 	{  
 		//记错误日志
+		WLOG(ERR,"get_cli_pipe WaitNamedPipe of %s ", c_pipe);
 		error_sys_pro("get_cli_pipe WaitNamedPipe");	
 		return false;  
 	}  
 
-	h_cli_pipe = CreateFile(c_pipe, GENERIC_READ | GENERIC_WRITE, 0,  
-            NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);  
-
-	if ( h_cli_pipe == INVALID_HANDLE_VALUE)
+	h_cli_pipe = CreateFile(c_pipe, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);  
+	if ( h_cli_pipe == INVALID_HANDLE_VALUE )
 	{
 		//记错误日志
-		error_sys_pro("get_cli_pipe write cli pipe");	
+		error_sys_pro("get_cli_pipe when CreateFile");
 		return false;
 	}
 	WBUG("h_cli_pipe open ok");
@@ -1692,6 +1686,20 @@ int ICPort::open_dev()
 
 	ret = -1;
 	m_error_buf[0] = 0;
+	h_reader_dev_mutex = CreateMutex(NULL, FALSE, reader_dev_mutex_str);
+	if ( h_reader_dev_mutex == NULL)
+	{
+		error_sys_pro("open_dev CreateMutex");
+		return ret;
+	}
+	if (WaitForSingleObject(h_reader_dev_mutex, 10000) != WAIT_OBJECT_0 )	//默认10秒
+	{
+		error_sys_pro("open_dev WaitForSingleObject for h_reader_dev_mutex");
+		CloseHandle(h_reader_dev_mutex);
+		h_reader_dev_mutex = NULL;
+		return ret;
+	}
+WBUG("who_open_reader is VR_none while open_dev just afeter obtain mutex");
 	if ( who_open_reader == VR_samin && me_who == VR_toll ) 
 	{
 		//toll要连读写器，而samin已经连上，则要求对方断开
@@ -1706,6 +1714,7 @@ int ICPort::open_dev()
 
 	if ( who_open_reader == VR_none  ) 
 	{
+		WBUG("who_open_reader is VR_none while open_dev");
 		m_error_buf[0] = 0;
 		ok_reader = '\0';
 		ps[0] = &ret;
@@ -1725,13 +1734,14 @@ int ICPort::open_dev()
 			error_sys_pro("open_dev for wait pro_ev");
 		}
 	}
-	WBUG("who_open_reader %d", who_open_reader);
+	WBUG("who_open_reader %s when open_dev", who_open_reader==VR_toll ? "VR_Toll" : "VR_none or VR_Samin");
 
 	if ( dev_ok )
 		ret = 1;
 	else 
 		ret = 0;
 OEnd:
+	ReleaseMutex(h_reader_dev_mutex);
 	return ret;
 }
 
@@ -1744,7 +1754,7 @@ int ICPort::close_dev(bool should_notify)
 	int ret = 0;
 	void *ps[2];
 	Amor::Pius para;
-		
+
 	ret = -1;
 	m_error_buf[0] = 0;
 
