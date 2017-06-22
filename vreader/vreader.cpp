@@ -1700,6 +1700,7 @@ int ICPort::open_dev()
 	int ret = 0;
 	void *ps[4];
 	Amor::Pius para;
+	const char *who_str;
 
 	ret = -1;
 	m_error_buf[0] = 0;
@@ -1751,7 +1752,20 @@ int ICPort::open_dev()
 			error_sys_pro("open_dev for wait pro_ev");
 		}
 	}
-	WBUG("who_open_reader %s when open_dev", who_open_reader==VR_toll ? "VR_Toll" : "VR_none or VR_Samin");
+	switch ( who_open_reader )
+	{
+	case VR_toll:
+		who_str = "VR_toll";
+		break;
+	case VR_none:
+		who_str = "VR_none";
+		break;
+	case VR_samin:
+		who_str = "VR_samin";
+		break;
+
+	}
+	WBUG("who_open_reader %s when open_dev", who_str);
 	has_card  = false;
 
 	if ( dev_ok )
