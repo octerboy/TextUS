@@ -64,6 +64,7 @@ private:
 
 	bool alive;	/* 通道是否打开 */
 	bool demanding;	/* 正在要求通道, 还未有响应 */
+	int has_buffered_num;
 	
 	struct G_CFG {
 		Amor::Pius chn_timeout;
@@ -72,6 +73,7 @@ private:
 		int pac_fld;	/* PacketObj中那个域进入本缓冲 */
 		bool once;
 		bool willAsk;
+		int max_buffer_times;	//最大缓冲次数
 		
 		inline G_CFG ( TiXmlElement *cfg ) {
 			const char *comm_str;
@@ -82,7 +84,9 @@ private:
 			pac_fld = -1;
 			once = false;
 			willAsk = true;
+			max_buffer_times = 16;
 
+			cfg->QueryIntAttribute("max_buffer_times", &(max_buffer_times));
 			cfg->QueryIntAttribute("field", &(pac_fld));
 			comm_str = cfg->Attribute("once");
 			if ( comm_str && strcasecmp(comm_str, "yes" ) ==0 )
@@ -150,6 +154,12 @@ bool TBufChan::facio( Amor::Pius *pius)
 			right_snd.input(fld->val, fld->range);
 			aptus->facio(&pro_tbuf);
 		} else {
+			if ( has_buffered_num == gCFG->max_buffer_times ) 
+			{
+				house.reset();
+				has_buffered_num = 0;
+			}
+			has_buffered_num++;
 			house.input(fld->val, fld->range); /* 数据进入暂存 */
 			if( !demanding && gCFG->willAsk)
 			{
@@ -201,6 +211,13 @@ bool TBufChan::facio( Amor::Pius *pius)
 			TBuffer::pour(right_snd, *rcv_buf);
 			aptus->facio(&pro_tbuf);
 		} else {
+			if ( has_buffered_num == gCFG->max_buffer_times ) 
+			{
+				house.reset();
+				has_buffered_num = 0;
+			}
+			has_buffered_num++;
+
 			TBuffer::pour(house, *rcv_buf);	/* 数据进入暂存 */
 	Demand:
 			if( !demanding && gCFG->willAsk )
@@ -303,6 +320,7 @@ bool TBufChan::sponte( Amor::Pius *pius)
 		} 
 		
 		right_reset();	//在这里，alive, demanding%都false了
+		has_buffered_num = 0;
 		if ( house.point > house.base )
 		{
 			TBuffer::pour(right_snd, house);
@@ -347,6 +365,7 @@ TBufChan::TBufChan():right_rcv(8192), right_snd(8192)
 
 	gCFG = 0;
 	has_config = false ;
+	has_buffered_num = 0;
 }
 
 TBufChan::~TBufChan() 

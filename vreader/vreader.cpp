@@ -60,13 +60,13 @@ typedef struct _PSAM_Info{
 #pragma comment(linker,"/SECTION:v_reader_status,RWS")
 
 static enum VReader_Who me_who = VR_none;	//自身的工作模式， 这不在共享数据段
+const char *me_who_str=0;
 static bool isInventoring;	//是否在盘点
 static bool has_card;
 
 static int max_Qry_Card_num;
 static int cent_qry_interval=1; //向中心查询的时间间隔
 
-const char *me_who_str=0;
 const char *samin_named_pipe_str = "\\\\.\\pipe\\NamePipe_samin_serv";  
 const char *toll_named_pipe_str = "\\\\.\\pipe\\NamePipe_toll_serv";  
 const char *samin_mutex_str= "samin_mutex";
@@ -97,7 +97,7 @@ public:
 	bool get_cli_pipe();
 	void close_cli_pipe();
 	void notify_me_up();
-	void notify_me_down();
+	void notify_me_quit();
 	void notify_friend(char *msg);
 	bool SysInit();
 	int open_dev();
@@ -118,7 +118,6 @@ public:
 	bool dev_ok;	//顶层实例和二层实例
 
 	char reader_ch;	//读写器特征字，以下仅用于二层实例， 顶层不用。
-	const char *reader_call_str;
 	char wm_str[16];
 	void relay_dev_init();
 	void *devInitPs[4];	//最后一个指向读写器字符
@@ -298,6 +297,7 @@ int __stdcall  READER_open(char* Paras)
 			goto END;
 		}
 	}
+
 	ret = justme->open_dev();
 	if (ret ) 
 	{
@@ -1259,7 +1259,7 @@ Amor* ICPort::clone()	//其实用不到
 /* 这个以后看有什么参数可以搞 */
 void ICPort::ignite(TiXmlElement *cfg)
 {  
-	const char *comm;
+	const char *comm, *reader_call_str;
 	int vmany = 0;
 	will_reload_dll = false;
 
@@ -1273,6 +1273,20 @@ void ICPort::ignite(TiXmlElement *cfg)
 	}
 
 	reader_call_str = cfg->Attribute("reader_call");
+	if ( reader_call_str ) 
+	{
+		me_who_str = reader_call_str;
+		if ( strcasecmp(reader_call_str, "toll") == 0 ) 
+		{
+			/* 如果 从unitoll动态库调用来的，xml文件中就设置此值 */
+			me_who = VR_toll;
+		}
+		if ( strcasecmp(reader_call_str, "samin") == 0 ) 
+		{
+			/* 如果 从samin客户端启动来的，xml文件中就设置此值 */
+			me_who = VR_samin;
+		}
+	}
 
 	init_timeout = 3000;
 	cfg->QueryIntAttribute("init_timeout", &init_timeout);
@@ -1335,6 +1349,7 @@ bool ICPort::SysInit()
 	struct hostent *phe;
 	WSADATA wsaData;
 	int iResult;
+	bool sys_ret = true;
 
 	if (pro_ev == NULL)
 	{
@@ -1345,7 +1360,7 @@ bool ICPort::SysInit()
 		if (pro_ev == NULL) 
 		{	
 			error_sys_pro("SysInit CreateEvent of pro_ev");
-			goto END;
+			return false;
 		}
 	}
 
@@ -1355,7 +1370,8 @@ bool ICPort::SysInit()
 		error_sys_pro("SysInit CreateMutex");
 		return false;
 	}
-	if (WaitForSingleObject(h_samin_mutex, 15000) != WAIT_OBJECT_0 )	//默认最大15秒
+
+	if (WaitForSingleObject(h_samin_mutex, justme->init_timeout*3) != WAIT_OBJECT_0 )	//默认最大9秒
 	{
 		error_sys_pro("SysInit WaitForSingleObject for h_samin_mutex");
 		CloseHandle(h_samin_mutex);
@@ -1363,52 +1379,35 @@ bool ICPort::SysInit()
 		return false;
 	}
 
-	if ( reader_call_str ) 
+	if ( me_who == VR_samin )
 	{
-		me_who_str = reader_call_str;
-		if ( strcasecmp(reader_call_str, "toll") == 0 ) 
+		iResult = WSAStartup(MAKEWORD(2,2), &wsaData);
+		if (iResult != NO_ERROR)
 		{
-			/* 如果 从unitoll动态库调用来的，xml文件中就设置此值 */
-			me_who = VR_toll;
-			had_toll = true;
+			error_sys_pro("SysInit WSAStartup");
+			goto PIPE_PRO;
 		}
-		if ( strcasecmp(reader_call_str, "samin") == 0 ) 
+
+	//获取本地主机名称
+		if (gethostname(host_name, sizeof(host_name)) == SOCKET_ERROR) {
+			error_sys_pro("SysInit gethostname");
+			goto PIPE_PRO;
+		}
+
+		phe = gethostbyname(host_name);
+		if (phe == 0) {
+			error_sys_pro("SysInit gethostbyname");
+			goto PIPE_PRO;
+		}
+
+		//循环得出本地机器所有IP地址
+		for ( i = 0; phe->h_addr_list[i] != 0; ++i) 
 		{
-			/* 如果 从samin客户端启动来的，xml文件中就设置此值 */
-			me_who = VR_samin;
-			had_samin = true;
-			printf("Wait key 220 \n");
-			getchar();
-
+			struct in_addr addr;
+			memcpy(&addr, phe->h_addr_list[i], sizeof(struct in_addr));
+			strcpy(lane_ip, inet_ntoa(addr));
+			break;
 		}
-	}
-
-	iResult = WSAStartup(MAKEWORD(2,2), &wsaData);
-	if (iResult != NO_ERROR)
-	{
-		error_sys_pro("SysInit WSAStartup");
-		goto END;
-	}
-
-//获取本地主机名称
-	if (gethostname(host_name, sizeof(host_name)) == SOCKET_ERROR) {
-		error_sys_pro("SysInit gethostname");
-		goto PIPE_PRO;
-	}
-
-	phe = gethostbyname(host_name);
-	if (phe == 0) {
-		error_sys_pro("SysInit gethostbyname");
-		goto PIPE_PRO;
-	}
-
-	//循环得出本地机器所有IP地址
-	for ( i = 0; phe->h_addr_list[i] != 0; ++i) 
-	{
-		struct in_addr addr;
-		memcpy(&addr, phe->h_addr_list[i], sizeof(struct in_addr));
-		strcpy(lane_ip, inet_ntoa(addr));
-		break;
 	}
 
 PIPE_PRO:
@@ -1418,21 +1417,24 @@ PIPE_PRO:
 	if ( me_who == VR_toll)
 		s_pipe = toll_named_pipe_str;
 
-
-	if (samin_no_read_ev == NULL)
+	if ( me_who == VR_toll) 
 	{
-		samin_no_read_ev = CreateEvent( NULL, // default security attributes
-			FALSE, //not Manual Reset (Auto Reset)
-			FALSE, // 开始无信号 
-			NULL);
-		if (samin_no_read_ev == NULL) 
-		{	
-			error_sys_pro("SysInit CreateEvent of samin_no_read_ev");
-			goto END;
+		if (samin_no_read_ev == NULL)
+		{
+			samin_no_read_ev = CreateEvent( NULL, // default security attributes
+				FALSE, //not Manual Reset (Auto Reset)
+				FALSE, // 开始无信号 
+				NULL);
+			if (samin_no_read_ev == NULL) 
+			{	
+				error_sys_pro("SysInit CreateEvent of samin_no_read_ev");
+				sys_ret = false;
+				goto END;
+			}
 		}
 	}
 
-	WBUG("创建命名管道(%s)并等待连接", s_pipe);  
+	WBUG("%s 创建命名管道 %s 并等待连接", me_who_str, s_pipe);  
 	if ( h_srv_pipe !=INVALID_HANDLE_VALUE) goto Next_Step1;
 
 	h_srv_pipe = CreateNamedPipe(s_pipe, PIPE_ACCESS_DUPLEX,   
@@ -1442,7 +1444,8 @@ PIPE_PRO:
 	if ( h_srv_pipe == INVALID_HANDLE_VALUE)
 	{
 		error_sys_pro("SysInit CreateNamedPipe of h_srv_pipe");
-		return false; 
+		sys_ret = false;
+		goto END;
 	}
 
 	if (  (h_recv_pipe_thread=(HANDLE)_beginthread((my_thread_func)rcv_pipe_thrd, 1024000, this)) == INVALID_HANDLE_VALUE )
@@ -1450,6 +1453,14 @@ PIPE_PRO:
 			WLOG(ERR, "_beginthread (rcv_pipe_thrd) error= %08x",  GetLastError());
 			CloseHandle(h_srv_pipe);
 			h_srv_pipe = INVALID_HANDLE_VALUE;
+			sys_ret = false;
+			goto END;
+	} else {
+		if ( me_who == VR_samin)
+			had_samin = true;
+
+		if ( me_who == VR_toll)
+			had_toll = true;
 	}
 
 Next_Step1:
@@ -1466,7 +1477,7 @@ Next_Step1:
 	}
 END:
 	ReleaseMutex(h_samin_mutex);
-	return true;
+	return sys_ret;
 }
 
 void ICPort::rcv_pipe()
@@ -1490,6 +1501,7 @@ LoopRead:
 			error_sys_pro("rcv_pipe ReadFile");
 			goto KillSrvPipe;
 		}
+		szBuffer[dwLen] = 0;
 		WBUG("%s接收到数据长度为%d字节: %s", me_who_str, dwLen, szBuffer);  
 
 		switch ( szBuffer[0] ) 
@@ -1582,7 +1594,7 @@ bool ICPort::get_cli_pipe()
 	if ( me_who == VR_toll)
 		c_pipe= samin_named_pipe_str;
 
-	if (WaitNamedPipe(c_pipe, 30000) == FALSE)  //3秒
+	if (WaitNamedPipe(c_pipe, 500) == FALSE)  //0.5秒
 	{  
 		//记错误日志
 		WLOG(ERR,"get_cli_pipe WaitNamedPipe of %s ", c_pipe);
@@ -1648,34 +1660,39 @@ void ICPort::notify_me_up()
 	WBUG("%s 数据写入完毕共 %d 字节 in notify_me_up", me_who_str, dwLen);  
 }
 
-void ICPort::notify_me_down()
+void ICPort::notify_me_quit()
 {
 	const int BUFFER_MAX_LEN = 32;  
 	char szBuffer[BUFFER_MAX_LEN];  
 	DWORD dwLen = 0;  
 
-	if ( h_cli_pipe == INVALID_HANDLE_VALUE)
+	if ( me_who == VR_toll) //向samin通知
 	{
-		WLOG(ALERT,"notify_me_down: h_cli_pipe not ready");
-		return ;
+		if (!had_samin) //如果samin进程已经启动，可是接收通道未准备好(had_samin所指示），who_open_reader不会改变，这里自己改变好了。
+			who_open_reader = VR_none;
+		szBuffer[0] = 'T'; 
 	}
 
-	if ( me_who == VR_toll) //向samin通知
-		szBuffer[0] = 'T'; 
-
 	if ( me_who == VR_samin) //向toll通知
+	{
+		if (!had_toll) 
+			who_open_reader = VR_none;
 		szBuffer[0] = 'S'; 
-
+	}
 	szBuffer[1] = '\0';
-      
+	if ( h_cli_pipe == INVALID_HANDLE_VALUE)
+	{
+		WLOG(ALERT,"notify_me_quit: h_cli_pipe not ready");
+		return ;
+	}      
        //向服务端发送数据  
 	if (!WriteFile(h_cli_pipe, szBuffer, 1, &dwLen, NULL))
 	{
-		error_sys_pro("notify_me_down write cli pipe");
+		error_sys_pro("notify_me_quit write cli pipe");
 		close_cli_pipe();
 		return;
 	}
-	WBUG("%s 数据写入完毕共 %d 字节 in notify_me_down", me_who_str, dwLen);  
+	WBUG("%s 数据写入完毕共 %d 字节 in notify_me_quit", me_who_str, dwLen);  
 }
 
 int ICPort::open_dev()
@@ -1692,14 +1709,14 @@ int ICPort::open_dev()
 		error_sys_pro("open_dev CreateMutex");
 		return ret;
 	}
-	if (WaitForSingleObject(h_reader_dev_mutex, 10000) != WAIT_OBJECT_0 )	//默认10秒
+	if (WaitForSingleObject(h_reader_dev_mutex, justme->init_timeout*2) != WAIT_OBJECT_0 )	//默认6秒
 	{
 		error_sys_pro("open_dev WaitForSingleObject for h_reader_dev_mutex");
 		CloseHandle(h_reader_dev_mutex);
 		h_reader_dev_mutex = NULL;
 		return ret;
 	}
-WBUG("who_open_reader is VR_none while open_dev just afeter obtain mutex");
+
 	if ( who_open_reader == VR_samin && me_who == VR_toll ) 
 	{
 		//toll要连读写器，而samin已经连上，则要求对方断开
@@ -1735,6 +1752,7 @@ WBUG("who_open_reader is VR_none while open_dev just afeter obtain mutex");
 		}
 	}
 	WBUG("who_open_reader %s when open_dev", who_open_reader==VR_toll ? "VR_Toll" : "VR_none or VR_Samin");
+	has_card  = false;
 
 	if ( dev_ok )
 		ret = 1;
@@ -2125,7 +2143,7 @@ BOOL APIENTRY DllMain(
 				if (justme) 
 				{
 					//justme->close_dev();
-					justme->notify_me_down();
+					justme->notify_me_quit();
 				}
 				had_toll = false;
 			}
@@ -2137,7 +2155,7 @@ BOOL APIENTRY DllMain(
 				{
 					//if ( who_open_reader == VR_samin ) //对于toll打开的，不管
 					//	justme->close_dev();
-					justme->notify_me_down();
+					justme->notify_me_quit();
 				}
 				had_samin = false;
 			}
