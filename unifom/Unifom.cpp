@@ -92,6 +92,7 @@ public:
 		CALC	= 7,
 		ObuSNConv= 8,
 		Duplicate= 9,
+		GetLength=10,
 		UNKNOWN	= -1
 	};
 
@@ -247,6 +248,12 @@ typedef struct _Proc_Convert {	/* 编码格式转换 */
 	};
 } Proc_Convert;
 
+typedef struct _Proc_GetLength {	/* 获取长度*/
+	char *format;		/* 格式 */
+	int unit;		/* 单位 */
+	int adjust;		/* 调整量, 某域的长度除以unit，再加上这个adjust（可能加或减) */
+} Proc_GetLength;
+
 /* 针对广东国标OBU表面编号的转换, 从16位的表面编号, 得出OBU MAC, 同时还保留原来的编号 */
 typedef struct _ObuSn_Convert {	/* 编码格式转换 */
 	Proc_Map factory_map;
@@ -296,6 +303,10 @@ typedef struct _ProcDef {
 
 		case CALC:
 			delete (Proc_Calc *)prc ;
+			break;
+
+		case GetLength:
+			delete (Proc_GetLength *)prc ;
 			break;
 
 		default:
@@ -367,6 +378,7 @@ private:
 	PACINLINE void donow(FieldObj *fldIn, PacketObj &, unsigned int out, Proc_Now &def);
 	PACINLINE void docalc(FieldObj *fldIn, PacketObj &, unsigned int out, Proc_Calc &def);
 	PACINLINE void do_obu_sn(FieldObj &fldIn, PacketObj &, unsigned int out, bool &negatvie, Proc_ObuSN &def);
+	PACINLINE void do_getLen(FieldObj *fldIn, PacketObj &, unsigned int out, Proc_GetLength &def);
 
 	void get_def(TiXmlElement *cfg, int &defNum, PProcDef &defProcs);
 	PACINLINE void deliver(Notitia::HERE_ORDO aordo);
@@ -428,6 +440,7 @@ void Unifom::get_def(TiXmlElement *cfg, int &defNum, PProcDef &defProcs)
 	Proc_Now *pronow;
 	Proc_Let *prolet;
 	Proc_Substr *prosubstr;
+	Proc_GetLength *pro_getlen;
 	int i;
 
 	WHAT_PAC from_what = NONE_PACK, to_what = NONE_PACK;	/* 全局的定义 */
@@ -466,6 +479,7 @@ void Unifom::get_def(TiXmlElement *cfg, int &defNum, PProcDef &defProcs)
 			    ||	strcasecmp(fld_ele->Value(), "now") ==0 
 			    ||	strcasecmp(fld_ele->Value(), "calc") ==0
 			    ||	strcasecmp(fld_ele->Value(), "duplicate") ==0
+			    ||	strcasecmp(fld_ele->Value(), "getLength") ==0
 			    ||	strcasecmp(fld_ele->Value(), "get_obu_id") ==0 )
 
 				defNum++;
@@ -522,6 +536,7 @@ void Unifom::get_def(TiXmlElement *cfg, int &defNum, PProcDef &defProcs)
 		WHATPROC(LET)
 		WHATPROC(CALC)
 		WHATPROC(Duplicate)
+		WHATPROC(GetLength)
 
 		if ( strcasecmp(fld_ele->Value(), "get_obu_id") ==0  ) 
 			def->type = ObuSNConv;
@@ -554,6 +569,14 @@ void Unifom::get_def(TiXmlElement *cfg, int &defNum, PProcDef &defProcs)
 			GETCODE( procvt->dst_type );
 			break;
 
+		case GetLength:
+			def->prc = pro_getlen = new Proc_GetLength;
+			pro_getlen->format = (char*) fld_ele->Attribute("format");
+			pro_getlen->unit = 1;
+			pro_getlen->adjust = 0;
+			fld_ele->QueryIntAttribute( "unit", &pro_getlen->unit );
+			fld_ele->QueryIntAttribute( "adjust", &pro_getlen->adjust );
+			break;
 		case MAP:
 			def->prc = promap = new Proc_Map;
 			goto MAP_DEF_PRO;
@@ -878,6 +901,7 @@ PACINLINE void Unifom::handle(int defNum, PProcDef defProcs, bool negative)
 	Proc_Substr *prosubstr;
 	Proc_Now *pronow;
 	Proc_Let *prolet;
+	Proc_GetLength *pro_getlen;
 
 	WBUG("defNum is %d", defNum);
 /*D:定义, O:包变量 */
@@ -1012,6 +1036,11 @@ PACINLINE void Unifom::handle(int defNum, PProcDef defProcs, bool negative)
 		case LET:
 			prolet = (Proc_Let *) def->prc;
 			dolet(fldIn, *pacOut, out, *prolet);
+			break;
+
+		case GetLength:
+			pro_getlen = (Proc_GetLength *) def->prc;
+			do_getLen( fldIn, *pacOut, out, *pro_getlen);
 			break;
 
 		default:
@@ -1636,6 +1665,14 @@ void Unifom::donow(FieldObj *fldIn, PacketObj &pac, unsigned int out, Proc_Now &
 	} else {
 		pac.input(out, (unsigned char*)&(now.time),  sizeof(now.time));
 	}
+}
+
+void Unifom::do_getLen(FieldObj *fldIn, PacketObj &pac, unsigned int out, Proc_GetLength &def)
+{
+	char buf[128];
+	pac.grant(128);	//最终输出不过128字节
+	TEXTUS_SPRINTF(buf, def.format, fldIn->range/def.unit + def.adjust);
+	pac.input(out, buf, strlen(buf));
 }
 
 void Unifom::dolet(FieldObj *fldIn, PacketObj &pac, unsigned int out, Proc_Let &def)
