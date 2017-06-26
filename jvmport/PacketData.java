@@ -33,9 +33,11 @@ public class PacketData {
 	public native void grant(int space);
 	public native byte[] getfld(int no);
 	public native String getString(int no);
+	public native String getString(int no, String decoding);
 	public native int getInt(int no);
 	public native long getLong(int no);
 	public native Boolean getBoolean(int no);
+	public native boolean getBool(int no);
 	public native short getShort(int no);
 	public native float getFloat(int no);
 	public native double getDouble(int no);
@@ -48,6 +50,7 @@ public class PacketData {
 	public native void input(int no, long lVal);
 	public native void input(int no, String str);
 	public native void input(int no, Boolean val);
+	public native void input(int no, boolean val);
 	public native void input(int no, short val);
 	public native void input(int no, float val);
 	public native void input(int no, double val);

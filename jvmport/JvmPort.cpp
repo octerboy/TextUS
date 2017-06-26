@@ -764,6 +764,173 @@ JNIEXPORT jbyteArray JNICALL Java_textor_jvmport_PacketData_getfld (JNIEnv *env,
 	return reta;
 }
 
+JNIEXPORT jstring JNICALL Java_textor_jvmport_PacketData_getString (JNIEnv *env, jobject paco, jint no)
+{
+	jbyteArray reta;
+	jstring jstr;
+	jmethodID strInit_mid;
+	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
+	jclass str_cls = env->FindClass("java/lang/String");
+	reta = 0;
+	if ( pcp)
+	{
+		unsigned long len;
+		unsigned char *val;
+		val = pcp->getfld(no, &len);
+		if ( val)
+			reta =  buf2ba(env, val, (int) len);
+	}
+	strInit_mid = env->GetMethodID(str_cls, "<init>", "([B)V");
+	jstr = (jstring) env->NewObject(str_cls, strInit_mid, reta);
+	return jstr;
+}
+
+JNIEXPORT jint JNICALL Java_textor_jvmport_PacketData_getInt (JNIEnv *env, jobject paco, jint no)
+{
+	jint iVal = 0;
+	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
+	if ( pcp)
+	{
+		unsigned long len;
+		unsigned char *val;
+		val = pcp->getfld(no, &len);
+		if ( val && sizeof(jint) == len)
+		{
+			memcpy(&iVal, val, len);
+		}
+	}
+	return iVal;
+}
+
+JNIEXPORT jlong JNICALL Java_textor_jvmport_PacketData_getLong (JNIEnv *env, jobject paco, jint no)
+{
+	jlong lVal = 0;
+	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
+	if ( pcp)
+	{
+		unsigned long len;
+		unsigned char *val;
+		val = pcp->getfld(no, &len);
+		if ( val && sizeof(jlong) == len)
+		{
+			memcpy(&lVal, val, len);
+		}
+	}
+	return lVal;
+}
+
+JNIEXPORT jboolean JNICALL Java_textor_jvmport_PacketData_getBool (JNIEnv *env, jobject paco, jint no)
+{
+	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
+	jboolean ret = JNI_TRUE;
+	if ( pcp)
+	{
+		unsigned long len;
+		unsigned char *val;
+		val = pcp->getfld(no, &len);
+		if ( val && len == 4)
+		{
+			if (strncasecmp((const char*)val, "true",4) ==0 )
+				ret = JNI_TRUE;
+		}
+		if ( val && len == 5)
+		{
+			if (strncasecmp((const char*)val, "false",5) ==0 )
+				ret = JNI_FALSE;
+		}
+		if ( val && len == sizeof(jboolean))
+		{
+			memcpy(&ret, val, sizeof(jboolean));
+		}
+	}
+	return ret;
+}
+
+JNIEXPORT jobject JNICALL Java_textor_jvmport_PacketData_getBoolean (JNIEnv *env, jobject paco, jint no)
+{
+	jmethodID bInit_mid;
+	jclass b_cls = env->FindClass("java/lang/Boolean");
+	bInit_mid = env->GetMethodID(b_cls, "<init>", "(Z)V");
+	if ( b_cls != 0 &&  bInit_mid != 0) 
+		return env->NewObject(b_cls, bInit_mid, Java_textor_jvmport_PacketData_getLong(env, paco, no));
+	return 0;
+}
+
+JNIEXPORT jshort JNICALL Java_textor_jvmport_PacketData_getShort (JNIEnv *env, jobject paco, jint no)
+{
+	jshort sVal = 0;
+	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
+	if ( pcp)
+	{
+		unsigned long len;
+		unsigned char *val;
+		val = pcp->getfld(no, &len);
+		if ( val && sizeof(jshort) == len)
+		{
+			memcpy(&sVal, val, len);
+		}
+	}
+	return sVal;
+}
+
+JNIEXPORT jfloat JNICALL Java_textor_jvmport_PacketData_getFloat (JNIEnv *env, jobject paco, jint no)
+{
+	jfloat fVal = 0;
+	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
+	if ( pcp)
+	{
+		unsigned long len;
+		unsigned char *val;
+		val = pcp->getfld(no, &len);
+		if ( val && sizeof(jfloat) == len)
+		{
+			memcpy(&fVal, val, len);
+		}
+	}
+	return fVal;
+}
+
+JNIEXPORT jdouble JNICALL Java_textor_jvmport_PacketData_getDouble (JNIEnv *env, jobject paco, jint no)
+{
+	jdouble dVal = 0;
+	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
+	if ( pcp)
+	{
+		unsigned long len;
+		unsigned char *val;
+		val = pcp->getfld(no, &len);
+		if ( val && sizeof(jdouble) == len)
+		{
+			memcpy(&dVal, val, len);
+		}
+	}
+	return dVal;
+}
+
+JNIEXPORT jobject JNICALL Java_textor_jvmport_PacketData_getBigDecimal (JNIEnv *env, jobject paco, jint no)
+{
+/*.... */
+	return 0;
+}
+
+JNIEXPORT jobject JNICALL Java_textor_jvmport_PacketData_getDate (JNIEnv *env, jobject paco, jint no)
+{
+/*.... */
+	return 0;
+}
+
+JNIEXPORT jobject JNICALL Java_textor_jvmport_PacketData_getTime (JNIEnv *env, jobject paco, jint no)
+{
+/*.... */
+	return 0;
+}
+
+JNIEXPORT jobject JNICALL Java_textor_jvmport_PacketData_getTimestamp (JNIEnv *env, jobject paco, jint no)
+{
+/*.... */
+	return 0;
+}
+
 JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__I_3B (JNIEnv *env, jobject paco, jint no , jbyteArray val)
 {
 	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
@@ -787,6 +954,16 @@ JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__II (JNIEnv *env, jo
 	return;
 }
 
+JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__IJ (JNIEnv *env, jobject paco, jint no, jlong jVal)
+{
+	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
+	if ( pcp)
+	{
+		pcp->input(no, (unsigned char*)&jVal, sizeof(jlong));
+	}
+	return;
+}
+
 JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ILjava_lang_String_2 (JNIEnv *env, jobject paco, jint no , jstring sVal)
 {
 	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
@@ -806,6 +983,68 @@ JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ILjava_lang_String_
 	return;
 }
 
+JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ILjava_lang_Boolean_2 (JNIEnv *env, jobject paco, jint no, jobject bVal)
+{
+/* ... */
+}
+
+JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__IZ (JNIEnv *env, jobject paco, jint no, jboolean blVal)
+{
+	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
+	if ( pcp)
+	{
+		pcp->input(no, (unsigned char*)&blVal, sizeof(jboolean));
+	}
+}
+
+JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__IS (JNIEnv *env, jobject paco, jint no, jshort sVal)
+{
+	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
+	if ( pcp)
+	{
+		pcp->input(no, (unsigned char*)&sVal, sizeof(jshort));
+	}
+	return;
+}
+
+JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__IF (JNIEnv *env, jobject paco, jint no, jfloat fVal)
+{
+	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
+	if ( pcp)
+	{
+		pcp->input(no, (unsigned char*)&fVal, sizeof(jfloat));
+	}
+	return;
+}
+
+JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ID (JNIEnv *env, jobject paco, jint no, jdouble dVal)
+{
+	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
+	if ( pcp)
+	{
+		pcp->input(no, (unsigned char*)&dVal, sizeof(jdouble));
+	}
+}
+
+JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ILjava_math_BigDecimal_2 (JNIEnv *env, jobject paco, jint no, jobject dVal)
+{
+/* ... */
+}
+
+JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ILjava_sql_Date_2 (JNIEnv *env, jobject paco, jint no, jobject dtVal)
+{
+/* ... */
+}
+
+JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ILjava_sql_Time_2 (JNIEnv *env, jobject paco, jint no, jobject tmVal)
+{
+/* ... */
+}
+
+JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ILjava_sql_Timestamp_2 (JNIEnv *env, jobject paco, jint no, jobject stmVal)
+{
+/* ... */
+}
 
 JNIEXPORT void JNICALL Java_textor_jvmport_TBuffer_alloc
   (JNIEnv *env , jobject tbo, jint size)

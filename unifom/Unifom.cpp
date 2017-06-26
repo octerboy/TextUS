@@ -576,6 +576,9 @@ void Unifom::get_def(TiXmlElement *cfg, int &defNum, PProcDef &defProcs)
 			pro_getlen->adjust = 0;
 			fld_ele->QueryIntAttribute( "unit", &pro_getlen->unit );
 			fld_ele->QueryIntAttribute( "adjust", &pro_getlen->adjust );
+			fld_ele->QueryIntAttribute( "source", &def->src_no );
+			fld_ele->QueryIntAttribute( "destination", &def->dst_no );
+			
 			break;
 		case MAP:
 			def->prc = promap = new Proc_Map;
@@ -1039,6 +1042,7 @@ PACINLINE void Unifom::handle(int defNum, PProcDef defProcs, bool negative)
 			break;
 
 		case GetLength:
+			WBUG("def %d GetLength", i);
 			pro_getlen = (Proc_GetLength *) def->prc;
 			do_getLen( fldIn, *pacOut, out, *pro_getlen);
 			break;
