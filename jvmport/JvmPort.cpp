@@ -615,6 +615,7 @@ static void setPointer (JNIEnv *env,  jobject obj, void *p)
 	jfieldID port_fld = env->GetFieldID(o_cls, "portPtr", "[B");	
 	jbyteArray port =  buf2ba(env, (unsigned char*)&p , sizeof(p));
 	env->SetObjectField(obj, port_fld, (jobject)port);
+	env->DeleteLocalRef(port);
 	return ;
 }
 
@@ -767,10 +768,11 @@ JNIEXPORT jbyteArray JNICALL Java_textor_jvmport_PacketData_getfld (JNIEnv *env,
 JNIEXPORT jstring JNICALL Java_textor_jvmport_PacketData_getString (JNIEnv *env, jobject paco, jint no)
 {
 	jbyteArray reta;
-	jstring jstr;
+	jstring jstr =NULL;
 	jmethodID strInit_mid;
 	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
 	jclass str_cls = env->FindClass("java/lang/String");
+	strInit_mid = env->GetMethodID(str_cls, "<init>", "([B)V");
 	reta = 0;
 	if ( pcp)
 	{
@@ -778,10 +780,12 @@ JNIEXPORT jstring JNICALL Java_textor_jvmport_PacketData_getString (JNIEnv *env,
 		unsigned char *val;
 		val = pcp->getfld(no, &len);
 		if ( val)
+		{
 			reta =  buf2ba(env, val, (int) len);
+			jstr = (jstring) env->NewObject(str_cls, strInit_mid, reta);
+			env->DeleteLocalRef(reta);
+		}
 	}
-	strInit_mid = env->GetMethodID(str_cls, "<init>", "([B)V");
-	jstr = (jstring) env->NewObject(str_cls, strInit_mid, reta);
 	return jstr;
 }
 
@@ -806,7 +810,7 @@ JNIEXPORT jlong JNICALL Java_textor_jvmport_PacketData_getLong (JNIEnv *env, job
 {
 	jlong lVal = 0;
 	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
-	if ( pcp)
+	if (pcp)
 	{
 		unsigned long len;
 		unsigned char *val;
@@ -852,8 +856,9 @@ JNIEXPORT jobject JNICALL Java_textor_jvmport_PacketData_getBoolean (JNIEnv *env
 	jclass b_cls = env->FindClass("java/lang/Boolean");
 	bInit_mid = env->GetMethodID(b_cls, "<init>", "(Z)V");
 	if ( b_cls != 0 &&  bInit_mid != 0) 
-		return env->NewObject(b_cls, bInit_mid, Java_textor_jvmport_PacketData_getLong(env, paco, no));
-	return 0;
+		return env->NewObject(b_cls, bInit_mid, Java_textor_jvmport_PacketData_getBool(env, paco, no));
+	else
+		return 0;
 }
 
 JNIEXPORT jshort JNICALL Java_textor_jvmport_PacketData_getShort (JNIEnv *env, jobject paco, jint no)
@@ -909,26 +914,67 @@ JNIEXPORT jdouble JNICALL Java_textor_jvmport_PacketData_getDouble (JNIEnv *env,
 
 JNIEXPORT jobject JNICALL Java_textor_jvmport_PacketData_getBigDecimal (JNIEnv *env, jobject paco, jint no)
 {
-/*.... */
-	return 0;
+	jclass b_cls = env->FindClass("java/math/BigDecimal");
+	jmethodID bInit_mid = env->GetMethodID(b_cls, "<init>", "(Ljava/math/BigInteger;I)V");
+	jclass bi_cls = env->FindClass("java/math/BigInteger");
+	jmethodID biInit_mid = env->GetMethodID(bi_cls, "<init>", "([B)V");
+	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
+	jint scale;
+	jbyteArray bi_arr;
+	jobject bigInter, biDec;
+	biDec = NULL;
+
+	if ( pcp)
+	{
+		unsigned long len;
+		unsigned char *val;
+		val = pcp->getfld(no, &len);
+		if ( !val || len <= 4 ) 
+			return NULL;
+		memcpy(&scale, val, 4);
+		bi_arr =  buf2ba(env, &val[len-4], len-4);
+		bigInter = env->NewObject(bi_cls, biInit_mid, bi_arr);
+		biDec = env->NewObject(b_cls, bInit_mid, bigInter, scale);
+		env->DeleteLocalRef(bi_arr);
+		env->DeleteLocalRef(bigInter);
+	}
+	return biDec;
 }
 
 JNIEXPORT jobject JNICALL Java_textor_jvmport_PacketData_getDate (JNIEnv *env, jobject paco, jint no)
 {
-/*.... */
-	return 0;
+	jmethodID dInit_mid;
+	jclass d_cls = env->FindClass("java/sql/Date");
+	dInit_mid = env->GetMethodID(d_cls, "<init>", "(J)V");
+	if ( d_cls != 0 &&  dInit_mid != 0) 
+		return env->NewObject(d_cls, dInit_mid, Java_textor_jvmport_PacketData_getLong(env, paco, no));
+	else
+		return NULL;
+	return NULL;
 }
 
 JNIEXPORT jobject JNICALL Java_textor_jvmport_PacketData_getTime (JNIEnv *env, jobject paco, jint no)
 {
-/*.... */
-	return 0;
+	jmethodID tInit_mid;
+	jclass t_cls = env->FindClass("java/sql/Time");
+	tInit_mid = env->GetMethodID(t_cls, "<init>", "(J)V");
+	if ( t_cls != 0 &&  tInit_mid != 0) 
+		return env->NewObject(t_cls, tInit_mid, Java_textor_jvmport_PacketData_getLong(env, paco, no));
+	else
+		return NULL;
+	return NULL;
 }
 
 JNIEXPORT jobject JNICALL Java_textor_jvmport_PacketData_getTimestamp (JNIEnv *env, jobject paco, jint no)
 {
-/*.... */
-	return 0;
+	jmethodID tInit_mid;
+	jclass t_cls = env->FindClass("java/sql/Timestamp");
+	tInit_mid = env->GetMethodID(t_cls, "<init>", "(J)V");
+	if ( t_cls != 0 &&  tInit_mid != 0) 
+		return env->NewObject(t_cls, tInit_mid, Java_textor_jvmport_PacketData_getLong(env, paco, no));
+	else
+		return NULL;
+	return NULL;
 }
 
 JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__I_3B (JNIEnv *env, jobject paco, jint no , jbyteArray val)
@@ -936,7 +982,7 @@ JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__I_3B (JNIEnv *env, 
 	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
 	if ( pcp)
 	{
-        int len = env->GetArrayLength(val);
+        	int len = env->GetArrayLength(val);
 		pcp->grant(len);
 		env->GetByteArrayRegion(val, 0, len, (jbyte*)pcp->buf.point);
 		pcp->commit(no, len);
@@ -985,7 +1031,19 @@ JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ILjava_lang_String_
 
 JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ILjava_lang_Boolean_2 (JNIEnv *env, jobject paco, jint no, jobject bVal)
 {
-/* ... */
+	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
+	jclass bl_cls = env->FindClass("java/lang/Boolean");
+	jmethodID getVal_mid = env->GetMethodID(bl_cls, "booleanValue", "()Z");
+	jboolean *yes;
+	int len;
+
+	if ( pcp)
+	{
+		yes = (jboolean*)env->CallObjectMethod(bVal, getVal_mid);
+		pcp->grant(sizeof(jboolean));
+		pcp->input(no, (unsigned char*)yes, sizeof(jboolean));
+	}
+	return;
 }
 
 JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__IZ (JNIEnv *env, jobject paco, jint no, jboolean blVal)
@@ -1028,22 +1086,74 @@ JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ID (JNIEnv *env, jo
 
 JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ILjava_math_BigDecimal_2 (JNIEnv *env, jobject paco, jint no, jobject dVal)
 {
-/* ... */
+	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
+	jclass bd_cls = env->FindClass("java/math/BigDecimal");
+	jclass bi_cls = env->FindClass("java/math/BigInteger");
+	jmethodID biGetBytes_mid = env->GetMethodID(bi_cls, "toByteArray", "()[B");
+	jbyteArray bi_bytes;
+	jmethodID getScale_mid = env->GetMethodID(bd_cls, "scale", "()I");
+	jmethodID getUnScale_mid = env->GetMethodID(bd_cls, "unscaledValue", "())Ljava/math/BigDecimal;");
+	jint *scale;
+	jobject bigInt;
+	int len;
+
+	if ( pcp)
+	{
+		scale = (jint*)env->CallObjectMethod(dVal, getScale_mid);
+		bigInt = env->CallObjectMethod(dVal, getUnScale_mid);
+		bi_bytes = (jbyteArray) env->CallObjectMethod(bigInt, biGetBytes_mid);
+		len = env->GetArrayLength(bi_bytes);
+		pcp->grant(sizeof(jint)+len);
+		env->GetByteArrayRegion(bi_bytes, 0, len, (jbyte*)&(pcp->buf.point[sizeof(jint)]));
+		memcpy(pcp->buf.point, scale, sizeof(jint));
+                pcp->commit(no, sizeof(jint)+len);
+	}
+	return;
 }
 
 JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ILjava_sql_Date_2 (JNIEnv *env, jobject paco, jint no, jobject dtVal)
 {
-/* ... */
+	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
+	jclass d_cls = env->FindClass("java/sql/Date");
+	jmethodID getVal_mid = env->GetMethodID(d_cls, "getTime", "()J");
+	jlong *time;
+	if ( pcp)
+	{
+		time = (jlong*)env->CallObjectMethod(dtVal, getVal_mid);
+		pcp->grant(sizeof(jlong));
+		pcp->input(no, (unsigned char*)time, sizeof(jlong));
+	}
+	return;
 }
 
 JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ILjava_sql_Time_2 (JNIEnv *env, jobject paco, jint no, jobject tmVal)
 {
-/* ... */
+	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
+	jclass d_cls = env->FindClass("java/sql/Time");
+	jmethodID getVal_mid = env->GetMethodID(d_cls, "getTime", "()J");
+	jlong *time;
+	if ( pcp)
+	{
+		time = (jlong*)env->CallObjectMethod(tmVal, getVal_mid);
+		pcp->grant(sizeof(jlong));
+		pcp->input(no, (unsigned char*)time, sizeof(jlong));
+	}
+	return;
 }
 
 JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ILjava_sql_Timestamp_2 (JNIEnv *env, jobject paco, jint no, jobject stmVal)
 {
-/* ... */
+	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
+	jclass d_cls = env->FindClass("java/sql/Timestamp");
+	jmethodID getVal_mid = env->GetMethodID(d_cls, "getTime", "()J");
+	jlong *time;
+	if ( pcp)
+	{
+		time = (jlong*)env->CallObjectMethod(stmVal, getVal_mid);
+		pcp->grant(sizeof(jlong));
+		pcp->input(no, (unsigned char*)time, sizeof(jlong));
+	}
+	return;
 }
 
 JNIEXPORT void JNICALL Java_textor_jvmport_TBuffer_alloc
