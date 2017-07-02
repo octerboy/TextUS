@@ -990,6 +990,16 @@ JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__I_3B (JNIEnv *env, 
 	return;
 }
 
+JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__IB (JNIEnv *env, jobject paco, jint no, jbyte val)
+{
+	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
+	if ( pcp)
+	{
+		pcp->input(no, (unsigned char*)&val, sizeof(jbyte));
+	}
+	return;
+}
+
 JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__II (JNIEnv *env, jobject paco, jint no , jint iVal)
 {
 	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);

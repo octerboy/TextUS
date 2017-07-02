@@ -46,6 +46,7 @@ public class PacketData {
 	public native Time getTime(int no);
 	public native Timestamp getTimestamp(int no);
 	public native void input(int no, byte[] val);
+	public native void input(int no, byte val);
 	public native void input(int no, int iVal);
 	public native void input(int no, long lVal);
 	public native void input(int no, String str);

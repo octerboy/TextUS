@@ -52,12 +52,14 @@ public class JdbCli
      	String password ;   
 	DBFace face;
 
-    	Connection connection;
 	bool shared_session;
 
 	PacketData rcv_pac;
 	PacketData snd_pac;
 	boolean isTalking;
+
+    	Connection connection;
+	ResultSet  rSet;
 
 	public JdbCli () { 
 		isTalking = false;
@@ -67,7 +69,8 @@ public class JdbCli
 		username = null;
 		rcv_pac = null;
 		snd_pac = null;
-		shared_session = null;
+		shared_session = false;
+		rSet = null;
 	}
 
 	public void ignite (Document doc) 
@@ -239,6 +242,10 @@ public class JdbCli
 			p_stmt.setDouble(j,  rcv_pac.getDouble(rNo));
 			break;
 
+		case DBFace.Float:
+			p_stmt.setFloat(j,  rcv_pac.getFloat(rNo));
+			break;
+
 		case DBFace.VarBinary:
 		case DBFace.Binary:
 		case DBFace.LongBinary:
@@ -335,6 +342,13 @@ public class JdbCli
 				p_stmt.registerOutParameter(j, Types.DOUBLE);
 			break;
 
+		case DBFace.Float:
+			if ( para.namelen > 0 ) 
+				p_stmt.registerOutParameter(para.name, Types.FLOAT);
+			else
+				p_stmt.registerOutParameter(j, Types.FLOAT);
+			break;
+
 		case DBFace.VarBinary:
 			if ( para.namelen > 0 ) 
 				p_stmt.registerOutParameter(para.name, Types.VARBINARY);
@@ -389,6 +403,114 @@ public class JdbCli
 				p_stmt.registerOutParameter(para.name, Types.BOOLEAN);
 			else
 				p_stmt.registerOutParameter(j, Types.BOOLEAN);
+			break;
+/*
+		case DBFace.Currency:
+			break;
+*/
+		default:
+			WLOG(CRIT, "Unknown data type %d!", para.type);
+			break;
+		}
+	}
+	
+	void rs_get(int j, DBFace:Para para)throws SQLException {
+		switch ( para.type )
+		{
+		case DBFace.Integer:
+			if ( para.namelen > 0 ) 
+				snd_pac.intput(para.fld, rSet.getInt(para.name));
+			else
+				snd_pac.intput(para.fld, rSet.getInt(j));
+			break;
+
+		case DBFace.SmallInt:
+			if ( para.namelen > 0 ) 
+				snd_pac.intput(para.fld, rSet.getShort(para.name));
+			else
+				snd_pac.intput(para.fld, rSet.getShort(j));
+			break;
+
+		case DBFace.TinyInt:
+			if ( para.namelen > 0 ) 
+				snd_pac.intput(para.fld, rSet.getByte(para.name));
+			else
+				snd_pac.intput(para.fld, rSet.getByte(j));
+			break;
+
+		case DBFace.String:
+		case DBFace.Text:
+		case DBFace.Char:
+			if ( para.namelen > 0 ) 
+				snd_pac.intput(para.fld, rSet.getString(para.name));
+			else
+				snd_pac.intput(para.fld, rSet.getString(j));
+			break;
+
+		case DBFace.Decimal:
+		case DBFace.Numeric:
+			if ( para.namelen > 0 ) 
+				snd_pac.intput(para.fld, rSet.geBigDecimalt(para.name));
+			else
+				snd_pac.intput(para.fld, rSet.geBigDecimalt(j));
+			break;
+
+		case DBFace.Double:
+			if ( para.namelen > 0 ) 
+				snd_pac.intput(para.fld, rSet.getDouble(para.name));
+			else
+				snd_pac.intput(para.fld, rSet.getDouble(j));
+			break;
+
+		case DBFace.Float:
+			if ( para.namelen > 0 ) 
+				snd_pac.intput(para.fld, rSet.getFloat(para.name));
+			else
+				snd_pac.intput(para.fld, rSet.getFloat(j));
+			break;
+
+		case DBFace.VarBinary:
+		case DBFace.Binary:
+		case DBFace.LongBinary:
+			if ( para.namelen > 0 ) 
+				snd_pac.intput(para.fld, rSet.getBytes(para.name));
+			else
+				snd_pac.intput(para.fld, rSet.getBytes(j));
+			break;
+
+		case DBFace.Long:
+			if ( para.namelen > 0 ) 
+				snd_pac.intput(para.fld, rSet.getLong(para.name));
+			else
+				snd_pac.intput(para.fld, rSet.getLong(j));
+			break;
+
+		case DBFace.Date:
+			if ( para.namelen > 0 ) 
+				snd_pac.intput(para.fld, rSet.getDate(para.name));
+			else
+				snd_pac.intput(para.fld, rSet.getDate(j));
+			break;
+
+		case DBFace.Time:
+			if ( para.namelen > 0 ) 
+				snd_pac.intput(para.fld, rSet.getTime(para.name));
+			else
+				snd_pac.intput(para.fld, rSet.getTime(j));
+			break;
+
+		case DBFace.TimeStamp:
+			if ( para.namelen > 0 ) 
+				snd_pac.intput(para.fld, rSet.getTimeStamp(para.name));
+			else
+				snd_pac.intput(para.fld, rSet.getTimeStamp(j));
+			break;
+
+		case DBFace.Boolean:
+			if ( para.namelen > 0 ) 
+				snd_pac.intput(para.fld, rSet.getBoolean(para.name));
+			else
+				snd_pac.intput(para.fld, rSet.getBoolean(j));
 			break;
 /*
 		case DBFace.Currency:
@@ -487,6 +609,22 @@ public class JdbCli
 
 			case DBFace.QUERY:
 				aptus.log_bug("handle QUERY (\"" + face.sentence +" \")" + " param num " + face.num);
+				p_stmt = connection.prepareStatement(face.sentence);
+				/* 输入值的设定 */
+				for ( i = 0 ; i <  face.num; i++ )
+				{
+					stmt_set_input(p_stmt, i+1,  face.paras[i]);
+				}
+				rSet = p_stmt.executeQuery();
+				while (rSet.next()) 
+				{
+					for ( i = 0 ; i <  face.num; i++ )
+					{
+						rs_get(i+1,  face.paras[i]);
+					}
+					/* .. */
+				}
+				
 				break;
 				
 			case DBFace.CURSOR:
