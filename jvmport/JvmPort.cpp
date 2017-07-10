@@ -373,14 +373,14 @@ bool JvmPort::facio( Amor::Pius *pius)
 		if ( !gCFG->pius_cls)
 		{
 			jvmError();
-  			WLOG(ERR, "Not found class of textus.jvmport.Pius");
+  			WLOG(ERR, "Not found class of textor.jvmport.Pius");
 			break;
 		}
 
 		gCFG->amor_cls = jvmcfg->env->FindClass("textor/jvmport/Amor");
 		if ( !gCFG->amor_cls) {
 			jvmError();
-  			WLOG(ERR, "Not found class of textus.jvmport.Amor");
+  			WLOG(ERR, "Not found class of textor.jvmport.Amor");
 			break;
 		}
 
