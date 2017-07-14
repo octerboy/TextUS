@@ -111,6 +111,7 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 		unsigned int me_nm_len;
 		const char *me_sub_name;  //Me变量后缀名， 从变量名name中定位。
 		int me_sub_nm_len;
+		bool keep_alive;	//true: 若是动态变量, 只在Notitia::START_SESSION、DMD_END_SESSION时清空, false: 对每个flow_id开始都清空,
 
 		bool dy_link;	//动态变量的赋值方式，true:取地址方式，不复制; false:复制方式
 		TiXmlElement *self_ele;	/* 自身, 其子元素包括两种可能: 1.函数变量表, 
@@ -139,6 +140,7 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 			me_sub_nm_len = 0;
 
 			dy_link = false;	//动态变量的赋值方式为复制方式。
+			keep_alive = false;
 		};
 
 		void put_still(const unsigned char *val, unsigned int len=0)
@@ -250,6 +252,10 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 				dynamic_pos = dy_at;	//动态变量位置
 				kind = VAR_Dynamic;
 				dy_at++;
+				if ( (p = var_ele->Attribute("alive")) && (*p == 'Y' || *p == 'y') )
+				{
+					keep_alive = true;
+				}
 			}
 
 			if ( kind != VAR_None) goto P_RET; //已有定义，
@@ -398,7 +404,7 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 			snap=0;
 		};
 
-		inline void  reset() 
+		inline void  reset(bool soft=true) 
 		{
 			int i;
 			for ( i = 0; i < snap_num; i++)
@@ -408,8 +414,11 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 			}
 			for ( i = Pos_Fixed_Next ; i < snap_num; i++)
 			{	/* 这个Pos_Fixed_Next很重要, 要不然, 那些固有的动态变量会没有的！  */
-				snap[i].kind = VAR_None;
-				snap[i].def_var = 0;
+				if ( !soft || !snap[i].def_var || !snap[i].def_var->keep_alive )
+				{
+					snap[i].kind = VAR_None;
+					snap[i].def_var = 0;
+				}
 			}
 			left_status = LT_Idle;
 			right_status = RT_IDLE;
@@ -437,7 +446,7 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 			snap[Pos_CurCent].kind = VAR_CurCent;
 			snap[Pos_ErrStr].kind = VAR_ErrStr; 
 			snap[Pos_FlowID].kind = VAR_FlowID; 
-			reset();
+			reset(false);	//动态量硬复位
 		};
 
 		~MK_Session ()
@@ -2191,12 +2200,12 @@ bool PacWay::facio( Amor::Pius *pius)
 
 	case Notitia::START_SESSION:
 		WBUG("facio START_SESSION" );
-		mess.reset();
+		mess.reset(false);	//动态量硬复位
 		break;
 
 	case Notitia::DMD_END_SESSION:
 		WBUG("facio DMD_END_SESSION" );
-		mess.reset();
+		mess.reset(false);	//动态量硬复位
 		break;
 
 	default:
@@ -2323,6 +2332,7 @@ void PacWay::handle_pac()
 			if ( vt->dynamic_pos >=0 )
 			{
 				dvr = &mess.snap[vt->dynamic_pos];
+				if (dvr->def_var) continue; //如果动态量没有清空, 就不再赋新值.这个量跨flow, 直到Notitia:START_SESSION,END_SESSION
 				dvr->kind = vt->kind;
 				dvr->def_var = vt;
 				if ( vt->c_len > 0 )	//先把定义的静态内容链接过来, 动态变量的默认值

@@ -125,6 +125,7 @@ public class JdbCli
 			logon();
 		} else if  (pius.ordo == Pius.CLONE_ALL_READY ) {
 			aptus.log_bug("facio CLONE_ALL_READY");
+			logon();
 		} else if  (pius.ordo == Pius.SET_UNIPAC ) {
 			aptus.log_bug("facio SET_UNIPAC");
 			PacketData[] tbs = (PacketData[])pius.indic;
@@ -161,6 +162,7 @@ public class JdbCli
     				connection = DriverManager.getConnection(connect_url) ;   
 			}
 			isTalking = true;
+			aptus.log_bug("Connect to "+ connect_url + " successfully!");
      		} catch (SQLException se){   
 			isTalking = false;
 			aptus.log_err(se.getMessage());
@@ -703,13 +705,17 @@ public class JdbCli
 				{
 					rs_get(i+1,  face.paras[i]);
 				}
+				if ( face.cRowsObt_fld >= 0 )
+					snd_pac.input(face.cRowsObt_fld, 1); 
 				aptus.sponte(dopac_ps);
 				f_num--;
 			}
-			snd_pac.input(face.cRowsObt_fld, face.rowset.chunk - f_num); 
 			if ( f_num == face.rowset.chunk )	//没有一行
+			{
+				if ( face.cRowsObt_fld >= 0 )
+					snd_pac.input(face.cRowsObt_fld, 0); 
 				aptus.sponte(dopac_ps);
-			else if (face.rowset.useEnd )
+			} else if (face.rowset.useEnd )
 				aptus.sponte(end_ps);
     		} catch(SQLException se) { 
 			aptus.log_err(se.getMessage());
