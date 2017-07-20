@@ -29,11 +29,10 @@ import textor.jvmport.TBuffer;
 import textor.jvmport.PacketData;
 import textor.jvmport.DBFace;
 import textor.jvmport.DBFace.Para;
-//import java.io.ByteArrayInputStream;
-//import java.io.*;
+import java.io.*;
 import javax.xml.parsers.*;
 import org.w3c.dom.*;
-//import org.xml.sax.*;
+import org.xml.sax.*;
 
 public class JdbCli 
 {
@@ -76,7 +75,7 @@ public class JdbCli
 	public void ignite (Document doc) 
 	{
 		Element db_cfg;	
-		String drv_str=null;
+		String drv_str;
 		db_cfg = doc.getDocumentElement();
 		drv_str = db_cfg.getAttribute("driver");
 		connect_url = db_cfg.getAttribute("connect");
@@ -497,6 +496,7 @@ public class JdbCli
 	void rs_get(int j, DBFace.Para para)throws SQLException 
 	{
 		if ( para.inout == DBFace.PARA_IN ) return ;
+		//System.out.println("rs_get para["+j+"]" );
 		switch ( para.data_type )
 		{
 		case DBFace.Integer:
@@ -523,6 +523,7 @@ public class JdbCli
 		case DBFace.String:
 		case DBFace.Text:
 		case DBFace.Char:
+		//System.out.println("rs_get end para["+j+"] =" +  rSet.getString(para.name) );
 			if ( para.namelen > 0 ) 
 				snd_pac.input(para.fld, rSet.getString(para.name));
 			else
@@ -602,6 +603,7 @@ public class JdbCli
 			aptus.log_crit("Unknown data type "+para.data_type);
 			break;
 		}
+		//System.out.println("rs_get end para["+j+"]" );
 	}
 	
 	void proc_call (String n_sentence ) {
@@ -693,6 +695,7 @@ public class JdbCli
 		int f_num;
 		f_num = face.rowset.chunk ;
 		try {
+			//System.out.println("rSet next 111" );
 			if ( isFirst && face.cRows_field >=0 )
 			{
 				rSet.last();
@@ -730,7 +733,11 @@ public class JdbCli
 		PreparedStatement p_stmt;
 		boolean ret = false;
 		try {
-			p_stmt = connection.prepareStatement(n_sentence);
+			if ( face.cRows_field >=0 )
+			{
+				p_stmt = connection.prepareStatement(n_sentence, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+			} else
+				p_stmt = connection.prepareStatement(n_sentence);
 			p_stmt.setFetchSize(face.rowset.chunk);	//这个的确是这样
 			/* 输入值的设定 */
 			for ( i = 0 ; i <  face.num; i++ )
@@ -739,7 +746,7 @@ public class JdbCli
 			}
 			rSet = p_stmt.executeQuery();
 			ret = true;
-			p_stmt.close();
+			//p_stmt.close();
     		} catch(SQLException se) { 
 			aptus.log_err(se.getMessage());
 			snd_pac.input(face.errCode_field, se.getErrorCode());

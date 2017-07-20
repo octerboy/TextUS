@@ -72,6 +72,8 @@ char err_global_str[128]={0};
 enum LEFT_STATUS { LT_Idle = 0, LT_Working = 3};
 /* 右边状态, 空闲, 发出报文等响应 */
 enum RIGHT_STATUS { RT_IDLE = 0, RT_OUT=7, RT_READY = 3};
+/* 抱文交换方式 */
+enum PAC_MODE { PAC_NONE = 0, PAC_FIRST =1, PAC_SECOND = 4, PAC_BOTH=5};
 
 enum Var_Type {VAR_ErrCode=1, VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_CurOrder=4, VAR_CurCent=5, VAR_ErrStr=6, VAR_FlowID=7, VAR_Dynamic = 10, VAR_Me=12, VAR_Constant=98,  VAR_None=99};
 /* 命令分几种，INS_Normal：标准，INS_Abort：终止 */
@@ -298,7 +300,7 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 				esc = h_ele->Attribute("escape");
 				if ( !esc ) 
 					esc = h_ele->GetDocument()->RootElement()->Attribute("escape");
-				if ( esc && (esc[0] == 'Y' || esc[0] == 'N') )
+				if ( esc && (esc[0] == 'Y' || esc[0] == 'y') )
 				{
 					c_len = BTool::unescape(p, content) ;
 				} else 
@@ -595,7 +597,7 @@ struct PVar_Set {
 				if ( !esc ) 
 					esc = comp->GetDocument()->RootElement()->Attribute("escape");
 			}
-			if ( esc && (esc[0] == 'Y' || esc[0] == 'N') )
+			if ( esc && (esc[0] == 'Y' || esc[0] == 'y') )
 			{
 				if ( buf)
 					len = BTool::unescape(nm, buf) ;
@@ -1166,6 +1168,9 @@ struct PacIns:public Condition  {
 	const char *dbface_name;
 	DBFace *dbface;
 
+	enum PAC_MODE pac_mode;	/* 报文模式, 一般不交换 */
+	bool pac_cross;	/* 是否交叉, 如第一个换到第二个 */
+
 	PacIns() 
 	{
 		type = INS_None;
@@ -1181,12 +1186,23 @@ struct PacIns:public Condition  {
 		fac_spo = SPONTE;
 		dbface_name = 0;
 		dbface = 0;
+		pac_mode = PAC_NONE;
+		pac_cross = false;
 	};
 
-	void get_snd_pac( PacketObj *snd_pac, int &bor, MK_Session *sess)
+	void get_req_pac( PacketObj *req_pac, int &bor, MK_Session *sess, PacketObj *first_pac, PacketObj *second_pac)
 	{
 		int i,j;
 		unsigned long t_len;
+
+		if ( pac_cross)
+		{
+			if ( pac_mode == PAC_SECOND || pac_mode == PAC_BOTH )
+				second_pac->exchange(req_pac);
+		} else {
+			if ( pac_mode == PAC_FIRST || pac_mode == PAC_BOTH)
+				first_pac->exchange(req_pac);
+		}
 
 		bor = subor;
 		t_len = 0;
@@ -1207,13 +1223,13 @@ struct PacIns:public Condition  {
 				}
 			}
 		}
-		snd_pac->grant(t_len);
+		req_pac->grant(t_len);
 		for ( i = 0 ; i < snd_num; i++ )
 		{
 			t_len = 0;
 			if ( snd_lst[i].dy_num ==0 )
 			{	/* 这是在pacdef中send元素定义的一个域的内容 */
-				memcpy(snd_pac->buf.point, snd_lst[i].cmd_buf, snd_lst[i].cmd_len);
+				memcpy(req_pac->buf.point, snd_lst[i].cmd_buf, snd_lst[i].cmd_len);
 				t_len = snd_lst[i].cmd_len;	
 			} else {
 				for ( j = 0; j < snd_lst[i].dy_num; j++ )
@@ -1222,34 +1238,57 @@ struct PacIns:public Condition  {
 					if (  snd_lst[i].dy_list[j].dy_pos < 0 ) 
 					{
 						/* 静态内容*/
-						memcpy(&snd_pac->buf.point[t_len], snd_lst[i].dy_list[j].con, snd_lst[i].dy_list[j].len);
+						memcpy(&req_pac->buf.point[t_len], snd_lst[i].dy_list[j].con, snd_lst[i].dy_list[j].len);
 						t_len += snd_lst[i].dy_list[j].len;
 					} else {
 						/* 动态内容*/
-						memcpy(&snd_pac->buf.point[t_len], sess->snap[snd_lst[i].dy_list[j].dy_pos].val_p, sess->snap[snd_lst[i].dy_list[j].dy_pos].c_len);
+						memcpy(&req_pac->buf.point[t_len], sess->snap[snd_lst[i].dy_list[j].dy_pos].val_p, sess->snap[snd_lst[i].dy_list[j].dy_pos].c_len);
 						t_len += sess->snap[snd_lst[i].dy_list[j].dy_pos].c_len;
 					}
 				}
 			}
-			snd_pac->commit(snd_lst[i].fld_no, t_len);	//域的确认
+			req_pac->commit(snd_lst[i].fld_no, t_len);	//域的确认
 		}
 		return ;
 	};
 
 	/* 本指令处理响应报文，匹配必须的内容,出错时置出错代码变量 */
-	bool pro_rcv_pac(PacketObj *rcv_pac,  struct MK_Session *mess)
+	bool pro_rply_pac(PacketObj *rply_pac, struct MK_Session *mess, PacketObj *first_pac, PacketObj *second_pac, PacketObj *req_pac)
 	{
 		int ii;
 		unsigned char *fc;
 		unsigned long rlen, mlen;
 		struct CmdRcv *rply;
 		char con[512];
+		PacketObj *n_pac=rply_pac;
 					
+		if ( pac_cross)
+		{
+			if ( pac_mode == PAC_SECOND || pac_mode == PAC_BOTH )
+			{
+				second_pac->exchange(req_pac);
+			}
+			if ( pac_mode == PAC_FIRST || pac_mode == PAC_BOTH )
+			{
+				first_pac->exchange(rply_pac);
+				n_pac = first_pac;
+			}
+		} else {
+			if ( pac_mode == PAC_SECOND || pac_mode == PAC_BOTH )
+			{
+				first_pac->exchange(req_pac);
+			}
+			if ( pac_mode == PAC_FIRST || pac_mode == PAC_BOTH )
+			{
+				second_pac->exchange(rply_pac);
+				n_pac = second_pac;
+			}
+		}
 
 		for (ii = 0; ii < rcv_num; ii++)
 		{
 			rply = &rcv_lst[ii];
-			fc = rcv_pac->getfld(rply->fld_no, &rlen);
+			fc = n_pac->getfld(rply->fld_no, &rlen);
 			if ( !fc ) 
 			{
 				TEXTUS_SPRINTF(mess->err_str, "field %d does not exist", rply->fld_no);
@@ -1298,7 +1337,8 @@ ErrRet:
 	{
 		struct PVar *vr_tmp=0;
 		TiXmlElement *e_tmp, *p_ele, *some_ele;
-		const char *p=0;
+		const char *p=0, *pp=0; 
+		char *q;
 
 		int i = 0;
 		int lnn;
@@ -1322,8 +1362,24 @@ ErrRet:
 			goto LAST_CON;
 		}
 		
+		p = def_ele->Attribute("dir");	
+		if ( p )
+		{
+			if ( strcasecmp( p, "facio") ==0 )
+			{
+				fac_spo = FACIO;
+			} else if ( strcasecmp( p, "sponte") ==0 )
+			{
+				fac_spo = SPONTE;
+			}
+		}
+
 		p = def_ele->Attribute("type");	
-		if ( !p ) goto DefaultUnipac;
+		if ( !p ) 
+		{
+			type = INS_Normal;
+			goto DefaultUnipac;
+		}
 		if ( strcasecmp( p, "GetPeer") ==0 )
 		{
 			type =  INS_GetPeer;
@@ -1341,26 +1397,13 @@ ErrRet:
 			type =  INS_Pro_DBFace;
 			fac_spo = FACIO;
 			dbface_name = def_ele->Attribute("dbface");
-		} else if ( (p = def_ele->Attribute("ordo")) )
+		} else if ( (pp = def_ele->Attribute("ordo")) )
 		{
 			type =  INS_Cmd_Ordo;
 			fac_spo = FACIO;
-			ordo = Notitia::get_ordo(p);
-		} else {
-			goto DefaultUnipac;
+			ordo = Notitia::get_ordo(pp);
 		}
-		p = def_ele->Attribute("dir");	
-		if ( p )
-		{
-			if ( strcasecmp( p, "facio") ==0 )
-			{
-				fac_spo = FACIO;
-			} else if ( strcasecmp( p, "sponte") ==0 )
-			{
-				fac_spo = SPONTE;
-			}
-		}
-		
+
 	DefaultUnipac:
 		subor=0; def_ele->QueryIntAttribute("subor", &subor);
 		if ( (p = def_ele->Attribute("counted")) && ( *p == 'y' || *p == 'Y') )
@@ -1373,6 +1416,30 @@ ErrRet:
 		else
 			isFunction = false;
 
+		if ( (p = def_ele->Attribute("exchange")) )
+		{
+			q = (char*)strpbrk( p, ":" );
+			if ( q ) 
+			{
+				*q++ = '\0';
+			}
+			if (strcasecmp ( p, "first") == 0 ) 
+			{
+				pac_mode = PAC_FIRST;
+			} else if ( strcasecmp (p, "second") == 0 )
+			{
+				pac_mode = PAC_SECOND;
+			} else if ( strcasecmp (p, "both") ==0 ) 
+			{
+				pac_mode = PAC_BOTH;
+			}
+			if ( q ) 
+			{
+				if (strcasecmp ( q, "alter") == 0 ) 
+					pac_cross = true;
+			}
+		}
+
 		/* 先预置发送的每个域，设定域号*/
 		snd_num = 0;
 		for (p_ele= def_ele->FirstChildElement(); p_ele; p_ele = p_ele->NextSiblingElement())
@@ -1382,6 +1449,7 @@ ErrRet:
 			if ( strcasecmp(p, "send") == 0 || p_ele->Attribute("to")) 
 				snd_num++;
 		}
+		if ( snd_num ==0 ) goto RCV_PRO;	
 		snd_lst = new struct CmdSnd[snd_num];
 		for (p_ele= def_ele->FirstChildElement(),i = 0; p_ele; p_ele = p_ele->NextSiblingElement())
 		{
@@ -1412,6 +1480,7 @@ ErrRet:
 		snd_num = i;	//最后再更新一次发送域的数目
 
 		/* 预置接收的每个域，设定域号*/
+	RCV_PRO:
 		rcv_num = 0;
 		for (p_ele= def_ele->FirstChildElement(); p_ele; p_ele = p_ele->NextSiblingElement())
 		{
@@ -1486,7 +1555,6 @@ ANOTHER:
 			}
 		}	/* 结束返回元素的定义*/
 
-		type = INS_Normal;
 LAST_CON:
 		return counted ? 1:0 ;
 	};
@@ -2481,7 +2549,7 @@ SUB_INS_PRO:
 		{
 		case Pac_Idle:
 			hi_req_p->reset();	//请求复位
-			paci->get_snd_pac(hi_req_p, loc_pro_pac.subor, &mess);
+			paci->get_req_pac(hi_req_p, loc_pro_pac.subor, &mess, rcv_pac, snd_pac);
 			command_wt.pac_step = Pac_Working;
 
 			call_back = paci->isFunction; //对于函数，属回调的情况。这个call_back在sponte时被判断
@@ -2489,6 +2557,7 @@ SUB_INS_PRO:
 			mess.right_status = RT_OUT;
 			mess.right_subor = paci->subor;
 			WBUG("mess.pro_order=%d command_wt.pac_which=%d callback(%s)", mess.pro_order, command_wt.pac_which, call_back ? "yes":"no");
+			//if ( mess.pro_order == 2 &&  command_wt.pac_which ==1 ) {int *a=0; *a=0;}
 			if ( paci->type == INS_Normal )
 				aptus->facio(&loc_pro_pac);     //向右发出, 然后等待
 			else if ( paci->type == INS_Pro_DBFace) 
@@ -2508,7 +2577,6 @@ SUB_INS_PRO:
 				prodb_ps.subor = paci->subor;
 				aptus->facio(&prodb_ps);	//发出DB操作
 			}
-			//if ( mess.pro_order == 49 &&  command_wt.pac_which ==2 ) {int *a=0; *a=0;}
 			if ( call_back || paci->rcv_num == 0 ) 
 				goto GO_ON_FUNC; /* facio函数返回时，响应报文已备，继续处理。没有接收域(无响应数据)，就视为同步完成*/
 			else
@@ -2537,8 +2605,8 @@ GO_ON_FUNC:
 		break;
 
 	case INS_SetPeer:
-		hi_req_p->reset();	//请求复位
-		paci->get_snd_pac(hi_req_p, loc_pro_pac.subor, &mess);
+		hi_req_p->reset();
+		paci->get_req_pac(hi_req_p, loc_pro_pac.subor, &mess, rcv_pac, snd_pac);
 		set_peer(hi_req_p, loc_pro_pac.subor);
 		command_wt.pac_step = Pac_End;
 		break;
@@ -2569,7 +2637,7 @@ GO_ON_FUNC:
 
 	if ( command_wt.pac_step == Pac_End )
 	{
-		if ( paci->rcv_num > 0 && !paci->pro_rcv_pac(hi_reply_p, &mess)) 
+		if ( paci->rcv_num > 0 && !paci->pro_rply_pac(hi_reply_p, &mess, rcv_pac, snd_pac, hi_req_p)) 
 		{
 			mess.iRet = ERROR_RECV_PAC;
 			TEXTUS_SPRINTF(h_msg, "fault at %d of %s (%s)", mess.pro_order, cur_def->flow_id, mess.err_str);

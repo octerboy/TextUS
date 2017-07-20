@@ -2038,10 +2038,10 @@ PACINLINE bool Unipac::dofield(TBuffer &buf, FieldObj &field, FldDef &fld_def)
 		if ( field.other->type != PacketObj::ASN1  )
 			return false;
 
+		asn_dat =  (struct Asn1Type *)field.other->value;
 		if ( asn_dat->len > lpra->length)
 			return false;
 
-		asn_dat =  (struct Asn1Type *)field.other->value;
 		yaBuf[0] = asn_dat->kind ;
 	
 		if (asn_dat->len <= 0x7F) 

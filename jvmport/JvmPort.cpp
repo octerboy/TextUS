@@ -65,7 +65,6 @@ public:
 
 	JvmPort();
 	~JvmPort();
-
 #define BUF_Z 128
 	struct VerList {
 		char cls_name[BUF_Z];
@@ -119,9 +118,9 @@ public:
 			TiXmlElement *o_ele;
 			const char *comm_str;
 
-			vm_args.version=JNI_VERSION_1_2;/* 这个字段必须设置为该值, 版本号设置不能漏*/
-			//vm_args.version=JNI_VERSION_1_6;
-			vm_args.ignoreUnrecognized = JNI_TRUE;
+			//vm_args.version=JNI_VERSION_1_8;/* 这个字段必须设置为该值, 版本号设置不能漏*/
+			vm_args.version=JNI_VERSION_1_2;
+			vm_args.ignoreUnrecognized = JNI_FALSE;;
 			vm_args.nOptions = 0;	
 			vm_args.options = 0;
 			opt_string = 0;
@@ -182,6 +181,7 @@ public:
 				len = strlen(con);
 				memcpy(vm_args.options[k].optionString, con, len);
 				vm_args.options[k].extraInfo =  0;
+				//printf("args %d %s\n", strlen(vm_args.options[k].optionString),vm_args.options[k].optionString);
 				if ( k+1 < vm_args.nOptions )
 					vm_args.options[k+1].optionString =  vm_args.options[k].optionString+ len +1;
 			}
@@ -248,6 +248,7 @@ private:
 			memset(xmlstr,0, len+1);
 			memcpy(xmlstr, printer.CStr(), len);
 			doc.Clear();
+
 		};
 
 		inline ~G_CFG () {
@@ -306,8 +307,12 @@ void JvmPort::ignite(TiXmlElement *cfg)
 	if (  !jvmcfg  ) 
 	{
 		jvmcfg = new struct JVM_CFG(cfg->FirstChildElement("jvm"));
+		res = JNI_GetDefaultJavaVMInitArgs(&(jvmcfg->vm_args));
+		if (res != JNI_OK)
+			return;
+		//printf("vm_args.nOptions %d\n", jvmcfg->vm_args.nOptions);
 		res = JNI_CreateJavaVM(&(jvmcfg->jvm), (void**)&(jvmcfg->env), &(jvmcfg->vm_args));
-		if (res < 0)
+		if (res != JNI_OK)
 			return;
 	}
 
@@ -317,7 +322,6 @@ void JvmPort::ignite(TiXmlElement *cfg)
 
 	gCFG->bean_cls = jvmcfg->env->FindClass(gCFG->cls_name);
 	if( jvmError() ) return;
-
 	/* 取得Java类的时间信息 */
 	ver_fld = jvmcfg->env->GetStaticFieldID(gCFG->bean_cls, "JETUS_MODTIME", "Ljava/lang/String;");
 	if( jvmError() ) return;
@@ -349,6 +353,7 @@ void JvmPort::ignite(TiXmlElement *cfg)
 
 bool JvmPort::facio( Amor::Pius *pius)
 {
+	jobject document;
 	assert(pius);
 	assert(jvmcfg);
 	if ( !jvmcfg->env )
@@ -421,7 +426,7 @@ bool JvmPort::facio( Amor::Pius *pius)
 		{
 			if ( gCFG->xmlstr )
 			{
-				jobject document = getDocumentObj(jvmcfg->env, gCFG->xmlstr, gCFG->encoding);
+				document = getDocumentObj(jvmcfg->env, gCFG->xmlstr, gCFG->encoding);
 				if ( document)
 				{
 					jvmcfg->env->CallVoidMethod(owner_obj, gCFG->ignite_mid, document); /* 调用Java模块的ignite函数 */
@@ -444,6 +449,8 @@ bool JvmPort::facio( Amor::Pius *pius)
 		break;
 
 	default:
+		WBUG("facio %d in JvmPort", pius->ordo);
+		//return true;
 		return facioJava(pius);
 	}
 	return true;
@@ -497,21 +504,21 @@ bool JvmPort:: neo(jobject parent, JvmPort *me, jobject &own_obj, jobject &apt_o
 	if ( parent )
 		own_obj = jvmcfg->env->CallObjectMethod(parent, gCFG->clone_mid);
 	else
-		own_obj = jvmcfg->env->NewObject(gCFG->bean_cls, gCFG->bean_init, 0);
+		own_obj = jvmcfg->env->NewObject(gCFG->bean_cls, gCFG->bean_init);
 	apt_fld   = jvmcfg->env->GetFieldID(gCFG->bean_cls, "aptus", "Ltextor/jvmport/Amor;");
-	apt_obj = jvmcfg->env->NewObject(gCFG->amor_cls, gCFG->amor_init, 0);
+	apt_obj = jvmcfg->env->NewObject(gCFG->amor_cls, gCFG->amor_init);
 	if ( jvmError() || !apt_fld || !own_obj || !apt_obj)
 	{
 		WLOG(ERR,"not found member aptus");
 		return false;
 	} else {
-		jvmcfg->env->SetObjectField(own_obj, apt_fld, aptus_obj);
+		jvmcfg->env->SetObjectField(own_obj, apt_fld, apt_obj);
 
 		ptr_fld = jvmcfg->env->GetFieldID(gCFG->amor_cls, "portPtr", "[B");
 		/* Java的Amor对象中的portPtr, 即为本对象的指针 */
 		selfPtr = jvmcfg->env->NewByteArray(sizeof(me));
 		jvmcfg->env->SetByteArrayRegion(selfPtr, 0, sizeof(me), (jbyte*)&me);
-		jvmcfg->env->SetObjectField(aptus_obj, ptr_fld, selfPtr);
+		jvmcfg->env->SetObjectField(apt_obj, ptr_fld, selfPtr);
 	} 
 	return true;
 }
@@ -545,8 +552,8 @@ JvmPort::~JvmPort()
 		jvmcfg->env->DeleteLocalRef(owner_obj);
 	}
 } 
-#include "hook.c"
 
+#include "hook.c"
 extern "C" TEXTUS_AMOR_EXPORT void textus_get_version_1(char *scm_id, char *time_str, char *ver_no, int len) 
 {
 	JvmPort::JVM_CFG *jcfg;
@@ -1027,7 +1034,8 @@ JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ILjava_lang_String_
 	jmethodID getBytes_mid = env->GetMethodID(str_cls, "getBytes", "()[B");
 	jbyteArray strBytes;
 	int len;
-
+	
+	if (!sVal ) return;
 	if ( pcp)
 	{
 		strBytes = (jbyteArray)env->CallObjectMethod(sVal, getBytes_mid);
@@ -1259,24 +1267,34 @@ jobject getDocumentObj(JNIEnv *env, const char*xmlstr, const char *encoding )
 {
 	jbyteArray  args;
 	int len; 
-	jobject jstr, encStr , utfBytes ;
-	jobject input, factory, docBuilder, document;
-	jclass str_cls, is_cls, dbFac_cls, doc_cls, docBuild_cls;
-	jmethodID strInit_mid, getBytes_mid, isInit_mid, newFac_mid, newDocBuilder_mid, parse_mid;
-	jstring string;
+	jobject jstr, encStr ;
+	jobject factory, docBuilder, document;
+	jclass str_cls, dbFac_cls, doc_cls, docBuild_cls;
+	jmethodID strInit_mid, getBytes_mid, newFac_mid, newDocBuilder_mid, parse_mid;
+
+	jclass strRd_cls, inputSrc_cls;
+	jmethodID strRdInit_mid, inputSrcInit_mid;
+	jobject strRd_obj, inputSrc_obj;
 
 	str_cls = env->FindClass("java/lang/String");
-	is_cls = env->FindClass("java/io/ByteArrayInputStream");
 	dbFac_cls = env->FindClass("javax/xml/parsers/DocumentBuilderFactory");
 	docBuild_cls = env->FindClass("javax/xml/parsers/DocumentBuilder");
 	doc_cls = env->FindClass("org/w3c/dom/Document");
+	strRd_cls = env->FindClass("java/io/StringReader");
+	inputSrc_cls = env->FindClass("org/xml/sax/InputSource");
+	if ( jvmError(env) )
+		return 0;
 
 	strInit_mid = env->GetMethodID(str_cls, "<init>", "([BLjava/lang/String;)V");
+	strRdInit_mid = env->GetMethodID(strRd_cls, "<init>", "(Ljava/lang/String;)V");
+	inputSrcInit_mid = env->GetMethodID(inputSrc_cls, "<init>", "(Ljava/io/Reader;)V");
+	if ( jvmError(env) )
+		return 0;
+
 	getBytes_mid = env->GetMethodID(str_cls, "getBytes", "(Ljava/lang/String;)[B");
-	isInit_mid = env->GetMethodID(is_cls, "<init>", "([B)V");
 	newFac_mid = env->GetStaticMethodID(dbFac_cls, "newInstance", "()Ljavax/xml/parsers/DocumentBuilderFactory;");
 	newDocBuilder_mid = env->GetMethodID(dbFac_cls, "newDocumentBuilder", "()Ljavax/xml/parsers/DocumentBuilder;");
-	parse_mid = env->GetMethodID(docBuild_cls, "parse", "(Ljava/io/InputStream;)Lorg/w3c/dom/Document;");
+	parse_mid = env->GetMethodID(docBuild_cls, "parse", "(Lorg/xml/sax/InputSource;)Lorg/w3c/dom/Document;");
 				
 	if ( jvmError(env) )
 		return 0;
@@ -1289,16 +1307,12 @@ jobject getDocumentObj(JNIEnv *env, const char*xmlstr, const char *encoding )
 	env->SetByteArrayRegion(args, 0, len, (jbyte*)xmlstr);
 	jstr = env->NewObject(str_cls, strInit_mid, args, encStr);
 	
-	/* 按UTF8返回bytes */
-	string = env->NewStringUTF("UTF-8");
-	utfBytes = env->CallObjectMethod(jstr, getBytes_mid, string);
-	env->DeleteLocalRef(string);
-
-	/* 生成InputStream, 及一系列 */
-	input = env->NewObject(is_cls, isInit_mid, utfBytes);
+	strRd_obj = env->NewObject(strRd_cls, strRdInit_mid, jstr);
+	inputSrc_obj = env->NewObject(inputSrc_cls, inputSrcInit_mid, strRd_obj);
+	
 	factory = env->CallStaticObjectMethod(dbFac_cls, newFac_mid);
 	docBuilder = env->CallObjectMethod(factory, newDocBuilder_mid);
-	document = env->CallObjectMethod(docBuilder, parse_mid, input);
+	document = env->CallObjectMethod(docBuilder, parse_mid, inputSrc_obj);
 
 	if ( jvmError(env)) return 0;
 			
@@ -1306,14 +1320,12 @@ jobject getDocumentObj(JNIEnv *env, const char*xmlstr, const char *encoding )
 	env->DeleteLocalRef(args);
 	env->DeleteLocalRef(jstr);
 
-	env->DeleteLocalRef(utfBytes);
-	env->DeleteLocalRef(input);
+	env->DeleteLocalRef(strRd_obj);
+	env->DeleteLocalRef(inputSrc_obj);
 	env->DeleteLocalRef(factory);
 	env->DeleteLocalRef(docBuilder);
-
 	return document;
 }
-
 /* 从一个org.w3c.dom.Document对象, 生成一个TiXmlDocument对象 */
 void toDocument (JNIEnv *env, TiXmlDocument *docp, jobject jdoc)
 {
@@ -1550,7 +1562,7 @@ jobject JvmPort::allocPiusObj( Pius *pius)
 	ordo_fld = jvmcfg->env->GetFieldID(gCFG->pius_cls, "ordo", "J");
 	sub_fld = jvmcfg->env->GetFieldID(gCFG->pius_cls, "subor", "I");
 	jvmcfg->env->SetLongField(ps_obj, ordo_fld, pius->ordo);		/* java的pius的ordo已设定 */
-	jvmcfg->env->SetIntField(ps_obj, ordo_fld, pius->subor);		/* java的pius的subor已设定 */
+	jvmcfg->env->SetIntField(ps_obj, sub_fld, pius->subor);		/* java的pius的subor已设定 */
 
 	indic_fld = jvmcfg->env->GetFieldID(gCFG->pius_cls, "indic", "Ljava/lang/Object;");
 	if ( jvmError() )
@@ -1739,6 +1751,7 @@ jobject JvmPort::allocPiusObj( Pius *pius)
 	case Notitia::DMD_START_SESSION:
 	case Notitia::ERR_FRAME_TIMEOUT:
 	case Notitia::ERR_FRAME_LENGTH:
+	case Notitia::START_SERVICE:
 		/* 这些本来就是不需要indic的 */
 		break;
 
@@ -1811,6 +1824,7 @@ void JvmPort::freePiusObj( jobject ps_obj)
 		jobject dbf_obj, rowset_obj, p_obj, str_obj;
 		jobjectArray para_objs;
 
+		printf("9999---\n");
 		jclass face_cls = jvmcfg->env->FindClass("textor/jvmport/DBFace");
 		jclass rowset_cls = jvmcfg->env->FindClass("textor/jvmport/DBFace$RowSet");
 		if ( jvmError()) return;
@@ -1930,13 +1944,17 @@ void toJFace (JNIEnv *env, DBFace *dface, jobject face_obj, jclass face_cls,  co
 	env->SetIntField(face_obj, env->GetFieldID(face_cls, X, "I"), dface->Y);
 
 #define OBJ_SET_STR(X,Y) \
-	len = strlen((const char *)dface->Y);	\
-	args =  env->NewByteArray(len);		\
-	env->SetByteArrayRegion(args, 0, len, (jbyte*)dface->Y);	\
-	jstr = env->NewObject(str_cls, strInit_mid, args, encStr);	\
-	env->SetObjectField(face_obj, env->GetFieldID(face_cls, X, "Ljava/lang/String;"), jstr);	\
-	env->DeleteLocalRef(args);	\
-	env->DeleteLocalRef(jstr);
+	if ( dface->Y == 0 ) { \
+		env->SetObjectField(face_obj, env->GetFieldID(face_cls, X, "Ljava/lang/String;"), 0);	\
+	} else {	\
+		len = strlen((const char *)dface->Y);	\
+		args =  env->NewByteArray(len);		\
+		env->SetByteArrayRegion(args, 0, len, (jbyte*)dface->Y);	\
+		jstr = env->NewObject(str_cls, strInit_mid, args, encStr);	\
+		env->SetObjectField(face_obj, env->GetFieldID(face_cls, X, "Ljava/lang/String;"), jstr);	\
+		env->DeleteLocalRef(args);	\
+		env->DeleteLocalRef(jstr);	\
+	}
 
 #define OBJ_SET_STATIC_INT(X,Y) \
 	env->SetIntField(face_obj, env->GetFieldID(face_cls, X, "I"), env->GetStaticIntField(face_cls,  env->GetStaticFieldID(face_cls, Y, "I")));
@@ -2089,7 +2107,7 @@ void toJFace (JNIEnv *env, DBFace *dface, jobject face_obj, jclass face_cls,  co
 			}
 			env->SetObjectArrayElement(para_obj_arr, i, para_obj); 
 		}
-		env->SetObjectField(face_obj, env->GetFieldID(face_cls, "paras", "[textor/jvmport/DBFace$Para;"), para_obj_arr);
+		env->SetObjectField(face_obj, env->GetFieldID(face_cls, "paras", "[Ltextor/jvmport/DBFace$Para;"), para_obj_arr);
 	}
 	env->DeleteLocalRef(encStr);
 }

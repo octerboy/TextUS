@@ -68,6 +68,20 @@
 		INVALID_SC_NAME = 0xffff
 	};
 
+	void exchange( struct PacketObj *ano )
+	{
+		int mid;
+		FieldObj  *f_mid;
+		if ( !ano ) return;
+		mid = ano->max;
+		ano->max = this->max;
+		this->max = mid;
+		f_mid = ano->fld;
+		ano->fld = this->fld;
+		this->fld = f_mid;
+		TBuffer::exchange(buf, ano->buf);
+	};
+
 	inline unsigned char *alloc_buf(long len)
 	{
 		unsigned char *p = buf.point;
