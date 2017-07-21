@@ -1301,11 +1301,6 @@ struct PacIns:public Condition  {
 		{
 			rply = &rcv_lst[ii];
 			fc = n_pac->getfld(rply->fld_no, &rlen);
-			if ( !fc ) 
-			{
-				TEXTUS_SPRINTF(mess->err_str, "field %d does not exist", rply->fld_no);
-				goto ErrRet;
-			}
 /*
 			if ( rply->fld_no == 12 )
 			{
@@ -1315,6 +1310,11 @@ struct PacIns:public Condition  {
 */
 			if (rply->must_con ) 
 			{
+				if ( !fc ) 
+				{
+					TEXTUS_SPRINTF(mess->err_str, "field %d does not exist", rply->fld_no);
+					goto ErrRet;
+				}
 				if ( !(rply->must_len == rlen && memcmp(rply->must_con, fc, rlen) == 0 ) ) 
 				{
 					mlen = rlen > sizeof(con) ? sizeof(con):rlen;
@@ -1332,7 +1332,7 @@ struct PacIns:public Condition  {
 				}
 			}
 
-			if ( rply->dyna_pos > 0)
+			if ( rply->dyna_pos > 0 && fc)
 			{
 				if ( rlen >= (rply->start ) )	
 				{
