@@ -495,7 +495,7 @@ struct PVar_Set {
 	{
 		if (nm  && strcasecmp(nm, VARIABLE_TAG_NAME) == 0 ) return true;
 		return false;
-	}
+	};
 
 	void defer_vars(TiXmlElement *map_root, TiXmlElement *icc_root=0) //分析一下变量定义
 	{
@@ -2426,7 +2426,7 @@ void PacWay::handle_pac()
 			if ( vt->dynamic_pos >=0 )
 			{
 				dvr = &mess.snap[vt->dynamic_pos];
-				if (dvr->def_var) continue; //如果动态量没有清空, 就不再赋新值.这个量跨flow, 直到Notitia:START_SESSION,END_SESSION
+				if (dvr->c_len > 0) continue; //如果动态量没有清空, 就不再赋新值.这个量跨flow, 直到Notitia:START_SESSION,END_SESSION
 				dvr->kind = vt->kind;
 				dvr->def_var = vt;
 				if ( vt->c_len > 0 )	//先把定义的静态内容链接过来, 动态变量的默认值
@@ -2447,6 +2447,7 @@ void PacWay::handle_pac()
 				/* 所以从域取值为优先, 如果实际报文没有该域, 就取这里的静态定义 */
 			}
 		}
+		
 		if (mess.iRet == ERROR_INS_DEF)
 		{
 			TEXTUS_SPRINTF(mess.err_str, "not defined flow_id: %s ", mess.flow_id );

@@ -296,7 +296,7 @@ bool HttpSrvHead::sponte( Amor::Pius *pius)
 						
 		case GetRequestCmd::GetHeadArr :
 			pp = req_cmd->valStrArr = request.getHeadArray(req_cmd->name);
-			WBUG("sponte CMD_HTTP_GET GetHeadArr(\"%s\")=\"%s\"", req_cmd->name, pp == 0? "": req_cmd->valStr);
+			WBUG("sponte CMD_HTTP_GET GetHeadArr(\"%s\")=\"%s\"", req_cmd->name, pp == 0? "": req_cmd->valStrArr[0]);
 			break;
 						
 		case GetRequestCmd::GetHeadInt:
