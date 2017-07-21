@@ -44,13 +44,15 @@ public class JdbCli
 	String connect_url, username, password ;   
 	DBFace face;
 
-
 	PacketData rcv_pac, snd_pac;
 	boolean isTalking;
 
     	Connection connection;
 	ResultSet  rSet;
 	Pius dopac_ps, end_ps;
+
+	PreparedStatement p_stmt;
+	CallableStatement c_stmt;
 
 	public JdbCli () { 
 		isTalking = false;
@@ -608,7 +610,6 @@ public class JdbCli
 	
 	void proc_call (String n_sentence ) {
 		int i,rows;
-		CallableStatement c_stmt;
 		try {
 			c_stmt = connection.prepareCall(n_sentence);
 			set_para_inout(c_stmt);
@@ -629,7 +630,6 @@ public class JdbCli
 
 	void dml_pro (String n_sentence ) {
 		int i,rows;
-		PreparedStatement p_stmt;
 		try {
 			p_stmt = connection.prepareStatement(n_sentence);
 			/* 输入值的设定 */
@@ -695,15 +695,18 @@ public class JdbCli
 		int f_num;
 		f_num = face.rowset.chunk ;
 		try {
-			//System.out.println("rSet next 111" );
 			if ( isFirst && face.cRows_field >=0 )
 			{
 				rSet.last();
 				snd_pac.input(face.cRows_field, rSet.getRow()); 
+				//System.out.println("rSet row num " + rSet.getRow() );
 				rSet.beforeFirst();
 			}
-			while (rSet.next() && f_num >0) 
+			if ( face.cRowsObt_fld >= 0 )
+				snd_pac.input(face.cRowsObt_fld, 0); 
+			while ( f_num >0 && rSet.next() ) 
 			{
+				//System.out.println("rSet next 222" );
 				for ( i = 0 ; i <  face.num; i++)
 				{
 					rs_get(i+1,  face.paras[i]);
@@ -728,9 +731,9 @@ public class JdbCli
 		}
 	}
 
-	boolean query_pro (String n_sentence ) {
+	boolean query_pro (String n_sentence ) 
+	{
 		int i;
-		PreparedStatement p_stmt;
 		boolean ret = false;
 		try {
 			if ( face.cRows_field >=0 )

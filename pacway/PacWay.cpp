@@ -351,6 +351,12 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 					val[len] = 0;
 				}
 			}
+/*
+			if ( index == 8)
+			{
+				printf("input len %d, %p\n", len, p);
+			}
+*/
 		};
 
 		void input(int iv)
@@ -370,6 +376,8 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 			{
 				val_p = (unsigned char*)p;
 			} else {
+				if ( c_len > (sizeof(val)-1) )	
+					c_len = sizeof(val)-1;
 				val[c_len] = 0;
 				val_p = (unsigned char*)&val[0];
 				memcpy(val, p, c_len);
@@ -411,8 +419,12 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 			int i;
 			for ( i = 0; i < snap_num; i++)
 			{
-				snap[i].c_len = 0;
-				snap[i].val[0] = 0;
+				if ( !soft || !snap[i].def_var || !snap[i].def_var->keep_alive )
+				{
+					snap[i].c_len = 0;
+					snap[i].val[0] = 0;
+					snap[i].val_p = 0;
+				}
 			}
 			for ( i = Pos_Fixed_Next ; i < snap_num; i++)
 			{	/* 这个Pos_Fixed_Next很重要, 要不然, 那些固有的动态变量会没有的！  */
@@ -1276,12 +1288,12 @@ struct PacIns:public Condition  {
 		} else {
 			if ( pac_mode == PAC_SECOND || pac_mode == PAC_BOTH )
 			{
-				first_pac->exchange(req_pac);
+				second_pac->exchange(rply_pac);
+				n_pac = second_pac;
 			}
 			if ( pac_mode == PAC_FIRST || pac_mode == PAC_BOTH )
 			{
-				second_pac->exchange(rply_pac);
-				n_pac = second_pac;
+				first_pac->exchange(req_pac);
 			}
 		}
 
@@ -1294,6 +1306,13 @@ struct PacIns:public Condition  {
 				TEXTUS_SPRINTF(mess->err_str, "field %d does not exist", rply->fld_no);
 				goto ErrRet;
 			}
+/*
+			if ( rply->fld_no == 12 )
+			{
+				printf("-------12 rlen=%d dyna_pos=%d ", rlen, rply->dyna_pos);
+				for( int i = 0 ;i < rlen; i++) printf("%02X ", fc[i]); printf("\n");
+			}
+*/
 			if (rply->must_con ) 
 			{
 				if ( !(rply->must_len == rlen && memcmp(rply->must_con, fc, rlen) == 0 ) ) 
@@ -2397,6 +2416,13 @@ void PacWay::handle_pac()
 		for ( i = 0 ; i <  cur_def->person_vars.many; i++)
 		{
 			vt = &cur_def->person_vars.vars[i];
+/*
+			if ( vt->dynamic_pos ==8 )
+			{
+				dvr = &mess.snap[vt->dynamic_pos];
+				printf("dvr name %s dvr_len %d dvr_kind=%d dvr_def=%p\n", vt->name, dvr->c_len, dvr->kind,dvr->def_var);
+			}
+*/
 			if ( vt->dynamic_pos >=0 )
 			{
 				dvr = &mess.snap[vt->dynamic_pos];

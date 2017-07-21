@@ -210,6 +210,7 @@ void DBPort::getDef(struct DBFace *face, TiXmlElement *cfg, DBFace::WHAT gin, DB
 	const char *comm_str;
 	TiXmlElement *fld_ele, *ref_ele, *rs_ele;
 	DBFace::Para *par;
+	int m_chunk ;
 
 	ref_ele= cfg->FirstChildElement("reference"); 
 	if ( ref_ele )
@@ -225,15 +226,14 @@ void DBPort::getDef(struct DBFace *face, TiXmlElement *cfg, DBFace::WHAT gin, DB
 			}
 		}
 	}
-	
+
 	rs_ele = cfg->FirstChildElement("rowset");
 	if ( rs_ele )
 	{
-		int m_chunk ;
-		face->rowset = new struct DBFace::Rowset;
+		face->rowset = new DBFace::Rowset;
 		if  ( gtrace >= 0 )
 			face->rowset->trace_field = gtrace;
-		
+
 		rs_ele->Attribute("param_pos", (int*)&(face->rowset->para_pos));
 		rs_ele->Attribute("trace", (int*)&(face->rowset->trace_field));
 
@@ -547,9 +547,9 @@ void DBPort::handle_face( struct DBFace *face, Amor::Pius *pius)
 		DBPort *that=0, *that2 = 0;
 		int &tr_fld = face->rowset->trace_field;
 
-		if ( face->rowset  && tr_fld >= 0 
-			&& rcv_pac && tr_fld < rcv_pac->max )
+		if ( face->rowset  && tr_fld >= 0 && rcv_pac && tr_fld < rcv_pac->max )
 		{
+			//for( int i = 0 ;i < rcv_pac->fld[tr_fld].range; i++) printf("%02X ", rcv_pac->fld[tr_fld].val[i]); printf("\n");
 			if ( rcv_pac->fld[tr_fld].no == tr_fld && rcv_pac->fld[tr_fld].range == sizeof(that) )
 			{
 				memcpy(&that2, rcv_pac->fld[tr_fld].val, sizeof(that));
@@ -692,6 +692,7 @@ void DBPort::passto(DBPort *here, DBFace *face)
 	tmp_p.indic = here;			/* 当数据返回时, 不用操心啦 */
 	aptus->sponte(&tmp_p);
 
+	//printf("here %p\n", here);
 	snd_pac->input((unsigned int) face->rowset->trace_field, 	/* 设定跟踪域 */
 		(unsigned char*) (&here), sizeof(here));
 }

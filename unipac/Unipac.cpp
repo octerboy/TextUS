@@ -1881,12 +1881,13 @@ PACINLINE bool Unipac::dopack(TBuffer *totb, PacketObj &packet, DIRECT direct )
 			#ifndef NDEBUG 
 				if ( packet.buf.point < packet.buf.limit )
 					*packet.buf.point = '\0';
-			#else
 				if ( packet.fld[gCFG->fldOffset+j].val) {
 					WBUG("dofield failed while fld_def.no=%d, packet[%d]={no=%d, val=\"%s\", range=%ld}", \
 					fld_def->no, gCFG->fldOffset+j, packet.fld[gCFG->fldOffset+j].no, \
 					packet.fld[gCFG->fldOffset+j].val, \
 					packet.fld[gCFG->fldOffset+j].range);
+				} else {
+					WBUG("dofield failed while fld_def.no=%d, packet[%d]={no=%d}", fld_def->no, gCFG->fldOffset+j, packet.fld[gCFG->fldOffset+j].no);
 				}
 			#endif
 				break;
