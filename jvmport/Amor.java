@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -29,7 +29,7 @@ public class Amor {
         public byte[] portPtr;
 
 	public  native boolean facio(Pius ps) ;
-	public  native void log(int ordo, String msg);
+	public  native void log(long ordo, String msg);
 
 	public  native boolean sponte(Pius ps) ;
 	
@@ -48,10 +48,10 @@ public class Amor {
 		}
 	}
 	
-	public void log(int ordo, Object obj)
+	public void log(long ordo, Object obj)
 	{
 		out.print(obj);
-		System.out.println(logbuf);
+		//System.out.println(logbuf);
 		String s = logbuf.toString();
 		log(ordo, s);
 		logbuf.reset();

@@ -696,7 +696,7 @@ JNIEXPORT jboolean JNICALL Java_textor_jvmport_Amor_sponte (JNIEnv *env, jobject
 	return ret;
 }
 
-JNIEXPORT void JNICALL Java_textor_jvmport_Amor_log (JNIEnv *env, jobject amor, jint ordo, jstring jmsg)
+JNIEXPORT void JNICALL Java_textor_jvmport_Amor_log (JNIEnv *env, jobject amor, jlong ordo, jstring jmsg)
 {
 	Amor::Pius pius;
 	Amor *port;
@@ -1769,14 +1769,14 @@ void JvmPort::freePiusObj( jobject ps_obj)
 {
 	jobjectArray indic;
 	jfieldID ordo_fld, indic_fld;
-	int ordo;
+	TEXTUS_ORDO ordo;
 
 	jobject sm_obj;
 	int loopi;
 
 	ordo_fld = jvmcfg->env->GetFieldID(gCFG->pius_cls, "ordo", "J");
 	indic_fld = jvmcfg->env->GetFieldID(gCFG->pius_cls, "indic", "Ljava/lang/Object;");
-	ordo = jvmcfg->env->GetIntField(ps_obj, ordo_fld);
+	ordo = jvmcfg->env->GetLongField(ps_obj, ordo_fld);
 
 	/* 下面根据ordo来处理 ps_obj中的indic, 释放各种对象 */
 	switch ( ordo )
@@ -1786,6 +1786,7 @@ void JvmPort::freePiusObj( jobject ps_obj)
 	case Notitia::SET_UNIPAC:
 	case Notitia::SET_TINY_XML:
 	{
+		WBUG("free set_buf/pro_tbuf/set_unipac/set_tiny_xml");
 		jclass tbuf_cls;
 		jobject tbo1, tbo2;
 		jbyteArray fir, sec;
@@ -1824,7 +1825,7 @@ void JvmPort::freePiusObj( jobject ps_obj)
 		jobject dbf_obj, rowset_obj, p_obj, str_obj;
 		jobjectArray para_objs;
 
-		printf("9999---\n");
+		WBUG("free cmd_set_dbface");
 		jclass face_cls = jvmcfg->env->FindClass("textor/jvmport/DBFace");
 		jclass rowset_cls = jvmcfg->env->FindClass("textor/jvmport/DBFace$RowSet");
 		if ( jvmError()) return;
@@ -1843,16 +1844,19 @@ void JvmPort::freePiusObj( jobject ps_obj)
 		str_obj = jvmcfg->env->GetObjectField(dbf_obj, jvmcfg->env->GetFieldID(face_cls, "id_name", "Ljava/lang/String;"));
 		if ( str_obj )
 			jvmcfg->env->DeleteLocalRef(str_obj);
-		para_objs = (jobjectArray) jvmcfg->env->GetObjectField(dbf_obj, jvmcfg->env->GetFieldID(face_cls, "paras", "[textor/jvmport/DBFace$Para;"));
-		loopi = jvmcfg->env->GetArrayLength(para_objs); 
-		while ( loopi >0 )
+		para_objs = (jobjectArray) jvmcfg->env->GetObjectField(dbf_obj, jvmcfg->env->GetFieldID(face_cls, "paras", "[Ltextor/jvmport/DBFace$Para;"));
+		if ( para_objs )
 		{
-			p_obj = jvmcfg->env->GetObjectArrayElement(para_objs, loopi-1);
-			str_obj = jvmcfg->env->GetObjectField(p_obj, jvmcfg->env->GetFieldID(dbpara_cls, "name", "Ljava/lang/String;"));
-			if ( str_obj )
-				jvmcfg->env->DeleteLocalRef(str_obj);
-			jvmcfg->env->DeleteLocalRef(p_obj);
-			--loopi;
+			loopi = jvmcfg->env->GetArrayLength(para_objs); 
+			while ( loopi >0 )
+			{
+				p_obj = jvmcfg->env->GetObjectArrayElement(para_objs, loopi-1);
+				str_obj = jvmcfg->env->GetObjectField(p_obj, jvmcfg->env->GetFieldID(dbpara_cls, "name", "Ljava/lang/String;"));
+				if ( str_obj )
+					jvmcfg->env->DeleteLocalRef(str_obj);
+				jvmcfg->env->DeleteLocalRef(p_obj);
+				--loopi;
+			}
 		}
 		jvmcfg->env->DeleteLocalRef(dbf_obj);
 	}
@@ -1860,10 +1864,12 @@ void JvmPort::freePiusObj( jobject ps_obj)
 	case Notitia::ERR_SOAP_FAULT:
 	case Notitia::PRO_SOAP_HEAD:
 	case Notitia::PRO_SOAP_BODY:	
+		WBUG("free err_soap_fault/pro_soap_head/pro_soap_body");
 		/* indic 指向一个Document */
 	case Notitia::TIMER:
 		/* indic 指向一个Integer */
 	{
+		WBUG("free timer");
 		jobject doc = jvmcfg->env->GetObjectField(ps_obj, indic_fld);
 		jvmcfg->env->DeleteLocalRef(doc);
 	}
@@ -1871,6 +1877,7 @@ void JvmPort::freePiusObj( jobject ps_obj)
 
 	case Notitia::MAIN_PARA:
 		/* indic 指向一个String[] */
+		WBUG("free main_para");
 		indic = (jobjectArray) jvmcfg->env->GetObjectField(ps_obj, indic_fld);
 		if ( !indic ) break;
 
@@ -1886,13 +1893,16 @@ void JvmPort::freePiusObj( jobject ps_obj)
 
 	case Notitia::CMD_HTTP_GET:
 		/* indic 指向一个指针struct GetRequestCmd* */
+		WBUG("free cmd_http_get");
 		break;
 	
 	case Notitia::CMD_HTTP_SET:
+		WBUG("free cmd_http_set");
 		/* indic 指向一个指针struct SetResponseCmd* */
 		break;
 
 	default :
+		WBUG("free other ordo=%ld",ordo);
 		break;
 	}
 
