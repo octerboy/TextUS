@@ -55,6 +55,43 @@ static void toInt (JNIEnv *env, int *val, jobject jInt );
 static void allocPiusIndic (JNIEnv *env,  Amor::Pius &pius, jobject ps, jobject amr);
 static void freePiusIndic (Amor::Pius &pius);
 
+typedef struct _FaceList {
+		DBFace *face;
+		jobject face_obj;
+		struct _FaceList *prev, *next;
+
+		inline _FaceList () {
+			prev = 0;
+			next = 0;
+			face = 0;
+			face_obj = 0;
+		};
+
+		inline void put ( struct _FaceList *neo ) 
+		{
+			if( !neo ) return;
+			neo->next = next;
+			neo->prev = this;
+			if ( next != 0 )
+				next->prev = neo;
+			next = neo;
+		};
+
+		inline jobject look(DBFace* me) 
+		{
+			struct _FaceList *obj = 0;
+	
+			for ( obj = next; obj; obj = obj->next )
+			{
+				if ( obj->face == me )
+					break;
+			}
+			if ( !obj ) return 0;
+			return obj->face_obj;
+		};
+
+} FaceList;
+
 class JvmPort :public Amor
 {
 public:
@@ -211,6 +248,7 @@ private:
 		char *cls_name;	/* Java类的名称,含路径 */
 		jclass bean_cls, pius_cls, amor_cls;
 		jmethodID bean_init, amor_init,  ignite_mid, facio_mid, sponte_mid, clone_mid;
+		FaceList f_list;
 
 		inline G_CFG ( TiXmlElement *cfg) {
 			TiXmlDocument doc;
@@ -277,6 +315,7 @@ options[2].optionString = "-verbose:jni";
 #include "wlog.h"
 };
 struct JvmPort::JVM_CFG *JvmPort::jvmcfg=0;
+
 
 void JvmPort::ignite(TiXmlElement *cfg) 
 { 
@@ -356,6 +395,7 @@ bool JvmPort::facio( Amor::Pius *pius)
 	jobject document;
 	assert(pius);
 	assert(jvmcfg);
+	jint jret;
 	if ( !jvmcfg->env )
 	{
 		WLOG(ERR,"JVM not created!");
@@ -446,6 +486,28 @@ bool JvmPort::facio( Amor::Pius *pius)
 	case Notitia::CLONE_ALL_READY:
 		WBUG("facio CLONE_ALL_READY");
 		return facioJava(pius);
+		break;
+
+	case Notitia::JUST_START_THREAD:
+		WBUG("facio JUST_START_THREAD");
+		if ( JNI_OK == (jret = jvmcfg->jvm->AttachCurrentThread((void**)&(jvmcfg->env), 0) ))
+		{
+			WBUG("JVM AttachCurrentThread OK.");
+			return facioJava(pius);
+		} else {
+			WLOG(EMERG, "JVM AttachCurrentThread failed! error=%d", jret);
+		}
+		break;
+
+	case Notitia::FINAL_END_THREAD:
+		WBUG("facio FINAL_END_THREAD");
+		facioJava(pius);
+		if ( JNI_OK == (jret = jvmcfg->jvm->DetachCurrentThread() ))
+		{
+			WBUG("JVM DetachCurrentThread  OK.");
+		} else {
+			WLOG(EMERG, "JVM DetachCurrentThread failed! error=%d", jret);
+		}
 		break;
 
 	default:
@@ -1635,8 +1697,19 @@ jobject JvmPort::allocPiusObj( Pius *pius)
 		jobject face_obj;
 
 		face_cls = jvmcfg->env->FindClass("textor/jvmport/DBFace");
-		face_obj = jvmcfg->env->AllocObject(face_cls); 
-		toJFace (jvmcfg->env, (DBFace*)pius->indic, face_obj, face_cls, gCFG->encoding);
+		face_obj = gCFG->f_list.look((DBFace*)pius->indic);
+		if ( !face_obj ) 
+		{
+			FaceList *neo = new FaceList();
+			face_obj = jvmcfg->env->AllocObject(face_cls); 
+			toJFace (jvmcfg->env, (DBFace*)pius->indic, face_obj, face_cls, gCFG->encoding);
+			neo->face = (DBFace*)pius->indic;
+			neo->face_obj = face_obj;
+			gCFG->f_list.put(neo);
+			WBUG("new face %p, face_obj %p", (DBFace*)pius->indic, face_obj);
+		}  else {
+			WBUG("find face %p, face_obj %p", (DBFace*)pius->indic, face_obj);
+		}
 		jvmcfg->env->SetObjectField(ps_obj, indic_fld, face_obj);
 	}
 		break;
@@ -1821,6 +1894,7 @@ void JvmPort::freePiusObj( jobject ps_obj)
 		break;
 
 	case Notitia::CMD_SET_DBFACE:
+#ifdef NO_USE
 	{
 		jobject dbf_obj, rowset_obj, p_obj, str_obj;
 		jobjectArray para_objs;
@@ -1860,6 +1934,7 @@ void JvmPort::freePiusObj( jobject ps_obj)
 		}
 		jvmcfg->env->DeleteLocalRef(dbf_obj);
 	}
+#endif
 		break;
 	case Notitia::ERR_SOAP_FAULT:
 	case Notitia::PRO_SOAP_HEAD:
