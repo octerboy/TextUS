@@ -416,8 +416,10 @@ bool Logdata::sponte_n ( Amor::Pius *pius, unsigned int from)
 		log_str_buf[9] = ']';
 		memcpy(&log_str_buf[1], md_sum, 8);
 	}
+
 	for ( int j = 0 ; channels[j]; j++)
 		channels[j]->dextra(&log_pius, 0); /* Êä³öÈÕÖ¾ */	
+
 	return true;
 }
 #define TEXTUS_APTUS_TAG { 'L', 'o', 'g', 0};

@@ -371,7 +371,7 @@ void Bu2File::output(TBuffer *tbuf, int direct )
 	}
 		
 	if (!gCFG->filename)
-		return;
+		goto NOFILE_PRO;
 
 	if ( gCFG->split == SP_DATE)
 	{
@@ -429,7 +429,7 @@ void Bu2File::output(TBuffer *tbuf, int direct )
 #if !defined (_WIN32)
 		if( (gCFG->fileD = open(rn,O_CREAT|O_RDWR|O_APPEND, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH) ) < 0)
 		{
-			return;
+			goto NOFILE_PRO;
 		}
 #else
 #if defined(_MSC_VER) && (_MSC_VER >= 1400 )
@@ -438,7 +438,7 @@ void Bu2File::output(TBuffer *tbuf, int direct )
 		if( (gCFG->fileD = _sopen(rn, O_CREAT|O_RDWR|O_APPEND, SH_DENYNO,_S_IWRITE )) < 0)
 #endif
 		{
-			return;
+			goto NOFILE_PRO;
 		}
 #endif
 	}
@@ -449,28 +449,20 @@ void Bu2File::output(TBuffer *tbuf, int direct )
 #else
 		if( _locking( gCFG->fileD, _LK_LOCK, w2Len) != 0 )
 #endif
-			return ;
+			goto NOFILE_PRO;
 
 #if !defined (_WIN32)
 	wLen = write(gCFG->fileD, w_buf, w2Len);
 #else
 	wLen = _write(gCFG->fileD, w_buf, w2Len);
 #endif
-	if ( gCFG->toClear && wLen > 0)
-	{
-		if (  gCFG->form != DIRECT_VIEW )
-			tbuf->reset();
-		else
-			tbuf->commit(-wLen);
-	}
-
 	if (gCFG->hasLock)	/* 文件解锁, 对于MS VC,采用CRT的函数, 一个字节 */
 #if !defined (_WIN32)
 		if(fcntl(gCFG->fileD, F_SETLKW, &gCFG->unlock)==-1)
 #else
 		if( _locking( gCFG->fileD, LK_UNLCK, wLen) != 0 )
 #endif
-			return ;
+			goto NOFILE_PRO;
 
 	if ( gCFG->interval <=0 )
 	{
@@ -487,7 +479,19 @@ void Bu2File::output(TBuffer *tbuf, int direct )
 		alarmed = true;
 		deliver(Notitia::DMD_SET_ALARM); /* 设定时 */ 
 	}
+
+	if ( gCFG->toClear && wLen > 0)
+	{
+		if (  gCFG->form != DIRECT_VIEW )
+			tbuf->reset();
+		else
+			tbuf->commit(-wLen);
+	}
+
 	return;
+NOFILE_PRO:
+	if ( gCFG->toClear )
+		tbuf->reset();
 }
 
 Bu2File::Bu2File()

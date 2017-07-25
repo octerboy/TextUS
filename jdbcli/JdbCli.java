@@ -63,6 +63,8 @@ public class JdbCli
 		rcv_pac = null;
 		snd_pac = null;
 		rSet = null;
+		p_stmt = null;
+		c_stmt = null;
 		dopac_ps = new Pius();
 		dopac_ps.ordo = Pius.PRO_UNIPAC;
 		dopac_ps.subor = 0;
@@ -736,6 +738,11 @@ public class JdbCli
 		int i;
 		boolean ret = false;
 		try {
+			if ( p_stmt != null )
+			{
+				//System.out.println("---p_stmt close----------" );
+				p_stmt.close();
+			}
 			if ( face.cRows_field >=0 )
 			{
 				p_stmt = connection.prepareStatement(n_sentence, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
@@ -776,8 +783,8 @@ public class JdbCli
 		try {
 			if ( rSet != null )
 			{
+				aptus.log_bug("close rowset");
 				rSet.close();
-				rSet = null;
 			}
     		} catch(SQLException se) { 
 			aptus.log_err(se.getMessage());

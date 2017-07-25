@@ -511,7 +511,7 @@ bool JvmPort::facio( Amor::Pius *pius)
 		break;
 
 	default:
-		WBUG("facio %d in JvmPort", pius->ordo);
+		WBUG("facio %ld in JvmPort", pius->ordo);
 		//return true;
 		return facioJava(pius);
 	}
