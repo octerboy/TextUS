@@ -128,7 +128,6 @@ public class JdbCli
 			logon();
 		} else if  (pius.ordo == Pius.CLONE_ALL_READY ) {
 			aptus.log_bug("facio CLONE_ALL_READY");
-			logon();
 		} else if  (pius.ordo == Pius.SET_UNIPAC ) {
 			aptus.log_bug("facio SET_UNIPAC");
 			PacketData[] tbs = (PacketData[])pius.indic;
