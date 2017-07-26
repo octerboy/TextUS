@@ -412,6 +412,7 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 		inline MK_Session ()
 		{
 			snap=0;
+			snap_num = 0;
 		};
 
 		inline void  reset(bool soft=true) 
@@ -419,7 +420,7 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 			int i;
 			for ( i = 0; i < snap_num; i++)
 			{
-				if ( !soft || !snap[i].def_var || !snap[i].def_var->keep_alive )
+				if ( !soft || !snap[i].def_var || (snap[i].def_var && !snap[i].def_var->keep_alive) )
 				{
 					snap[i].c_len = 0;
 					snap[i].val[0] = 0;
@@ -428,7 +429,7 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 			}
 			for ( i = Pos_Fixed_Next ; i < snap_num; i++)
 			{	/* 这个Pos_Fixed_Next很重要, 要不然, 那些固有的动态变量会没有的！  */
-				if ( !soft || !snap[i].def_var || !snap[i].def_var->keep_alive )
+				if ( !soft || !snap[i].def_var ||  (snap[i].def_var && !snap[i].def_var->keep_alive) )
 				{
 					snap[i].kind = VAR_None;
 					snap[i].def_var = 0;
@@ -445,12 +446,13 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 
 		inline void init(int m_snap_num) //这个m_snap_num来自各XML定义的最大动态变量数
 		{
+			int i;
 			if ( snap )	return ;
 			if ( m_snap_num <=0 ) return ;
 
 			snap_num = m_snap_num;
 			snap = new struct DyVar[snap_num];
-			for ( int i = 0 ; i < snap_num; i++)
+			for ( i = 0 ; i < snap_num; i++)
 				snap[i].index = i;
 
 			snap[Pos_ErrCode].kind = VAR_ErrCode;

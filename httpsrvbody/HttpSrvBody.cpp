@@ -808,13 +808,37 @@ HTTPSRVINLINE void HttpSrvBody::rcvSocket()
 {
 	unsigned char*p = rcv_buf->base;
 	unsigned char *q;
-	unsigned long len = rcv_buf->point - rcv_buf->base;
+	unsigned long len;
 	long i,j;
-
+	//rcv_buf->reset(); return;
+	//static int a_count =0;
+	//printf("count %d len %d\n", a_count, rcv_buf->point - rcv_buf->base);
+Ana_Begin:
+	len = rcv_buf->point - rcv_buf->base;
+#ifdef NO_USE
+	static bool rest= false;
+	if ( a_count == 75  || a_count == 74 ) {
+		for ( int k = 0; k  < len ; k++ )
+		{
+			if ( k != 0 && k %16 == 0 ) printf("\n");
+		printf("%02X ",  rcv_buf->base[k]);
+		} printf("\n");
+	}
+	if ( rest == true)
+	{
+		for ( int k = 0; k  < 150  ; k++ )
+		{
+			if ( k != 0 && k %16 == 0 ) printf("\n");
+		printf("%02X ",  rcv_buf->base[k]);
+		} printf("\n");
+	}
+	if ( a_count == 75 ) rest = true;
+#endif
 	switch (sock.framing) 
 	{ 
 	case Sock_Framing_Start:
 		WBUG("Sock_Framing_Start buf_len(%ld), should_len(%ld), pos(%d)", len, sock.should_len, sock.pos);
+		//if ( a_count == 75 ) printf("Sock_Framing_Start buf_len(%ld), should_len(%ld), pos %d\n", len, sock.should_len, sock.pos);
 		if ( len < sock.should_len) break;
 		sock.frm.fin = (p[sock.pos]) & 0x80; 
 		sock.frm.start_pos = sock.pos;
@@ -890,6 +914,7 @@ HTTPSRVINLINE void HttpSrvBody::rcvSocket()
 			sock.framing = Sock_Framing_Head; 
 		}
 
+		//if ( a_count == 75 ) printf("Sock_Framing_StartEnd buf_len(%ld), should_len(%ld), pos %d\n", len, sock.should_len, sock.pos);
 		if ( len >= sock.should_len)
 			goto Pro_FRM_HEAD;
 
@@ -897,23 +922,24 @@ HTTPSRVINLINE void HttpSrvBody::rcvSocket()
 
 	case Sock_Framing_Head:
 		WBUG("Sock_Framing_Head buf_len(%ld), should_len(%ld)", len, sock.should_len);
+		//if ( rest ) printf("Sock_Framing_Head buf_len(%ld), should_len(%ld), pos %d\n", len, sock.should_len, sock.pos);
 		if ( len < sock.should_len) break;
 Pro_FRM_HEAD:
 		for ( i = 0; i < sock.frm.ext_len_head; i++)
 		{
 			sock.frm.payload_length <<= 8; 
 			sock.frm.payload_length += p[sock.pos++];
-			if ((sock.frm.payload_length < 0) || (sock.frm.payload_length > gCFG->max_sock_len)) 
-			{ 
-				sock.framing = Sock_Framing_Close; 
-				sock.stat_code =  STATUS_CODE_MESSAGE_TOO_LARGE;
-				break; 
-			} else {
-				sock.framing = Sock_Framing_Data; 
-			}
+		} 
+		if ((sock.frm.payload_length < 0) || (sock.frm.payload_length > gCFG->max_sock_len)) 
+		{ 
+			sock.framing = Sock_Framing_Close; 
+			sock.stat_code =  STATUS_CODE_MESSAGE_TOO_LARGE;
+			break; 
 		} 
 		sock.should_len += sock.frm.payload_length;
+		sock.framing = Sock_Framing_Data; 
 
+		//if ( rest ) printf("Sock_Framing_Head ------ buf_len(%ld), should_len(%ld), pos %d, framing %d\n", len, sock.should_len, sock.pos, sock.framing);
 		if (sock.frm.mask_bit )
 		{
 			memcpy(sock.frm.mask, &p[sock.pos], 4);
@@ -921,6 +947,7 @@ Pro_FRM_HEAD:
 		} else {
 			memset(sock.frm.mask, 0, 4);
 		}
+		//sock.framing = Sock_Framing_Data;
 		if (len >= sock.should_len )
 			goto Pro_FRM_DATA;
 
@@ -977,6 +1004,7 @@ Pro_FRM_DATA:
 
 		} else {	
 			/* 数据帧就在BUFF里 */
+			//if ( rest ) { printf( "Sock_Framing_Data buf_len(%ld), should_len(%ld), pos %d\n", len, sock.should_len, sock.pos); }
 			sock.buf_1st.grant(sock.frm.payload_length);
 			q = sock.buf_1st.point;
 			for (i = 0, j=0; i < sock.frm.payload_length; i++) 
@@ -1003,7 +1031,15 @@ Pro_FRM_DATA:
 			case OPCODE_BINARY: 
 				sock.stat_code = Sock_Status_OK; 
 		DELIVER:
+				//printf("out %d %d\n", a_count++, sock.pos);
 				rcv_buf->commit(-sock.pos);
+#ifdef NO_USE
+				if ( a_count == 74 ) 
+				{
+					*sock.buf_1st.point = 0;
+					printf( "-- %s\n", sock.buf_1st.base);
+				}
+#endif
 				sock.neo_frame();
 				deliver(Notitia::PRO_TBUF);	//数据向右传
 				break; 
@@ -1058,6 +1094,11 @@ Pro_FRM_DATA:
 		tmp_pius.indic = 0;
 		tmp_pius.subor = 0;
 		aptus->facio(&tmp_pius);
+	}
+	if ( sock.framing ==  Sock_Framing_Start && rcv_buf->point - rcv_buf->base > sock.should_len && sock.pos == 0 ) 
+	{
+		//a_count++;
+		goto Ana_Begin;
 	}
 }
 
