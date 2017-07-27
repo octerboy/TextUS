@@ -193,6 +193,7 @@ private:
 	} Websock;
 	Websock sock;
 	int cur_sub_ordo;	//本实例ordo子类型，在TBUFFER中设定
+	const char *cur_sock_name;	//WebSocket协议的名称
 
 	typedef struct _Chunko {
 					/* 很多情况下, 一个chunk一次读完, 所以都处于初始值 */
@@ -219,7 +220,7 @@ private:
 	HTTPSRVINLINE void end();
 	HTTPSRVINLINE void reset();
 	HTTPSRVINLINE void outjs(const char* );
-	HTTPSRVINLINE void deliver(Notitia::HERE_ORDO aordo);
+	HTTPSRVINLINE void deliver(Notitia::HERE_ORDO aordo, void* indic=0);
 
 #include "httpsrv_obj.h"
 #include "wlog.h"
@@ -478,6 +479,7 @@ void HttpSrvBody::reset()
 	isSocket = false;
 	lastSocket = false;
 	cur_sub_ordo = 0;
+	cur_sock_name = 0 ;
 	sock.reset();
 }
 
@@ -505,10 +507,11 @@ HTTPSRVINLINE void HttpSrvBody::end()
 	}
 }
 
-HTTPSRVINLINE void HttpSrvBody::deliver(Notitia::HERE_ORDO aordo)
+HTTPSRVINLINE void HttpSrvBody::deliver(Notitia::HERE_ORDO aordo, void *indic)
 {
 	Amor::Pius tmp_pius;
 	tmp_pius.ordo = aordo;
+	tmp_pius.indic = indic;
 	switch ( aordo)
 	{
 		case Notitia::PRO_TBUF:
@@ -705,7 +708,6 @@ HTTPSRVINLINE bool HttpSrvBody::lookSocket()
 	//printf("conn %s\n", conn);
 	isSocket = false;	//假定开始不是socket
 	has_pro= false;
-	//if ( conn && strcasecmp(conn, "Upgrade") == 0 )
 	if ( headArrContain("Connection", "Upgrade") )
 	{
 		upg = getHead("Upgrade");
@@ -747,6 +749,7 @@ HTTPSRVINLINE bool HttpSrvBody::lookSocket()
 					if (headArrContain(protocol, gCFG->sock_pro_def[i].name) ) //protocol是一个数组。
 					{
 						cur_sub_ordo = gCFG->sock_pro_def[i].sub;
+						cur_sock_name = gCFG->sock_pro_def[i].name;
 						break;
 					}
 				}
@@ -760,7 +763,7 @@ HTTPSRVINLINE bool HttpSrvBody::lookSocket()
 					setHead("Connection", "Upgrade");
 					addHead("Upgrade", "websocket");
 					addHead("Sec-WebSocket-Accept", md2);
-					addHead("Sec-WebSocket-Protocol", gCFG->sock_pro_def[i].name);
+					addHead("Sec-WebSocket-Protocol", cur_sock_name);
 					has_pro = true;
 				}
 				/*
@@ -771,7 +774,7 @@ HTTPSRVINLINE bool HttpSrvBody::lookSocket()
 S_END:
 			local_pius.ordo = Notitia::PRO_HTTP_HEAD;
 			aptus->sponte(&local_pius);
-			if ( has_pro ) deliver(Notitia::WebSock_Start);	
+			if ( has_pro ) deliver(Notitia::WebSock_Start, (void*)cur_sock_name);	
 		}
 	}
 
@@ -810,35 +813,13 @@ HTTPSRVINLINE void HttpSrvBody::rcvSocket()
 	unsigned char *q;
 	unsigned long len;
 	long i,j;
-	//rcv_buf->reset(); return;
-	//static int a_count =0;
-	//printf("count %d len %d\n", a_count, rcv_buf->point - rcv_buf->base);
+	/* 在176版本有调试代码 */	
 Ana_Begin:
 	len = rcv_buf->point - rcv_buf->base;
-#ifdef NO_USE
-	static bool rest= false;
-	if ( a_count == 75  || a_count == 74 ) {
-		for ( int k = 0; k  < len ; k++ )
-		{
-			if ( k != 0 && k %16 == 0 ) printf("\n");
-		printf("%02X ",  rcv_buf->base[k]);
-		} printf("\n");
-	}
-	if ( rest == true)
-	{
-		for ( int k = 0; k  < 150  ; k++ )
-		{
-			if ( k != 0 && k %16 == 0 ) printf("\n");
-		printf("%02X ",  rcv_buf->base[k]);
-		} printf("\n");
-	}
-	if ( a_count == 75 ) rest = true;
-#endif
 	switch (sock.framing) 
 	{ 
 	case Sock_Framing_Start:
 		WBUG("Sock_Framing_Start buf_len(%ld), should_len(%ld), pos(%d)", len, sock.should_len, sock.pos);
-		//if ( a_count == 75 ) printf("Sock_Framing_Start buf_len(%ld), should_len(%ld), pos %d\n", len, sock.should_len, sock.pos);
 		if ( len < sock.should_len) break;
 		sock.frm.fin = (p[sock.pos]) & 0x80; 
 		sock.frm.start_pos = sock.pos;
@@ -914,7 +895,6 @@ Ana_Begin:
 			sock.framing = Sock_Framing_Head; 
 		}
 
-		//if ( a_count == 75 ) printf("Sock_Framing_StartEnd buf_len(%ld), should_len(%ld), pos %d\n", len, sock.should_len, sock.pos);
 		if ( len >= sock.should_len)
 			goto Pro_FRM_HEAD;
 
@@ -922,7 +902,6 @@ Ana_Begin:
 
 	case Sock_Framing_Head:
 		WBUG("Sock_Framing_Head buf_len(%ld), should_len(%ld)", len, sock.should_len);
-		//if ( rest ) printf("Sock_Framing_Head buf_len(%ld), should_len(%ld), pos %d\n", len, sock.should_len, sock.pos);
 		if ( len < sock.should_len) break;
 Pro_FRM_HEAD:
 		for ( i = 0; i < sock.frm.ext_len_head; i++)
@@ -939,7 +918,6 @@ Pro_FRM_HEAD:
 		sock.should_len += sock.frm.payload_length;
 		sock.framing = Sock_Framing_Data; 
 
-		//if ( rest ) printf("Sock_Framing_Head ------ buf_len(%ld), should_len(%ld), pos %d, framing %d\n", len, sock.should_len, sock.pos, sock.framing);
 		if (sock.frm.mask_bit )
 		{
 			memcpy(sock.frm.mask, &p[sock.pos], 4);
@@ -947,7 +925,6 @@ Pro_FRM_HEAD:
 		} else {
 			memset(sock.frm.mask, 0, 4);
 		}
-		//sock.framing = Sock_Framing_Data;
 		if (len >= sock.should_len )
 			goto Pro_FRM_DATA;
 
@@ -1004,7 +981,6 @@ Pro_FRM_DATA:
 
 		} else {	
 			/* 数据帧就在BUFF里 */
-			//if ( rest ) { printf( "Sock_Framing_Data buf_len(%ld), should_len(%ld), pos %d\n", len, sock.should_len, sock.pos); }
 			sock.buf_1st.grant(sock.frm.payload_length);
 			q = sock.buf_1st.point;
 			for (i = 0, j=0; i < sock.frm.payload_length; i++) 
@@ -1031,15 +1007,7 @@ Pro_FRM_DATA:
 			case OPCODE_BINARY: 
 				sock.stat_code = Sock_Status_OK; 
 		DELIVER:
-				//printf("out %d %d\n", a_count++, sock.pos);
 				rcv_buf->commit(-sock.pos);
-#ifdef NO_USE
-				if ( a_count == 74 ) 
-				{
-					*sock.buf_1st.point = 0;
-					printf( "-- %s\n", sock.buf_1st.base);
-				}
-#endif
 				sock.neo_frame();
 				deliver(Notitia::PRO_TBUF);	//数据向右传
 				break; 
@@ -1096,10 +1064,7 @@ Pro_FRM_DATA:
 		aptus->facio(&tmp_pius);
 	}
 	if ( sock.framing ==  Sock_Framing_Start && rcv_buf->point - rcv_buf->base > sock.should_len && sock.pos == 0 ) 
-	{
-		//a_count++;
 		goto Ana_Begin;
-	}
 }
 
 HTTPSRVINLINE void HttpSrvBody::sndSocket(unsigned char op_code, unsigned char *msg_data, unsigned long msg_length)

@@ -351,12 +351,6 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 					val[len] = 0;
 				}
 			}
-/*
-			if ( index == 8)
-			{
-				printf("input len %d, %p\n", len, p);
-			}
-*/
 		};
 
 		void input(int iv)
@@ -1303,13 +1297,6 @@ struct PacIns:public Condition  {
 		{
 			rply = &rcv_lst[ii];
 			fc = n_pac->getfld(rply->fld_no, &rlen);
-/*
-			if ( rply->fld_no == 12 )
-			{
-				printf("-------12 rlen=%d dyna_pos=%d ", rlen, rply->dyna_pos);
-				for( int i = 0 ;i < rlen; i++) printf("%02X ", fc[i]); printf("\n");
-			}
-*/
 			if (rply->must_con ) 
 			{
 				if ( !fc ) 
@@ -1885,6 +1872,7 @@ struct INS_Set {
 
 		//初步确定变量数
 		many = refny ;
+		if ( many ==0 ) return;
 		instructions = new struct User_Command[many];
 			
 		mor = -999999;	//这样，顺序号可以从负数开始
@@ -2418,13 +2406,6 @@ void PacWay::handle_pac()
 		for ( i = 0 ; i <  cur_def->person_vars.many; i++)
 		{
 			vt = &cur_def->person_vars.vars[i];
-/*
-			if ( vt->dynamic_pos ==8 )
-			{
-				dvr = &mess.snap[vt->dynamic_pos];
-				printf("dvr name %s dvr_len %d dvr_kind=%d dvr_def=%p\n", vt->name, dvr->c_len, dvr->kind,dvr->def_var);
-			}
-*/
 			if ( vt->dynamic_pos >=0 )
 			{
 				dvr = &mess.snap[vt->dynamic_pos];
@@ -2468,6 +2449,12 @@ void PacWay::handle_pac()
 		mess.right_status = RT_READY;	//指示终端准备开始工作,
 
 	//{int *a =0 ; *a = 0; };
+		if ( !cur_def->ins_all.instructions )
+		{
+			mk_result();
+			goto HERE_END;
+		}
+			
 		mk_hand();
 HERE_END:
 		break;

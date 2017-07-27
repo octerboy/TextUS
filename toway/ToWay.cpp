@@ -20,7 +20,7 @@
 
 #include "Amor.h"
 #include "Notitia.h"
-#include "md5.h"
+//#include "md5.h"
 #include <stdarg.h>
 #include "TBuffer.h"
 #include "BTool.h"
@@ -29,41 +29,9 @@
 #include <stdlib.h>
 #include <time.h>
 #include <sys/timeb.h>
+#include <assert.h>
 
-#define Obtainx(s)   "0123456789abcdef"[s]
-#define ObtainX(s)   "0123456789ABCDEF"[s]
-#define Obtainc(s)   (s >= 'A' && s <='F' ? s-'A'+10 :(s >= 'a' && s <='f' ? s-'a'+10 : s-'0' ) )
-
-static char* byte2hex(const unsigned char *byte, size_t blen, char *hex) 
-{
-	size_t i;
-	for ( i = 0 ; i < blen ; i++ )
-	{
-		hex[2*i] =  ObtainX((byte[i] & 0xF0 ) >> 4 );
-		hex[2*i+1] = ObtainX(byte[i] & 0x0F );
-	}
-//	hex[2*i] = '\0';
-	return hex;
-}
-
-static unsigned char* hex2byte(unsigned char *byte, size_t blen, const char *hex)
-{
-	size_t i;
-	const char *p ;	
-
-	p = hex; i = 0;
-
-	while ( i < blen )
-	{
-		byte[i] =  (0x0F & Obtainc( hex[2*i] ) ) << 4;
-		byte[i] |=  Obtainc( hex[2*i+1] ) & 0x0f ;
-		i++;
-		p +=2;
-	}
-	return byte;
-}
-
-#define TOKEN_LEN 21
+//#define TOKEN_LEN 21
 class ToWay: public Amor
 {
 public:
@@ -106,7 +74,7 @@ public:
 	
 			for ( obj = next; obj; obj = obj->next )
 			{
-				if ( memcmp(obj->token, mtoken, TOKEN_LEN) == 0 )
+				if ( strcmp(obj->token, mtoken) == 0 )
 					break;
 			}
 			if ( !obj ) return 0;	/* 没有一个有这样的 */
@@ -199,16 +167,12 @@ private:
 	};
 	struct G_CFG *gCFG;     /* 全局共享参数 */
 	bool has_config;
-	inline void ins_ans(TBuffer *ans);
-	inline void ins_req(TBuffer *req);
+	inline void ins_cross(TBuffer *ans);
 	inline void way_down();
 
 	#include "wlog.h"
-	#include "httpsrv_obj.h"
+//	#include "httpsrv_obj.h"
 };
-
-
-#include <assert.h>
 
 void ToWay::ignite(TiXmlElement *prop)
 {
@@ -259,14 +223,17 @@ Amor* ToWay::clone()
 
 bool ToWay::facio( Amor::Pius *pius)
 {
-	MD5_CTX Md5Ctx;
-	unsigned char md[32];
+	//MD5_CTX Md5Ctx;
+	//unsigned char md[32];
+	//const char *qry;
+	//const char *protocol;
 	char msg[32];
-	const char *qry;
-	const char *protocol;
 	struct TokenList *found;
-	char *p;
 	TBuffer **tb;
+
+	TiXmlElement *peer = 0;
+	Amor::Pius g_peer;
+	TiXmlElement *cfg;
 
 #if defined(_WIN32) && (_MSC_VER < 1400 )
 	struct _timeb now;
@@ -329,8 +296,36 @@ AUTH_BACK_END2:
 		break;
 #endif
 
-	case Notitia::WebSock_Start:
-		WBUG("facio WeBSock_Start");
+	case Notitia::CMD_SET_PEER:
+		if ( gCFG->work_mode == FromWay )	/* 指令服务器要求 */
+		{
+			cfg = (TiXmlElement *)(pius->indic);
+			if( !cfg)
+			{
+				WLOG(WARNING, "CMD_SET_PEER cfg is null");
+				break;
+			}
+			TEXTUS_SPRINTF(msg, "%s:%s", cfg->Attribute("ip"),  cfg->Attribute("port"));
+
+			found = gCFG->pools.fetch(msg);
+			if ( found )
+			{
+				WBUG("CMD_SET_PEER found %s", msg);
+				to_reader = found->reader ;
+				if ( to_reader ) 
+				{
+					to_reader->from_way = this;
+					/* 建立了通路, found就用不着了 */
+					found->reader = 0;
+					found->control = 0;
+					gCFG->idle.put(found);
+				}
+			}
+		}
+		break;
+
+	case Notitia::WebSock_Start:	//在这里, indic是一个子协议名, 原来insway中的终端 tcp port。
+		WBUG("facio WeBSock_Start %s", pius->indic == 0 ? "null": (const char*)pius->indic);
 		if ( gCFG->work_mode != ToReader )
 		{
 			WLOG(ERR,"Not ToReader for PRO_WEBSock_HEAD");
@@ -343,6 +338,23 @@ AUTH_BACK_END2:
 			break;
 		}
 
+		g_peer.ordo = Notitia::CMD_GET_PEER;
+		g_peer.subor = 0;
+		g_peer.indic = 0;
+		aptus->sponte(&g_peer);
+		peer = (TiXmlElement *) g_peer.indic;
+		if ( peer )
+		{
+			TEXTUS_SPRINTF(aone->token, "%s:%s", peer->Attribute("cliip"),  pius->indic == 0 ? "null":(const char*)pius->indic );
+		} else {
+			WLOG(ERR,"get_peer return null");
+			break;
+		}
+		gCFG->pools.put(aone);	//放进pools，等着指令服务器连接时从中找出来, 按token
+		aone->reader = this; //这就是reader了
+		aone->control = this;	//如果还在pools，insway没有来连接, 而这个reader断了, 就以此从pools中取出来, 还到idle中。
+
+#ifdef NOOOOOO	//这一段以前的，留纪念
 		if ( gCFG->token_num == 0 ) 
 		{
 		#if defined(_WIN32) && (_MSC_VER < 1400 )
@@ -367,7 +379,6 @@ AUTH_BACK_END2:
 		aone->reader = this; //这就是reader了
 		aone->control = this;	//如果还在pools，insway没有来连接, 而这个reader断了, 就以此从pools中取出来, 还到idle中。
 
-#ifdef NOOOOOO	//这一段以前的，留纪念
 		protocol = getHead("Sec-WebSocket-Protocol");
 		if (protocol && memcmp(protocol, "iway-", 5) == 0 && strlen(protocol) == TOKEN_LEN ) 
 		{
@@ -385,11 +396,11 @@ AUTH_BACK_END2:
 			local_pius.ordo = Notitia::PRO_HTTP_HEAD;
 			aptus->sponte(&local_pius);
 		} 
-#endif
 		snd_buf->input((unsigned char*)&(aone->token[0]), TOKEN_LEN);
 		local_pius.ordo = Notitia::PRO_TBUF;
 		local_pius.indic = 0;
 		aptus->sponte(&local_pius);
+#endif
 		break;
 
 	case Notitia::PRO_TBUF:	
@@ -397,13 +408,20 @@ AUTH_BACK_END2:
 		if ( gCFG->work_mode == ToReader )	/* HTTP体数据, 来自读卡器的响应 */
 		{
 			if ( from_way )
-				from_way->ins_ans(rcv_buf);
-			else {	/* 指示srvbody应该关闭*/
+				from_way->ins_cross(rcv_buf);
+			else {	
 				WLOG(ERR, "This reader is not mapped to a way.");
 				rcv_buf->reset();
 			}
 		} else if ( gCFG->work_mode == FromWay )	/* 来自指令服务器的指令 */
 		{
+			if ( to_reader)
+				to_reader->ins_cross(rcv_buf);
+			else {
+				WLOG(ERR, "This reader is down.");
+				way_down();
+			}
+#ifdef NOOOOOO	//这一段以前的，留纪念
 			char msg[64];
 			p = (char*)rcv_buf->base;
 			if ( p[0] == 'T' )
@@ -451,6 +469,7 @@ AUTH_BACK_END2:
 				if ( to_reader)
 					to_reader->ins_req(rcv_buf);
 			}
+#endif
 		}
 		break;
 
@@ -492,14 +511,17 @@ AUTH_BACK_END2:
 			}
 		
 			if ( from_way )
+			{
+				from_way->way_down();
 				from_way->to_reader = 0;
+			}
 			from_way = 0;
 		} else  if ( gCFG->work_mode == FromWay )
 		{
 			if (to_reader )
 			{
 				to_reader->from_way = 0;
-				to_reader->way_down();
+				//to_reader->way_down();
 			}
 			to_reader = 0;
 		}
@@ -516,22 +538,14 @@ bool ToWay::sponte( Amor::Pius *pius)
 	return false;
 }
 
-/* 处理IC指令响应, FromWay模式下, ans_buf是从ToReader那边传过来, 所以, 这里将ans_buf的内容copy到snd_buf就可以了 */
-inline void ToWay::ins_ans(TBuffer *ans_buf)
+/* 处理IC指令响应, FromWay模式下, rbuf是从ToReader那边传过来, 所以, 这里将rbuf的内容copy到snd_buf就可以了 */
+/* 处理IC指令请求, ToReader模式下, rbuf是从FromWay那边传过来, 所以, 这里将rbuf的内容copy到snd_buf就可以了 */
+inline void ToWay::ins_cross(TBuffer *rbuf)
 {
-	TBuffer::exchange(*ans_buf, *snd_buf);
+	TBuffer::exchange(*rbuf, *snd_buf);
 	local_pius.ordo = Notitia::PRO_TBUF;
 	local_pius.indic = 0;
-	aptus->sponte(&local_pius);
-	return ;
-}
-
-/* 处理IC指令请求, ToReader模式下, req_buf是从FromWay那边传过来, 所以, 这里将req_buf的内容copy到snd_buf就可以了 */
-inline void ToWay::ins_req(TBuffer *req_buf)
-{
-	TBuffer::exchange(*req_buf, *snd_buf);
-	local_pius.ordo = Notitia::PRO_TBUF;
-	local_pius.indic = 0;
+	local_pius.subor = 0;
 	aptus->sponte(&local_pius);
 	return ;
 }
@@ -539,6 +553,7 @@ inline void ToWay::way_down()
 {
 	local_pius.ordo = Notitia::END_SESSION;
 	local_pius.indic = 0;
+	local_pius.subor = 0;
 	aptus->sponte(&local_pius);
 	return ;
 }
