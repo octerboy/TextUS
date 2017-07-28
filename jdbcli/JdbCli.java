@@ -115,26 +115,45 @@ public class JdbCli
 		} else if  (pius.ordo == Pius.CMD_DBFETCH ) {
 			aptus.log_bug("facio CMD_DBFETCH");
 			handle_pac(true);
+
 		} else if  (pius.ordo == Pius.CMD_SET_DBFACE ) {
 			aptus.log_bug("facio CMD_SET_DBFACE");
 			face = (DBFace ) pius.indic;
+
 		} else if  (pius.ordo == Pius.IGNITE_ALL_READY ) {
 			aptus.log_bug("facio IGNITE_ALL_READY");
+
 		} else if  (pius.ordo == Pius.DMD_END_SESSION ) {
 			aptus.log_bug("facio DMD_END_SESSION");
 			logout();
+
 		} else if  (pius.ordo == Pius.DMD_START_SESSION ) {
 			aptus.log_bug("facio DMD_START_SESSION");
 			logon();
+
 		} else if  (pius.ordo == Pius.CLONE_ALL_READY ) {
 			aptus.log_bug("facio CLONE_ALL_READY");
+
 		} else if  (pius.ordo == Pius.SET_UNIPAC ) {
 			aptus.log_bug("facio SET_UNIPAC");
 			PacketData[] tbs = (PacketData[])pius.indic;
 			rcv_pac = tbs[0];
 			snd_pac = tbs[1];
+
 		} else if  (pius.ordo == Pius.CMD_DB_CANCEL ) {
 			aptus.log_bug("facio CMD_DB_CANCEL");
+			try {
+				if ( p_stmt != null )
+				{
+					p_stmt.close();
+				}
+				if ( rSet != null )
+				{
+					rSet.close();
+				}
+    			} catch(SQLException se) { 
+				aptus.log_err(se.getMessage());
+			}
 		} else {
 			aptus.log_bug("JdbCli facio " + pius.ordo);
 			return false;
@@ -722,6 +741,7 @@ public class JdbCli
 				if ( face.cRowsObt_fld >= 0 )
 					snd_pac.input(face.cRowsObt_fld, 0); 
 				aptus.sponte(dopac_ps);
+				//rSet.beforeFirst();	//test only
 			} else if (face.rowset.useEnd )
 				aptus.sponte(end_ps);
     		} catch(SQLException se) { 
@@ -739,7 +759,6 @@ public class JdbCli
 		try {
 			if ( p_stmt != null )
 			{
-				//System.out.println("---p_stmt close----------" );
 				p_stmt.close();
 			}
 			if ( face.cRows_field >=0 )

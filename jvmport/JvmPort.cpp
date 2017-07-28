@@ -52,7 +52,7 @@ static void toJFace (JNIEnv *env, DBFace *dface, jobject face_obj, jclass face_c
 static jobject getIntegerObj(JNIEnv *env, int val);
 static void toInt (JNIEnv *env, int *val, jobject jInt );
 
-static void allocPiusIndic (JNIEnv *env,  Amor::Pius &pius, jobject ps, jobject amr);
+static void getPiusIndic (JNIEnv *env,  Amor::Pius &pius, jobject ps, jobject amr);
 static void freePiusIndic (Amor::Pius &pius);
 
 typedef struct _FaceList {
@@ -304,18 +304,11 @@ private:
 	jobject owner_obj, aptus_obj;
 	bool neo(jobject parent, JvmPort *me, jobject &own_obj, jobject &apt_obj);
 	bool facioJava( Pius *ps);
-	bool sponteJava( Pius *ps);
-	jobject allocPiusObj( Pius *ps);
-	void freePiusObj(jobject pso);
-/*
-options[0].optionString = "-Djava.compiler=NONE"; 
-options[1].optionString = "-Djava.class.path=."; 
-options[2].optionString = "-verbose:jni";
-*/
-#include "wlog.h"
+	bool pius2Java( Pius *ps, jmethodID mid);
+	#include "wlog.h"
 };
-struct JvmPort::JVM_CFG *JvmPort::jvmcfg=0;
 
+struct JvmPort::JVM_CFG *JvmPort::jvmcfg=0;
 
 void JvmPort::ignite(TiXmlElement *cfg) 
 { 
@@ -480,7 +473,6 @@ bool JvmPort::facio( Amor::Pius *pius)
   			WLOG(ERR, "Not found method ignite(String)");
 			break;
 		}
-		return facioJava(pius);
 		break;
 
 	case Notitia::CLONE_ALL_READY:
@@ -512,7 +504,6 @@ bool JvmPort::facio( Amor::Pius *pius)
 
 	default:
 		WBUG("facio %ld in JvmPort", pius->ordo);
-		//return true;
 		return facioJava(pius);
 	}
 	return true;
@@ -520,6 +511,7 @@ bool JvmPort::facio( Amor::Pius *pius)
 
 bool JvmPort::sponte( Amor::Pius *pius) 
 {
+	bool ret = false;
 	assert(pius);
 	assert(jvmcfg);
 	if ( !jvmcfg->env )
@@ -527,32 +519,22 @@ bool JvmPort::sponte( Amor::Pius *pius)
 		WLOG(ERR,"JVM not created!");
 		return false;
 	}
-	return sponteJava(pius);
+	if ( gCFG->sponte_mid && gCFG->pius_cls && owner_obj)
+	{
+		ret = pius2Java(pius, gCFG->sponte_mid);
+		if( jvmError() ) return false;
+	}
+	return ret;
 }
 
 bool JvmPort::facioJava( Amor::Pius *pius)
 {
-	jobject ps_obj;
 	bool ret = false;
-	if ( gCFG->facio_mid && gCFG->pius_cls && (ps_obj = allocPiusObj(pius) ) && owner_obj )
+	if ( gCFG->facio_mid && gCFG->pius_cls && owner_obj )
 	{
-		ret = (bool) jvmcfg->env->CallBooleanMethod(owner_obj,gCFG->facio_mid, ps_obj);
-		freePiusObj(ps_obj);
+		ret = pius2Java(pius, gCFG->facio_mid);
+		if( jvmError() ) return false;
 	}
-	jvmError() ;
-	return ret;
-}
-
-bool JvmPort::sponteJava( Amor::Pius *pius) 
-{
-	jobject ps_obj;
-	bool ret = false;
-	if ( gCFG->sponte_mid && gCFG->pius_cls && (ps_obj = allocPiusObj(pius) ) && owner_obj)
-	{
-		ret = (bool) jvmcfg->env->CallBooleanMethod(owner_obj,gCFG->sponte_mid, ps_obj);
-		freePiusObj(ps_obj);
-	}
-	jvmError() ;
 	return ret;
 }
 
@@ -597,7 +579,6 @@ JvmPort::JvmPort()
 {
 	gCFG = 0;
 	has_config = false;
-
 	owner_obj = aptus_obj = 0;
 }
 
@@ -675,6 +656,7 @@ static void *getPointer (JNIEnv *env,  jobject obj)
 	if ( psize !=  sizeof(pointer))
 		return 0;
 	ba2buf(env, port, (unsigned char*)(&pointer), sizeof(pointer));
+	env->DeleteLocalRef(port);
 	return pointer;
 }
 
@@ -735,7 +717,7 @@ JNIEXPORT jboolean JNICALL Java_textor_jvmport_Amor_facio (JNIEnv *env, jobject 
 	if ( !port )
 		return false;
 
-	allocPiusIndic (env, pius, ps, amor);
+	getPiusIndic (env, pius, ps, amor);
 	ret = (jboolean) port->aptus->facio(&pius);
 	freePiusIndic(pius);
 	return ret;
@@ -751,7 +733,7 @@ JNIEXPORT jboolean JNICALL Java_textor_jvmport_Amor_sponte (JNIEnv *env, jobject
 	if ( !port )
 		return false;
 
-	allocPiusIndic (env, pius, ps, amor);
+	getPiusIndic (env, pius, ps, amor);
 
 	ret = (jboolean) port->aptus->sponte(&pius);
 	freePiusIndic(pius);
@@ -855,6 +837,7 @@ JNIEXPORT jstring JNICALL Java_textor_jvmport_PacketData_getString (JNIEnv *env,
 			env->DeleteLocalRef(reta);
 		}
 	}
+	env->DeleteLocalRef(str_cls);
 	return jstr;
 }
 
@@ -922,12 +905,15 @@ JNIEXPORT jboolean JNICALL Java_textor_jvmport_PacketData_getBool (JNIEnv *env, 
 JNIEXPORT jobject JNICALL Java_textor_jvmport_PacketData_getBoolean (JNIEnv *env, jobject paco, jint no)
 {
 	jmethodID bInit_mid;
+	jobject ret_o;
 	jclass b_cls = env->FindClass("java/lang/Boolean");
 	bInit_mid = env->GetMethodID(b_cls, "<init>", "(Z)V");
 	if ( b_cls != 0 &&  bInit_mid != 0) 
-		return env->NewObject(b_cls, bInit_mid, Java_textor_jvmport_PacketData_getBool(env, paco, no));
+		ret_o =  env->NewObject(b_cls, bInit_mid, Java_textor_jvmport_PacketData_getBool(env, paco, no));
 	else
-		return 0;
+		ret_o = 0;
+	env->DeleteLocalRef(b_cls);
+	return ret_o;
 }
 
 JNIEXPORT jshort JNICALL Java_textor_jvmport_PacketData_getShort (JNIEnv *env, jobject paco, jint no)
@@ -1007,43 +993,53 @@ JNIEXPORT jobject JNICALL Java_textor_jvmport_PacketData_getBigDecimal (JNIEnv *
 		env->DeleteLocalRef(bi_arr);
 		env->DeleteLocalRef(bigInter);
 	}
+	env->DeleteLocalRef(bi_cls);
+	env->DeleteLocalRef(b_cls);
 	return biDec;
 }
 
 JNIEXPORT jobject JNICALL Java_textor_jvmport_PacketData_getDate (JNIEnv *env, jobject paco, jint no)
 {
 	jmethodID dInit_mid;
+	jobject ret;
 	jclass d_cls = env->FindClass("java/sql/Date");
 	dInit_mid = env->GetMethodID(d_cls, "<init>", "(J)V");
 	if ( d_cls != 0 &&  dInit_mid != 0) 
-		return env->NewObject(d_cls, dInit_mid, Java_textor_jvmport_PacketData_getLong(env, paco, no));
+		ret =  env->NewObject(d_cls, dInit_mid, Java_textor_jvmport_PacketData_getLong(env, paco, no));
 	else
-		return NULL;
-	return NULL;
+		ret = 0;
+	env->DeleteLocalRef(d_cls);
+	return ret;
 }
 
 JNIEXPORT jobject JNICALL Java_textor_jvmport_PacketData_getTime (JNIEnv *env, jobject paco, jint no)
 {
 	jmethodID tInit_mid;
+	jobject ret;
 	jclass t_cls = env->FindClass("java/sql/Time");
 	tInit_mid = env->GetMethodID(t_cls, "<init>", "(J)V");
 	if ( t_cls != 0 &&  tInit_mid != 0) 
-		return env->NewObject(t_cls, tInit_mid, Java_textor_jvmport_PacketData_getLong(env, paco, no));
+		ret = env->NewObject(t_cls, tInit_mid, Java_textor_jvmport_PacketData_getLong(env, paco, no));
 	else
-		return NULL;
-	return NULL;
+		ret = 0;
+
+	env->DeleteLocalRef(t_cls);
+	return ret;
 }
 
 JNIEXPORT jobject JNICALL Java_textor_jvmport_PacketData_getTimestamp (JNIEnv *env, jobject paco, jint no)
 {
 	jmethodID tInit_mid;
+	jobject ret;
 	jclass t_cls = env->FindClass("java/sql/Timestamp");
 	tInit_mid = env->GetMethodID(t_cls, "<init>", "(J)V");
 	if ( t_cls != 0 &&  tInit_mid != 0) 
-		return env->NewObject(t_cls, tInit_mid, Java_textor_jvmport_PacketData_getLong(env, paco, no));
+		ret = env->NewObject(t_cls, tInit_mid, Java_textor_jvmport_PacketData_getLong(env, paco, no));
 	else
-		return NULL;
-	return NULL;
+		ret = 0;
+
+	env->DeleteLocalRef(t_cls);
+	return ret;
 }
 
 JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__I_3B (JNIEnv *env, jobject paco, jint no , jbyteArray val)
@@ -1106,6 +1102,7 @@ JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ILjava_lang_String_
 		env->GetByteArrayRegion(strBytes, 0, len, (jbyte*)pcp->buf.point);
 		pcp->commit(no, len);
 	}
+	env->DeleteLocalRef(str_cls);
 	return;
 }
 
@@ -1123,6 +1120,7 @@ JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ILjava_lang_Boolean
 		pcp->grant(sizeof(jboolean));
 		pcp->input(no, (unsigned char*)yes, sizeof(jboolean));
 	}
+	env->DeleteLocalRef(bl_cls);
 	return;
 }
 
@@ -1188,6 +1186,8 @@ JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ILjava_math_BigDeci
 		memcpy(pcp->buf.point, scale, sizeof(jint));
                 pcp->commit(no, sizeof(jint)+len);
 	}
+	env->DeleteLocalRef(bd_cls);
+	env->DeleteLocalRef(bi_cls);
 	return;
 }
 
@@ -1203,6 +1203,7 @@ JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ILjava_sql_Date_2 (
 		pcp->grant(sizeof(jlong));
 		pcp->input(no, (unsigned char*)time, sizeof(jlong));
 	}
+	env->DeleteLocalRef(d_cls);
 	return;
 }
 
@@ -1218,6 +1219,7 @@ JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ILjava_sql_Time_2 (
 		pcp->grant(sizeof(jlong));
 		pcp->input(no, (unsigned char*)time, sizeof(jlong));
 	}
+	env->DeleteLocalRef(d_cls);
 	return;
 }
 
@@ -1233,6 +1235,7 @@ JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ILjava_sql_Timestam
 		pcp->grant(sizeof(jlong));
 		pcp->input(no, (unsigned char*)time, sizeof(jlong));
 	}
+	env->DeleteLocalRef(d_cls);
 	return;
 }
 
@@ -1323,7 +1326,6 @@ JNIEXPORT jbyteArray JNICALL Java_textor_jvmport_TBuffer_getBytes
 	return bts;
 }
 
-
 /* 从一个字符串xmlstr, 获得一个org.w3c.dom.Document对象 */
 jobject getDocumentObj(JNIEnv *env, const char*xmlstr, const char *encoding )
 {
@@ -1386,6 +1388,12 @@ jobject getDocumentObj(JNIEnv *env, const char*xmlstr, const char *encoding )
 	env->DeleteLocalRef(inputSrc_obj);
 	env->DeleteLocalRef(factory);
 	env->DeleteLocalRef(docBuilder);
+
+	env->DeleteLocalRef(str_cls);
+	env->DeleteLocalRef(dbFac_cls);
+	env->DeleteLocalRef(docBuild_cls);
+	env->DeleteLocalRef(doc_cls);
+	env->DeleteLocalRef(strRd_cls);
 	return document;
 }
 /* 从一个org.w3c.dom.Document对象, 生成一个TiXmlDocument对象 */
@@ -1436,13 +1444,19 @@ void toDocument (JNIEnv *env, TiXmlDocument *docp, jobject jdoc)
 	env->DeleteLocalRef(source);
 	env->DeleteLocalRef(transformer);
 	env->DeleteLocalRef(factory);
+
+	env->DeleteLocalRef(tFac_cls);
+	env->DeleteLocalRef(trans_cls);
+	env->DeleteLocalRef(dsrc_cls);
+	env->DeleteLocalRef(bos_cls);
+	env->DeleteLocalRef(rslt_cls);
 	delete[] buf;
 
 	return;
 }
 
 /* 从Java程序到C++程序, 在调用C++程序时, 生成相应的indic指针 */
-static void allocPiusIndic (JNIEnv *env,  Amor::Pius &pius, jobject ps, jobject amor)
+static void getPiusIndic (JNIEnv *env,  Amor::Pius &pius, jobject ps, jobject amor)
 {
 	jclass pius_cls;
 	jfieldID ordo_fld, indic_fld, sub_fld;
@@ -1503,6 +1517,9 @@ static void allocPiusIndic (JNIEnv *env,  Amor::Pius &pius, jobject ps, jobject 
 
 		ba2buf(env, fir, (unsigned char*)&(((void**)pius.indic)[0]), sizeof(void *));
 		ba2buf(env, sec, (unsigned char*)&(((void**)pius.indic)[1]), sizeof(void *));
+		env->DeleteLocalRef(tbo1);
+		env->DeleteLocalRef(tbo2);
+		env->DeleteLocalRef(tbuf_cls);
 		//printf("in jniamor %08x %08x \n", ((void**)pius.indic)[0], ((void**)pius.indic)[1]);
 	}
 		break;
@@ -1553,6 +1570,7 @@ static void allocPiusIndic (JNIEnv *env,  Amor::Pius &pius, jobject ps, jobject 
 	default :
 		break;
 	}
+	env->DeleteLocalRef(pius_cls);
 }
 
 /* 从Java程序到C++程序, 在调用C++程序后, 释放相应的indic指针 */
@@ -1610,10 +1628,11 @@ static void freePiusIndic (Amor::Pius &pius)
 	}
 }
 
-/* 从C++程序到Java程序, 为Java程序生成合适的Pius对象 */
-jobject JvmPort::allocPiusObj( Pius *pius)
+/* 从C++程序到Java程序, 为Java程序生成合适的Pius对象, and facio or sponte */
+bool JvmPort::pius2Java (Pius *pius, jmethodID fs_mid)
 {
 	jobject ps_obj;
+	bool fs_ret = false;
 	jmethodID psInit;
 	jfieldID ordo_fld, indic_fld, sub_fld;
 	jobjectArray indic;
@@ -1628,11 +1647,12 @@ jobject JvmPort::allocPiusObj( Pius *pius)
 
 	indic_fld = jvmcfg->env->GetFieldID(gCFG->pius_cls, "indic", "Ljava/lang/Object;");
 	if ( jvmError() )
-		return 0;
+		return false;
 
 	if ( (TEST_NOTITIA_FLAG & pius->ordo) == JAVA_NOTITIA_DOM )
 	{
 		jvmcfg->env->SetObjectField(ps_obj, indic_fld, (jobject)(pius->indic));		/* 对于Java的Object直接设置 */
+		fs_ret = (bool) jvmcfg->env->CallBooleanMethod(owner_obj, fs_mid, ps_obj);
 		goto RETURN;
 	}
 	/* 下面根据ordo来生成 ps_obj中的indic, 对付各种TBuffer等 */
@@ -1684,11 +1704,16 @@ jobject JvmPort::allocPiusObj( Pius *pius)
 			jvmcfg->env->SetObjectArrayElement(indic, 0, tbo1); 
 			jvmcfg->env->SetObjectArrayElement(indic, 1, tbo2); 
 			jvmcfg->env->SetObjectField(ps_obj, indic_fld, (jobject)indic);
+			fs_ret = (bool) jvmcfg->env->CallBooleanMethod(owner_obj, fs_mid, ps_obj);
+			jvmcfg->env->DeleteLocalRef(fir);
+			jvmcfg->env->DeleteLocalRef(sec);
+			jvmcfg->env->DeleteLocalRef(tbo1);
+			jvmcfg->env->DeleteLocalRef(tbo2);
+			jvmcfg->env->DeleteLocalRef(indic);
+			jvmcfg->env->DeleteLocalRef(tbuf_cls);
 			//printf("in jvmport %08x %08x\n", first, second);
 		}
 	}
-		break;
-		/* indic指向两个指针的指针组 */
 		break;
 
 	case Notitia::CMD_SET_DBFACE:	
@@ -1696,10 +1721,10 @@ jobject JvmPort::allocPiusObj( Pius *pius)
 		jclass face_cls;
 		jobject face_obj;
 
-		face_cls = jvmcfg->env->FindClass("textor/jvmport/DBFace");
 		face_obj = gCFG->f_list.look((DBFace*)pius->indic);
 		if ( !face_obj ) 
 		{
+			face_cls = jvmcfg->env->FindClass("textor/jvmport/DBFace");
 			FaceList *neo = new FaceList();
 			face_obj = jvmcfg->env->AllocObject(face_cls); 
 			toJFace (jvmcfg->env, (DBFace*)pius->indic, face_obj, face_cls, gCFG->encoding);
@@ -1711,6 +1736,7 @@ jobject JvmPort::allocPiusObj( Pius *pius)
 			WBUG("find face %p, face_obj %p", (DBFace*)pius->indic, face_obj);
 		}
 		jvmcfg->env->SetObjectField(ps_obj, indic_fld, face_obj);
+		fs_ret = (bool) jvmcfg->env->CallBooleanMethod(owner_obj, fs_mid, ps_obj);
 	}
 		break;
 
@@ -1730,6 +1756,8 @@ jobject JvmPort::allocPiusObj( Pius *pius)
 		doc.Accept( &printer );
 		document = getDocumentObj( jvmcfg->env, printer.CStr(), gCFG->encoding);
 		jvmcfg->env->SetObjectField(ps_obj, indic_fld, document);
+		fs_ret = (bool) jvmcfg->env->CallBooleanMethod(owner_obj, fs_mid, ps_obj);
+		jvmcfg->env->DeleteLocalRef(document);
 	}
 		break;	
 
@@ -1744,9 +1772,10 @@ jobject JvmPort::allocPiusObj( Pius *pius)
 	case Notitia::MAIN_PARA:
 		/*  *indic[0] = argc, *indic[1] = argv, 将此转为String[] */
 	{
-		int num;
+		int num,i;
 		char **argv;
 		void **ps;
+		jstring *jv;
 		jclass str_cls = jvmcfg->env->FindClass("java/lang/String");
 		jobjectArray strArr;
 
@@ -1754,13 +1783,20 @@ jobject JvmPort::allocPiusObj( Pius *pius)
  		num = (*(int *)ps[0]);
 		argv = (char **)ps[1];
 		strArr = jvmcfg->env->NewObjectArray(num, str_cls, 0);
-		for ( int i = 0 ; i < num; i++)
+		jv = new jstring[num];
+		for ( i = 0 ; i < num; i++)
 		{
-			jstring jv;
-			jv = jvmcfg->env->NewStringUTF(argv[i]);
-			jvmcfg->env->SetObjectArrayElement(strArr, i, jv);
+			jv[i] = jvmcfg->env->NewStringUTF(argv[i]);
+			jvmcfg->env->SetObjectArrayElement(strArr, i, jv[i]);
 		}
 		jvmcfg->env->SetObjectField(ps_obj, indic_fld, strArr);
+		fs_ret = (bool) jvmcfg->env->CallBooleanMethod(owner_obj, fs_mid, ps_obj);
+		jvmcfg->env->DeleteLocalRef(str_cls);
+		jvmcfg->env->DeleteLocalRef(strArr);
+		for ( i = 0 ; i < num; i++)
+		{
+			jvmcfg->env->DeleteLocalRef(jv[i]);
+		}
 	}
 		break;
 
@@ -1771,6 +1807,7 @@ jobject JvmPort::allocPiusObj( Pius *pius)
 
 		integer = getIntegerObj(jvmcfg->env,*((int*) (pius->indic)));
 		jvmcfg->env->SetObjectField(ps_obj, indic_fld, integer);
+		fs_ret = (bool) jvmcfg->env->CallBooleanMethod(owner_obj, fs_mid, ps_obj);
 	}
 		break;
 
@@ -1826,162 +1863,19 @@ jobject JvmPort::allocPiusObj( Pius *pius)
 	case Notitia::ERR_FRAME_LENGTH:
 	case Notitia::START_SERVICE:
 		/* 这些本来就是不需要indic的 */
+		jvmcfg->env->SetObjectField(ps_obj, indic_fld, 0);
+		fs_ret = (bool) jvmcfg->env->CallBooleanMethod(owner_obj, fs_mid, ps_obj);
 		break;
 
 	default :
 		jvmcfg->env->SetObjectField(ps_obj, indic_fld, 0);
+		fs_ret = (bool) jvmcfg->env->CallBooleanMethod(owner_obj, fs_mid, ps_obj);
 		break;
 	}
 
 RETURN:
-	return ps_obj;
-}
-
-/* 从C++程序到Java程序, 在调用Java程序后, 释放相应的Pius对象 */
-void JvmPort::freePiusObj( jobject ps_obj)
-{
-	jobjectArray indic;
-	jfieldID ordo_fld, indic_fld;
-	TEXTUS_ORDO ordo;
-
-	jobject sm_obj;
-	int loopi;
-
-	ordo_fld = jvmcfg->env->GetFieldID(gCFG->pius_cls, "ordo", "J");
-	indic_fld = jvmcfg->env->GetFieldID(gCFG->pius_cls, "indic", "Ljava/lang/Object;");
-	ordo = jvmcfg->env->GetLongField(ps_obj, ordo_fld);
-
-	/* 下面根据ordo来处理 ps_obj中的indic, 释放各种对象 */
-	switch ( ordo )
-	{
-	case Notitia::SET_TBUF:
-	case Notitia::PRO_TBUF:
-	case Notitia::SET_UNIPAC:
-	case Notitia::SET_TINY_XML:
-	{
-		WBUG("free set_buf/pro_tbuf/set_unipac/set_tiny_xml");
-		jclass tbuf_cls;
-		jobject tbo1, tbo2;
-		jbyteArray fir, sec;
-		jfieldID port_fld;
-
-		indic = (jobjectArray) jvmcfg->env->GetObjectField(ps_obj, indic_fld);
-		if ( !indic ) break;
-
-		if ( ordo == Notitia::SET_TBUF || ordo == Notitia::PRO_TBUF )
-			tbuf_cls = jvmcfg->env->FindClass("textor/jvmport/TBuffer");
-		else if ( ordo == Notitia::SET_UNIPAC)
-			tbuf_cls = jvmcfg->env->FindClass("textor/jvmport/PacketData");
-		else 
-			tbuf_cls = jvmcfg->env->FindClass("textor/jvmport/TiXML");
-
-		if ( jvmError()) break;
-		port_fld  = jvmcfg->env->GetFieldID(tbuf_cls, "portPtr", "[B");
-		if ( jvmError()) break;
-
-		tbo1 = jvmcfg->env->GetObjectArrayElement(indic, 0); 
-		tbo2 = jvmcfg->env->GetObjectArrayElement(indic, 1); 
-
-		fir = (jbyteArray) jvmcfg->env->GetObjectField(tbo1, port_fld);
-		sec = (jbyteArray) jvmcfg->env->GetObjectField(tbo2, port_fld);
-		if ( jvmError()) break;
-
-		jvmcfg->env->DeleteLocalRef(fir);
-		jvmcfg->env->DeleteLocalRef(sec);
-		jvmcfg->env->DeleteLocalRef(tbo1);
-		jvmcfg->env->DeleteLocalRef(tbo2);
-	}
-		break;
-
-	case Notitia::CMD_SET_DBFACE:
-#ifdef NO_USE
-	{
-		jobject dbf_obj, rowset_obj, p_obj, str_obj;
-		jobjectArray para_objs;
-
-		WBUG("free cmd_set_dbface");
-		jclass face_cls = jvmcfg->env->FindClass("textor/jvmport/DBFace");
-		jclass rowset_cls = jvmcfg->env->FindClass("textor/jvmport/DBFace$RowSet");
-		if ( jvmError()) return;
-		jclass dbpara_cls = jvmcfg->env->FindClass("textor/jvmport/DBFace$Para");
-		if ( jvmError()) return;
-
-		dbf_obj = jvmcfg->env->GetObjectField(ps_obj, indic_fld);
-		if ( !dbf_obj ) break;
-		rowset_obj = jvmcfg->env->GetObjectField(dbf_obj, jvmcfg->env->GetFieldID(face_cls, "rowset", "Ltextor/jvmport/DBFace$RowSet;"));
-		if ( rowset_obj )
-			jvmcfg->env->DeleteLocalRef(rowset_obj);
-		str_obj = jvmcfg->env->GetObjectField(dbf_obj, jvmcfg->env->GetFieldID(face_cls, "sentence", "Ljava/lang/String;"));
-		if ( str_obj )
-			jvmcfg->env->DeleteLocalRef(str_obj);
-
-		str_obj = jvmcfg->env->GetObjectField(dbf_obj, jvmcfg->env->GetFieldID(face_cls, "id_name", "Ljava/lang/String;"));
-		if ( str_obj )
-			jvmcfg->env->DeleteLocalRef(str_obj);
-		para_objs = (jobjectArray) jvmcfg->env->GetObjectField(dbf_obj, jvmcfg->env->GetFieldID(face_cls, "paras", "[Ltextor/jvmport/DBFace$Para;"));
-		if ( para_objs )
-		{
-			loopi = jvmcfg->env->GetArrayLength(para_objs); 
-			while ( loopi >0 )
-			{
-				p_obj = jvmcfg->env->GetObjectArrayElement(para_objs, loopi-1);
-				str_obj = jvmcfg->env->GetObjectField(p_obj, jvmcfg->env->GetFieldID(dbpara_cls, "name", "Ljava/lang/String;"));
-				if ( str_obj )
-					jvmcfg->env->DeleteLocalRef(str_obj);
-				jvmcfg->env->DeleteLocalRef(p_obj);
-				--loopi;
-			}
-		}
-		jvmcfg->env->DeleteLocalRef(dbf_obj);
-	}
-#endif
-		break;
-	case Notitia::ERR_SOAP_FAULT:
-	case Notitia::PRO_SOAP_HEAD:
-	case Notitia::PRO_SOAP_BODY:	
-		WBUG("free err_soap_fault/pro_soap_head/pro_soap_body");
-		/* indic 指向一个Document */
-	case Notitia::TIMER:
-		/* indic 指向一个Integer */
-	{
-		WBUG("free timer");
-		jobject doc = jvmcfg->env->GetObjectField(ps_obj, indic_fld);
-		jvmcfg->env->DeleteLocalRef(doc);
-	}
-		break;	
-
-	case Notitia::MAIN_PARA:
-		/* indic 指向一个String[] */
-		WBUG("free main_para");
-		indic = (jobjectArray) jvmcfg->env->GetObjectField(ps_obj, indic_fld);
-		if ( !indic ) break;
-
-		loopi = jvmcfg->env->GetArrayLength(indic); 
-		while ( loopi >0 )
-		{
-			sm_obj = jvmcfg->env->GetObjectArrayElement(indic, loopi-1);
-			jvmcfg->env->DeleteLocalRef(sm_obj);
-			--loopi;
-		}
-
-		break;
-
-	case Notitia::CMD_HTTP_GET:
-		/* indic 指向一个指针struct GetRequestCmd* */
-		WBUG("free cmd_http_get");
-		break;
-	
-	case Notitia::CMD_HTTP_SET:
-		WBUG("free cmd_http_set");
-		/* indic 指向一个指针struct SetResponseCmd* */
-		break;
-
-	default :
-		WBUG("free other ordo=%ld",ordo);
-		break;
-	}
-
 	jvmcfg->env->DeleteLocalRef(ps_obj);
+	return fs_ret;
 }
 
 jobject getIntegerObj(JNIEnv *env, int val) 
@@ -1994,6 +1888,7 @@ jobject getIntegerObj(JNIEnv *env, int val)
 	intInit_mid = env->GetMethodID(integer_cls, "<init>", "(I)V");
 
 	jInt = env->NewObject(integer_cls, intInit_mid, val);
+	env->DeleteLocalRef(integer_cls);
 	if ( jvmError(env) ) return 0;
 	return jInt;
 }
@@ -2007,6 +1902,7 @@ void toInt (JNIEnv *env, int *val, jobject jInt )
 
 	getInt_mid = env->GetMethodID(integer_cls, "intValue", "()I");
 	*val = env->CallIntMethod(jInt, getInt_mid);
+	env->DeleteLocalRef(integer_cls);
 	jvmError(env);
 }
 
