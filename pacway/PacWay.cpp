@@ -420,11 +420,11 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 					snap[i].c_len = 0;
 					snap[i].val[0] = 0;
 					snap[i].val_p = 0;
+					snap[i].def_var = 0;
 					if ( i >= Pos_Fixed_Next )
 					{
 						/* 这个Pos_Fixed_Next很重要, 要不然, 那些固有的动态变量会没有的！  */
 						snap[i].kind = VAR_None;
-						snap[i].def_var = 0;
 					}
 				}
 			}

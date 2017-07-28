@@ -6,7 +6,7 @@ holding \
 htmlsift httpagent httpauth httpcookie \
 httpdigest httpdir httpfile httpform httpnourl \
 httpsrvbody httpsrvhead httpupfile httpurlsw httpxml \
-induco joint keep locker log2buff logdata \
+induco joint jvmport keep locker log2buff logdata \
 monip montcp \
 nacframe nostra \
 pacway pipe pmuto process ramify relay \
@@ -15,7 +15,7 @@ tbufchan tbufile \
 tcgi tcpcli tcpctrl tcpsrv \
 thread tix2pac trend tsoap \
 unifom unipac version \
-jsport jvmport \
+jsport \
 oracli \
 sysadm tpcap ttyop \
 nosuch
