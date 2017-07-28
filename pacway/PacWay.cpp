@@ -331,6 +331,7 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 			index = - 1;
 			c_len = 0;
 			val_p = 0;
+			def_var = 0;
 
 			memset(val, 0, sizeof(val));
 		};
@@ -419,14 +420,12 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 					snap[i].c_len = 0;
 					snap[i].val[0] = 0;
 					snap[i].val_p = 0;
-				}
-			}
-			for ( i = Pos_Fixed_Next ; i < snap_num; i++)
-			{	/* 这个Pos_Fixed_Next很重要, 要不然, 那些固有的动态变量会没有的！  */
-				if ( !soft || !snap[i].def_var ||  (snap[i].def_var && !snap[i].def_var->keep_alive) )
-				{
-					snap[i].kind = VAR_None;
-					snap[i].def_var = 0;
+					if ( i >= Pos_Fixed_Next )
+					{
+						/* 这个Pos_Fixed_Next很重要, 要不然, 那些固有的动态变量会没有的！  */
+						snap[i].kind = VAR_None;
+						snap[i].def_var = 0;
+					}
 				}
 			}
 			left_status = LT_Idle;
