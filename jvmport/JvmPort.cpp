@@ -657,6 +657,7 @@ static void *getPointer (JNIEnv *env,  jobject obj)
 		return 0;
 	ba2buf(env, port, (unsigned char*)(&pointer), sizeof(pointer));
 	env->DeleteLocalRef(port);
+	env->DeleteLocalRef(o_cls);
 	return pointer;
 }
 
@@ -666,7 +667,7 @@ static void setPointer (JNIEnv *env,  jobject obj, void *p)
 	jfieldID port_fld = env->GetFieldID(o_cls, "portPtr", "[B");	
 	jbyteArray port =  buf2ba(env, (unsigned char*)&p , sizeof(p));
 	env->SetObjectField(obj, port_fld, (jobject)port);
-	env->DeleteLocalRef(port);
+	env->DeleteLocalRef(o_cls);
 	return ;
 }
 
@@ -719,6 +720,11 @@ JNIEXPORT jboolean JNICALL Java_textor_jvmport_Amor_facio (JNIEnv *env, jobject 
 
 	getPiusIndic (env, pius, ps, amor);
 	ret = (jboolean) port->aptus->facio(&pius);
+	if ( (TEST_NOTITIA_FLAG & pius.ordo) == JAVA_NOTITIA_DOM )
+	{
+		env->DeleteLocalRef((jobject)pius.indic);
+		return ret;
+	}
 	freePiusIndic(pius);
 	return ret;
 }
@@ -736,6 +742,11 @@ JNIEXPORT jboolean JNICALL Java_textor_jvmport_Amor_sponte (JNIEnv *env, jobject
 	getPiusIndic (env, pius, ps, amor);
 
 	ret = (jboolean) port->aptus->sponte(&pius);
+	if ( (TEST_NOTITIA_FLAG & pius.ordo) == JAVA_NOTITIA_DOM )
+	{
+		env->DeleteLocalRef((jobject)pius.indic);
+		return ret;
+	}
 	freePiusIndic(pius);
 	return ret;
 }
@@ -1520,6 +1531,9 @@ static void getPiusIndic (JNIEnv *env,  Amor::Pius &pius, jobject ps, jobject am
 		env->DeleteLocalRef(tbo1);
 		env->DeleteLocalRef(tbo2);
 		env->DeleteLocalRef(tbuf_cls);
+		env->DeleteLocalRef(indic);
+		env->DeleteLocalRef(fir);
+		env->DeleteLocalRef(sec);
 		//printf("in jniamor %08x %08x \n", ((void**)pius.indic)[0], ((void**)pius.indic)[1]);
 	}
 		break;
@@ -1589,7 +1603,6 @@ static void freePiusIndic (Amor::Pius &pius)
 		ptrArray = (void**) pius.indic;
 		if ( ptrArray )
 			delete[] ptrArray;
-		break;
 		/* indic指向两个指针的指针组 */
 		break;
 
