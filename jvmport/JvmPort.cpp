@@ -1804,12 +1804,12 @@ bool JvmPort::pius2Java (Pius *pius, jmethodID fs_mid)
 		}
 		jvmcfg->env->SetObjectField(ps_obj, indic_fld, strArr);
 		fs_ret = (bool) jvmcfg->env->CallBooleanMethod(owner_obj, fs_mid, ps_obj);
-		jvmcfg->env->DeleteLocalRef(str_cls);
-		jvmcfg->env->DeleteLocalRef(strArr);
 		for ( i = 0 ; i < num; i++)
 		{
 			jvmcfg->env->DeleteLocalRef(jv[i]);
 		}
+		jvmcfg->env->DeleteLocalRef(str_cls);
+		jvmcfg->env->DeleteLocalRef(strArr);
 	}
 		break;
 

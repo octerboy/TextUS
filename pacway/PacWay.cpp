@@ -1170,7 +1170,7 @@ struct PacIns:public Condition  {
 	const char *err_code; //这是直接从外部定义文件得到的内容，不作任何处理。 当本报文出现通信错误，包括报文不能解析的、通道关闭。
 	bool counted;		//是否计数
 	bool isFunction;	//是否为函数
-	enum ACT_DIR fac_spo;	//动作方向
+	enum ACT_DIR fac_spo;	//动作方向, to do..... no work yet.
 	TEXTUS_ORDO ordo;	//其它动作
 	const char *dbface_name;
 	DBFace *dbface;
@@ -2146,10 +2146,7 @@ private:
 		long sub_loop;	//循环次数
 	} command_wt;
 
-	int sub_serial_pro(struct ComplexSubSerial *comp);
-	bool call_back;	/* false: 一般如此，向右发出后，在下一轮中再处理响应; 
-			true: 对于函数处理的扩展，有回调处理，在sponte时就即返回，由发出点处理响应数据，从而避免调用嵌套太深。
-			*/
+	int sub_serial_pro(struct ComplexSubSerial *comp, bool &has_back,  Amor::Pius *&fac_ps);
 	DBFace *get_dbface(const char *id_name);
 	void set_peer(PacketObj *pac, int sub);
 	void get_cert(PacketObj *pac, int sub);
@@ -2197,7 +2194,6 @@ PacWay::PacWay()
 	loc_pro_pac.indic = 0;
 	loc_pro_pac.subor = -1;
 
-	call_back = false;
 	prodb_ps.ordo =  Notitia::PRO_DBFACE;
 	prodb_ps.indic = 0;
 	prodb_ps.subor = -1;
@@ -2339,8 +2335,7 @@ bool PacWay::sponte( Amor::Pius *pius)
 			WLOG(WARNING, "mess error right_status=%s right_subor=%d pius->subor=%d", r_str, mess.right_subor, pius->subor);
 			break;
 		}
-		if (!call_back) //对于回调函数，即返回。
-			mk_hand();
+		mk_hand();
 		break;
 
 	case Notitia::DMD_END_SESSION:	//右节点关闭, 要处理
@@ -2536,11 +2531,10 @@ void PacWay::get_peer(PacketObj *pac, int sub)
 }
 
 /* 子序列入口 */
-int PacWay::sub_serial_pro(struct ComplexSubSerial *comp)
+int PacWay::sub_serial_pro(struct ComplexSubSerial *comp, bool &has_back,  Amor::Pius *&fac_ps)
 {
 	struct PacIns *paci;
 	char h_msg[1024];
-	Amor::Pius tmp_ps;
 
 SUB_INS_PRO:
 	paci = &(comp->pac_inses[command_wt.pac_which]);
@@ -2556,6 +2550,8 @@ SUB_INS_PRO:
 		}
 	}
 
+	has_back = false;
+	fac_ps = 0;
 	switch ( paci->type)
 	{
 	case INS_Normal:
@@ -2567,14 +2563,16 @@ SUB_INS_PRO:
 			paci->get_req_pac(hi_req_p, loc_pro_pac.subor, &mess, rcv_pac, snd_pac);
 			command_wt.pac_step = Pac_Working;
 
-			call_back = paci->isFunction; //对于函数，属回调的情况。这个call_back在sponte时被判断
+			if ( paci->isFunction || paci->rcv_num == 0 ) 
+				has_back = true;
+			else
+				has_back = false;
 
-			mess.right_status = RT_OUT;
 			mess.right_subor = paci->subor;
-			WBUG("mess.pro_order=%d command_wt.pac_which=%d callback(%s)", mess.pro_order, command_wt.pac_which, call_back ? "yes":"no");
+			WBUG("will mess.pro_order=%d command_wt.pac_which=%d has_back(%s)", mess.pro_order, command_wt.pac_which, has_back ? "yes":"no");
 			//if ( mess.pro_order == 2 &&  command_wt.pac_which ==1 ) {int *a=0; *a=0;}
 			if ( paci->type == INS_Normal )
-				aptus->facio(&loc_pro_pac);     //向右发出, 然后等待
+				fac_ps = &loc_pro_pac;
 			else if ( paci->type == INS_Pro_DBFace) 
 			{	//DB操作
 				if (paci->dbface == 0 ) 
@@ -2590,15 +2588,11 @@ SUB_INS_PRO:
 				}
 				prodb_ps.indic = paci->dbface;
 				prodb_ps.subor = paci->subor;
-				aptus->facio(&prodb_ps);	//发出DB操作
+				fac_ps = &prodb_ps;
 			}
-			if ( call_back || paci->rcv_num == 0 ) 
-				goto GO_ON_FUNC; /* facio函数返回时，响应报文已备，继续处理。没有接收域(无响应数据)，就视为同步完成*/
-			else
-				return 0; 	/* 正在进行 */
+			return 0; 	/* 正在进行 */
 			break;
 		case Pac_Working:
-GO_ON_FUNC:
 			//if ( mess.pro_order == 49 &&  command_wt.pac_which == 1 ) {int *a=0; *a=0;}
 			command_wt.pac_step = Pac_End;
 			break;
@@ -2681,12 +2675,21 @@ void PacWay::mk_hand()
 {
 	struct User_Command *usr_com;
 	int i_ret;
+	Amor::Pius *fac_ps;
+	bool has_back;
+
+#define NEXT_INS	\
+		mess.ins_which++;	\
+		if ( mess.ins_which < cur_def->ins_all.many)	\
+			goto INS_PRO;		\
+		else 				\
+			mk_result();		
 
 INS_PRO:
 	usr_com = &(cur_def->ins_all.instructions[mess.ins_which]);
-	if ( mess.snap[Pos_CurCent].def_var) mess.snap[Pos_CurCent].input((mess.ins_which*100)/cur_def->ins_all.many);
-	
 	mess.pro_order = usr_com->order;	
+	if ( mess.snap[Pos_CurCent].def_var) 
+		mess.snap[Pos_CurCent].input((mess.ins_which*100)/cur_def->ins_all.many);
 
 	if ( mess.right_status  ==  RT_READY )	//终端空闲,各类工作单元清空复位
 	{
@@ -2696,69 +2699,69 @@ INS_PRO:
 	//{int *a =0 ; *a = 0; };
 	switch ( command_wt.step)
 	{
-		case 0:	//开始
-			if ( !usr_com->valid_condition(&mess) )
-			{
-				mess.right_status = RT_READY ;	//右端闲, 可以下一条命令
-				break;
-			}
-			command_wt.cur = 0;
-			if ( usr_com->comp_num == 1 )
-				mess.willLast = true;
-			else 
-				mess.willLast = false; //一个用户操作，包括几个复合指令的尝试，有一个成功，就算OK
+	case 0:	//开始
+		if ( !usr_com->valid_condition(&mess) )
+		{
+			mess.right_status = RT_READY;
+			NEXT_INS
+			break;
+		}
+		command_wt.cur = 0;
+		if ( usr_com->comp_num == 1 )
+			mess.willLast = true;
+		else 
+			mess.willLast = false; //一个用户操作，包括几个复合指令的尝试，有一个成功，就算OK
 NEXT_PRI_TRY:
-			command_wt.sub_loop = usr_com->complex[command_wt.cur].loop_n; //软失败的重试次数
+		command_wt.sub_loop = usr_com->complex[command_wt.cur].loop_n; //软失败的重试次数
 LOOP_PRI_TRY:
-			command_wt.pac_which = 0;	//新子系列, pac从第0个开始
-			command_wt.pac_step = Pac_Idle;	//pac处理开始, 
-			command_wt.step++;	//指向下一步
-		case 1:
-			i_ret = sub_serial_pro( &(usr_com->complex[command_wt.cur]) );
-			if ( i_ret == -1 ) 	//这是软失败
+		command_wt.pac_which = 0;	//新子系列, pac从第0个开始
+		command_wt.pac_step = Pac_Idle;	//pac处理开始, 
+		command_wt.step++;	//指向下一步
+	case 1:
+		i_ret = sub_serial_pro( &(usr_com->complex[command_wt.cur]), has_back, fac_ps );
+		if ( i_ret == -1 ) 	//这是软失败
+		{
+			command_wt.sub_loop--;
+			if ( command_wt.sub_loop != 0 ) 	//如果原为是0,则为负,几乎到不了0
 			{
 				command_wt.sub_loop--;
-				if ( command_wt.sub_loop != 0 ) 	//如果原为是0,则为负,几乎到不了0
-				{
-					command_wt.sub_loop--;
-					command_wt.step--;
-					goto LOOP_PRI_TRY;
-				}
-				if ( command_wt.cur < (usr_com->comp_num-1) )	//用户定义的Abort才试下一个
-				{
-					command_wt.cur++;
-					command_wt.step--;
-					if ( command_wt.cur == (usr_com->comp_num-1) ) //最后一条复合指令啦，如果出错就调用自定义的出错过程(响应报文设置一些数据，或者向终端发些指令)
-						mess.willLast = true;
-					goto NEXT_PRI_TRY;		//试另一个
-				} else {		//最后一条处理失败，定义出错值
-					mess.iRet = ERROR_USER_ABORT;			
-					TEXTUS_SPRINTF(mess.err_str, "user abort at %d of %s", mess.pro_order, cur_def->flow_id);
-					mk_result();		/* 结束 */
-				}
-			} else if ( i_ret < 0 )  //脚本控制或报文定义 的 错误
-			{
-				mk_result(); 
-			} else 	if ( i_ret > 0  ) 
-			{
-				mess.right_status = RT_READY;	//右端闲
-				WBUG("has completed %d, order %d", mess.ins_which, mess.pro_order);
+				command_wt.step--;
+				goto LOOP_PRI_TRY;
 			}
-			/*if ( i_ret ==0  ) 子序列正在进行, 这里不作任何处理 */
-			break;
-		default:
-			break;
-	} //end of switch command_wt.step
-
-	if ( mess.right_status == RT_READY )	//可以下一条用户命令
-	{
-		mess.ins_which++;
-		if ( mess.ins_which < cur_def->ins_all.many)
-			goto INS_PRO;		// 下一条
-		else 
-			mk_result();		//一个交易已经完成
+			if ( command_wt.cur < (usr_com->comp_num-1) )	//用户定义的Abort才试下一个
+			{
+				command_wt.cur++;
+				command_wt.step--;
+				if ( command_wt.cur == (usr_com->comp_num-1) ) //最后一条复合指令啦，如果出错就调用自定义的出错过程(响应报文设置一些数据，或者向终端发些指令)
+					mess.willLast = true;
+				goto NEXT_PRI_TRY;		//试另一个
+			} else {		//最后一条处理失败，定义出错值
+				mess.iRet = ERROR_USER_ABORT;			
+				TEXTUS_SPRINTF(mess.err_str, "user abort at %d of %s", mess.pro_order, cur_def->flow_id);
+				mk_result();		/* 结束 */
+			}
+		} else if ( i_ret ==0  ) 
+		{
+			mess.right_status = RT_OUT;
+			if ( has_back ) 
+			{
+				aptus->facio(fac_ps);     //向右发出指令, 右节点不再sponte
+				if ( mess.right_status == RT_OUT ) 
+					goto INS_PRO;		//本指令处理结果. 但是右节点dmd_end_session导致复位, 就不再处理
+			} else {
+				aptus->facio(fac_ps);     //向右发出指令, aptus.facio的处理放在最后, 很重要!!。因为可能在这个调用中就收到右节点的sponte. 注意!!. 以后的工作中一定要注意.
+			}
+		} else 	if ( i_ret > 0  ) 
+		{
+			mess.right_status = RT_READY;	//右端闲
+			WBUG("has completed %d, order %d", mess.ins_which, mess.pro_order);
+			NEXT_INS
+		} else if ( i_ret < 0 )  //脚本控制或报文定义 的 错误
+		{
+			mk_result(); 
+		}
+		break;
 	}
-//{int *a =0 ; *a = 0; };
 }
 
 void PacWay::mk_result(bool end_mess)
