@@ -2107,7 +2107,7 @@ public:
 
 private:
 	void h_fail(char tmp[], char desc[], int p_len, int q_len, const char *p, const char *q, const char *fun);
-	void mk_hand();	//还有右边状态处理
+	void mk_hand(bool right_down=false);	//还有右边状态处理
 	void mk_result(bool end_mess=true);
 
 	struct G_CFG 	//全局定义
@@ -2335,16 +2335,15 @@ bool PacWay::sponte( Amor::Pius *pius)
 			WLOG(WARNING, "mess error right_status=%s right_subor=%d pius->subor=%d", r_str, mess.right_subor, pius->subor);
 			break;
 		}
-		mk_hand();
 		break;
 
 	case Notitia::DMD_END_SESSION:	//右节点关闭, 要处理
 		WBUG("sponte DMD_END_SESSION");
-		if ( mess.left_status == LT_Working  )	//表明是制卡工作
+		if ( mess.left_status == LT_Working && mess.right_status == RT_OUT)	//表明是制卡工作
 		{
 			mess.iRet = ERROR_DEVICE_DOWN;
-			TEXTUS_SPRINTF(mess.err_str, "device down at %d", pius->subor);
-			mk_result();	//结束
+			TEXTUS_SPRINTF(mess.err_str, "device down at subor=%d", pius->subor);
+			mk_hand(true);
 		}
 		break;
 
@@ -2671,9 +2670,10 @@ SUB_INS_PRO:
 	return 0;
 }
 
-void PacWay::mk_hand()
+void PacWay::mk_hand(bool right_down)
 {
 	struct User_Command *usr_com;
+	struct PacIns *paci;
 	int i_ret;
 	Amor::Pius *fac_ps;
 	bool has_back;
@@ -2688,6 +2688,13 @@ void PacWay::mk_hand()
 INS_PRO:
 	usr_com = &(cur_def->ins_all.instructions[mess.ins_which]);
 	mess.pro_order = usr_com->order;	
+	if ( right_down )
+	{
+		paci = &(usr_com->complex[command_wt.cur].pac_inses[command_wt.pac_which]);
+		if ( paci->err_code) mess.snap[Pos_ErrCode].input(paci->err_code);
+		mk_result();	//结束
+		return;
+	}
 	if ( mess.snap[Pos_CurCent].def_var) 
 		mess.snap[Pos_CurCent].input((mess.ins_which*100)/cur_def->ins_all.many);
 
