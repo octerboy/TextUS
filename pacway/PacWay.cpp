@@ -2333,8 +2333,8 @@ bool PacWay::sponte( Amor::Pius *pius)
 				break;
 			}
 			WLOG(WARNING, "mess error right_status=%s right_subor=%d pius->subor=%d", r_str, mess.right_subor, pius->subor);
-			break;
-		}
+		} else 
+			mk_hand();
 		break;
 
 	case Notitia::DMD_END_SESSION:	//右节点关闭, 要处理
