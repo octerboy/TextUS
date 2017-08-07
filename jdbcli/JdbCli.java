@@ -244,6 +244,7 @@ public class JdbCli
 			break;
 
 		case DBFace.Long:
+		case DBFace.BigInt:
 			p_stmt.setLong(j,  rcv_pac.getLong(rNo));
 			break;
 
@@ -268,7 +269,7 @@ public class JdbCli
 			break;
 */
 		default:
-			aptus.log_crit("Unknown data type "+para.data_type);
+			aptus.log_crit("unknown input data type "+para.data_type);
 			break;
 		}
 	}
@@ -362,6 +363,7 @@ public class JdbCli
 			break;
 
 		case DBFace.Long:
+		case DBFace.BigInt:
 			if ( para.namelen > 0 ) 
 				p_stmt.registerOutParameter(para.name, Types.BIGINT);
 			else
@@ -400,7 +402,7 @@ public class JdbCli
 			break;
 */
 		default:
-			aptus.log_crit("Unknown data type "+para.data_type);
+			aptus.log_crit("unknown out data type "+para.data_type);
 			break;
 		}
 	}
@@ -471,6 +473,7 @@ public class JdbCli
 				snd_pac.input(para.fld, stmt.getBytes(j));
 			break;
 
+		case DBFace.BigInt:
 		case DBFace.Long:
 			if ( para.namelen > 0 ) 
 				snd_pac.input(para.fld, stmt.getLong(para.name));
@@ -510,7 +513,7 @@ public class JdbCli
 			break;
 */
 		default:
-			aptus.log_crit("Unknown data type "+para.data_type);
+			aptus.log_crit("unknown proc_get data type "+para.data_type);
 			break;
 		}
 	}
@@ -583,6 +586,7 @@ public class JdbCli
 				snd_pac.input(para.fld, rSet.getBytes(j));
 			break;
 
+		case DBFace.BigInt:
 		case DBFace.Long:
 			if ( para.namelen > 0 ) 
 				snd_pac.input(para.fld, rSet.getLong(para.name));
@@ -641,6 +645,7 @@ public class JdbCli
 			c_stmt.close();
 			aptus.sponte(dopac_ps);
     		} catch(SQLException se) { 
+    				se.printStackTrace() ;   
 			aptus.log_err(se.getMessage());
 			snd_pac.input(face.errCode_field, se.getErrorCode());
 			snd_pac.input(face.errStr_field, se.toString()); 
@@ -690,14 +695,16 @@ public class JdbCli
 
 	String obtain_call_str (boolean isFun) {
 		String n_sentence;
-		int i;
+		int i,j;
 		if ( isFun ) { 
 			n_sentence = "{?=";
+			j = 1;
 		} else {
 			n_sentence = "{";
+			j = 0;
 		}
 		n_sentence += " call " +  face.sentence + " (" ;
-		for ( i = 1 ; i <  face.num-1; i++ )
+		for ( i = j ; i <  face.num-1; i++ )
 		{
 			n_sentence += "?,";
 		}

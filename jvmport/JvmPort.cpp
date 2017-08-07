@@ -2033,13 +2033,18 @@ void toJFace (JNIEnv *env, DBFace *dface, jobject face_obj, jclass face_cls,  co
 	env->SetIntField(para_obj, env->GetFieldID(dbpara_cls, X, "I"), (int)dface->paras[i].Y);
 
 #define OBJ_PARA_SET_STR(X,Y) \
+	if ( dface->paras[i].Y ) \
+	{	\
 	len = strlen((const char *)dface->paras[i].Y);	\
 	args =  env->NewByteArray(len);		\
 	env->SetByteArrayRegion(args, 0, len, (jbyte*)dface->paras[i].Y);	\
 	jstr = env->NewObject(str_cls, strInit_mid, args, encStr);	\
 	env->SetObjectField(para_obj, env->GetFieldID(dbpara_cls, X, "Ljava/lang/String;"), jstr);	\
 	env->DeleteLocalRef(args);	\
-	env->DeleteLocalRef(jstr);
+	env->DeleteLocalRef(jstr);	\
+	} else {	\
+		env->SetObjectField(para_obj, env->GetFieldID(dbpara_cls, X, "Ljava/lang/String;"), 0);	\
+	}
 
 #define OBJ_PARA_SET_STATIC_INT(X,Y) \
 	env->SetIntField(para_obj, env->GetFieldID(dbpara_cls, X, "I"), env->GetStaticIntField(face_cls,  env->GetStaticFieldID(face_cls, Y, "I")));
