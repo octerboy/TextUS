@@ -305,6 +305,8 @@ private:
 	bool neo(jobject parent, JvmPort *me, jobject &own_obj, jobject &apt_obj);
 	bool facioJava( Pius *ps);
 	bool pius2Java( Pius *ps, jmethodID mid);
+	
+	//PacketObj *rcv_pac, *snd_pac;	/* 来自左节点的PacketObj */
 	#include "wlog.h"
 };
 
@@ -389,6 +391,7 @@ bool JvmPort::facio( Amor::Pius *pius)
 	assert(pius);
 	assert(jvmcfg);
 	jint jret;
+	//PacketObj **tmp;
 	if ( !jvmcfg->env )
 	{
 		WLOG(ERR,"JVM not created!");
@@ -502,6 +505,38 @@ bool JvmPort::facio( Amor::Pius *pius)
 		}
 		break;
 
+/*
+	case Notitia::SET_UNIPAC:
+		WBUG("facio SET_UNIPAC");
+		if ( (tmp = (PacketObj **)(pius->indic)))
+		{
+			if ( *tmp) rcv_pac = *tmp; 
+			else {
+				WBUG("facio SET_UNIPAC rcv_pac null");
+			}
+			tmp++;
+			if ( *tmp) snd_pac = *tmp;
+			else {
+				WBUG("facio SET_UNIPAC snd_pac null");
+			}
+
+		} else {
+			WBUG("facio SET_UNIPAC null");
+		}
+		break;
+
+	case Notitia::PRO_UNIPAC:
+		WBUG("facio PRO_UNIPAC");
+
+		snd_pac->input(4, "166", 3);
+		snd_pac->input(5, "TEST", 4);
+		snd_pac->input(6, "B9E3B6AB440100011603440186015001008810382000010120100101DC41303030303100000000010000010100", 90);
+		aptus->sponte(pius);
+		break;
+	case Notitia::CMD_SET_DBFACE:
+		WBUG("facio CMD_SET_DBFACE");
+		break;
+*/
 	default:
 		WBUG("facio %ld in JvmPort", pius->ordo);
 		return facioJava(pius);
@@ -1112,6 +1147,7 @@ JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ILjava_lang_String_
 		pcp->grant(len);
 		env->GetByteArrayRegion(strBytes, 0, len, (jbyte*)pcp->buf.point);
 		pcp->commit(no, len);
+		env->DeleteLocalRef(strBytes);
 	}
 	env->DeleteLocalRef(str_cls);
 	return;
@@ -1196,6 +1232,7 @@ JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ILjava_math_BigDeci
 		env->GetByteArrayRegion(bi_bytes, 0, len, (jbyte*)&(pcp->buf.point[sizeof(jint)]));
 		memcpy(pcp->buf.point, scale, sizeof(jint));
                 pcp->commit(no, sizeof(jint)+len);
+		env->DeleteLocalRef(bi_bytes);
 	}
 	env->DeleteLocalRef(bd_cls);
 	env->DeleteLocalRef(bi_cls);

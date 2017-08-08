@@ -803,6 +803,14 @@ public class JdbCli
 			fetch_result(false) ;	//取结果集的, 不是第一次
 			return ;
 		}
+/*
+		i = 1;
+		snd_pac.input(4, "199");
+		snd_pac.input(5, "TEST");
+		snd_pac.input(6, "B9E3B6AB440100011603440186015001008810382000010120100101DC41303030303100000000010000010100");
+			aptus.sponte(dopac_ps);
+		if ( i == 1 )return;
+*/
 
 		//凡是最近QUERY的, 要cancel,to do....
 		try {
