@@ -391,7 +391,7 @@ bool JvmPort::facio( Amor::Pius *pius)
 	assert(pius);
 	assert(jvmcfg);
 	jint jret;
-	//PacketObj **tmp;
+//	PacketObj **tmp;
 	if ( !jvmcfg->env )
 	{
 		WLOG(ERR,"JVM not created!");
@@ -504,7 +504,6 @@ bool JvmPort::facio( Amor::Pius *pius)
 			WLOG(EMERG, "JVM DetachCurrentThread failed! error=%d", jret);
 		}
 		break;
-
 /*
 	case Notitia::SET_UNIPAC:
 		WBUG("facio SET_UNIPAC");
@@ -527,8 +526,7 @@ bool JvmPort::facio( Amor::Pius *pius)
 
 	case Notitia::PRO_UNIPAC:
 		WBUG("facio PRO_UNIPAC");
-
-		snd_pac->input(4, "166", 3);
+		snd_pac->input(4, "A77", 3);
 		snd_pac->input(5, "TEST", 4);
 		snd_pac->input(6, "B9E3B6AB440100011603440186015001008810382000010120100101DC41303030303100000000010000010100", 90);
 		aptus->sponte(pius);
@@ -801,7 +799,14 @@ JNIEXPORT void JNICALL Java_textor_jvmport_Amor_log (JNIEnv *env, jobject amor, 
 	pius.indic = (void*)msg;
 	pius.subor = 0;
 	
-	port->aptus->sponte(&pius);
+	if ( pius.ordo != Notitia::LOG_DEBUG )
+	{
+		port->aptus->sponte(&pius);
+#ifndef NDEBUG
+	} else {
+		port->aptus->sponte(&pius);
+#endif
+	}
 	env->ReleaseStringUTFChars(jmsg, msg);
 	return;
 }
