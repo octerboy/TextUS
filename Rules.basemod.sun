@@ -1,13 +1,14 @@
 #Makefile base rule, not for microsoft vc
 TEXTUS_DIR = $(HOME)/Tasks/textus
 RELEASE_DIR = $(HOME)/lib
+LPXX = -m64
 CC=CC
-CXX=CC -m64
+CXX=CC $(LPXX)
 LD=CC
-CFLAGS  = -g -erroff=%none -errtags=yes -c -Kpic -mt -m64
+CFLAGS  = -g -erroff=%none -errtags=yes -c -Kpic -mt $(LPXX)
 INCLUDE_DIR = -I$(TEXTUS_DIR)/tinyxml -I$(TEXTUS_DIR)/amor/include -I/usr/sfw/include
-LDFLAGS = -G -m64 -L$(HOME)/lib -L/usr/sfw/lib/64
-ALONE_LDFLAGS = -G -m64
+LDFLAGS = -G $(LPXX) -L$(HOME)/lib -L/usr/sfw/lib/64
+ALONE_LDFLAGS = -G $(LPXX)
 LDLIBS = -lc -lanimus
 MAKE = dmake
 
@@ -15,3 +16,6 @@ DEBUG_FLAG= -DNNDEBUG
 
 LIBSOCKET= -lsocket -lnsl -lresolv
 _POST_RPO_SUB = cp $@ $(RELEASE_DIR)
+
+JDK_HOME=/usr/java/
+JDK_INC_JNI=$(JDK_HOME)/include/solaris

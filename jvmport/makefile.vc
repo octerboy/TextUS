@@ -3,16 +3,16 @@
 # Build:
 #	B01:created by octerboy 2007/11/16, Guangzhou
 
+
 include ..\Rules.basemod.vc
 AMOROBJS=JvmPort.obj 
 
-include ..\Rules.java.win
-LDLIB2 = ..\baselib\libbase.lib $(LDLIB) $(JDK_HOME)\lib\jvm.lib
+include ..\Rules.java
 
 PACDIR = textor\jvmport
 PACPATH = textor.jvmport.
 
-CFLAGS  = $(CFLAGS) -I..\baselib\include -I..\logdata\include -I..\unipac\include -I$(JDK_HOME)\include -I$(JDK_HOME)\include\win32  -I..\dbport\include
+CFLAGS  = $(CFLAGS) -I..\baselib\include -I..\logdata\include -I..\unipac\include -I$(JDK_HOME)\include -I$(JDK_INC_JNI)  -I..\dbport\include
 
 all:jvmport.dll
 all_class:$(PACDIR)\Pius.class $(PACDIR)\Amor.class $(PACDIR)\TBuffer.class $(PACDIR)\PacketData.class $(PACDIR)\TiXML.class  $(PACDIR)/DBFace.class
@@ -21,7 +21,7 @@ JvmPort.obj: JvmPort.cpp
 	$(CC) $(CFLAGS) $(INCLUDE_DIR) -I..\unipac\include $(DEBUG_FLAG) -DAMOR_CLS_TYPE=JvmPort JvmPort.cpp
 
 jvmport.dll: JvmPort.obj
-	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB2)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  ..\baselib\libbase.lib $(LDLIB) $(JDK_HOME)\lib\jvm.lib
 	$(_POST_RPO_SUB)
 
 $(PACDIR)\Amor.class: Amor.java
