@@ -1197,19 +1197,55 @@ struct PacIns:public Condition  {
 		pac_cross = false;
 	};
 
-	void get_req_pac( PacketObj *req_pac, int &bor, MK_Session *sess, PacketObj *first_pac, PacketObj *second_pac)
+	void pac_cross_before(PacketObj *req_pac, PacketObj *rply_pac, PacketObj *first_pac, PacketObj *second_pac)
 	{
-		int i,j;
-		unsigned long t_len;
-
 		if ( pac_cross)
 		{
 			if ( pac_mode == PAC_SECOND || pac_mode == PAC_BOTH )
 				second_pac->exchange(req_pac);
+			if ( pac_mode == PAC_FIRST || pac_mode == PAC_BOTH )
+				first_pac->exchange(rply_pac);
 		} else {
 			if ( pac_mode == PAC_FIRST || pac_mode == PAC_BOTH)
 				first_pac->exchange(req_pac);
+			if ( pac_mode == PAC_SECOND || pac_mode == PAC_BOTH )
+				second_pac->exchange(rply_pac);
 		}
+	};
+
+	PacketObj *pac_cross_after(PacketObj *req_pac, PacketObj *rply_pac, PacketObj *first_pac, PacketObj *second_pac)
+	{
+		PacketObj *n_pac = rply_pac;
+		if ( pac_cross)
+		{
+			if ( pac_mode == PAC_SECOND || pac_mode == PAC_BOTH )
+			{
+				second_pac->exchange(req_pac);
+			}
+			if ( pac_mode == PAC_FIRST || pac_mode == PAC_BOTH )
+			{
+				first_pac->exchange(rply_pac);
+				n_pac = first_pac;
+			}
+		} else {
+			if ( pac_mode == PAC_SECOND || pac_mode == PAC_BOTH )
+			{
+				second_pac->exchange(rply_pac);
+				n_pac = second_pac;
+			}
+			if ( pac_mode == PAC_FIRST || pac_mode == PAC_BOTH )
+			{
+				first_pac->exchange(req_pac);
+			}
+		}
+		return n_pac;
+	};
+
+	void get_req_pac( PacketObj *req_pac, int &bor, MK_Session *sess)
+	{
+		int i,j;
+		unsigned long t_len;
+
 
 		bor = subor;
 		t_len = 0;
@@ -1260,7 +1296,7 @@ struct PacIns:public Condition  {
 	};
 
 	/* 本指令处理响应报文，匹配必须的内容,出错时置出错代码变量 */
-	bool pro_rply_pac(PacketObj *rply_pac, struct MK_Session *mess, PacketObj *first_pac, PacketObj *second_pac, PacketObj *req_pac)
+	bool pro_rply_pac(PacketObj *rply_pac, struct MK_Session *mess)
 	{
 		int ii;
 		unsigned char *fc;
@@ -1269,29 +1305,6 @@ struct PacIns:public Condition  {
 		char con[512];
 		PacketObj *n_pac=rply_pac;
 					
-		if ( pac_cross)
-		{
-			if ( pac_mode == PAC_SECOND || pac_mode == PAC_BOTH )
-			{
-				second_pac->exchange(req_pac);
-			}
-			if ( pac_mode == PAC_FIRST || pac_mode == PAC_BOTH )
-			{
-				first_pac->exchange(rply_pac);
-				n_pac = first_pac;
-			}
-		} else {
-			if ( pac_mode == PAC_SECOND || pac_mode == PAC_BOTH )
-			{
-				second_pac->exchange(rply_pac);
-				n_pac = second_pac;
-			}
-			if ( pac_mode == PAC_FIRST || pac_mode == PAC_BOTH )
-			{
-				first_pac->exchange(req_pac);
-			}
-		}
-
 		for (ii = 0; ii < rcv_num; ii++)
 		{
 			rply = &rcv_lst[ii];
@@ -2424,6 +2437,7 @@ void PacWay::handle_pac()
 			}
 		}
 		
+		//{int *a =0 ; *a = 0; };
 		if (mess.iRet == ERROR_INS_DEF)
 		{
 			TEXTUS_SPRINTF(mess.err_str, "not defined flow_id: %s ", mess.flow_id );
@@ -2441,7 +2455,7 @@ void PacWay::handle_pac()
 		mess.left_status = LT_Working;
 		mess.right_status = RT_READY;	//指示终端准备开始工作,
 
-	//{int *a =0 ; *a = 0; };
+		//{int *a =0 ; *a = 0; };
 		if ( !cur_def->ins_all.instructions )
 		{
 			mk_result();
@@ -2559,7 +2573,13 @@ SUB_INS_PRO:
 		{
 		case Pac_Idle:
 			hi_req_p->reset();	//请求复位
-			paci->get_req_pac(hi_req_p, loc_pro_pac.subor, &mess, rcv_pac, snd_pac);
+			paci->pac_cross_before(hi_req_p, hi_reply_p, rcv_pac, snd_pac);
+			paci->get_req_pac(hi_req_p, loc_pro_pac.subor, &mess);
+			if (  paci->subor < 0 ) 	//仅仅是报文域赋值
+			{
+				command_wt.pac_step = Pac_End;
+				goto END_PRO;
+			}
 			command_wt.pac_step = Pac_Working;
 
 			if ( paci->isFunction || paci->rcv_num == 0 ) 
@@ -2614,7 +2634,8 @@ SUB_INS_PRO:
 
 	case INS_SetPeer:
 		hi_req_p->reset();
-		paci->get_req_pac(hi_req_p, loc_pro_pac.subor, &mess, rcv_pac, snd_pac);
+		paci->pac_cross_before(hi_req_p, hi_reply_p, rcv_pac, snd_pac);
+		paci->get_req_pac(hi_req_p, loc_pro_pac.subor, &mess);
 		set_peer(hi_req_p, loc_pro_pac.subor);
 		command_wt.pac_step = Pac_End;
 		break;
@@ -2642,10 +2663,11 @@ SUB_INS_PRO:
 	default :
 		break;
 	}
-
+END_PRO:
 	if ( command_wt.pac_step == Pac_End )
 	{
-		if ( paci->rcv_num > 0 && !paci->pro_rply_pac(hi_reply_p, &mess, rcv_pac, snd_pac, hi_req_p)) 
+		PacketObj *n_pac = paci->pac_cross_after(hi_req_p, hi_reply_p, rcv_pac, snd_pac);
+		if ( paci->rcv_num > 0 && !paci->pro_rply_pac(n_pac, &mess)) 
 		{
 			mess.iRet = ERROR_RECV_PAC;
 			TEXTUS_SPRINTF(h_msg, "fault at %d of %s (%s)", mess.pro_order, cur_def->flow_id, mess.err_str);
