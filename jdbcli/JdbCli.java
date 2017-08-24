@@ -713,7 +713,6 @@ public class JdbCli
 			n_sentence += "?";
 		}
 		n_sentence += ")}";
-		//n_sentence = " call get_esam (?,?,?)";
 		aptus.log_bug("statement is " + n_sentence);
 		return n_sentence;
 	}
@@ -798,21 +797,13 @@ public class JdbCli
 		int i;
 		String n_sentence;
 		snd_pac.input(face.errCode_field, 0); //首先假定结果OK，把值设到返回域中
-		snd_pac.input(face.errStr_field, " "); 
+		//snd_pac.input(face.errStr_field, " "); 
 
 		if ( isDBFetch)
 		{
 			fetch_result(false) ;	//取结果集的, 不是第一次
 			return ;
 		}
-/*
-		i = 1;
-		snd_pac.input(4, "199");
-		snd_pac.input(5, "TEST");
-		snd_pac.input(6, "B9E3B6AB440100011603440186015001008810382000010120100101DC41303030303100000000010000010100");
-			aptus.sponte(dopac_ps);
-		if ( i == 1 )return;
-*/
 
 		//凡是最近QUERY的, 要cancel,to do....
 		try {
