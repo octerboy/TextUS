@@ -869,7 +869,7 @@ JNIEXPORT jbyteArray JNICALL Java_textor_jvmport_PacketData_getfld (JNIEnv *env,
 	return reta;
 }
 
-JNIEXPORT jstring JNICALL Java_textor_jvmport_PacketData_getString (JNIEnv *env, jobject paco, jint no)
+JNIEXPORT jstring JNICALL Java_textor_jvmport_PacketData_getString__I(JNIEnv *env, jobject paco, jint no)
 {
 	jbyteArray reta;
 	jstring jstr =NULL;

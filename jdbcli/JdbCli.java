@@ -645,10 +645,10 @@ public class JdbCli
 			c_stmt.close();
 			aptus.sponte(dopac_ps);
     		} catch(SQLException se) { 
-    				se.printStackTrace() ;   
-			aptus.log_err(se.getMessage());
+			aptus.log_err(se.getMessage() + " error=" + se.getErrorCode() + " " + se.getSQLState());
 			snd_pac.input(face.errCode_field, se.getErrorCode());
 			snd_pac.input(face.errStr_field, se.toString()); 
+    			se.printStackTrace() ;   
 			aptus.sponte(dopac_ps);
 		}
 	}
@@ -713,6 +713,7 @@ public class JdbCli
 			n_sentence += "?";
 		}
 		n_sentence += ")}";
+		//n_sentence = " call get_esam (?,?,?)";
 		aptus.log_bug("statement is " + n_sentence);
 		return n_sentence;
 	}
@@ -797,6 +798,7 @@ public class JdbCli
 		int i;
 		String n_sentence;
 		snd_pac.input(face.errCode_field, 0); //首先假定结果OK，把值设到返回域中
+		snd_pac.input(face.errStr_field, " "); 
 
 		if ( isDBFetch)
 		{

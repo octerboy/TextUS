@@ -1062,7 +1062,10 @@ void Unifom::convert(FieldObj &fldIn, PacketObj &pac, unsigned int fldOut, bool 
 
 	unsigned char *vbuf;
 
-	int result1;
+	long result1;
+	int result32;
+	short result16;
+	char result8;
 
 	unsigned int len, len2 = 0, i, j;
 	long ii,jj;
@@ -1324,7 +1327,29 @@ void Unifom::convert(FieldObj &fldIn, PacketObj &pac, unsigned int fldOut, bool 
 
 /* ========================INTERGER >>>>>  BCD, BCD0, BCDF, ASCII ============================*/
 	case INTEGER:
-		memcpy(&result1, fldIn.val, sizeof(result1) > fldIn.range ? fldIn.range:sizeof(result1));
+		WBUG("convert field %d to field %d from interger to type of %d.", fldIn.no, fldOut, out );
+		switch ( fldIn.range ) 
+		{
+			case 8:
+				if ( sizeof(result1) == 8 )
+				memcpy(&result1, fldIn.val, 8);
+				break;
+			case 4:
+				memcpy(&result32, fldIn.val, 4);
+				result1 = result32;
+				break;
+			case 2:
+				memcpy(&result16, fldIn.val, 2);
+				result1 = result16;
+				break;
+			case 1:
+				memcpy(&result8, fldIn.val, 1);
+				result1 = result8;
+			default:
+				WLOG(ERR, "field %d range %d is invalid for interger.", fldIn.no, fldIn.range);
+				goto HI_END;
+				break;
+		}
 		switch ( out )
 		{
 		/* ========INTERGER >>>>>  BCD, BCD0, BCDF ============================*/
@@ -1385,7 +1410,7 @@ void Unifom::convert(FieldObj &fldIn, PacketObj &pac, unsigned int fldOut, bool 
 			} else { 
 				for ( ii = len-1; ii >=0; ii--)
 				{
-					vbuf[ii] = Obtainc(result1%10) ;
+					vbuf[ii] = Obtainx(result1%10) ; //实际上是10进制
 					result1 /=10;
 				}
 				for ( i = 0 ; i < len-1; i++)
@@ -1396,9 +1421,10 @@ void Unifom::convert(FieldObj &fldIn, PacketObj &pac, unsigned int fldOut, bool 
 			break;
 
 		default:
+			WLOG(ERR, "failed to convert field %d from interger to %d.", fldIn.no, out );
 			break;
 		}
-
+	HI_END:
 		break;
 /* ======end of ==================INTERGER >>>>>  BCD, BCD0, BCDF, ASCII ============================*/
 
