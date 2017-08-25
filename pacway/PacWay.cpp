@@ -77,7 +77,7 @@ enum PAC_MODE { PAC_NONE = 0, PAC_FIRST =1, PAC_SECOND = 4, PAC_BOTH=5};
 
 enum Var_Type {VAR_ErrCode=1, VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_CurOrder=4, VAR_CurCent=5, VAR_ErrStr=6, VAR_FlowID=7, VAR_Dynamic = 10, VAR_Me=12, VAR_Constant=98,  VAR_None=99};
 /* 命令分几种，INS_Normal：标准，INS_Abort：终止 */
-enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_SetPeer=3, INS_GetPeer=4, INS_Get_CertNo=5, INS_Pro_DBFace=6, INS_Cmd_Ordo=7, INS_Respond, INS_Null=99};
+enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_SetPeer=3, INS_GetPeer=4, INS_Get_CertNo=5, INS_Pro_DBFace=6, INS_Cmd_Ordo=7, INS_Respond =8, INS_ResultPacPro = 9, INS_Null=99};
 enum ACT_DIR { FACIO=0, SPONTE=1 };
 enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 
@@ -103,12 +103,6 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 		int c_len;			//内容长度
 		int dynamic_pos;	//动态变量位置, -1表示静态
 
-		int source_fld_no;	//来自请求报文的哪个域号。		
-		int start_pos;		//从请求报文中, 什么位置开始
-		int get_length;		//取多少长度的值
-		
-		int dest_fld_no;	//响应报文的目的域号, 
-
 		char me_name[64];	//Me变量名称，除去开头的 me. 三个字节, 不包括后缀. 从变量名name中复制，最大63字符
 		unsigned int me_nm_len;
 		const char *me_sub_name;  //Me变量后缀名， 从变量名name中定位。
@@ -128,12 +122,6 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 			memset(content,0,sizeof(content));
 			dynamic_pos = -1;	//非动态类
 
-			source_fld_no = -1;
-			start_pos = 1;
-			get_length = -1;
-			
-			dest_fld_no = -1;
-		
 			self_ele = 0;
 
 			memset(me_name, 0, sizeof(me_name));
@@ -195,10 +183,6 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 					c_len = squeeze(p, content);
 			}
 			/* 变量无内容, 才认为这是特殊变量 */
-			var_ele->QueryIntAttribute("from", &(source_fld_no));
-			var_ele->QueryIntAttribute("to", &(dest_fld_no));
-			var_ele->QueryIntAttribute("start", &(start_pos));
-			var_ele->QueryIntAttribute("length", &(get_length));
 
 			if ( strcasecmp(nm, "$ink" ) == 0 ) //当前用户命令集指纹
 			{
@@ -308,11 +292,6 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 				if (kind == VAR_None)	//只有原来没有定义类型的, 这里才定成常数. 
 					kind = VAR_Constant;
 			}
-
-			h_ele->QueryIntAttribute("from", &(source_fld_no));
-			h_ele->QueryIntAttribute("to", &(dest_fld_no));
-			h_ele->QueryIntAttribute("start", &(start_pos));
-			h_ele->QueryIntAttribute("length", &(get_length));
 		};
 	};
 
@@ -403,6 +382,7 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 		int right_subor;	//指示向右发出时的subor, 返回时核对。
 		int ins_which;	//已经工作在哪个命令, 即为定义中数组的下标值
 		int iRet;	//事务最终结果
+		bool handle_last_pac;	//处理最后报文
 
 		inline MK_Session ()
 		{
@@ -435,6 +415,7 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 			err_str[0] = 0;	
 			flow_id[0] = 0;
 			willLast = true;
+			handle_last_pac = false;
 		};
 
 		inline void init(int m_snap_num) //这个m_snap_num来自各XML定义的最大动态变量数
@@ -1364,6 +1345,18 @@ ErrRet:
 		int lnn;
 		const char *tag;
 
+		p = def_ele->Attribute("dir");	
+		if ( p )
+		{
+			if ( strcasecmp( p, "facio") ==0 )
+			{
+				fac_spo = FACIO;
+			} else if ( strcasecmp( p, "sponte") ==0 )
+			{
+				fac_spo = SPONTE;
+			}
+		}
+
 		if ( strcasecmp( pac_ele->Value(), "abort") ==0 )
 		{
 			type = INS_Abort;
@@ -1382,18 +1375,12 @@ ErrRet:
 			goto LAST_CON;
 		}
 		
-		p = def_ele->Attribute("dir");	
-		if ( p )
+		if ( strcasecmp( pac_ele->Value(), "LastPacPro") ==0 )
 		{
-			if ( strcasecmp( p, "facio") ==0 )
-			{
-				fac_spo = FACIO;
-			} else if ( strcasecmp( p, "sponte") ==0 )
-			{
-				fac_spo = SPONTE;
-			}
+			type = INS_ResultPacPro;
+			goto DefaultUnipac;
 		}
-
+		
 		p = def_ele->Attribute("type");	
 		if ( !p ) 
 		{
@@ -1455,7 +1442,7 @@ ErrRet:
 			}
 			if ( q ) 
 			{
-				if (strcasecmp ( q, "alter") == 0 ) 
+				if (strcasecmp ( q, "X") == 0 ) 
 					pac_cross = true;
 			}
 		}
@@ -1842,11 +1829,13 @@ struct INS_Set {
 	struct User_Command *instructions;
 	int many;
 	int ic_num;
+	struct PacIns *last_pac_ins;
 	INS_Set () 
 	{
 		instructions= 0;
 		many = 0;
 		ic_num = 0;
+		last_pac_ins = 0;
 	};
 
 	~INS_Set () 
@@ -1870,7 +1859,7 @@ struct INS_Set {
 	void put_inses(TiXmlElement *root, struct PVar_Set *var_set, TiXmlElement *map_root, TiXmlElement *pac_def_root)
 	{
 		TiXmlElement *usr_ele, *sub;
-		int mor, cor, vmany, refny;
+		int mor, cor, vmany, refny,i;
 
 		for ( usr_ele= root->FirstChildElement(), refny = 0; 
 			usr_ele; usr_ele = usr_ele->NextSiblingElement())
@@ -1908,6 +1897,21 @@ struct INS_Set {
 			}
 		}
 		many = vmany; //最后再更新一次用户命令数
+		//look for last_pac_ins
+		for ( i = 0 ; i < many; i++)
+		{
+			int j;
+			for ( j = 0; j < instructions[i].comp_num; j++ )
+			{
+				int k;
+				for ( k = 0 ; k < instructions[i].complex[j].pac_many; k++ )
+				{
+					last_pac_ins = &(instructions[i].complex[j].pac_inses[k]);
+					if ( last_pac_ins->type != INS_ResultPacPro)
+						last_pac_ins = 0;
+				}
+			}
+		}
 	};
 };	
 
@@ -2159,7 +2163,7 @@ private:
 		long sub_loop;	//循环次数
 	} command_wt;
 
-	int sub_serial_pro(struct ComplexSubSerial *comp, bool &has_back,  Amor::Pius *&fac_ps);
+	int sub_serial_pro(struct ComplexSubSerial *comp, bool &has_back,  Amor::Pius *&fac_ps, struct PacIns *last_paci=0);
 	DBFace *get_dbface(const char *id_name);
 	void set_peer(PacketObj *pac, int sub);
 	void get_cert(PacketObj *pac, int sub);
@@ -2420,20 +2424,6 @@ void PacWay::handle_pac()
 				dvr->def_var = vt;
 				if ( vt->c_len > 0 )	//先把定义的静态内容链接过来, 动态变量的默认值
 					dvr->input(&(vt->content[0]), vt->c_len, true);	
-
-				if ( vt->source_fld_no >=0 )
-					p = rcv_pac->getfld(vt->source_fld_no, &plen);
-				else
-					continue;
-				if (!p) continue;
-				if ( plen > vt->start_pos )	//偏移量超出长度，当然不用取了
-				{
-					plen -= (vt->start_pos-1);	//plen为实际能取的长度, start_pos是从1开始
-					if ( vt->get_length > 0 && vt->get_length < plen) 
-						plen = vt->get_length;
-					dvr->input( &p[vt->start_pos-1], plen);
-				}
-				/* 所以从域取值为优先, 如果实际报文没有该域, 就取这里的静态定义 */
 			}
 		}
 		
@@ -2544,11 +2534,15 @@ void PacWay::get_peer(PacketObj *pac, int sub)
 }
 
 /* 子序列入口 */
-int PacWay::sub_serial_pro(struct ComplexSubSerial *comp, bool &has_back,  Amor::Pius *&fac_ps)
+int PacWay::sub_serial_pro(struct ComplexSubSerial *comp, bool &has_back,  Amor::Pius *&fac_ps, struct PacIns *last_paci)
 {
 	struct PacIns *paci;
 	char h_msg[1024];
-
+	if ( last_paci ) 
+	{
+		paci=last_paci;
+		goto PACI_PRO;
+	}
 SUB_INS_PRO:
 	paci = &(comp->pac_inses[command_wt.pac_which]);
 	if ( command_wt.pac_step == Pac_Idle )
@@ -2563,6 +2557,7 @@ SUB_INS_PRO:
 		}
 	}
 
+PACI_PRO:
 	has_back = false;
 	fac_ps = 0;
 	switch ( paci->type)
@@ -2654,6 +2649,39 @@ SUB_INS_PRO:
 		hi_reply_p->reset();
 		get_cert(hi_reply_p, paci->subor);
 		command_wt.pac_step = Pac_End;
+		break;
+
+	case INS_ResultPacPro:
+		switch ( command_wt.pac_step )
+		{
+		case Pac_Idle:
+			hi_req_p->reset();	//请求复位
+			paci->pac_cross_before(hi_req_p, hi_reply_p, rcv_pac, snd_pac);
+			paci->get_req_pac(hi_req_p, loc_pro_pac.subor, &mess);
+			mess.handle_last_pac = true;
+			if (  paci->subor < 0 ) 	//仅仅是报文域赋值
+			{
+				command_wt.pac_step = Pac_End;
+				paci->pac_cross_after(hi_req_p, hi_reply_p, rcv_pac, snd_pac);
+				return 1;	//完成
+			}
+
+			command_wt.pac_step = Pac_Working;
+			has_back = true;
+			mess.right_subor = paci->subor;
+			WBUG("mk_result pac_pro has_back(%s)", has_back ? "yes":"no");
+			fac_ps = &loc_pro_pac;
+			return 0; 	/* 正在进行 */
+			break;
+		case Pac_Working:
+			command_wt.pac_step = Pac_End;
+			paci->pac_cross_after(hi_req_p, hi_reply_p, rcv_pac, snd_pac);
+			return 1;	//完成
+			break;
+
+		default:
+			break;
+		}
 		break;
 
 	case INS_Null:
@@ -2798,6 +2826,8 @@ void PacWay::mk_result(bool end_mess)
 	struct DyVar *dvr;
 	struct PVar  *vt;
 	int i;
+	Amor::Pius *fac_ps;
+	bool has_back;
 
 	if ( mess.iRet != 0 ) 
 	{
@@ -2805,18 +2835,19 @@ void PacWay::mk_result(bool end_mess)
 		mess.snap[Pos_ErrStr].input(mess.err_str);
 	}
 
-	/* 从变量定义集中，包括静态的和动态的，都设置到响应报文中 */
-	for ( i = 0 ; i <  cur_def->person_vars.many; i++)
+	if ( !mess.handle_last_pac ) 
 	{
-		vt = &cur_def->person_vars.vars[i];
-		if ( vt->dest_fld_no < 0 ) continue;
-		if ( vt->dynamic_pos >=0 )
+		if ( cur_def->ins_all.last_pac_ins ) 
 		{
-			dvr = &mess.snap[vt->dynamic_pos];
-			if ( dvr->kind != VAR_None )
-				snd_pac->input(vt->dest_fld_no, dvr->val_p, dvr->c_len);
-		} else {
-			snd_pac->input(vt->dest_fld_no, &vt->content[0], vt->c_len);
+			int ret;
+			command_wt.pac_step = Pac_Idle;	//pac处理开始, 
+			ret = sub_serial_pro( 0, has_back, fac_ps, cur_def->ins_all.last_pac_ins);
+			mess.right_status = RT_OUT;
+			aptus->facio(fac_ps);     //向右发出指令, 右节点不再sponte
+			if ( ret == 0  )
+				ret = sub_serial_pro( 0, has_back, fac_ps, cur_def->ins_all.last_pac_ins);
+			if ( ret == 0  )
+				WLOG(EMERG, "bug! last_pac_pro should finished!");
 		}
 	}
 	//{int *a=0; *a=0;}
