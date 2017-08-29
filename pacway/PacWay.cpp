@@ -1664,13 +1664,45 @@ struct ComplexSubSerial {
 		return ref_var;
 	};
 
+	void ev_pro( TiXmlElement *sub, int &which, int &icc_num)	//为了无限制嵌套
+	{
+		TiXmlElement *pac_ele, *def_ele, *t_ele;
+		for ( pac_ele= sub->FirstChildElement(); pac_ele; pac_ele = pac_ele->NextSiblingElement())
+		{
+			if ( !pac_ele->Value() ) continue;
+			//printf("pac_ele->Value %s\n", pac_ele->Value());
+			def_ele = def_root->FirstChildElement(pac_ele->Value());	//如果在基础报文中有定义
+			if ( def_ele)	//如果在基础报文中有定义
+			{
+				pac_inses[which].prepare(def_ele, pac_ele, usr_ele, g_var_set, &sv_set);
+				icc_num += pac_inses[which].hard_work(def_ele, pac_ele, usr_ele, g_var_set, &sv_set);
+				which++;
+			} else if ((t_ele = map_root->FirstChildElement(pac_ele->Value())))//如果在map中有定义, 也就是一个嵌套(类似于宏)
+			{
+				ev_pro(t_ele, which, icc_num);
+			}
+		}
+	};
+
+	void ev_num( TiXmlElement *sub, int &many )	//为了无限制嵌套
+	{
+		TiXmlElement *pac_ele, *t_ele;
+		for ( pac_ele= sub->FirstChildElement(); pac_ele; pac_ele = pac_ele->NextSiblingElement())
+		{
+			if ( !pac_ele->Value() ) continue;
+			if ( def_root->FirstChildElement(pac_ele->Value()))	//如果在基础报文中有定义
+				many++;
+			else if ((t_ele = map_root->FirstChildElement(pac_ele->Value())))//如果在map中有定义, 也就是一个嵌套(类似于宏)
+				ev_num(t_ele, many);
+		}
+	};
+
 	//ref_vnm是一个参考变量名, 如$Main之类的. 根据这个$Main从全局变量集找到相应的定义。
 	int pro_analyze( const char *pri_vnm, const char *loop_str)
 	{
 		struct PVar *ref_var, *me_var;
 		const char *ref_nm;
 		char pro_nm[128];
-		TiXmlElement *pac_ele, *def_ele, *spac_ele, *t_ele;
 		TiXmlElement *body;	//用户命令的第一个body元素
 		int which, icc_num=0, i;
 		const char *pri_key = usr_def_entry->Attribute("primary");
@@ -1695,6 +1727,8 @@ struct ComplexSubSerial {
 					body = usr_ele->FirstChildElement(me_var->me_name);	//再看元素为me.XX.yy中的XX名，ref_nm是$Main之的。
 					if ( body ) ref_nm = body->GetText();
 				}
+				if (!ref_nm )	//还是没有, 那看map文件的入口元素
+					ref_nm = usr_def_entry->Attribute(me_var->me_name);	//ref_nm是$Main之类的。
 				if (ref_nm )
 					ref_var = set_loc_ref_var(ref_nm, me_var->me_name); /* ref_nm是$Main之类的, 实际上就是me.protect.*这样的东西。这里更新局部变量集 */
 			}
@@ -1709,7 +1743,7 @@ struct ComplexSubSerial {
 			{
 				if (ref_var->self_ele->Attribute("pro") ) //参考变量的pro属性指示子序列
 				{
-					TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s%s", "Pro", ref_var->self_ele->Attribute("pro"));						
+					TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s%s", "Pro", ref_var->self_ele->Attribute("pro"));
 				}
 			}
 		}
@@ -1718,52 +1752,13 @@ struct ComplexSubSerial {
 		if ( !sub_pro ) return 0; //没有子序列 
 
 		pac_many = 0;
-		for ( pac_ele= sub_pro->FirstChildElement(); pac_ele; pac_ele = pac_ele->NextSiblingElement())
-		{
-			if ( !pac_ele->Value() ) continue;
-			if ( def_root->FirstChildElement(pac_ele->Value()))	//如果在基础报文中有定义
-			{
-				pac_many++;
-			} else if ( (t_ele = map_root->FirstChildElement(pac_ele->Value()) ) )	//如果在map中有定义, 也就是一个嵌套(类似于宏)
-			{
-				for ( spac_ele= t_ele->FirstChildElement(); spac_ele; spac_ele = spac_ele->NextSiblingElement())
-				{
-					if ( !spac_ele->Value() ) continue;
-					if ( def_root->FirstChildElement(spac_ele->Value()) )	//如果在基础报文中有定义
-						pac_many++;
-				}
-			}
-		}
+		ev_num (sub_pro, pac_many);
 		//确定变量数
 		if ( pac_many ==0 ) return 0;
 		pac_inses = new struct PacIns[pac_many];
 
 		which = 0; icc_num = 0;
-		for ( pac_ele= sub_pro->FirstChildElement(); pac_ele; pac_ele = pac_ele->NextSiblingElement())
-		{
-			if ( !pac_ele->Value() ) continue;
-			//printf("pac_ele->Value %s\n", pac_ele->Value());
-			def_ele = def_root->FirstChildElement(pac_ele->Value());	//如果在基础报文中有定义
-			if ( def_ele)	//如果在基础报文中有定义
-			{
-				pac_inses[which].prepare(def_ele, pac_ele, usr_ele, g_var_set, &sv_set);
-				icc_num += pac_inses[which].hard_work(def_ele, pac_ele, usr_ele, g_var_set, &sv_set);
-				which++;
-			} else if ((t_ele = map_root->FirstChildElement(pac_ele->Value())))//如果在map中有定义, 也就是一个嵌套(类似于宏)
-			{
-				for ( spac_ele= t_ele->FirstChildElement(); spac_ele; spac_ele = spac_ele->NextSiblingElement())
-				{
-					if ( !spac_ele->Value() ) continue;
-					def_ele = def_root->FirstChildElement(spac_ele->Value());	//如果在基础报文中有定义
-					if (def_ele)
-					{
-						pac_inses[which].prepare(def_ele, spac_ele, usr_ele, g_var_set, &sv_set);
-						icc_num += pac_inses[which].hard_work(def_ele, spac_ele, usr_ele, g_var_set, &sv_set);
-						which++;
-					}
-				}
-			}
-		}
+		ev_pro ( sub_pro, which, icc_num);
 		return icc_num;
 	};
 };
@@ -2445,7 +2440,7 @@ void PacWay::handle_pac()
 		mess.left_status = LT_Working;
 		mess.right_status = RT_READY;	//指示终端准备开始工作,
 
-		//{int *a =0 ; *a = 0; };
+		//if ( strcmp(mess.flow_id, "22TY") ==0 ) {int *a =0 ; *a = 0; };
 		if ( !cur_def->ins_all.instructions )
 		{
 			mk_result();
@@ -2843,9 +2838,11 @@ void PacWay::mk_result(bool end_mess)
 			command_wt.pac_step = Pac_Idle;	//pac处理开始, 
 			ret = sub_serial_pro( 0, has_back, fac_ps, cur_def->ins_all.last_pac_ins);
 			mess.right_status = RT_OUT;
-			aptus->facio(fac_ps);     //向右发出指令, 右节点不再sponte
 			if ( ret == 0  )
+			{
+				aptus->facio(fac_ps);     //向右发出指令, 右节点不再sponte
 				ret = sub_serial_pro( 0, has_back, fac_ps, cur_def->ins_all.last_pac_ins);
+			}
 			if ( ret == 0  )
 				WLOG(EMERG, "bug! last_pac_pro should finished!");
 		}
