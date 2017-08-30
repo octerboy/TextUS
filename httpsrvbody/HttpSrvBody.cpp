@@ -1063,7 +1063,7 @@ Pro_FRM_DATA:
 		tmp_pius.subor = 0;
 		aptus->facio(&tmp_pius);
 	}
-	if ( sock.framing ==  Sock_Framing_Start && rcv_buf->point - rcv_buf->base > sock.should_len && sock.pos == 0 ) 
+	if ( sock.framing ==  Sock_Framing_Start && (unsigned long)(rcv_buf->point - rcv_buf->base) > sock.should_len && sock.pos == 0 ) 
 		goto Ana_Begin;
 }
 
