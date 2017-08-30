@@ -13,9 +13,9 @@ pacway pipe pmuto process ramify relay \
 sched sequence signal slice sslcli sslsrv sslvcert \
 tbufchan tbufile \
 tcgi tcpcli tcpctrl tcpsrv \
-thread tix2pac trend tsoap \
+thread tix2pac toway trend tsoap \
 unifom unipac version \
-jsport \
+jsport jdbcli \
 oracli \
 sysadm tpcap ttyop \
 nosuch
