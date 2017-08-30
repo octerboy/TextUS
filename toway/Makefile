@@ -5,15 +5,12 @@
 include ../Rules.basemod
 INCLUDE_DIR  += -I../baselib/include -I../logdata/include -I../httpsrvhead/include
 
-all:toway.so md5.o
-
-md5.o:md5.c
-	${CC} ${CFLAGS} -o $@ $^ 
+all:toway.so
 
 toway.o:ToWay.cpp
 	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=ToWay -o $@ $^ 
 	
-toway.so: toway.o md5.o
+toway.so: toway.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase
 	cp $@ ../release
 

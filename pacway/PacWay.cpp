@@ -2159,7 +2159,6 @@ private:
 	} command_wt;
 
 	int sub_serial_pro(struct ComplexSubSerial *comp, bool &has_back,  Amor::Pius *&fac_ps, struct PacIns *last_paci=0);
-	DBFace *get_dbface(const char *id_name, int sub);
 	void set_peer(PacketObj *pac, int sub);
 	void get_cert(PacketObj *pac, int sub);
 	void get_peer(PacketObj *pac, int sub);
@@ -2585,7 +2584,15 @@ PACI_PRO:
 			{	//DB操作
 				if (paci->dbface == 0 ) 
 				{
-					paci->dbface = 	get_dbface(paci->dbface_name, paci->subor);
+					Pius get_face;
+					void *ind[2];
+					get_face.ordo = Notitia::CMD_GET_DBFACE;
+					ind[0] = (void*) paci->dbface_name;
+					ind[1] = 0;
+					get_face.indic = ind;
+					get_face.subor = paci->subor;
+					aptus->facio(&get_face);
+					paci->dbface = 	(DBFace*) ind[1];
 					if (paci->dbface == 0 ) 
 					{
 						mess.iRet = ERROR_DB_DEF;
@@ -2847,17 +2854,4 @@ void PacWay::mk_result(bool end_mess)
 	aptus->sponte(&loc_pro_pac);    //制卡的结果回应给控制台
 	if (end_mess) mess.reset();
 }
-
-DBFace *PacWay::get_dbface(const char *id_name, int subor)
-{
-	Pius get_face;
-	void *ind[2];
-	get_face.ordo = Notitia::CMD_GET_DBFACE;
-	get_face.indic = ind;
-	get_face.subor = subor;
-	ind[0] = (void*) id_name;
-	aptus->facio(&get_face);
-	return (DBFace*) ind[1];
-}
-
 #include "hook.c"
