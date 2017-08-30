@@ -2371,7 +2371,6 @@ bool PacWay::sponte( Amor::Pius *pius)
 
 void PacWay::handle_pac()
 {
-	unsigned char *p;
 	int plen=0;
 	int i;
 
@@ -2818,9 +2817,6 @@ LOOP_PRI_TRY:
 
 void PacWay::mk_result(bool end_mess)
 {
-	struct DyVar *dvr;
-	struct PVar  *vt;
-	int i;
 	Amor::Pius *fac_ps;
 	bool has_back;
 
