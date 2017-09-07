@@ -1939,6 +1939,7 @@ struct  Personal_Def	//个人化定义
 
 	int load_xml(const char *f_name, TiXmlDocument &doc,  TiXmlElement *&root, const char *md5_content)
 	{
+		if ( !f_name || strlen(f_name) ==0 ) return 0;
 		doc.SetTabSize( 8 );
 		if ( !doc.LoadFile (f_name) || doc.Error()) 
 		{
@@ -1994,15 +1995,18 @@ struct  Personal_Def	//个人化定义
 		}
 	};
 
-	bool put_def( TiXmlElement *per_ele, TiXmlElement *key_ele_default)
+	bool put_def( TiXmlElement *per_ele, TiXmlElement *key_ele_default,  TiXmlElement *prop)
 	{
 		const char *ic_nm, *map_nm, *v_nm, *df_nm;
 		if ( !per_ele) return false;
 
-		if ( (df_nm = per_ele->Attribute("pac")))
-			load_xml(df_nm, doc_pac_def,  pac_def_root, per_ele->Attribute("pac_md5"));
-		else
-			pac_def_root = per_ele->FirstChildElement("pac");
+		if ( !(pac_def_root = per_ele->FirstChildElement("Pac")))
+		{
+			if ( (df_nm = per_ele->Attribute("pac")))
+				load_xml(df_nm, doc_pac_def,  pac_def_root, per_ele->Attribute("pac_md5"));
+			else if ( (df_nm = prop->Attribute("pac")))
+				load_xml(df_nm, doc_pac_def,  pac_def_root, prop->Attribute("pac_md5"));
+		}
 
 		if ( (ic_nm = per_ele->Attribute("flow")))
 			load_xml(ic_nm, doc_c,  c_root, per_ele->Attribute("md5"));
@@ -2012,17 +2016,23 @@ struct  Personal_Def	//个人化定义
 		if ( !c_root)
 			return false;
 
-		if ( (map_nm = per_ele->Attribute("key")))
-			load_xml(map_nm, doc_k,  k_root, per_ele->Attribute("key_md5"));
-		else
-			k_root = per_ele->FirstChildElement("Key");
+		if ( !(k_root = per_ele->FirstChildElement("Key")))
+		{
+			if ( (map_nm = per_ele->Attribute("key")))
+				load_xml(map_nm, doc_k,  k_root, per_ele->Attribute("key_md5"));
+			else if ( (map_nm = prop->Attribute("key")))
+				load_xml(map_nm, doc_k,  k_root, prop->Attribute("key_md5"));
+		}
 
 		if( !k_root ) k_root = key_ele_default;//prop中的key元素(密钥索引表), 则当本地无内容提供缺省。
 
-		if ( (v_nm = per_ele->Attribute("var")))
-			load_xml(v_nm, doc_v,  v_root, per_ele->Attribute("var_md5"));
-		else
-			v_root = per_ele->FirstChildElement("Var");
+		if ( !(v_root = per_ele->FirstChildElement("Var")))
+		{
+			if ( (v_nm = per_ele->Attribute("var")))
+				load_xml(v_nm, doc_v,  v_root, per_ele->Attribute("var_md5"));
+			else if ( (v_nm = prop->Attribute("var")))
+				load_xml(v_nm, doc_v,  v_root, prop->Attribute("var_md5"));
+		}
 
 		if ( !c_root || !k_root || !pac_def_root ) 
 			return false;
@@ -2066,23 +2076,21 @@ struct PersonDef_Set {	//User_Command集合之集合
 	void put_def(TiXmlElement *prop, const char *vn)	//个人化集合输入定义PersonDef_Set
 	{
 		TiXmlElement *key_ele, *per_ele;
-		int kk;
-		int dy_at;
+		int kk, dy_at;
 		key_ele = prop->FirstChildElement("key"); //如有一个key元素(指明密码机), 则为以下personalize提供缺省
 		num_icp = 0; 
 		for (per_ele = prop->FirstChildElement(vn); per_ele; per_ele = per_ele->NextSiblingElement(vn) ) 
 			num_icp ++; 
 
 		icp_def = new struct Personal_Def [num_icp];
-		per_ele = prop->FirstChildElement(vn); kk = 0; 
-		for (; per_ele; per_ele = per_ele->NextSiblingElement(vn), kk++ ) 
+		for (per_ele = prop->FirstChildElement(vn), kk = 0; per_ele;per_ele = per_ele->NextSiblingElement(vn))
 		{
-			if ( !(icp_def[kk].put_def(per_ele, key_ele)))
-				kk--;
-			else { 
+			if ( icp_def[kk].put_def(per_ele, key_ele, prop))
+			{
+				kk++;
 				dy_at = icp_def[kk].person_vars.dynamic_at;
 				if ( dy_at > max_snap_num ) max_snap_num = dy_at;
-			}
+			} 
 		}
 		num_icp = kk; //实际再更新一下
 		//if( kk > 0 ) {int *a =0 ; *a = 0; };
@@ -2262,7 +2270,7 @@ bool PacWay::facio( Amor::Pius *pius)
 	case Notitia::IGNITE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY" );
 		gCFG->person_defs.put_def(gCFG->prop, "bus");
-		gCFG->null_icp_def.put_def(gCFG->prop->FirstChildElement("bike"), 0);
+		gCFG->null_icp_def.put_def(gCFG->prop->FirstChildElement("bike"), 0, gCFG->prop);
 		mess.init(gCFG->person_defs.max_snap_num);
 		if ( err_global_str[0] != 0 )
 		{
