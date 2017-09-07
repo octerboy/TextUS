@@ -2728,6 +2728,7 @@ void PacWay::mk_hand(bool right_down)
 	int i_ret;
 	Amor::Pius *fac_ps;
 	bool has_back;
+	struct PVar  *vt;
 
 #define NEXT_INS	\
 		mess.ins_which++;	\
@@ -2792,6 +2793,8 @@ LOOP_PRI_TRY:
 				command_wt.step--;
 				if ( command_wt.cur == (usr_com->comp_num-1) ) //最后一条复合指令啦，如果出错就调用自定义的出错过程(响应报文设置一些数据，或者向终端发些指令)
 					mess.willLast = true;
+				vt =  mess.snap[Pos_ErrCode].def_var;
+				if ( vt ) mess.snap[Pos_ErrCode].input(&(vt->content[0]), vt->c_len, true);	
 				goto NEXT_PRI_TRY;		//试另一个
 			} else {		//最后一条处理失败，定义出错值
 				mess.iRet = ERROR_USER_ABORT;			
