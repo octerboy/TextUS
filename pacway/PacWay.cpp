@@ -920,7 +920,6 @@ struct CmdSnd {
 		dy_list = 0;
 	};
 
-
 	void hard_work_2 ( TiXmlElement *pac_ele, TiXmlElement *usr_ele, struct PVar_Set *g_vars, struct PVar_Set *me_vars)
 	{
 		struct PVar *vr_tmp, *vr2_tmp=0;
@@ -930,7 +929,6 @@ struct CmdSnd {
 		unsigned char *cp;
 		int dy_cur;
 		bool now_still;
-
 
 		cmd_len = 0;
 		cmd_buf = 0;
@@ -1635,6 +1633,11 @@ struct ComplexSubSerial {
 		
 		len = 0;
 		ref_var = g_var_set->one_still(0,vnm, buf, len);	//找到已定义参考变量的
+		if ( len > 0 )	//找到的全局变量可能有内容，加到本地中。
+		{
+			TEXTUS_SPRINTF(loc_v_nm, "%s%s", ME_VARIABLE_HEAD, mid_nm); 
+			sv_set.put_still(loc_v_nm, buf, len);
+		}
 		if ( ref_var)
 		{
 			for ( att = ref_var->self_ele->FirstAttribute(); att; att = att->Next())
@@ -1656,11 +1659,6 @@ struct ComplexSubSerial {
 			}
 		}
 
-		if ( len > 0 )	//找到的全局变量可能有内容，加到本地中。
-		{
-			TEXTUS_SPRINTF(loc_v_nm, "%s%s", ME_VARIABLE_HEAD, mid_nm); 
-			sv_set.put_still(loc_v_nm, buf, len);
-		}
 		return ref_var;
 	};
 
@@ -1768,6 +1766,22 @@ struct User_Command : public Condition {
 	struct ComplexSubSerial *complex;
 	int comp_num; //一般只有一个，有时需要重试几个
 
+	User_Command () 
+	{
+		complex =0;
+		comp_num = 0;
+		order = -9999999;
+	};
+
+	~User_Command () 
+	{
+		if (complex && comp_num == 1 ) delete complex;
+		else
+		if (complex && comp_num > 1 ) delete[] complex;
+		complex =0;
+		comp_num = 0;
+	};
+
 	int  set_sub( TiXmlElement *usr_ele, struct PVar_Set *vrset, TiXmlElement *sub_serial, TiXmlElement *def_root, TiXmlElement * map_root) //返回对IC的指令数
 	{
 		TiXmlElement *pri;
@@ -1793,11 +1807,9 @@ struct User_Command : public Condition {
 				PUT_COMPLEX(0)
 				ret_ic = complex->pro_analyze(usr_ele->Attribute(pri_nm), usr_ele->Attribute("loop"));
 			} else {	//一个用户操作，包括几个复合指令的尝试，有一个成功，就算OK
-				for( pri = usr_ele->FirstChildElement(pri_nm), comp_num = 0; 
-					pri; pri = pri->NextSiblingElement(pri_nm) )
-				{
+				for( pri = usr_ele->FirstChildElement(pri_nm), comp_num = 0; pri; pri = pri->NextSiblingElement(pri_nm) )
 					comp_num++;
-				}
+				if ( comp_num ==0 ) return -1;
 				complex = new struct ComplexSubSerial[comp_num];
 
 				for( pri = usr_ele->FirstChildElement(pri_nm), i = 0; 
@@ -1854,7 +1866,7 @@ struct INS_Set {
 	void put_inses(TiXmlElement *root, struct PVar_Set *var_set, TiXmlElement *map_root, TiXmlElement *pac_def_root)
 	{
 		TiXmlElement *usr_ele, *sub;
-		int mor, cor, vmany, refny,i;
+		int mor, cor, vmany, refny,i, a_ic_num;
 
 		for ( usr_ele= root->FirstChildElement(), refny = 0; 
 			usr_ele; usr_ele = usr_ele->NextSiblingElement())
@@ -1884,8 +1896,10 @@ struct INS_Set {
 					cor = 0;
 					usr_ele->QueryIntAttribute("order", &(cor)); 
 					if ( cor <= mor ) continue;	//order不符合顺序的，略过
+					a_ic_num = instructions[vmany].set_sub(usr_ele, var_set, sub, pac_def_root, map_root);
+					if ( a_ic_num < 0 ) continue;
+					ic_num += a_ic_num;
 					instructions[vmany].order = cor;
-					ic_num += instructions[vmany].set_sub(usr_ele, var_set, sub, pac_def_root, map_root);
 					mor = cor;
 					vmany++;
 				}
@@ -1995,57 +2009,37 @@ struct  Personal_Def	//个人化定义
 		}
 	};
 
-	bool put_def( TiXmlElement *per_ele, TiXmlElement *key_ele_default,  TiXmlElement *prop)
+	bool put_def( TiXmlElement *per_ele, TiXmlElement *prop)
 	{
-		const char *ic_nm, *map_nm, *v_nm, *df_nm;
+		const char *ic_nm, *nm;
 		if ( !per_ele) return false;
 
-		if ( !(pac_def_root = per_ele->FirstChildElement("Pac")))
-		{
-			if ( (df_nm = per_ele->Attribute("pac")))
-				load_xml(df_nm, doc_pac_def,  pac_def_root, per_ele->Attribute("pac_md5"));
-			else if ( (df_nm = prop->Attribute("pac")))
-				load_xml(df_nm, doc_pac_def,  pac_def_root, prop->Attribute("pac_md5"));
+#define GET_XML_DEF(ROOT, DEF_DOC, LOC_ELE, ATTR_NAME_FILE, MD5_ATTR) \
+		if ( !(ROOT = per_ele->FirstChildElement(LOC_ELE)))	\
+		{								\
+			if ( (nm = per_ele->Attribute(ATTR_NAME_FILE)))		\
+				load_xml(nm, DEF_DOC,  ROOT, per_ele->Attribute(MD5_ATTR));	\
+			else if ( !(ROOT = prop->FirstChildElement(LOC_ELE)))				\
+			{											\
+				if ( (nm = prop->Attribute(ATTR_NAME_FILE)))						\
+					load_xml(nm, DEF_DOC,  ROOT, prop->Attribute(MD5_ATTR));	\
+			}												\
 		}
 
-		if ( (ic_nm = per_ele->Attribute("flow")))
-			load_xml(ic_nm, doc_c,  c_root, per_ele->Attribute("md5"));
-		else
-			c_root = per_ele->FirstChildElement("IC_Personalize");
-
-		if ( !c_root)
-			return false;
-
-		if ( !(k_root = per_ele->FirstChildElement("Key")))
+		if ( !(c_root = per_ele->FirstChildElement("Flow")))
 		{
-			if ( (map_nm = per_ele->Attribute("key")))
-				load_xml(map_nm, doc_k,  k_root, per_ele->Attribute("key_md5"));
-			else if ( (map_nm = prop->Attribute("key")))
-				load_xml(map_nm, doc_k,  k_root, prop->Attribute("key_md5"));
+			nm =  per_ele->Attribute("md5");
+			if ( (ic_nm = per_ele->Attribute("flow")))
+				load_xml(ic_nm, doc_c,  c_root, nm);
+			if ( nm)
+				squeeze(nm, (unsigned char*)&flow_md[0]);
 		}
-
-		if( !k_root ) k_root = key_ele_default;//prop中的key元素(密钥索引表), 则当本地无内容提供缺省。
-
-		if ( !(v_root = per_ele->FirstChildElement("Var")))
-		{
-			if ( (v_nm = per_ele->Attribute("var")))
-				load_xml(v_nm, doc_v,  v_root, per_ele->Attribute("var_md5"));
-			else if ( (v_nm = prop->Attribute("var")))
-				load_xml(v_nm, doc_v,  v_root, prop->Attribute("var_md5"));
-		}
-
-		if ( !c_root || !k_root || !pac_def_root ) 
-			return false;
-		if ( c_root)
-		{
-			if ( k_root ) 
-				person_vars.defer_vars(k_root, c_root);	//变量定义, map文件优先
-			else
-				person_vars.defer_vars(c_root);	//变量定义, map文件优先
-			flow_id = c_root->Attribute("flow");
-			if ( per_ele->Attribute("md5") )
-				squeeze(per_ele->Attribute("md5"), (unsigned char*)&flow_md[0]);
-		}
+		GET_XML_DEF(pac_def_root, doc_pac_def, "Pac",  "pac", "pac_md5")
+		GET_XML_DEF(k_root, doc_k, "Key",  "key", "key_md5")
+		GET_XML_DEF(v_root, doc_v, "Var",  "var", "var_md5")
+		if ( !c_root || !k_root || !pac_def_root ) return false;
+		person_vars.defer_vars(k_root, c_root);	//变量定义, map文件优先
+		flow_id = c_root->Attribute("flow");
 		set_here(c_root);	//再看本定义
 		set_here(v_root);	//看看其它变量定义,key.xml等
 
@@ -2075,9 +2069,8 @@ struct PersonDef_Set {	//User_Command集合之集合
 
 	void put_def(TiXmlElement *prop, const char *vn)	//个人化集合输入定义PersonDef_Set
 	{
-		TiXmlElement *key_ele, *per_ele;
-		int kk, dy_at;
-		key_ele = prop->FirstChildElement("key"); //如有一个key元素(指明密码机), 则为以下personalize提供缺省
+		TiXmlElement *per_ele;
+		int kk;
 		num_icp = 0; 
 		for (per_ele = prop->FirstChildElement(vn); per_ele; per_ele = per_ele->NextSiblingElement(vn) ) 
 			num_icp ++; 
@@ -2085,11 +2078,10 @@ struct PersonDef_Set {	//User_Command集合之集合
 		icp_def = new struct Personal_Def [num_icp];
 		for (per_ele = prop->FirstChildElement(vn), kk = 0; per_ele;per_ele = per_ele->NextSiblingElement(vn))
 		{
-			if ( icp_def[kk].put_def(per_ele, key_ele, prop))
+			if ( icp_def[kk].put_def(per_ele, prop))
 			{
+				if ( icp_def[kk].person_vars.dynamic_at > max_snap_num ) max_snap_num = icp_def[kk].person_vars.dynamic_at;
 				kk++;
-				dy_at = icp_def[kk].person_vars.dynamic_at;
-				if ( dy_at > max_snap_num ) max_snap_num = dy_at;
 			} 
 		}
 		num_icp = kk; //实际再更新一下
@@ -2270,7 +2262,7 @@ bool PacWay::facio( Amor::Pius *pius)
 	case Notitia::IGNITE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY" );
 		gCFG->person_defs.put_def(gCFG->prop, "bus");
-		gCFG->null_icp_def.put_def(gCFG->prop->FirstChildElement("bike"), 0, gCFG->prop);
+		gCFG->null_icp_def.put_def(gCFG->prop->FirstChildElement("bike"), gCFG->prop);
 		mess.init(gCFG->person_defs.max_snap_num);
 		if ( err_global_str[0] != 0 )
 		{
@@ -2707,14 +2699,14 @@ END_PRO:
 		if ( paci->rcv_num > 0 && !paci->pro_rply_pac(n_pac, &mess)) 
 		{
 			mess.iRet = ERROR_RECV_PAC;
-			TEXTUS_SPRINTF(h_msg, "fault at %d of %s (%s)", mess.pro_order, cur_def->flow_id, mess.err_str);
+			TEXTUS_SPRINTF(h_msg, "fault at order=%d pac_which=%d of %s (%s)", mess.pro_order, command_wt.pac_which, cur_def->flow_id, mess.err_str);
 			memcpy(mess.err_str, h_msg, strlen(h_msg));
 			mess.err_str[strlen(h_msg)] = 0;
 			return -3;	//这是基本报文错误，非map所控制
 		}  else if ( !paci->valid_result(&mess) )
 		{
 			mess.iRet = ERROR_RESULT;
-			TEXTUS_SPRINTF(mess.err_str, "result error at %d of %s", mess.pro_order, cur_def->flow_id);
+			TEXTUS_SPRINTF(mess.err_str, "result error at order=%d pac_which=%d of %s", mess.pro_order, command_wt.pac_which, cur_def->flow_id);
 			if ( paci->err_code) mess.snap[Pos_ErrCode].input(paci->err_code);
 			return -2;	//这是map所控制
 		} else {
