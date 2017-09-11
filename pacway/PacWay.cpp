@@ -928,7 +928,7 @@ struct CmdSnd {
 		unsigned long g_ln;
 		unsigned char *cp;
 		int dy_cur;
-		bool now_still;
+		bool now_still, me_has_usr;
 
 		cmd_len = 0;
 		cmd_buf = 0;
@@ -954,46 +954,43 @@ struct CmdSnd {
 				continue;
 			}
 
-			if ( vr_tmp->kind == VAR_Me && vr_tmp->c_len > 0)	//Me变量已有内容,无后缀的，可能已有定义的，或者带后缀的。
-			{
-				cmd_len += vr_tmp->c_len;
-				continue;
-			}
-
-			if ( vr_tmp->kind == VAR_Me && vr_tmp->me_sub_nm_len == 0)	//Me变量,且无后缀名, 则从用户命令中取，当然还没有内容
+			if ( vr_tmp->kind == VAR_Me && vr_tmp->me_sub_nm_len == 0)	//Me变量,且无后缀名, 则从用户命令中取
 			{
 				vr2_tmp = 0;
 				g_ln = 0 ;
+				me_has_usr = false;
 				if ( usr_ele->Attribute(vr_tmp->me_name) ) 	//用户命令中，属性优先
 				{
 					vr2_tmp = g_vars->one_still(0, usr_ele->Attribute(vr_tmp->me_name), 0, g_ln);
 					if ( g_ln > 0 ) cmd_len += g_ln;
 					if ( vr2_tmp && vr2_tmp->kind <= VAR_Dynamic )
-					{
 						dy_num++;
-					}
-					continue;	//有了属性，不管如何，不再看子元素了
-				}
-
-				e2_tmp = usr_ele->FirstChildElement(vr_tmp->me_name);
-				while (e2_tmp)
-				{
-					g_ln = 0 ;
-					vr2_tmp = g_vars->all_still(e2_tmp, vr_tmp->me_name, 0, g_ln, n2_ele, 0);
-					e2_tmp = n2_ele;
-					if ( g_ln > 0 ) cmd_len += g_ln;
-					if ( !vr2_tmp ) 		//还是常数, 这里应该结束了
+					me_has_usr = true;
+				} else {
+					e2_tmp = usr_ele->FirstChildElement(vr_tmp->me_name);
+					while (e2_tmp)
 					{
-						if (e2_tmp) printf("plain !!!!!!!!!!\n");	//这不应该
-						continue;
-					}
+						g_ln = 0 ;
+						vr2_tmp = g_vars->all_still(e2_tmp, vr_tmp->me_name, 0, g_ln, n2_ele, 0);
+						e2_tmp = n2_ele;
+						if ( g_ln > 0 ) cmd_len += g_ln;
+						if ( !vr2_tmp ) 		//还是常数, 这里应该结束了
+						{
+							if (e2_tmp) printf("plain !!!!!!!!!!\n");	//这不应该
+							continue;
+						}
 
-					if ( vr2_tmp->kind <= VAR_Dynamic )	//参考变量的, 不算作动态
-					{
-						dy_num++;
+						if ( vr2_tmp->kind <= VAR_Dynamic )	//参考变量的, 不算作动态
+							dy_num++;
+						me_has_usr = true;
 					}
 				}
+				if ( !me_has_usr && vr_tmp->c_len > 0) //还没有内容
+					cmd_len += vr_tmp->c_len;
 			}
+
+			if ( vr_tmp->kind == VAR_Me && vr_tmp->c_len > 0  && vr_tmp->me_sub_nm_len > 0)	//Me变量已有内容,可能已有定义的，并带后缀的。
+				cmd_len += vr_tmp->c_len;
 		}
 
 		cmd_buf = new unsigned char[cmd_len+1];	//对于非动态的, cmd_buf与cmd_len刚好是其全部的内容
@@ -1053,18 +1050,12 @@ ALL_STILL:
 				continue;
 			}
 
-			if ( vr_tmp->kind == VAR_Me && vr_tmp->c_len > 0)	//Me变量已有内容,1、无后缀的，本身已有定义的; 2、或者带后缀的，前面的处理中已经设定了内容
-			{
-				memcpy(cp, vr_tmp->content, vr_tmp->c_len);
-				DY_STILL(vr_tmp->c_len) //cp指针后移,内容增加， 这里游标不变，因为下一个可能是Me变量的静态, 这要合并在一起
-				goto ALL_STILL;	//这里处理的是静态，所以从该处继续
-			}
-
 			if ( vr_tmp->kind == VAR_Me && vr_tmp->me_sub_nm_len == 0)	//Me变量,且无后缀名, 则从用户命令中取，当然还没有内容
 			{
 				vr2_tmp = 0;
 				g_ln = 0;
-				if (usr_ele->Attribute(vr_tmp->me_name)) //先看属性内容
+				me_has_usr = false;
+				if (usr_ele->Attribute(vr_tmp->me_name)) //先看属性内容,有了属性，不再看子元素了
 				{
 					vr2_tmp = g_vars->one_still(usr_ele, usr_ele->Attribute(vr_tmp->me_name), cp, g_ln);
 					if ( g_ln > 0 )	/* 刚处理的是静态内容 */
@@ -1077,33 +1068,46 @@ ALL_STILL:
 						DY_DYNAMIC(vr2_tmp->dynamic_pos)	//已有静态内容的， 先指向下一个, 以存放动态的
 						DY_NEXT_STILL
 					}
-					continue;	//有了属性，不管如何，不再看子元素了
+					me_has_usr = true;
+				} else {
+					e2_tmp = usr_ele->FirstChildElement(vr_tmp->me_name);
+					while (e2_tmp)
+					{
+						g_ln = 0;
+						vr2_tmp = g_vars->all_still(e2_tmp, vr_tmp->me_name, cp, g_ln, n2_ele, 0);
+						e2_tmp = n2_ele;
+						if ( g_ln > 0 )	/* 刚处理的是静态内容 */
+						{
+							DY_STILL(g_ln) //cp指针后移, 内容增加， 这里游标不变，因为下一个可能是Me变量的静态, 这要合并在一起
+						}
+
+						if ( !vr2_tmp ) 		//还是常数, 这里应该结束了
+						{
+							if (e2_tmp) printf("plain !!!!!!!!!!\n");	//这不应该
+							continue;
+						}
+
+						if ( vr2_tmp->kind <= VAR_Dynamic )	//Me变量的, 不算作动态
+						{
+							DY_DYNAMIC(vr2_tmp->dynamic_pos)	//已有静态内容的， 先指向下一个, 以存放动态的
+							DY_NEXT_STILL
+							now_still = false;
+						}
+						me_has_usr = true;
+					}
 				}
-			
-				e2_tmp = usr_ele->FirstChildElement(vr_tmp->me_name);
-				while (e2_tmp)
+				if ( !me_has_usr && vr_tmp->c_len > 0) //还没有内容
 				{
-					g_ln = 0;
-					vr2_tmp = g_vars->all_still(e2_tmp, vr_tmp->me_name, cp, g_ln, n2_ele, 0);
-					e2_tmp = n2_ele;
-					if ( g_ln > 0 )	/* 刚处理的是静态内容 */
-					{
-						DY_STILL(g_ln) //cp指针后移, 内容增加， 这里游标不变，因为下一个可能是Me变量的静态, 这要合并在一起
-					}
-
-					if ( !vr2_tmp ) 		//还是常数, 这里应该结束了
-					{
-						if (e2_tmp) printf("plain !!!!!!!!!!\n");	//这不应该
-						continue;
-					}
-
-					if ( vr2_tmp->kind <= VAR_Dynamic )	//Me变量的, 不算作动态
-					{
-						DY_DYNAMIC(vr2_tmp->dynamic_pos)	//已有静态内容的， 先指向下一个, 以存放动态的
-						DY_NEXT_STILL
-						now_still = false;
-					}
+					memcpy(cp, vr_tmp->content, vr_tmp->c_len);
+					DY_STILL(vr_tmp->c_len) //cp指针后移,内容增加， 这里游标不变，因为下一个可能是Me变量的静态, 这要合并在一起
+					goto ALL_STILL;	//这里处理的是静态，所以从该处继续
 				}
+			}
+			if ( vr_tmp->kind == VAR_Me && vr_tmp->c_len > 0  && vr_tmp->me_sub_nm_len > 0)	//Me变量已有内容,可能已有定义的，并带后缀的。
+			{
+				memcpy(cp, vr_tmp->content, vr_tmp->c_len);
+				DY_STILL(vr_tmp->c_len) //cp指针后移,内容增加， 这里游标不变，因为下一个可能是Me变量的静态, 这要合并在一起
+				goto ALL_STILL;	//这里处理的是静态，所以从该处继续
 			}
 		}
 		if ( now_still ) 
@@ -1355,25 +1359,25 @@ ErrRet:
 			}
 		}
 
-		if ( strcasecmp( pac_ele->Value(), "abort") ==0 )
+		if ( strcasecmp( pac_ele->Value(), "Abort") ==0 )
 		{
 			type = INS_Abort;
 			goto LAST_CON;
 		}
 
-		if ( strcasecmp( pac_ele->Value(), "null") ==0 )
+		if ( strcasecmp( pac_ele->Value(), "Null") ==0 )
 		{
 			type = INS_Null;
 			goto LAST_CON;
 		}
 		
-		if ( strcasecmp( pac_ele->Value(), "respond") ==0 )
+		if ( strcasecmp( pac_ele->Value(), "Respond") ==0 )
 		{
 			type = INS_Respond;
 			goto LAST_CON;
 		}
 		
-		if ( strcasecmp( pac_ele->Value(), "LastPacPro") ==0 )
+		if ( strcasecmp( pac_ele->Value(), "Terminator") ==0 )
 		{
 			type = INS_ResultPacPro;
 			goto DefaultUnipac;
