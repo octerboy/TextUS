@@ -93,8 +93,7 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 #define VARIABLE_TAG_NAME "Var"
 #define ME_VARIABLE_HEAD "me."
 
-	struct PVar
-	{
+	struct PVar {
 		Var_Type kind;
 		const char *name;	//来自于doc文档
 		int n_len;		//名称长度
@@ -107,8 +106,9 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 		unsigned int me_nm_len;
 		const char *me_sub_name;  //Me变量后缀名， 从变量名name中定位。
 		int me_sub_nm_len;
-		bool keep_alive;	//true: 若是动态变量, 只在Notitia::START_SESSION、DMD_END_SESSION时清空, false: 对每个flow_id开始都清空,
+		bool me_pri_refer;	//主参考变量标记, true: 在合成请报文(hard_work_2)时, 不再从用户ele中取，因为在分析sub_serial时, 已经赋值
 
+		bool keep_alive;	//true: 若是动态变量, 只在Notitia::START_SESSION、DMD_END_SESSION时清空, false: 对每个flow_id开始都清空,
 		bool dy_link;	//动态变量的赋值方式，true:取地址方式，不复制; false:复制方式
 		TiXmlElement *self_ele;	/* 自身, 其子元素包括两种可能: 1.函数变量表, 
 					2.一个指令序列, 在指令子元素分析时, 如发现一个用到的变量中, 有子序列时, 把这些指令嵌入。
@@ -128,6 +128,7 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 			me_nm_len = 0;
 			me_sub_name = 0;
 			me_sub_nm_len = 0;
+			me_pri_refer = false;
 
 			dy_link = false;	//动态变量的赋值方式为复制方式。
 			keep_alive = false;
@@ -333,8 +334,7 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 			}
 		};
 
-		void input(int iv)
-		{
+		void input(int iv) {
 			if ( !def_var ) return;
 			TEXTUS_SPRINTF(val, "%d", iv);
 			c_len = strlen((char*)&val[0]);
@@ -358,8 +358,7 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 			}
 		};
 
-		void input(const char p)
-		{
+		void input(const char p) {
 			if ( !def_var ) return;
 			c_len = 1;
 			val[1] = 0;
@@ -384,14 +383,12 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 		int iRet;	//事务最终结果
 		bool handle_last_pac;	//处理最后报文
 
-		inline MK_Session ()
-		{
+		inline MK_Session () {
 			snap=0;
 			snap_num = 0;
 		};
 
-		inline void  reset(bool soft=true) 
-		{
+		inline void  reset(bool soft=true) {
 			int i;
 			for ( i = 0; i < snap_num; i++)
 			{
@@ -439,8 +436,7 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 			reset(false);	//动态量硬复位
 		};
 
-		~MK_Session ()
-		{
+		~MK_Session () {
 			if ( snap ) delete[] snap;
 			snap = 0;
 		};
@@ -452,23 +448,20 @@ struct PVar_Set {
 	int many;
 	int dynamic_at;
 	TiXmlElement *command_ele;	/* 对于局域变量集, 指向子系列所相应的用户命令(Command)  */
-	PVar_Set () 
-	{
+	PVar_Set () {
 		vars = 0;
 		many = 0;
 		dynamic_at = Pos_Fixed_Next; //0,等 已经给$FlowPrint等占了
 		command_ele = 0;
 	};
 
-	~PVar_Set () 
-	{
+	~PVar_Set () {
 		if (vars ) delete []vars;
 		vars = 0;
 		many = 0;
 	};
 
-	bool is_var(const char *nm)
-	{
+	bool is_var(const char *nm) {
 		if (nm  && strcasecmp(nm, VARIABLE_TAG_NAME) == 0 ) return true;
 		return false;
 	};
@@ -648,13 +641,13 @@ struct MatchDst {	//匹配目标
 	const char *con_dst;
 	int len_dst;
 	bool c_case;	/* 是否区分大小写, 默认为是 */
-	MatchDst ()
-	{
+	MatchDst () {
 		dst = 0;
 		con_dst = 0;
 		len_dst = 0;
 		c_case = true;
 	};
+
 	bool set_val(struct PVar_Set *var_set, struct PVar_Set *loc_v, const char *p, const char *case_str)
 	{
 		bool ret = false;
@@ -896,8 +889,7 @@ struct DyList {
 	unsigned char *con;  /* 指向 cmd_buf中的某个点 */
 	unsigned long len;
 	int dy_pos;
-	DyList ()
-	{
+	DyList () {
 		con  =0;
 		len = 0;
 		dy_pos = -1;
@@ -1161,8 +1153,7 @@ struct PacIns:public Condition  {
 	enum PAC_MODE pac_mode;	/* 报文模式, 一般不交换 */
 	bool pac_cross;	/* 是否交叉, 如第一个换到第二个 */
 
-	PacIns() 
-	{
+	PacIns() {
 		type = INS_None;
 		subor = 0;
 		snd_lst = 0;
@@ -1602,8 +1593,7 @@ struct ComplexSubSerial {
 
 	long loop_n;	/* 本子序列循环次数: 0:无限, 直到某种失败, >0: 一定次数, 若失败则中止  */
 
-	ComplexSubSerial()
-	{
+	ComplexSubSerial() {
 		map_root = def_root = usr_ele = 0;
 
 		usr_def_entry = 0;
@@ -1615,8 +1605,7 @@ struct ComplexSubSerial {
 		loop_n = 1;
 	};
 
-	~ComplexSubSerial()
-	{
+	~ComplexSubSerial() {
 		if (pac_inses) delete []pac_inses;
 		pac_inses = 0;
 		pac_many = 0;
@@ -1637,13 +1626,16 @@ struct ComplexSubSerial {
 		
 		len = 0;
 		ref_var = g_var_set->one_still(0,vnm, buf, len);	//找到已定义参考变量的
-		if ( len > 0 )	//找到的全局变量可能有内容，加到本地中。
-		{
+		if ( len > 0 )	{ //找到的全局变量可能有内容，加到本地中。主参考变量才有
+			struct PVar *av ;
 			TEXTUS_SPRINTF(loc_v_nm, "%s%s", ME_VARIABLE_HEAD, mid_nm); 
-			sv_set.put_still(loc_v_nm, buf, len);
+			av = sv_set.look(loc_v_nm, 0);
+			if ( av) {
+				av->put_still(buf, len);
+				av->me_pri_refer = true;
+			}
 		}
-		if ( ref_var)
-		{
+		if ( ref_var) {
 			for ( att = ref_var->self_ele->FirstAttribute(); att; att = att->Next())
 			{
 				//把属性加到本地变量集 sv_set
@@ -1703,7 +1695,7 @@ struct ComplexSubSerial {
 	int pro_analyze( const char *pri_vnm, const char *loop_str)
 	{
 		struct PVar *ref_var, *me_var;
-		const char *ref_nm;
+		const char *nm;
 		char pro_nm[128];
 		TiXmlElement *body;	//用户命令的第一个body元素
 		int which, icc_num=0, i;
@@ -1723,16 +1715,16 @@ struct ComplexSubSerial {
 			if ( me_var->me_sub_name) //有后缀名, 这应该是参考变量
 			{
 				if ( me_var->c_len > 0 ) continue;	//有内容就不再处理了。
-				ref_nm = usr_ele->Attribute(me_var->me_name);	//先看属性名为me.XX.yy中的XX名，ref_nm是$Main之的。
-				if (!ref_nm )	//属性优先, 没有属性再看元素
+				nm = usr_ele->Attribute(me_var->me_name);	//先看属性名为me.XX.yy中的XX名，nm是$Main之的。
+				if (!nm )	//属性优先, 没有属性再看元素
 				{
-					body = usr_ele->FirstChildElement(me_var->me_name);	//再看元素为me.XX.yy中的XX名，ref_nm是$Main之的。
-					if ( body ) ref_nm = body->GetText();
+					body = usr_ele->FirstChildElement(me_var->me_name);	//再看元素为me.XX.yy中的XX名，nm是$Main之的。
+					if ( body ) nm = body->GetText();
 				}
-				if (!ref_nm )	//还是没有, 那看map文件的入口元素
-					ref_nm = usr_def_entry->Attribute(me_var->me_name);	//ref_nm是$Main之类的。
-				if (ref_nm )
-					ref_var = set_loc_ref_var(ref_nm, me_var->me_name); /* ref_nm是$Main之类的, 实际上就是me.protect.*这样的东西。这里更新局部变量集 */
+				if (!nm )	//还是没有, 那看map文件的入口元素
+					nm = usr_def_entry->Attribute(me_var->me_name);	//nm是$Main之类的。
+				if (nm )
+					ref_var = set_loc_ref_var(nm, me_var->me_name); /* nm是$Main之类的, 实际上就是me.protect.*这样的东西。这里更新局部变量集 */
 			}
 		}
 
@@ -1743,15 +1735,15 @@ struct ComplexSubSerial {
 			/* pri_key是子系列入口primary属性指明的protect之类的,即me.protect.*这样的东西。这里更新局部变量集 */
 			if ( ref_var )
 			{
-				if (ref_var->self_ele->Attribute("pro") ) //参考变量的pro属性指示子序列
+				if ( (nm = ref_var->self_ele->Attribute("SubPro")) ) //参考变量的pro属性指示子序列
 				{
-					TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s%s", "Pro", ref_var->self_ele->Attribute("pro"));
+					TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s%s", "Pro", nm);
 				}
 			}
 		}
 
 		sub_pro = usr_def_entry->FirstChildElement(pro_nm);	//定位实际的子系列
-		if ( !sub_pro ) return 0; //没有子序列 
+		if ( !sub_pro ) return -1; //没有子序列 
 
 		pac_many = 0;
 		ev_num (sub_pro, pac_many);
@@ -1770,15 +1762,13 @@ struct User_Command : public Condition {
 	struct ComplexSubSerial *complex;
 	int comp_num; //一般只有一个，有时需要重试几个
 
-	User_Command () 
-	{
+	User_Command () {
 		complex =0;
 		comp_num = 0;
 		order = -9999999;
 	};
 
-	~User_Command () 
-	{
+	~User_Command () {
 		if (complex && comp_num == 1 ) delete complex;
 		else
 		if (complex && comp_num > 1 ) delete[] complex;
@@ -1841,16 +1831,14 @@ struct INS_Set {
 	int many;
 	int ic_num;
 	struct PacIns *last_pac_ins;
-	INS_Set () 
-	{
+	INS_Set () {
 		instructions= 0;
 		many = 0;
 		ic_num = 0;
 		last_pac_ins = 0;
 	};
 
-	~INS_Set () 
-	{
+	~INS_Set () {
 		if (instructions ) delete []instructions;
 		instructions = 0;
 		many = 0;
@@ -2057,15 +2045,13 @@ struct PersonDef_Set {	//User_Command集合之集合
 	struct Personal_Def *icp_def;
 	int max_snap_num;
 
-	PersonDef_Set () 
-	{
+	PersonDef_Set () {
 		icp_def = 0;
 		num_icp = 0;
 		max_snap_num = 0;
 	};
 
-	~PersonDef_Set () 
-	{
+	~PersonDef_Set () {
 		if (icp_def ) delete []icp_def;
 		icp_def = 0;
 		num_icp = 0;
@@ -2158,7 +2144,7 @@ private:
 		int step;	//0: just start, 1: doing 
 		int cur;
 		int pac_which;
-		PAC_STEP pac_step;	//0: send, 1: recv
+		PAC_STEP pac_step;
 		long sub_loop;	//循环次数
 	} command_wt;
 
@@ -2174,8 +2160,7 @@ void PacWay::ignite(TiXmlElement *prop)
 {
 	const char *comm_str;
 	if (!prop) return;
-	if ( !gCFG ) 
-	{
+	if ( !gCFG ) {
 		gCFG = new struct G_CFG();
 		gCFG->prop = prop;
 		has_config = true;
@@ -2195,8 +2180,7 @@ void PacWay::ignite(TiXmlElement *prop)
 	return;
 }
 
-PacWay::PacWay()
-{
+PacWay::PacWay() {
 	hipa[0] = &hi_req;
 	hipa[1] = &hi_reply;
 	hipa[2] = 0;
@@ -2214,8 +2198,7 @@ PacWay::PacWay()
 	prodb_ps.subor = -1;
 }
 
-PacWay::~PacWay() 
-{
+PacWay::~PacWay() {
 	if ( has_config  )
 	{	
 		if(gCFG) delete gCFG;
@@ -2223,8 +2206,7 @@ PacWay::~PacWay()
 	}
 }
 
-Amor* PacWay::clone()
-{
+Amor* PacWay::clone() {
 	PacWay *child = new PacWay();
 	child->gCFG = gCFG;
 	child->hi_req.produce(hi_req.max);
