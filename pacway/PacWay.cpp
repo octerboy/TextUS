@@ -1704,7 +1704,9 @@ struct ComplexSubSerial {
 		if ( loop_str ) loop_n = atoi(loop_str);
 		if ( loop_n < 0 ) loop_n = 1;
 			
+		sv_set.dynamic_at = g_var_set->dynamic_at;
 		sv_set.defer_vars(usr_def_entry); //局域变量定义完全还在那个自定义中
+		g_var_set->dynamic_at = sv_set.dynamic_at ;
 		sv_set.command_ele = usr_ele;
 		for ( i = 0; i  < sv_set.many; i++ )
 		{
