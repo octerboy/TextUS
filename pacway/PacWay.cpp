@@ -1583,6 +1583,7 @@ struct ComplexSubSerial {
 
 	struct PVar_Set *g_var_set;	//全局变量集
 	struct PVar_Set sv_set;		//局域变量集, 用于引进参数型的用户命令
+	TiXmlElement *sv_var_top ;
 
 	struct PacIns *pac_inses;
 	int pac_many;
@@ -1603,10 +1604,13 @@ struct ComplexSubSerial {
 		pac_many = 0;
 		g_var_set = 0;
 		loop_n = 1;
+		sv_var_top = new TiXmlElement("SV");
 	};
 
 	~ComplexSubSerial() {
 		if (pac_inses) delete []pac_inses;
+		delete sv_var_top;
+		sv_var_top =0 ;
 		pac_inses = 0;
 		pac_many = 0;
 	};
@@ -1632,7 +1636,6 @@ struct ComplexSubSerial {
 			av = sv_set.look(loc_v_nm, 0);
 			if ( av) {
 				av->put_still(buf, len);
-				av->me_pri_refer = true;
 			}
 		}
 		if ( ref_var) {
@@ -1691,40 +1694,90 @@ struct ComplexSubSerial {
 		}
 	};
 
+	const char *find_from_usr_ele(const char *name)
+	{
+		const char *nm=0;
+		struct PVar *me_var;
+		TiXmlElement *body, *var_ele;	//用户命令的第一个body元素
+		nm = usr_ele->Attribute(me_var->me_name);	//先看属性名为me.XX.yy中的XX名，nm是$Main之的。
+		if (!nm )	//属性优先, 没有属性再看元素
+		{
+			body = usr_ele->FirstChildElement(me_var->me_name);	//再看元素为me.XX.yy中的XX名，nm是$Main之的。
+			if ( body ) nm = body->GetText();
+		}
+		if (!nm )	//还是没有, 那看map文件的入口元素
+			nm = usr_def_entry->Attribute(me_var->me_name);	//nm是$Main之类的。
+		return nm;
+	}
+
+	void obtain_top(struct PVar_Set *tmp_sv)
+	{
+		const char *vn = VARIABLE_TAG_NAME;
+		unsigned long len;
+		TiXmlElement *var_ele;	
+		struct PVar *ref_var, *me_var, *att_var=0;
+		const char *nm;
+		char loc_v_nm[128];
+		TiXmlAttribute *att; 
+		const char *att_val;
+		int i;
+		for (var_ele = usr_def_entry->FirstChildElement(vn); var_ele; var_ele = var_ele->NextSiblingElement(vn) ) 
+		{
+			sv_var_top->InsertEndChild(*var_ele);
+		}
+		for ( i = 0; i  < tmp_sv->many; i++ ) {
+			me_var = &(tmp_sv->vars[i]);
+			if (me_var->kind != VAR_Me || me_var->me_sub_name ) continue;		//只处理Me变量无后缀名
+			nm = find_from_usr_ele(me_var->me_name);
+			if (!nm) continue;
+			ref_var = g_var_set->one_still(0,nm, 0, len);	//找到已定义参考变量的
+			if ( ref_var) {
+				for ( att = ref_var->self_ele->FirstAttribute(); att; att = att->Next())
+				{
+					TiXmlElement a_var( "Var" );
+					TEXTUS_SPRINTF(loc_v_nm, "%s%s.%s", ME_VARIABLE_HEAD, me_var->me_name, att->Name()); 
+					a_var.SetAttribute("name", loc_v_nm);
+					sv_var_top->InsertEndChild(a_var);
+				}
+			}
+		}
+
+	}
 	//ref_vnm是一个参考变量名, 如$Main之类的. 根据这个$Main从全局变量集找到相应的定义。
 	int pro_analyze( const char *pri_vnm, const char *loop_str)
 	{
 		struct PVar *ref_var, *me_var;
 		const char *nm;
 		char pro_nm[128];
-		TiXmlElement *body;	//用户命令的第一个body元素
 		int which, icc_num=0, i;
+		struct PVar_Set tmp_sv;		//临时局域变量集
+
 		const char *pri_key = usr_def_entry->Attribute("primary");
 		
 		if ( loop_str ) loop_n = atoi(loop_str);
 		if ( loop_n < 0 ) loop_n = 1;
 			
+		/* tmp_sv 临时局域变量集, map文档中不需要定义参考变量的属性名，obtain_top新生成全部的参考变量的属性变量名.  */
+		tmp_sv.defer_vars(usr_def_entry); 
+		obtain_top(&tmp_sv); //这里要避开主参考，？？？？
 		sv_set.dynamic_at = g_var_set->dynamic_at;
-		sv_set.defer_vars(usr_def_entry); //局域变量定义完全还在那个自定义中
+		sv_set.defer_vars(sv_var_top); //sv_var_top就包括了全部的参考变量的属性变量名 和 原有的变量
 		g_var_set->dynamic_at = sv_set.dynamic_at ;
 		sv_set.command_ele = usr_ele;
-		for ( i = 0; i  < sv_set.many; i++ )
-		{
+
+		for ( i = 0; i  < sv_set.many; i++ ) {
 			me_var = &(sv_set.vars[i]);
 			if (me_var->kind != VAR_Me ) continue;		//只处理Me变量
-			if ( pri_key && strcmp(me_var->me_name, pri_key) == 0 ) continue; //主参考变量下面处理
+			if ( pri_key && strcmp(me_var->me_name, pri_key) == 0 ) 
+			{
+				me_var->me_pri_refer = true;
+				continue; //主参考变量下面处理
+			}
 
 			if ( me_var->me_sub_name) //有后缀名, 这应该是参考变量
 			{
 				if ( me_var->c_len > 0 ) continue;	//有内容就不再处理了。
-				nm = usr_ele->Attribute(me_var->me_name);	//先看属性名为me.XX.yy中的XX名，nm是$Main之的。
-				if (!nm )	//属性优先, 没有属性再看元素
-				{
-					body = usr_ele->FirstChildElement(me_var->me_name);	//再看元素为me.XX.yy中的XX名，nm是$Main之的。
-					if ( body ) nm = body->GetText();
-				}
-				if (!nm )	//还是没有, 那看map文件的入口元素
-					nm = usr_def_entry->Attribute(me_var->me_name);	//nm是$Main之类的。
+				nm = find_from_usr_ele(me_var->me_name);
 				if (nm )
 					ref_var = set_loc_ref_var(nm, me_var->me_name); /* nm是$Main之类的, 实际上就是me.protect.*这样的东西。这里更新局部变量集 */
 			}
@@ -1861,14 +1914,18 @@ struct INS_Set {
 	{
 		TiXmlElement *usr_ele, *sub;
 		int mor, cor, vmany, refny,i, a_ic_num;
+		const char *com_nm;
 
 		for ( usr_ele= root->FirstChildElement(), refny = 0; 
 			usr_ele; usr_ele = usr_ele->NextSiblingElement())
 		{
-			if ( usr_ele->Value() )
+			if ( (com_nm = usr_ele->Value()) )
 			{
 				if (yes_ins(usr_ele, map_root, var_set) )
 					refny++;				
+				else if ( !var_set->is_var(com_nm)) //找宏定义
+				{
+				}
 			}
 		}
 
