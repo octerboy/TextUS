@@ -951,6 +951,9 @@ struct CmdSnd {
 				vr2_tmp = 0;
 				g_ln = 0 ;
 				me_has_usr = false;
+				if ( vr_tmp->me_pri_refer) { //对于主参考, 就不再从用户命令中取
+					goto HAD_LOOK;
+				}
 				if ( usr_ele->Attribute(vr_tmp->me_name) ) 	//用户命令中，属性优先
 				{
 					vr2_tmp = g_vars->one_still(0, usr_ele->Attribute(vr_tmp->me_name), 0, g_ln);
@@ -977,11 +980,12 @@ struct CmdSnd {
 						me_has_usr = true;
 					}
 				}
-				if ( !me_has_usr && vr_tmp->c_len > 0) //还没有内容
+				HAD_LOOK:
+				if ( !me_has_usr && vr_tmp->c_len > 0) //用户命令中未找到
 					cmd_len += vr_tmp->c_len;
 			}
 
-			if ( vr_tmp->kind == VAR_Me && vr_tmp->c_len > 0  && vr_tmp->me_sub_nm_len > 0)	//Me变量已有内容,可能已有定义的，并带后缀的。
+			if (vr_tmp->kind == VAR_Me && vr_tmp->c_len > 0 && vr_tmp->me_sub_nm_len > 0)	//Me变量已有内容,可能已有定义,并带后缀
 				cmd_len += vr_tmp->c_len;
 		}
 
@@ -1047,6 +1051,9 @@ ALL_STILL:
 				vr2_tmp = 0;
 				g_ln = 0;
 				me_has_usr = false;
+				if ( vr_tmp->me_pri_refer) { //对于主参考, 就不再从用户命令中取
+					goto HAD_LOOK_VAR;
+				}
 				if (usr_ele->Attribute(vr_tmp->me_name)) //先看属性内容,有了属性，不再看子元素了
 				{
 					vr2_tmp = g_vars->one_still(usr_ele, usr_ele->Attribute(vr_tmp->me_name), cp, g_ln);
@@ -1088,7 +1095,8 @@ ALL_STILL:
 						me_has_usr = true;
 					}
 				}
-				if ( !me_has_usr && vr_tmp->c_len > 0) //还没有内容
+				HAD_LOOK_VAR:
+				if ( !me_has_usr && vr_tmp->c_len > 0) //用户命令中未找到
 				{
 					memcpy(cp, vr_tmp->content, vr_tmp->c_len);
 					DY_STILL(vr_tmp->c_len) //cp指针后移,内容增加， 这里游标不变，因为下一个可能是Me变量的静态, 这要合并在一起
@@ -1419,8 +1427,7 @@ ErrRet:
 		if ( (p = def_ele->Attribute("exchange")) )
 		{
 			q = (char*)strpbrk( p, ":" );
-			if ( q ) 
-			{
+			if ( q ) {
 				*q++ = '\0';
 			}
 			if (strcasecmp ( p, "first") == 0 ) 
@@ -1433,8 +1440,7 @@ ErrRet:
 			{
 				pac_mode = PAC_BOTH;
 			}
-			if ( q ) 
-			{
+			if ( q ) {
 				if (strcasecmp ( q, "X") == 0 ) 
 					pac_cross = true;
 			}
@@ -1509,8 +1515,7 @@ ErrRet:
 				p_ele->QueryIntAttribute("field", &(rcv_lst[i].fld_no));
 				p_ele->QueryIntAttribute("from", &(rcv_lst[i].fld_no));
 				p = p_ele->GetText();
-				if ( p )
-				{
+				if ( p ) {
 					lnn = strlen(p);
 					rcv_lst[i].must_con = new unsigned char[lnn+1];
 					rcv_lst[i].must_len = BTool::unescape(p, rcv_lst[i].must_con) ;
@@ -1547,8 +1552,7 @@ ANOTHER:
 					}
 					i++;
 				}
-				if ( some_ele != usr_ele ) 
-				{
+				if ( some_ele != usr_ele ) {
 					some_ele = usr_ele;
 					goto ANOTHER;
 				}
@@ -1583,7 +1587,6 @@ struct ComplexSubSerial {
 
 	struct PVar_Set *g_var_set;	//全局变量集
 	struct PVar_Set sv_set;		//局域变量集, 用于引进参数型的用户命令
-	TiXmlElement *sv_var_top ;
 
 	struct PacIns *pac_inses;
 	int pac_many;
@@ -1591,6 +1594,8 @@ struct ComplexSubSerial {
 	TiXmlElement *def_root;	//基础报文定义
 	TiXmlElement *map_root;
 	TiXmlElement *usr_ele;	//用户命令
+	const char *pri_key ;	//子系列的primary属性值, 可能为null
+	const char *pri_var_nm;	//子系列的primary所指向的变量名或具体内容, 可能为null
 
 	long loop_n;	/* 本子序列循环次数: 0:无限, 直到某种失败, >0: 一定次数, 若失败则中止  */
 
@@ -1604,13 +1609,12 @@ struct ComplexSubSerial {
 		pac_many = 0;
 		g_var_set = 0;
 		loop_n = 1;
-		sv_var_top = new TiXmlElement("SV");
+		pri_key = 0;
+		pri_var_nm = 0;
 	};
 
 	~ComplexSubSerial() {
 		if (pac_inses) delete []pac_inses;
-		delete sv_var_top;
-		sv_var_top =0 ;
 		pac_inses = 0;
 		pac_many = 0;
 	};
@@ -1619,7 +1623,7 @@ struct ComplexSubSerial {
 		vnm: 是一个变量名，如果在全局表中查不到，则当作变量内容
 		mid_num：是Me中指定的,是子元素或primay属性所指定的，局域变量名为: me.mid_num.xx
 	*/
-	struct PVar *set_loc_ref_var(const char *vnm, const char *mid_nm)
+	struct PVar *set_loc_ref_var(const char *vnm, const char *mid_nm, bool me_pri=false)
 	{
 		unsigned char buf[512];		//实际内容, 常数内容
 		char loc_v_nm[128];
@@ -1630,7 +1634,7 @@ struct ComplexSubSerial {
 		
 		len = 0;
 		ref_var = g_var_set->one_still(0,vnm, buf, len);	//找到已定义参考变量的
-		if ( len > 0 )	{ //找到的全局变量可能有内容，加到本地中。主参考变量才有
+		if ( len > 0 && me_pri)	{ //找到的全局变量可能有内容，加到本地中。主参考变量才有
 			struct PVar *av ;
 			TEXTUS_SPRINTF(loc_v_nm, "%s%s", ME_VARIABLE_HEAD, mid_nm); 
 			av = sv_set.look(loc_v_nm, 0);
@@ -1694,104 +1698,38 @@ struct ComplexSubSerial {
 		}
 	};
 
-	const char *find_from_usr_ele(const char *name)
+	const char *find_from_usr_ele(const char *me_name)
 	{
 		const char *nm=0;
-		struct PVar *me_var;
-		TiXmlElement *body, *var_ele;	//用户命令的第一个body元素
-		nm = usr_ele->Attribute(me_var->me_name);	//先看属性名为me.XX.yy中的XX名，nm是$Main之的。
+		TiXmlElement *body;	//用户命令的第一个body元素
+		nm = usr_ele->Attribute(me_name);	//先看属性名为me.XX.yy中的XX名，nm是$Main之的。
 		if (!nm )	//属性优先, 没有属性再看元素
 		{
-			body = usr_ele->FirstChildElement(me_var->me_name);	//再看元素为me.XX.yy中的XX名，nm是$Main之的。
+			body = usr_ele->FirstChildElement(me_name);	//再看元素为me.XX.yy中的XX名，nm是$Main之的。
 			if ( body ) nm = body->GetText();
 		}
 		if (!nm )	//还是没有, 那看map文件的入口元素
-			nm = usr_def_entry->Attribute(me_var->me_name);	//nm是$Main之类的。
+			nm = usr_def_entry->Attribute(me_name);	//nm是$Main之类的。
 		return nm;
 	}
-
-	void obtain_top(struct PVar_Set *tmp_sv)
-	{
-		const char *vn = VARIABLE_TAG_NAME;
-		unsigned long len;
-		TiXmlElement *var_ele;	
-		struct PVar *ref_var, *me_var, *att_var=0;
-		const char *nm;
-		char loc_v_nm[128];
-		TiXmlAttribute *att; 
-		const char *att_val;
-		int i;
-		for (var_ele = usr_def_entry->FirstChildElement(vn); var_ele; var_ele = var_ele->NextSiblingElement(vn) ) 
-		{
-			sv_var_top->InsertEndChild(*var_ele);
-		}
-		for ( i = 0; i  < tmp_sv->many; i++ ) {
-			me_var = &(tmp_sv->vars[i]);
-			if (me_var->kind != VAR_Me || me_var->me_sub_name ) continue;		//只处理Me变量无后缀名
-			nm = find_from_usr_ele(me_var->me_name);
-			if (!nm) continue;
-			ref_var = g_var_set->one_still(0,nm, 0, len);	//找到已定义参考变量的
-			if ( ref_var) {
-				for ( att = ref_var->self_ele->FirstAttribute(); att; att = att->Next())
-				{
-					TiXmlElement a_var( "Var" );
-					TEXTUS_SPRINTF(loc_v_nm, "%s%s.%s", ME_VARIABLE_HEAD, me_var->me_name, att->Name()); 
-					a_var.SetAttribute("name", loc_v_nm);
-					sv_var_top->InsertEndChild(a_var);
-				}
-			}
-		}
-
-	}
-	//ref_vnm是一个参考变量名, 如$Main之类的. 根据这个$Main从全局变量集找到相应的定义。
-	int pro_analyze( const char *pri_vnm, const char *loop_str)
+	int pro_analyze(const char *loop_str)
 	{
 		struct PVar *ref_var, *me_var;
 		const char *nm;
 		char pro_nm[128];
 		int which, icc_num=0, i;
 		struct PVar_Set tmp_sv;		//临时局域变量集
+		unsigned long tmplen;
 
-		const char *pri_key = usr_def_entry->Attribute("primary");
-		
 		if ( loop_str ) loop_n = atoi(loop_str);
 		if ( loop_n < 0 ) loop_n = 1;
 			
-		/* tmp_sv 临时局域变量集, map文档中不需要定义参考变量的属性名，obtain_top新生成全部的参考变量的属性变量名.  */
-		tmp_sv.defer_vars(usr_def_entry); 
-		obtain_top(&tmp_sv); //这里要避开主参考，？？？？
-		sv_set.dynamic_at = g_var_set->dynamic_at;
-		sv_set.defer_vars(sv_var_top); //sv_var_top就包括了全部的参考变量的属性变量名 和 原有的变量
-		g_var_set->dynamic_at = sv_set.dynamic_at ;
-		sv_set.command_ele = usr_ele;
-
-		for ( i = 0; i  < sv_set.many; i++ ) {
-			me_var = &(sv_set.vars[i]);
-			if (me_var->kind != VAR_Me ) continue;		//只处理Me变量
-			if ( pri_key && strcmp(me_var->me_name, pri_key) == 0 ) 
-			{
-				me_var->me_pri_refer = true;
-				continue; //主参考变量下面处理
-			}
-
-			if ( me_var->me_sub_name) //有后缀名, 这应该是参考变量
-			{
-				if ( me_var->c_len > 0 ) continue;	//有内容就不再处理了。
-				nm = find_from_usr_ele(me_var->me_name);
-				if (nm )
-					ref_var = set_loc_ref_var(nm, me_var->me_name); /* nm是$Main之类的, 实际上就是me.protect.*这样的东西。这里更新局部变量集 */
-			}
-		}
-
-		TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s", "Pro"); //先假定子序列是Pro element，如果有主参考变量，下面会更新。
-		if ( pri_vnm ) //如果有主参考变量, 就即根据这个主参考变量中找到相应的sub_pro, pri_vnm就是$Main之类的。
+		TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s", "Pro"); //先假定子序列是Pro element，如果有主参考变量，则找合成的
+		if ( pri_var_nm ) //如果有主参考变量, 就即根据这个主参考变量中找到相应的sub_pro, pri_var_nm就是$Main之类的。
 		{
-			ref_var = set_loc_ref_var(pri_vnm, pri_key); 
-			/* pri_key是子系列入口primary属性指明的protect之类的,即me.protect.*这样的东西。这里更新局部变量集 */
-			if ( ref_var )
-			{
-				if ( (nm = ref_var->self_ele->Attribute("SubPro")) ) //参考变量的pro属性指示子序列
-				{
+			ref_var = g_var_set->one_still(0,pri_var_nm, 0, tmplen);	//找到已定义参考变量的
+			if ( ref_var ) {
+				if ( (nm = ref_var->self_ele->Attribute("SubPro")) )  { //参考变量的pro属性指示子序列
 					TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s%s", "Pro", nm);
 				}
 			}
@@ -1799,6 +1737,26 @@ struct ComplexSubSerial {
 
 		sub_pro = usr_def_entry->FirstChildElement(pro_nm);	//定位实际的子系列
 		if ( !sub_pro ) return -1; //没有子序列 
+
+		sv_set.dynamic_at = g_var_set->dynamic_at;
+		//{int *a =0 ; *a = 0; };
+		sv_set.defer_vars(usr_def_entry); 
+		g_var_set->dynamic_at = sv_set.dynamic_at ;
+		sv_set.command_ele = usr_ele;
+
+		if ( pri_var_nm ) set_loc_ref_var(pri_var_nm, pri_key, true);	//先把主参考量赋值, pri_key是"protect"这样的内容
+		for ( i = 0; i < sv_set.many; i++ ) {
+			me_var = &(sv_set.vars[i]);
+			if ( pri_key && strcmp(me_var->me_name, pri_key) == 0 ) 
+			{	//主参考变量标记后，略过
+				me_var->me_pri_refer = true;
+				continue;	
+			} 
+			if ( me_var->kind != VAR_Me || !me_var->me_sub_name ) continue;	//只处理有后缀的Me变量
+			nm = find_from_usr_ele(me_var->me_name); 	//从用户命令中找, nm是"$Main"之类的
+			/* 如果参考量没有相应的属性, 原有带后缀变量内容得以保留, 否则被更新 */
+			if (nm ) ref_var = set_loc_ref_var(nm, me_var->me_name); /* 处理me.export.*这样的东西。这里更新局部变量集 */
+		}
 
 		pac_many = 0;
 		ev_num (sub_pro, pac_many);
@@ -1851,10 +1809,12 @@ struct User_Command : public Condition {
 						complex[X].g_var_set = vrset;			\
 						complex[X].def_root = def_root;			\
 						complex[X].usr_ele = usr_ele;			\
+						complex[X].pri_key = pri_nm;			\
 						complex[X].map_root = map_root;
 
 				PUT_COMPLEX(0)
-				ret_ic = complex->pro_analyze(usr_ele->Attribute(pri_nm), usr_ele->Attribute("loop"));
+				complex->pri_var_nm = usr_ele->Attribute(pri_nm);
+				ret_ic = complex->pro_analyze(usr_ele->Attribute("loop"));
 			} else {	//一个用户操作，包括几个复合指令的尝试，有一个成功，就算OK
 				for( pri = usr_ele->FirstChildElement(pri_nm), comp_num = 0; pri; pri = pri->NextSiblingElement(pri_nm) )
 					comp_num++;
@@ -1865,7 +1825,8 @@ struct User_Command : public Condition {
 					pri; pri = pri->NextSiblingElement(pri_nm) )
 				{
 					PUT_COMPLEX(i)
-					ret_ic = complex[i].pro_analyze(pri->GetText(), pri->Attribute("loop")); //多个可选，指令数就计最后一个
+					complex[i].pri_var_nm = pri->GetText();
+					ret_ic = complex[i].pro_analyze(pri->Attribute("loop")); //多个可选，指令数就计最后一个
 					i++;
 				}
 			}
@@ -1873,7 +1834,8 @@ struct User_Command : public Condition {
 			comp_num = 1;
 			complex = new struct ComplexSubSerial;
 			PUT_COMPLEX(0)
-			ret_ic = complex->pro_analyze(0, usr_ele->Attribute("loop"));
+			complex->pri_var_nm = 0;
+			ret_ic = complex->pro_analyze(usr_ele->Attribute("loop"));
 		}
 
 		set_condition ( usr_ele, vrset, 0);
@@ -1912,19 +1874,28 @@ struct INS_Set {
 
 	void put_inses(TiXmlElement *root, struct PVar_Set *var_set, TiXmlElement *map_root, TiXmlElement *pac_def_root)
 	{
-		TiXmlElement *usr_ele, *sub;
-		int mor, cor, vmany, refny,i, a_ic_num;
+		TiXmlElement *usr_ele, *sub, *macro_ele, *m_usr_ele;
+		int mor, cor, vmany, refny,i, a_ic_num, base_cor;
 		const char *com_nm;
-
+		char macro_nm[128];
+	#define MACRO_SUFFIX "_Macro"
 		for ( usr_ele= root->FirstChildElement(), refny = 0; 
-			usr_ele; usr_ele = usr_ele->NextSiblingElement())
-		{
-			if ( (com_nm = usr_ele->Value()) )
-			{
+			usr_ele; usr_ele = usr_ele->NextSiblingElement()) {
+			if ( (com_nm = usr_ele->Value()) ) {
 				if (yes_ins(usr_ele, map_root, var_set) )
 					refny++;				
-				else if ( !var_set->is_var(com_nm)) //找宏定义
-				{
+				else if ( !var_set->is_var(com_nm)) 
+				{ 
+					TEXTUS_SNPRINTF(macro_nm, sizeof(macro_nm)-1, "%s"MACRO_SUFFIX, com_nm);
+					macro_ele= map_root->FirstChildElement(macro_nm); //map_root中找宏定义
+					if ( !macro_ele) continue;
+					for ( m_usr_ele= macro_ele->FirstChildElement(); 
+						m_usr_ele; m_usr_ele = m_usr_ele->NextSiblingElement()) {
+						if ( m_usr_ele->Value() ) {
+							if (yes_ins(m_usr_ele, map_root, var_set) )
+								refny++;				
+						}
+					}
 				}
 			}
 		}
@@ -1939,11 +1910,10 @@ struct INS_Set {
 		vmany = 0;
 		for ( usr_ele= root->FirstChildElement(); usr_ele; usr_ele = usr_ele->NextSiblingElement())
 		{
-			if ( usr_ele->Value() )
+			if ( (com_nm = usr_ele->Value()) )
 			{
 				sub = yes_ins(usr_ele, map_root, var_set);
-				if ( sub)
-				{
+				if ( sub) {
 					cor = 0;
 					usr_ele->QueryIntAttribute("order", &(cor)); 
 					if ( cor <= mor ) continue;	//order不符合顺序的，略过
@@ -1953,6 +1923,30 @@ struct INS_Set {
 					instructions[vmany].order = cor;
 					mor = cor;
 					vmany++;
+				} else if ( !var_set->is_var(com_nm)) { 
+					TEXTUS_SNPRINTF(macro_nm, sizeof(macro_nm)-1, "%s"MACRO_SUFFIX, com_nm);
+					macro_ele= map_root->FirstChildElement(macro_nm); //map_root中找宏定义
+					if ( !macro_ele) continue;
+					base_cor = 0;
+					usr_ele->QueryIntAttribute("order", &(base_cor)); //取得宏的基底order
+					if ( base_cor <= mor ) continue;	//order不符合顺序的，略过
+					for ( m_usr_ele= macro_ele->FirstChildElement(); 
+						m_usr_ele; m_usr_ele = m_usr_ele->NextSiblingElement()) {
+						if ( m_usr_ele->Value() ) {
+							sub = yes_ins(m_usr_ele, map_root, var_set);
+							if (sub ) {
+								cor = -1;
+								m_usr_ele->QueryIntAttribute("order", &(cor)); 
+								if ( cor < 0 || (cor = base_cor + cor ) <= mor ) continue; //order不合序,略过
+								a_ic_num = instructions[vmany].set_sub(m_usr_ele, var_set, sub, pac_def_root, map_root);
+								if ( a_ic_num < 0 ) continue;
+								ic_num += a_ic_num;
+								instructions[vmany].order = cor;
+								mor = cor;
+								vmany++;
+							}
+						}
+					}
 				}
 			}
 		}
