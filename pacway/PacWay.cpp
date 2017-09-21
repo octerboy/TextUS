@@ -1872,52 +1872,23 @@ struct INS_Set {
 		return sub_serial;
 	};
 
-	void put_inses(TiXmlElement *root, struct PVar_Set *var_set, TiXmlElement *map_root, TiXmlElement *pac_def_root)
+	#define MACRO_SUFFIX "_Macro"
+	void ev_maro( TiXmlElement *m_root, struct PVar_Set *var_set, TiXmlElement *map_root, TiXmlElement *pac_def_root, int &vmany, int &mor,int base_cor)	//为了无限制嵌套宏定义
 	{
-		TiXmlElement *usr_ele, *sub, *macro_ele, *m_usr_ele;
-		int mor, cor, vmany, refny,i, a_ic_num, base_cor;
 		const char *com_nm;
 		char macro_nm[128];
-	#define MACRO_SUFFIX "_Macro"
-		for ( usr_ele= root->FirstChildElement(), refny = 0; 
-			usr_ele; usr_ele = usr_ele->NextSiblingElement()) {
-			if ( (com_nm = usr_ele->Value()) ) {
-				if (yes_ins(usr_ele, map_root, var_set) )
-					refny++;				
-				else if ( !var_set->is_var(com_nm)) 
-				{ 
-					TEXTUS_SNPRINTF(macro_nm, sizeof(macro_nm)-1, "%s"MACRO_SUFFIX, com_nm);
-					macro_ele= map_root->FirstChildElement(macro_nm); //map_root中找宏定义
-					if ( !macro_ele) continue;
-					for ( m_usr_ele= macro_ele->FirstChildElement(); 
-						m_usr_ele; m_usr_ele = m_usr_ele->NextSiblingElement()) {
-						if ( m_usr_ele->Value() ) {
-							if (yes_ins(m_usr_ele, map_root, var_set) )
-								refny++;				
-						}
-					}
-				}
-			}
-		}
+		TiXmlElement *macro_ele, *m_usr_ele, *sub;
+		int cor, a_ic_num, nbase;
 
-		//初步确定变量数
-		many = refny ;
-		if ( many ==0 ) return;
-		instructions = new struct User_Command[many];
-			
-		mor = -999999;	//这样，顺序号可以从负数开始
-		ic_num = 0;
-		vmany = 0;
-		for ( usr_ele= root->FirstChildElement(); usr_ele; usr_ele = usr_ele->NextSiblingElement())
+		for ( m_usr_ele= m_root->FirstChildElement(); m_usr_ele; m_usr_ele = m_usr_ele->NextSiblingElement())
 		{
-			if ( (com_nm = usr_ele->Value()) )
-			{
-				sub = yes_ins(usr_ele, map_root, var_set);
+			if ( !m_usr_ele->Attribute("order")) continue;
+			if ( (com_nm = m_usr_ele->Value()) ) {
+				sub = yes_ins(m_usr_ele, map_root, var_set);
 				if ( sub) {
-					cor = 0;
-					usr_ele->QueryIntAttribute("order", &(cor)); 
-					if ( cor <= mor ) continue;	//order不符合顺序的，略过
-					a_ic_num = instructions[vmany].set_sub(usr_ele, var_set, sub, pac_def_root, map_root);
+					m_usr_ele->QueryIntAttribute("order", &(cor)); 
+					if ( (cor = base_cor + cor ) <= mor ) continue; //order不合序,略过
+					a_ic_num = instructions[vmany].set_sub(m_usr_ele, var_set, sub, pac_def_root, map_root);
 					if ( a_ic_num < 0 ) continue;
 					ic_num += a_ic_num;
 					instructions[vmany].order = cor;
@@ -1927,29 +1898,55 @@ struct INS_Set {
 					TEXTUS_SNPRINTF(macro_nm, sizeof(macro_nm)-1, "%s"MACRO_SUFFIX, com_nm);
 					macro_ele= map_root->FirstChildElement(macro_nm); //map_root中找宏定义
 					if ( !macro_ele) continue;
-					base_cor = 0;
-					usr_ele->QueryIntAttribute("order", &(base_cor)); //取得宏的基底order
-					if ( base_cor <= mor ) continue;	//order不符合顺序的，略过
-					for ( m_usr_ele= macro_ele->FirstChildElement(); 
-						m_usr_ele; m_usr_ele = m_usr_ele->NextSiblingElement()) {
-						if ( m_usr_ele->Value() ) {
-							sub = yes_ins(m_usr_ele, map_root, var_set);
-							if (sub ) {
-								cor = -1;
-								m_usr_ele->QueryIntAttribute("order", &(cor)); 
-								if ( cor < 0 || (cor = base_cor + cor ) <= mor ) continue; //order不合序,略过
-								a_ic_num = instructions[vmany].set_sub(m_usr_ele, var_set, sub, pac_def_root, map_root);
-								if ( a_ic_num < 0 ) continue;
-								ic_num += a_ic_num;
-								instructions[vmany].order = cor;
-								mor = cor;
-								vmany++;
-							}
-						}
-					}
+					m_usr_ele->QueryIntAttribute("order", &(cor)); 
+					nbase = base_cor + cor;
+					if ( nbase <= mor ) continue;	//order不符合顺序的，略过
+					ev_maro( macro_ele, var_set, map_root, pac_def_root, vmany, mor, nbase);	//为了无限制嵌套宏定义
 				}
 			}
 		}
+	};
+
+	void ev_num( TiXmlElement *m_root, struct PVar_Set *var_set, TiXmlElement *map_root, int &refny )	//为了无限制嵌套宏定义
+	{
+		const char *com_nm;
+		char macro_nm[128];
+		TiXmlElement *macro_ele, *m_usr_ele;
+
+		for ( m_usr_ele= m_root->FirstChildElement(); m_usr_ele; m_usr_ele = m_usr_ele->NextSiblingElement()) {
+			if ( !m_usr_ele->Attribute("order")) continue;
+			if ( (com_nm = m_usr_ele->Value()) ) {
+				if (yes_ins(m_usr_ele, map_root, var_set) )
+					refny++;				
+				else if ( !var_set->is_var(com_nm)) { 
+					TEXTUS_SNPRINTF(macro_nm, sizeof(macro_nm)-1, "%s"MACRO_SUFFIX, com_nm);
+					macro_ele= map_root->FirstChildElement(macro_nm); //map_root中找宏定义
+					if ( !macro_ele) continue;
+					ev_num(macro_ele, var_set, map_root, refny);
+				}
+			}
+		}
+	};
+
+	void put_inses(TiXmlElement *root, struct PVar_Set *var_set, TiXmlElement *map_root, TiXmlElement *pac_def_root)
+	{
+		TiXmlElement *usr_ele, *sub, *macro_ele, *m_usr_ele;
+		int mor, cor, vmany, refny,i, a_ic_num, base_cor;
+		const char *com_nm;
+		char macro_nm[128];
+		refny = 0; 
+		ev_num(root, var_set, map_root, refny);
+
+		//初步确定变量数
+		many = refny ;
+		if ( many ==0 ) return;
+		instructions = new struct User_Command[many];
+			
+		mor = -999999;	//这样，顺序号可以从负数开始
+		ic_num = 0;
+		vmany = 0;
+		ev_maro(root, var_set, map_root, pac_def_root, vmany, mor, 0);	//为了无限制嵌套宏定义
+
 		many = vmany; //最后再更新一次用户命令数
 		//look for last_pac_ins
 		for ( i = 0 ; i < many; i++)
