@@ -74,6 +74,8 @@ enum LEFT_STATUS { LT_Idle = 0, LT_Working = 3};
 enum RIGHT_STATUS { RT_IDLE = 0, RT_OUT=7, RT_READY = 3};
 /* 抱文交换方式 */
 enum PAC_MODE { PAC_NONE = 0, PAC_FIRST =1, PAC_SECOND = 4, PAC_BOTH=5};
+/* 抱文日志方式 */
+enum PAC_LOG { PAC_LOG_NONE = 0, PAC_LOG_NORMAL =1, PAC_LOG_ERR = 4};
 
 enum Var_Type {VAR_ErrCode=1, VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_CurOrder=4, VAR_CurCent=5, VAR_ErrStr=6, VAR_FlowID=7, VAR_Dynamic = 10, VAR_Me=12, VAR_Constant=98,  VAR_None=99};
 /* 命令分几种，INS_Normal：标准，INS_Abort：终止 */
@@ -1160,6 +1162,7 @@ struct PacIns:public Condition  {
 
 	enum PAC_MODE pac_mode;	/* 报文模式, 一般不交换 */
 	bool pac_cross;	/* 是否交叉, 如第一个换到第二个 */
+	enum PAC_LOG pac_log;
 
 	PacIns() {
 		type = INS_None;
@@ -1177,6 +1180,7 @@ struct PacIns:public Condition  {
 		dbface = 0;
 		pac_mode = PAC_NONE;
 		pac_cross = false;
+		pac_log = PAC_LOG_NONE;
 	};
 
 	void pac_cross_before(PacketObj *req_pac, PacketObj *rply_pac, PacketObj *first_pac, PacketObj *second_pac)
@@ -1345,6 +1349,18 @@ ErrRet:
 		int i = 0;
 		int lnn;
 		const char *tag;
+		p = def_ele->Attribute("log");	
+		if ( !p ) p = pac_ele->Attribute("log");	
+		if ( p )
+		{
+			if ( strcasecmp( p, "normal") ==0 )
+			{
+				pac_log = PAC_LOG_NORMAL;
+			} else if ( strcasecmp( p, "err") ==0 )
+			{
+				pac_log = PAC_LOG_ERR;
+			}
+		}
 
 		p = def_ele->Attribute("dir");	
 		if ( p )
@@ -2202,6 +2218,7 @@ private:
 	void set_peer(PacketObj *pac, int sub);
 	void get_cert(PacketObj *pac, int sub);
 	void get_peer(PacketObj *pac, int sub);
+	void log_pac(PacketObj *pac,const char *prompt);
 	Amor::Pius prodb_ps;
 	#include "wlog.h"
 };
@@ -2562,11 +2579,53 @@ void PacWay::get_peer(PacketObj *pac, int sub)
 	}
 }
 
+void PacWay::log_pac(PacketObj *pac,const char *prompt)
+{
+	TBuffer tbuf;
+	size_t plen;
+	int i;
+	size_t j;
+	char *rstr, max_str[16];
+
+	if ( !pac ) return ;
+	plen = strlen(prompt);
+	TEXTUS_SPRINTF(max_str, "%d", pac->max); //最大的域号所显示的字符数
+	tbuf.grant(plen + 2 + (pac->buf.point - pac->buf.base)*3+(7+strlen(max_str))*(pac->max));
+	tbuf.input((unsigned char*)prompt, plen);
+	tbuf.input((unsigned char*)" ", 1);
+	for ( i = 0; i < pac->max; i++)
+	{
+		if ( pac->fld[i].no < 0 ) continue;
+		char *rstr = (char*) tbuf.point;
+		TEXTUS_SPRINTF(rstr, "{%d [", i);
+		for ( j = 0 ; j < pac->fld[i].range; j++)
+		{
+			unsigned char c = 
+			int o = i*3;
+			if ( i >= 8 )  o++; 	//中间加一空格
+			if ( gCFG->form == DEBUG_VIEW_X )
+			{
+				rstr[o++] = ObtainX((c & 0xF0 ) >> 4 );
+				rstr[o++] = ObtainX(c & 0x0F );
+			} else {
+				rstr[o++] = Obtainx((c & 0xF0 ) >> 4 );
+				rstr[o++] = Obtainx(c & 0x0F );
+			}
+
+			if ( c >= 0x20 && c <= 0x7e )
+				rstr[48+ROW_SPACE+i] =  c;
+			else
+				rstr[48+ROW_SPACE+i] =  '.';
+		}
+	}
+}
+
 /* 子序列入口 */
 int PacWay::sub_serial_pro(struct ComplexSubSerial *comp, bool &has_back,  Amor::Pius *&fac_ps, struct PacIns *last_paci)
 {
 	struct PacIns *paci;
 	char h_msg[1024];
+	PacketObj *n_pac ;	
 	if ( last_paci ) 
 	{
 		paci=last_paci;
@@ -2599,6 +2658,8 @@ PACI_PRO:
 			hi_req_p->reset();	//请求复位
 			paci->pac_cross_before(hi_req_p, hi_reply_p, rcv_pac, snd_pac);
 			paci->get_req_pac(hi_req_p, loc_pro_pac.subor, &mess);
+			if ( paci->pac_log == PAC_LOG_NORMAL) 
+				log_pac(hi_req_p,"Req");
 			if (  paci->subor < 0 ) 	//仅仅是报文域赋值
 			{
 				command_wt.pac_step = Pac_End;
@@ -2695,6 +2756,8 @@ PACI_PRO:
 			hi_req_p->reset();	//请求复位
 			paci->pac_cross_before(hi_req_p, hi_reply_p, rcv_pac, snd_pac);
 			paci->get_req_pac(hi_req_p, loc_pro_pac.subor, &mess);
+			if ( paci->pac_log == PAC_LOG_NORMAL) 
+				log_pac(hi_req_p,"Req");
 			mess.handle_last_pac = true;
 			if (  paci->subor < 0 ) 	//仅仅是报文域赋值
 			{
@@ -2712,7 +2775,9 @@ PACI_PRO:
 			break;
 		case Pac_Working:
 			command_wt.pac_step = Pac_End;
-			paci->pac_cross_after(hi_req_p, hi_reply_p, rcv_pac, snd_pac);
+			n_pac = paci->pac_cross_after(hi_req_p, hi_reply_p, rcv_pac, snd_pac);
+			if ( paci->pac_log == PAC_LOG_NORMAL) 
+				log_pac(n_pac,"Reply");
 			return 1;	//完成
 			break;
 
@@ -2731,19 +2796,31 @@ PACI_PRO:
 END_PRO:
 	if ( command_wt.pac_step == Pac_End )
 	{
-		PacketObj *n_pac = paci->pac_cross_after(hi_req_p, hi_reply_p, rcv_pac, snd_pac);
+		n_pac = paci->pac_cross_after(hi_req_p, hi_reply_p, rcv_pac, snd_pac);
+		if ( paci->pac_log == PAC_LOG_NORMAL) 
+			log_pac(n_pac,"Reply");
 		if ( paci->rcv_num > 0 && !paci->pro_rply_pac(n_pac, &mess)) 
 		{
 			mess.iRet = ERROR_RECV_PAC;
 			TEXTUS_SPRINTF(h_msg, "fault at order=%d pac_which=%d of %s (%s)", mess.pro_order, command_wt.pac_which, cur_def->flow_id, mess.err_str);
 			memcpy(mess.err_str, h_msg, strlen(h_msg));
 			mess.err_str[strlen(h_msg)] = 0;
+			if ( paci->pac_log == PAC_LOG_ERR) 
+			{
+				log_pac(hi_req_p,"Req");
+				log_pac(n_pac,"Reply");
+			}
 			return -3;	//这是基本报文错误，非map所控制
 		}  else if ( !paci->valid_result(&mess) )
 		{
 			mess.iRet = ERROR_RESULT;
 			TEXTUS_SPRINTF(mess.err_str, "result error at order=%d pac_which=%d of %s", mess.pro_order, command_wt.pac_which, cur_def->flow_id);
 			if ( paci->err_code) mess.snap[Pos_ErrCode].input(paci->err_code);
+			if ( paci->pac_log == PAC_LOG_ERR) 
+			{
+				log_pac(hi_req_p,"Req");
+				log_pac(n_pac,"Reply");
+			}
 			return -2;	//这是map所控制
 		} else {
 			command_wt.pac_which++;	//指向下一条报文处理
