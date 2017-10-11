@@ -72,10 +72,10 @@ char err_global_str[128]={0};
 enum LEFT_STATUS { LT_Idle = 0, LT_Working = 3};
 /* 右边状态, 空闲, 发出报文等响应 */
 enum RIGHT_STATUS { RT_IDLE = 0, RT_OUT=7, RT_READY = 3};
-/* 抱文交换方式 */
+/* 报文交换方式 */
 enum PAC_MODE { PAC_NONE = 0, PAC_FIRST =1, PAC_SECOND = 4, PAC_BOTH=5};
-/* 抱文日志方式 */
-enum PAC_LOG { PAC_LOG_NONE = 0, PAC_LOG_NORMAL =1, PAC_LOG_ERR = 4};
+/* 报文日志方式 */
+enum PAC_LOG { PAC_LOG_NONE = 0, PAC_LOG_STR =0x11, PAC_LOG_HEX =0x12, PAC_LOG_BOTH = 0x13, PAC_LOG_STR_ERR = 0x21, PAC_LOG_HEX_ERR = 0x22, PAC_LOG_BOTH_ERR = 0x23};
 
 enum Var_Type {VAR_ErrCode=1, VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_CurOrder=4, VAR_CurCent=5, VAR_ErrStr=6, VAR_FlowID=7, VAR_Dynamic = 10, VAR_Me=12, VAR_Constant=98,  VAR_None=99};
 /* 命令分几种，INS_Normal：标准，INS_Abort：终止 */
@@ -151,8 +151,7 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 			kind = VAR_Constant;	//认为是常数
 		};
 
-		void put_var(struct PVar* att_var)
-		{
+		void put_var(struct PVar* att_var) {
 			kind = att_var->kind;
 			c_len = att_var->c_len;
 			if ( c_len > 0 ) 
@@ -298,8 +297,7 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 		};
 	};
 
-	struct DyVar	/* 动态变量， 包括来自报文的 */
-	{
+	struct DyVar { /* 动态变量， 包括来自报文的 */
 		Var_Type kind;	//动态类型,
 		int index;	//索引, 也就是下标值
 		unsigned char *val_p;	//p有时指向这里的val， 但也可能指向输入、输出的域.c_len就是长度。
@@ -344,8 +342,7 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 			val_p = (unsigned char*)&val[0];
 		};
 
-		void input(const char *p, bool link=false)
-		{
+		void input(const char *p, bool link=false) {
 			if ( !def_var ) return;
 			c_len = strlen(p);
 			if ( def_var->dy_link || link)
@@ -559,7 +556,7 @@ struct PVar_Set {
 		if ( av) av->put_still(val, len);
 	};
 
-	void put_var(const char *nm, struct PVar *att_var)
+	void put_var(const char *nm, struct PVar *att_var) 
 	{
 		struct PVar *av = look(nm,0);
 		if ( av) av->put_var(att_var);
@@ -650,8 +647,7 @@ struct MatchDst {	//匹配目标
 		c_case = true;
 	};
 
-	bool set_val(struct PVar_Set *var_set, struct PVar_Set *loc_v, const char *p, const char *case_str)
-	{
+	bool set_val(struct PVar_Set *var_set, struct PVar_Set *loc_v, const char *p, const char *case_str) {
 		bool ret = false;
 		const char *val_nm;
 		TiXmlElement *body;
@@ -700,8 +696,7 @@ struct MatchDst {	//匹配目标
 		return ret;
 	};
 
-	bool valid_val (MK_Session *sess, struct PVar *src)
-	{
+	bool valid_val (MK_Session *sess, struct PVar *src) {
 		bool ret=true;
 
 		struct DyVar *dvr;
@@ -756,8 +751,7 @@ struct Match {		//一个匹配项
 		ys_no = true;
 	};
 
-	struct Match* set_ma(TiXmlElement *mch_ele, struct PVar_Set *var_set, struct PVar_Set *loc_v=0)
-	{
+	struct Match* set_ma(TiXmlElement *mch_ele, struct PVar_Set *var_set, struct PVar_Set *loc_v=0) {
 		int i;
 		const char *nm, *p;
 		const char *vn="value";
@@ -796,8 +790,7 @@ struct Match {		//一个匹配项
 		return this;
 	};
 
-	bool will_match(MK_Session *sess)
-	{
+	bool will_match(MK_Session *sess) {
 		int i;
 		bool ret=false;	//假定没有一个是符合的
 		for(i = 0; i < dst_num; i++)
@@ -827,8 +820,7 @@ struct Condition {	//一个指令的匹配列表, 包括条件与结果的匹配
 		hasLastWill = false;
 	};
 
-	void set_list( TiXmlElement *ele, struct PVar_Set *var_set, struct PVar_Set *loc_v, const char *vn, const char *vn_not, int &m_num, struct Match *&list)
-	{
+	void set_list( TiXmlElement *ele, struct PVar_Set *var_set, struct PVar_Set *loc_v, const char *vn, const char *vn_not, int &m_num, struct Match *&list) {
 		TiXmlElement *con_ele;
 		m_num = 0;
 		for (con_ele = ele->FirstChildElement(vn); con_ele; con_ele = con_ele->NextSiblingElement(vn) ) 
@@ -851,8 +843,7 @@ struct Condition {	//一个指令的匹配列表, 包括条件与结果的匹配
 		}
 	};
 
-	void set_condition ( TiXmlElement *ele, struct PVar_Set *var_set, struct PVar_Set *loc_v)
-	{
+	void set_condition ( TiXmlElement *ele, struct PVar_Set *var_set, struct PVar_Set *loc_v) {
 		const char *c;
 		hasLastWill = false;
 		c = ele->Attribute("has_last_will");
@@ -863,8 +854,7 @@ struct Condition {	//一个指令的匹配列表, 包括条件与结果的匹配
 		set_list(ele, var_set, loc_v, "must", "must_not", res_num, result_list);
 	};
 		
-	bool valid_list(MK_Session *sess, struct Match *list, int l_num)
-	{
+	bool valid_list(MK_Session *sess, struct Match *list, int l_num) {
 		int i;
 		bool ret=true;
 		for(i = 0;i < l_num; i++)
@@ -876,13 +866,12 @@ struct Condition {	//一个指令的匹配列表, 包括条件与结果的匹配
 		return ret;	//所有分项都符合，才算这个条件符合
 	};
 
-	bool valid_condition (MK_Session *sess)
-	{
+	bool valid_condition (MK_Session *sess) {
 		if (hasLastWill && !sess->willLast ) return false;
 		return valid_list(sess, conie_list, con_num);
 	};
-	bool valid_result (MK_Session *sess)
-	{
+
+	bool valid_result (MK_Session *sess) {
 		return valid_list(sess, result_list, res_num);
 	};
 };
@@ -1353,12 +1342,24 @@ ErrRet:
 		if ( !p ) p = pac_ele->Attribute("log");	
 		if ( p )
 		{
-			if ( strcasecmp( p, "normal") ==0 )
+			if ( strcasecmp( p, "str") ==0 )
 			{
-				pac_log = PAC_LOG_NORMAL;
-			} else if ( strcasecmp( p, "err") ==0 )
+				pac_log = PAC_LOG_STR;
+			} else if ( strcasecmp( p, "estr") ==0 )
 			{
-				pac_log = PAC_LOG_ERR;
+				pac_log = PAC_LOG_STR_ERR;
+			} else if ( strcasecmp( p, "hex") ==0 )
+			{
+				pac_log = PAC_LOG_HEX;
+			} else if ( strcasecmp( p, "ehex") ==0 )
+			{
+				pac_log = PAC_LOG_HEX_ERR;
+			} else if ( strcasecmp( p, "both") ==0 )
+			{
+				pac_log = PAC_LOG_BOTH;
+			} else if ( strcasecmp( p, "eboth") ==0 )
+			{
+				pac_log = PAC_LOG_BOTH_ERR;
 			}
 		}
 
@@ -2161,8 +2162,7 @@ struct PersonDef_Set {	//User_Command集合之集合
 	};
 };
 
-class PacWay: public Amor
-{
+class PacWay: public Amor {
 public:
 	void ignite(TiXmlElement *cfg);	
 	bool facio( Pius *);
@@ -2218,13 +2218,12 @@ private:
 	void set_peer(PacketObj *pac, int sub);
 	void get_cert(PacketObj *pac, int sub);
 	void get_peer(PacketObj *pac, int sub);
-	void log_pac(PacketObj *pac,const char *prompt);
+	void log_pac(PacketObj *pac,const char *prompt, enum PAC_LOG mode);
 	Amor::Pius prodb_ps;
 	#include "wlog.h"
 };
 
-void PacWay::ignite(TiXmlElement *prop)
-{
+void PacWay::ignite(TiXmlElement *prop) {
 	const char *comm_str;
 	if (!prop) return;
 	if ( !gCFG ) {
@@ -2281,8 +2280,7 @@ Amor* PacWay::clone() {
 	return (Amor*) child;
 }
 
-bool PacWay::facio( Amor::Pius *pius)
-{
+bool PacWay::facio( Amor::Pius *pius) {
 	PacketObj **tmp;
 	Amor::Pius tmp_pius;
 
@@ -2317,8 +2315,7 @@ bool PacWay::facio( Amor::Pius *pius)
 		gCFG->person_defs.put_def(gCFG->prop, "bus");
 		gCFG->null_icp_def.put_def(gCFG->prop->FirstChildElement("bike"), gCFG->prop);
 		mess.init(gCFG->person_defs.max_snap_num);
-		if ( err_global_str[0] != 0 )
-		{
+		if ( err_global_str[0] != 0 ) {
 			WLOG(ERR,"%s", err_global_str);
 		}
 		tmp_pius.ordo = Notitia::SET_UNIPAC;
@@ -2350,18 +2347,15 @@ bool PacWay::facio( Amor::Pius *pius)
 	return true;
 }
 
-bool PacWay::sponte( Amor::Pius *pius)
-{
+bool PacWay::sponte( Amor::Pius *pius) {
 	PacketObj **tmp;
 	assert(pius);
 	if (!gCFG ) return false;
 
-	switch ( pius->ordo )
-	{
+	switch ( pius->ordo ) {
 	case Notitia::SET_UNIPAC:
 		WBUG("sponte SET_UNIPAC");
-		if ( (tmp = (PacketObj **)(pius->indic)))
-		{
+		if ( (tmp = (PacketObj **)(pius->indic))) {
 			if ( *tmp) hi_req_p = *tmp; 
 			else {
 				WLOG(WARNING, "sponte SET_UNIPAC rcv_pac null");
@@ -2371,8 +2365,9 @@ bool PacWay::sponte( Amor::Pius *pius)
 			else {
 				WLOG(WARNING, "sponte SET_UNIPAC snd_pac null");
 			}
-		} else 
+		} else {
 			WLOG(WARNING, "sponte SET_UNIPAC null");
+		}
 
 		break;
 	case Notitia::MULTI_UNIPAC_END:
@@ -2439,8 +2434,7 @@ void PacWay::handle_pac()
 		return;
 	}
 
-	switch ( mess.left_status) 
-	{
+	switch ( mess.left_status) {
 	case LT_Idle:
 		/* 这里就是一般的业务啦 */
 		mess.reset();	//会话复位
@@ -2497,7 +2491,6 @@ void PacWay::handle_pac()
 			mk_result();
 			goto HERE_END;
 		}
-			
 		mk_hand();
 HERE_END:
 		break;
@@ -2522,9 +2515,7 @@ void PacWay::get_cert(PacketObj *pac, int sub)
 	peer_ps.indic = 0;
 	aptus->facio(&peer_ps);
 	if (peer_ps.indic)
-	{
 		pac->input(1, (unsigned char*)peer_ps.indic, strlen((const char*)peer_ps.indic));
-	}
 }
 
 void PacWay::set_peer(PacketObj *pac, int sub)
@@ -2579,45 +2570,63 @@ void PacWay::get_peer(PacketObj *pac, int sub)
 	}
 }
 
-void PacWay::log_pac(PacketObj *pac,const char *prompt)
+void PacWay::log_pac(PacketObj *pac,const char *prompt, enum PAC_LOG mode)
 {
 	TBuffer tbuf;
 	size_t plen;
 	int i;
 	size_t j;
 	char *rstr, max_str[16];
+	size_t o, o_base;;
+	bool has_str=false, has_hex=false;
 
 	if ( !pac ) return ;
+	if (mode &0x1) has_str = true;
+	if (mode &0x2) has_hex = true;
 	plen = strlen(prompt);
 	TEXTUS_SPRINTF(max_str, "%d", pac->max); //最大的域号所显示的字符数
-	tbuf.grant(plen + 2 + (pac->buf.point - pac->buf.base)*3+(7+strlen(max_str))*(pac->max));
+	tbuf.grant(plen + 2 + (pac->buf.point - pac->buf.base)*(has_str ? 1:0 + has_hex ? 2:0)+(7+strlen(max_str))*(pac->max));
 	tbuf.input((unsigned char*)prompt, plen);
 	tbuf.input((unsigned char*)" ", 1);
 	for ( i = 0; i < pac->max; i++)
 	{
-		if ( pac->fld[i].no < 0 ) continue;
-		char *rstr = (char*) tbuf.point;
+		if ( pac->fld[i].no < 0 || !pac->fld[i].val ) continue;
+		rstr = (char*) tbuf.point;
 		TEXTUS_SPRINTF(rstr, "{%d [", i);
+		o_base = strlen(rstr);
 		for ( j = 0 ; j < pac->fld[i].range; j++)
 		{
-			unsigned char c = 
-			int o = i*3;
-			if ( i >= 8 )  o++; 	//中间加一空格
-			if ( gCFG->form == DEBUG_VIEW_X )
+			unsigned char c = pac->fld[i].val[j];
+			if ( has_hex) 	//需要16进制显示
 			{
-				rstr[o++] = ObtainX((c & 0xF0 ) >> 4 );
-				rstr[o++] = ObtainX(c & 0x0F );
-			} else {
+				o = o_base + j*2;
 				rstr[o++] = Obtainx((c & 0xF0 ) >> 4 );
 				rstr[o++] = Obtainx(c & 0x0F );
+			} 
+			if ( has_str ) //需要字符显示
+			{
+				o = o_base +  (pac->fld[i].range+1)*(has_hex ?2:0) + j;
+				if ( c >= 0x20 && c <= 0x7e )
+					rstr[o] =  c;
+				else
+					rstr[o] =  '.';
 			}
-
-			if ( c >= 0x20 && c <= 0x7e )
-				rstr[48+ROW_SPACE+i] =  c;
-			else
-				rstr[48+ROW_SPACE+i] =  '.';
 		}
+		if ( has_hex) 	//需要16进制显示
+		{
+			o = o_base + j*2;
+			rstr[o++] = ']';
+			rstr[o] = '[';
+		}
+		o = o_base + (pac->fld[i].range+1)* (has_hex ?2:0) + j;
+		rstr[o++] = ']';
+		rstr[o++] = '}';
+		tbuf.commit(o);
+		//tbuf.point[0] = 0;
+		//printf("--- %s\n", tbuf.base);
 	}
+	tbuf.point[0] = 0;
+	WLOG(INFO, (char*)tbuf.base);
 }
 
 /* 子序列入口 */
@@ -2658,22 +2667,23 @@ PACI_PRO:
 			hi_req_p->reset();	//请求复位
 			paci->pac_cross_before(hi_req_p, hi_reply_p, rcv_pac, snd_pac);
 			paci->get_req_pac(hi_req_p, loc_pro_pac.subor, &mess);
-			if ( paci->pac_log == PAC_LOG_NORMAL) 
-				log_pac(hi_req_p,"Req");
+			if ( paci->isFunction || paci->rcv_num == 0 ) 
+				has_back = true;
+			else
+				has_back = false;
+			TEXTUS_SPRINTF(h_msg, "will(%s) order=%d which=%d", has_back ? "sync":"async", mess.pro_order, command_wt.pac_which);
+			if ( paci->pac_log & 0x10) 
+				log_pac(hi_req_p, h_msg, paci->pac_log);
+			else {
+				WBUG(h_msg);
+			}
 			if (  paci->subor < 0 ) 	//仅仅是报文域赋值
 			{
 				command_wt.pac_step = Pac_End;
 				goto END_PRO;
 			}
 			command_wt.pac_step = Pac_Working;
-
-			if ( paci->isFunction || paci->rcv_num == 0 ) 
-				has_back = true;
-			else
-				has_back = false;
-
 			mess.right_subor = paci->subor;
-			WBUG("will mess.pro_order=%d command_wt.pac_which=%d has_back(%s)", mess.pro_order, command_wt.pac_which, has_back ? "yes":"no");
 			//if ( mess.pro_order == 2 &&  command_wt.pac_which ==1 ) {int *a=0; *a=0;}
 			if ( paci->type == INS_Normal )
 				fac_ps = &loc_pro_pac;
@@ -2756,8 +2766,8 @@ PACI_PRO:
 			hi_req_p->reset();	//请求复位
 			paci->pac_cross_before(hi_req_p, hi_reply_p, rcv_pac, snd_pac);
 			paci->get_req_pac(hi_req_p, loc_pro_pac.subor, &mess);
-			if ( paci->pac_log == PAC_LOG_NORMAL) 
-				log_pac(hi_req_p,"Req");
+			if ( paci->pac_log & 0x10) 
+				log_pac(hi_req_p,"ResultPac req", paci->pac_log);
 			mess.handle_last_pac = true;
 			if (  paci->subor < 0 ) 	//仅仅是报文域赋值
 			{
@@ -2776,8 +2786,8 @@ PACI_PRO:
 		case Pac_Working:
 			command_wt.pac_step = Pac_End;
 			n_pac = paci->pac_cross_after(hi_req_p, hi_reply_p, rcv_pac, snd_pac);
-			if ( paci->pac_log == PAC_LOG_NORMAL) 
-				log_pac(n_pac,"Reply");
+			if ( paci->pac_log & 0x10) 
+				log_pac(n_pac,"ResultPac reply", paci->pac_log);
 			return 1;	//完成
 			break;
 
@@ -2797,18 +2807,18 @@ END_PRO:
 	if ( command_wt.pac_step == Pac_End )
 	{
 		n_pac = paci->pac_cross_after(hi_req_p, hi_reply_p, rcv_pac, snd_pac);
-		if ( paci->pac_log == PAC_LOG_NORMAL) 
-			log_pac(n_pac,"Reply");
+		if ( paci->pac_log & 0x10) 
+			log_pac(n_pac,"reply", paci->pac_log);
 		if ( paci->rcv_num > 0 && !paci->pro_rply_pac(n_pac, &mess)) 
 		{
 			mess.iRet = ERROR_RECV_PAC;
 			TEXTUS_SPRINTF(h_msg, "fault at order=%d pac_which=%d of %s (%s)", mess.pro_order, command_wt.pac_which, cur_def->flow_id, mess.err_str);
 			memcpy(mess.err_str, h_msg, strlen(h_msg));
 			mess.err_str[strlen(h_msg)] = 0;
-			if ( paci->pac_log == PAC_LOG_ERR) 
+			if ( paci->pac_log & 0x20) 
 			{
-				log_pac(hi_req_p,"Req");
-				log_pac(n_pac,"Reply");
+				log_pac(hi_req_p, h_msg, paci->pac_log);
+				log_pac(n_pac,"Reply", paci->pac_log);
 			}
 			return -3;	//这是基本报文错误，非map所控制
 		}  else if ( !paci->valid_result(&mess) )
@@ -2816,10 +2826,10 @@ END_PRO:
 			mess.iRet = ERROR_RESULT;
 			TEXTUS_SPRINTF(mess.err_str, "result error at order=%d pac_which=%d of %s", mess.pro_order, command_wt.pac_which, cur_def->flow_id);
 			if ( paci->err_code) mess.snap[Pos_ErrCode].input(paci->err_code);
-			if ( paci->pac_log == PAC_LOG_ERR) 
+			if ( paci->pac_log & 0x20) 
 			{
-				log_pac(hi_req_p,"Req");
-				log_pac(n_pac,"Reply");
+				log_pac(hi_req_p, h_msg, paci->pac_log);
+				log_pac(n_pac,"Reply", paci->pac_log);
 			}
 			return -2;	//这是map所控制
 		} else {
@@ -2853,8 +2863,7 @@ void PacWay::mk_hand(bool right_down)
 INS_PRO:
 	usr_com = &(cur_def->ins_all.instructions[mess.ins_which]);
 	mess.pro_order = usr_com->order;	
-	if ( right_down )
-	{
+	if ( right_down ) {
 		paci = &(usr_com->complex[command_wt.cur].pac_inses[command_wt.pac_which]);
 		if ( paci->err_code) mess.snap[Pos_ErrCode].input(paci->err_code);
 		mk_result();	//结束
@@ -2863,8 +2872,7 @@ INS_PRO:
 	if ( mess.snap[Pos_CurCent].def_var) 
 		mess.snap[Pos_CurCent].input((mess.ins_which*100)/cur_def->ins_all.many);
 
-	if ( mess.right_status  ==  RT_READY )	//终端空闲,各类工作单元清空复位
-	{
+	if ( mess.right_status  ==  RT_READY )	{ //终端空闲,各类工作单元清空复位
 		command_wt.step=0;
 		command_wt.cur = 0;
 	}
@@ -2872,8 +2880,7 @@ INS_PRO:
 	switch ( command_wt.step)
 	{
 	case 0:	//开始
-		if ( !usr_com->valid_condition(&mess) )
-		{
+		if ( !usr_com->valid_condition(&mess) ) {
 			mess.right_status = RT_READY;
 			NEXT_INS
 			break;
@@ -2891,17 +2898,14 @@ LOOP_PRI_TRY:
 		command_wt.step++;	//指向下一步
 	case 1:
 		i_ret = sub_serial_pro( &(usr_com->complex[command_wt.cur]), has_back, fac_ps );
-		if ( i_ret == -1 ) 	//这是软失败
-		{
+		if ( i_ret == -1 ) { //这是软失败
 			command_wt.sub_loop--;
-			if ( command_wt.sub_loop != 0 ) 	//如果原为是0,则为负,几乎到不了0
-			{
+			if ( command_wt.sub_loop != 0 ) { //如果原为是0,则为负,几乎到不了0
 				command_wt.sub_loop--;
 				command_wt.step--;
 				goto LOOP_PRI_TRY;
 			}
-			if ( command_wt.cur < (usr_com->comp_num-1) )	//用户定义的Abort才试下一个
-			{
+			if ( command_wt.cur < (usr_com->comp_num-1) ) { //用户定义的Abort才试下一个
 				command_wt.cur++;
 				command_wt.step--;
 				if ( command_wt.cur == (usr_com->comp_num-1) ) //最后一条复合指令啦，如果出错就调用自定义的出错过程(响应报文设置一些数据，或者向终端发些指令)
@@ -2914,26 +2918,20 @@ LOOP_PRI_TRY:
 				TEXTUS_SPRINTF(mess.err_str, "user abort at %d of %s", mess.pro_order, cur_def->flow_id);
 				mk_result();		/* 结束 */
 			}
-		} else if ( i_ret ==0  ) 
-		{
+		} else if ( i_ret ==0  ) {
 			mess.right_status = RT_OUT;
-			if ( has_back ) 
-			{
+			if ( has_back ) {
 				aptus->facio(fac_ps);     //向右发出指令, 右节点不再sponte
 				if ( mess.right_status == RT_OUT ) 
 					goto INS_PRO;		//本指令处理结果. 但是右节点dmd_end_session导致复位, 就不再处理
-			} else {
-				aptus->facio(fac_ps);     //向右发出指令, aptus.facio的处理放在最后, 很重要!!。因为可能在这个调用中就收到右节点的sponte. 注意!!. 以后的工作中一定要注意.
-			}
-		} else 	if ( i_ret > 0  ) 
-		{
+			} else 
+				aptus->facio(fac_ps);     //向右发出指令,aptus.facio的处理放在最后,很重要!! 因为这个调用中可能收到右节点的sponte. 注意!!,一定要注意.
+		} else 	if ( i_ret > 0  ) {
 			mess.right_status = RT_READY;	//右端闲
 			WBUG("has completed %d, order %d", mess.ins_which, mess.pro_order);
 			NEXT_INS
 		} else if ( i_ret < 0 )  //脚本控制或报文定义 的 错误
-		{
 			mk_result(); 
-		}
 		break;
 	}
 }
@@ -2942,18 +2940,15 @@ void PacWay::mk_result(bool end_mess)
 {
 	Amor::Pius *fac_ps;
 	bool has_back;
+	int ret;
 
-	if ( mess.iRet != 0 ) 
-	{
+	if ( mess.iRet != 0 ) {
 		WLOG(WARNING, "Error %s:  %s", mess.snap[Pos_ErrCode].val_p, mess.err_str);
 		mess.snap[Pos_ErrStr].input(mess.err_str);
 	}
 
-	if ( !mess.handle_last_pac ) 
-	{
-		if ( cur_def->ins_all.last_pac_ins ) 
-		{
-			int ret;
+	if ( !mess.handle_last_pac ) {
+		if ( cur_def->ins_all.last_pac_ins ) {
 			command_wt.pac_step = Pac_Idle;	//pac处理开始, 
 			ret = sub_serial_pro( 0, has_back, fac_ps, cur_def->ins_all.last_pac_ins);
 			mess.right_status = RT_OUT;
@@ -2962,8 +2957,9 @@ void PacWay::mk_result(bool end_mess)
 				aptus->facio(fac_ps);     //向右发出指令, 右节点不再sponte
 				ret = sub_serial_pro( 0, has_back, fac_ps, cur_def->ins_all.last_pac_ins);
 			}
-			if ( ret == 0  )
+			if ( ret == 0  ) {
 				WLOG(EMERG, "bug! last_pac_pro should finished!");
+			}
 		}
 	}
 	//{int *a=0; *a=0;}
