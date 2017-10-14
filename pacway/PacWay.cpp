@@ -1557,6 +1557,18 @@ ANOTHER:
 					if ( (p = e_tmp->Attribute("name")) )
 					{
 						vr_tmp = g_vars->look(p, me_vars);	//响应变量, 动态变量, 两个变量集
+						if ( vr_tmp->kind == VAR_Me && vr_tmp->me_sub_nm_len == 0)	//Me变量,且无后缀名, 则从用户命令中取
+						{
+							const char *nm;
+							TiXmlElement *body;
+							nm = usr_ele->Attribute(vr_tmp->me_name);//先看属性名为me.XX中的XX名
+							if (!nm )	//属性优先, 没有属性再看元素
+							{
+								body = usr_ele->FirstChildElement(vr_tmp->me_name);//再看元素为me.XX中的XX名
+								if ( body ) nm = body->GetText();
+							}
+							vr_tmp = g_vars->look(nm);	//响应变量, 
+						}
 						if (vr_tmp) 
 						{
 							rcv_lst[i].dyna_pos = vr_tmp->dynamic_pos;
@@ -2585,7 +2597,7 @@ void PacWay::log_pac(PacketObj *pac,const char *prompt, enum PAC_LOG mode)
 	if (mode &0x2) has_hex = true;
 	plen = strlen(prompt);
 	TEXTUS_SPRINTF(max_str, "%d", pac->max); //最大的域号所显示的字符数
-	tbuf.grant(plen + 2 + (pac->buf.point - pac->buf.base)*(has_str ? 1:0 + has_hex ? 2:0)+(7+strlen(max_str))*(pac->max));
+	tbuf.grant(plen + 2 + (pac->buf.point - pac->buf.base)*((has_str ? 1:0) + (has_hex ? 2:0))+(7+strlen(max_str))*(pac->max));
 	tbuf.input((unsigned char*)prompt, plen);
 	tbuf.input((unsigned char*)" ", 1);
 	for ( i = 0; i < pac->max; i++)
@@ -2675,7 +2687,7 @@ PACI_PRO:
 			if ( paci->pac_log & 0x10) 
 				log_pac(hi_req_p, h_msg, paci->pac_log);
 			else {
-				WBUG(h_msg);
+				WBUG("%s",h_msg);
 			}
 			if (  paci->subor < 0 ) 	//仅仅是报文域赋值
 			{
