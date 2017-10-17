@@ -1974,10 +1974,7 @@ struct INS_Set {
 
 	void put_inses(TiXmlElement *root, struct PVar_Set *var_set, TiXmlElement *map_root, TiXmlElement *pac_def_root)
 	{
-		TiXmlElement *usr_ele, *sub, *macro_ele, *m_usr_ele;
-		int mor, cor, vmany, refny,i, a_ic_num, base_cor;
-		const char *com_nm;
-		char macro_nm[128];
+		int mor, vmany, refny,i;
 		refny = 0; 
 		ev_num(root, var_set, map_root, refny);
 
@@ -2619,7 +2616,7 @@ void PacWay::log_pac(PacketObj *pac,const char *prompt, enum PAC_LOG mode)
 	{
 		if ( pac->fld[i].no < 0 || !pac->fld[i].val ) continue;
 		rstr = (char*) tbuf.point;
-		TEXTUS_SPRINTF(rstr, "{%d [", i);
+		TEXTUS_SNPRINTF(rstr, 7, "{%d [", i);
 		o_base = strlen(rstr);
 		for ( j = 0 ; j < pac->fld[i].range; j++)
 		{
