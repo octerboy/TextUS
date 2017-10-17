@@ -108,7 +108,8 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 		unsigned int me_nm_len;
 		const char *me_sub_name;  //Me变量后缀名， 从变量名name中定位。
 		int me_sub_nm_len;
-		bool me_pri_refer;	//主参考变量标记, true: 在合成请报文(hard_work_2)时, 不再从用户ele中取，因为在分析sub_serial时, 已经赋值
+		bool me_had_var;	//主参考变量标记, true: 在合成请报文(hard_work_2)时, 不再从用户ele中取，因为在分析sub_serial时, 已经赋值
+		bool me_nick;		//表明该me变量在分析sub_serial时需要确定内容
 
 		bool keep_alive;	//true: 若是动态变量, 只在Notitia::START_SESSION、DMD_END_SESSION时清空, false: 对每个flow_id开始都清空,
 		bool dy_link;	//动态变量的赋值方式，true:取地址方式，不复制; false:复制方式
@@ -130,7 +131,8 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 			me_nm_len = 0;
 			me_sub_name = 0;
 			me_sub_nm_len = 0;
-			me_pri_refer = false;
+			me_had_var = false;
+			me_nick = false;
 
 			dy_link = false;	//动态变量的赋值方式为复制方式。
 			keep_alive = false;
@@ -156,7 +158,7 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 			c_len = att_var->c_len;
 			if ( c_len > 0 ) 
 				memcpy(content, att_var->content, c_len );
-			att_var->content[c_len] = 0;	
+			content[c_len] = 0;	
 			dynamic_pos = att_var->dynamic_pos;
 		};
 
@@ -167,6 +169,11 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 			self_ele = var_ele;
 
 			nm = var_ele->Attribute("name");
+			if ( !nm ) 
+			{
+				nm = var_ele->Attribute("nick");
+				if( nm ) me_nick = true;
+			}
 			if ( !nm ) return 0;
 
 			name = nm;
@@ -937,12 +944,12 @@ struct CmdSnd {
 				continue;
 			}
 
-			if ( vr_tmp->kind == VAR_Me && vr_tmp->me_sub_nm_len == 0)	//Me变量,且无后缀名, 则从用户命令中取
+			if ( vr_tmp->kind == VAR_Me && vr_tmp->me_sub_nm_len == 0)	//Me变量,且无后缀名, 则从用户命令中取, 如me.body
 			{
 				vr2_tmp = 0;
 				g_ln = 0 ;
 				me_has_usr = false;
-				if ( vr_tmp->me_pri_refer) { //对于主参考, 就不再从用户命令中取
+				if ( vr_tmp->me_had_var) { //对于主参考, 就不再从用户命令中取
 					goto HAD_LOOK;
 				}
 				if ( usr_ele->Attribute(vr_tmp->me_name) ) 	//用户命令中，属性优先
@@ -1042,7 +1049,7 @@ ALL_STILL:
 				vr2_tmp = 0;
 				g_ln = 0;
 				me_has_usr = false;
-				if ( vr_tmp->me_pri_refer) { //对于主参考, 就不再从用户命令中取
+				if ( vr_tmp->me_had_var) { //对于主参考, 就不再从用户命令中取
 					goto HAD_LOOK_VAR;
 				}
 				if (usr_ele->Attribute(vr_tmp->me_name)) //先看属性内容,有了属性，不再看子元素了
@@ -1066,6 +1073,7 @@ ALL_STILL:
 						g_ln = 0;
 						vr2_tmp = g_vars->all_still(e2_tmp, vr_tmp->me_name, cp, g_ln, n2_ele, 0);
 						e2_tmp = n2_ele;
+						me_has_usr = true;
 						if ( g_ln > 0 )	/* 刚处理的是静态内容 */
 						{
 							DY_STILL(g_ln) //cp指针后移, 内容增加， 这里游标不变，因为下一个可能是Me变量的静态, 这要合并在一起
@@ -1083,7 +1091,6 @@ ALL_STILL:
 							DY_NEXT_STILL
 							now_still = false;
 						}
-						me_has_usr = true;
 					}
 				}
 				HAD_LOOK_VAR:
@@ -1557,18 +1564,6 @@ ANOTHER:
 					if ( (p = e_tmp->Attribute("name")) )
 					{
 						vr_tmp = g_vars->look(p, me_vars);	//响应变量, 动态变量, 两个变量集
-						if ( vr_tmp->kind == VAR_Me && vr_tmp->me_sub_nm_len == 0)	//Me变量,且无后缀名, 则从用户命令中取
-						{
-							const char *nm;
-							TiXmlElement *body;
-							nm = usr_ele->Attribute(vr_tmp->me_name);//先看属性名为me.XX中的XX名
-							if (!nm )	//属性优先, 没有属性再看元素
-							{
-								body = usr_ele->FirstChildElement(vr_tmp->me_name);//再看元素为me.XX中的XX名
-								if ( body ) nm = body->GetText();
-							}
-							vr_tmp = g_vars->look(nm);	//响应变量, 
-						}
 						if (vr_tmp) 
 						{
 							rcv_lst[i].dyna_pos = vr_tmp->dynamic_pos;
@@ -1671,27 +1666,39 @@ struct ComplexSubSerial {
 				av->put_still(buf, len);
 			}
 		}
-		if ( ref_var) {
-			for ( att = ref_var->self_ele->FirstAttribute(); att; att = att->Next())
-			{
-				//把属性加到本地变量集 sv_set
-				TEXTUS_SPRINTF(loc_v_nm, "%s%s.%s", ME_VARIABLE_HEAD, mid_nm, att->Name()); 
-				att_val = att->Value();
-				if ( !att_val ) continue;
-				len = 0;
-				/* 这里 att->Value() 可能指向另一个变量名 */
-				att_var = g_var_set->one_still(ref_var->self_ele, att_val, buf, len);	//找到已定义的变量
-				if ( att_var ) 
-				{
-					sv_set.put_var(loc_v_nm, att_var);
-				} else {
-					if ( len > 0 ) 
-						sv_set.put_still(loc_v_nm, buf, len);
-				}
-			}
+		if ( ref_var) for ( att = ref_var->self_ele->FirstAttribute(); att; att = att->Next())
+		{
+			//把属性加到本地变量集 sv_set
+			TEXTUS_SPRINTF(loc_v_nm, "%s%s.%s", ME_VARIABLE_HEAD, mid_nm, att->Name()); 
+			att_val = att->Value();
+			if ( !att_val ) continue;
+			len = 0;
+			/* 这里 att->Value() 可能指向另一个变量名 */
+			att_var = g_var_set->one_still(ref_var->self_ele, att_val, buf, len);	//找到已定义的变量
+			if ( att_var ) 
+				sv_set.put_var(loc_v_nm, att_var);
+			else if ( len > 0 ) 
+				sv_set.put_still(loc_v_nm, buf, len);
 		}
-
 		return ref_var;
+	};
+
+	struct PVar *set_loc_var(const char *vnm, const char *mid_nm)
+	{
+		unsigned char buf[512];		//实际内容, 常数内容
+		char loc_v_nm[128];
+		unsigned long len;
+		struct PVar *avar = 0;
+		TEXTUS_SPRINTF(loc_v_nm, "%s%s", ME_VARIABLE_HEAD, mid_nm); 
+		
+		len = 0;
+		avar = g_var_set->one_still(0,vnm, buf, len);	//找到已定义参考变量的
+		if ( avar ) 
+			sv_set.put_var(loc_v_nm, avar);
+		else if ( len > 0 ) 
+			sv_set.put_still(loc_v_nm, buf, len);
+
+		return avar;
 	};
 
 	void ev_pro( TiXmlElement *sub, int &which, int &icc_num)	//为了无限制嵌套
@@ -1778,13 +1785,21 @@ struct ComplexSubSerial {
 			me_var = &(sv_set.vars[i]);
 			if ( pri_key && strcmp(me_var->me_name, pri_key) == 0 ) 
 			{	//主参考变量标记后，略过
-				me_var->me_pri_refer = true;
+				me_var->me_had_var = true;
 				continue;	
 			} 
-			if ( me_var->kind != VAR_Me || !me_var->me_sub_name ) continue;	//只处理有后缀的Me变量
-			nm = find_from_usr_ele(me_var->me_name); 	//从用户命令中找, nm是"$Main"之类的
-			/* 如果参考量没有相应的属性, 原有带后缀变量内容得以保留, 否则被更新 */
-			if (nm ) ref_var = set_loc_ref_var(nm, me_var->me_name); /* 处理me.export.*这样的东西。这里更新局部变量集 */
+			if ( me_var->kind == VAR_Me ) 
+			{
+				nm = find_from_usr_ele(me_var->me_name); 	//从用户命令中找, nm是"$Main"之类的
+				if ( !nm ) continue;
+				if ( me_var->me_sub_name )  { 	//处理有后缀的Me变量
+					/* 如果参考量没有相应的属性, 原有带后缀变量内容得以保留, 否则被更新 */
+					set_loc_ref_var(nm, me_var->me_name); /* 处理me.export.*这样的东西。这里更新局部变量集 */
+				} else if ( me_var->me_nick ) {	//无后缀, 比如me.typeid, 先找一个
+					set_loc_var(nm, me_var->me_name); /* 处理me.typeid之类的*/
+					me_var->me_had_var = true;
+				}
+			}
 		}
 
 		pac_many = 0;
