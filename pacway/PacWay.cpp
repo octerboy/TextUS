@@ -42,8 +42,7 @@ int squeeze(const char *p, unsigned char *q)	//把空格等挤掉, 只留下16进制字符(大
 {
 	int i;
 	i = 0;
-	while ( *p )
-	{ 
+	while ( *p ) { 
 		if ( isxdigit(*p) ) 
 		{
 			if (q) q[i] = toupper(*p);
@@ -77,7 +76,7 @@ enum PAC_MODE { PAC_NONE = 0, PAC_FIRST =1, PAC_SECOND = 4, PAC_BOTH=5};
 /* 报文日志方式 */
 enum PAC_LOG { PAC_LOG_NONE = 0, PAC_LOG_STR =0x11, PAC_LOG_HEX =0x12, PAC_LOG_BOTH = 0x13, PAC_LOG_STR_ERR = 0x21, PAC_LOG_HEX_ERR = 0x22, PAC_LOG_BOTH_ERR = 0x23};
 
-enum Var_Type {VAR_ErrCode=1, VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_CurOrder=4, VAR_CurCent=5, VAR_ErrStr=6, VAR_FlowID=7, VAR_Dynamic = 10, VAR_Me=12, VAR_Constant=98,  VAR_None=99};
+enum Var_Type {VAR_ErrCode=1, VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_CurOrder=4, VAR_CurCent=5, VAR_ErrStr=6, VAR_FlowID=7, VAR_Dynamic_Global = 8, VAR_Dynamic_Link = 9, VAR_Dynamic = 10, VAR_Me=12, VAR_Constant=98,  VAR_None=99};
 /* 命令分几种，INS_Normal：标准，INS_Abort：终止 */
 enum PacIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_SetPeer=3, INS_GetPeer=4, INS_Get_CertNo=5, INS_Pro_DBFace=6, INS_Cmd_Ordo=7, INS_Respond =8, INS_ResultPacPro = 9, INS_Null=99};
 enum ACT_DIR { FACIO=0, SPONTE=1 };
@@ -100,19 +99,18 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 		const char *name;	//来自于doc文档
 		int n_len;		//名称长度
 
-		unsigned char content[512];	//变量内容. 这个内容与下面的内容一般不会同时有
-		int c_len;			//内容长度
-		int dynamic_pos;	//动态变量位置, -1表示静态
+		TBuffer *con;		//外部可访问, 通常指向nal, Global时指向G_CFG中的变量
+		TBuffer nal;		//内部数据, 
 
 		char me_name[64];	//Me变量名称，除去开头的 me. 三个字节, 不包括后缀. 从变量名name中复制，最大63字符
 		unsigned int me_nm_len;
 		const char *me_sub_name;  //Me变量后缀名， 从变量名name中定位。
 		int me_sub_nm_len;
 		bool me_had_var;	//主参考变量标记, true: 在合成请报文(hard_work_2)时, 不再从用户ele中取，因为在分析sub_serial时, 已经赋值
-		bool me_nick;		//表明该me变量在分析sub_serial时需要确定内容
 
 		bool keep_alive;	//true: 若是动态变量, 只在Notitia::START_SESSION、DMD_END_SESSION时清空, false: 对每个flow_id开始都清空,
-		bool dy_link;	//动态变量的赋值方式，true:取地址方式，不复制; false:复制方式
+		int dynamic_pos;	//动态变量位置, -1表示静态
+
 		TiXmlElement *self_ele;	/* 自身, 其子元素包括两种可能: 1.函数变量表, 
 					2.一个指令序列, 在指令子元素分析时, 如发现一个用到的变量中, 有子序列时, 把这些指令嵌入。
 					*/
@@ -120,26 +118,21 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 			kind = VAR_None;	//起初认为非变量
 			name = 0;
 			n_len = 0;
-
-			c_len = 0;
-			memset(content,0,sizeof(content));
+			con = &nal;
 			dynamic_pos = -1;	//非动态类
+			keep_alive = false;
 
 			self_ele = 0;
-
 			memset(me_name, 0, sizeof(me_name));
 			me_nm_len = 0;
 			me_sub_name = 0;
 			me_sub_nm_len = 0;
 			me_had_var = false;
-			me_nick = false;
-
-			dy_link = false;	//动态变量的赋值方式为复制方式。
-			keep_alive = false;
 		};
 
-		void put_still(const unsigned char *val, unsigned int len=0)
+		void put_still(const unsigned char *val, size_t len=0)
 		{
+			size_t c_len;
 			if ( !val)
 				return ;
 			if ( len ==0 ) 
@@ -147,49 +140,48 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 			else
 				c_len = len;
 				
-			if ( (c_len+1) > (int)sizeof(content) ) c_len =  sizeof(content)-1;
-			memcpy(content, val, c_len);
-			content[c_len] = 0;
+			nal.reset();
+			nal.grant(c_len+1);
+			nal.input((unsigned char*)val, c_len);
+			nal.point[0] = 0;	//保证null结尾
 			kind = VAR_Constant;	//认为是常数
+			dynamic_pos = -1;
+			con = &nal;	
 		};
 
 		void put_var(struct PVar* att_var) {
 			kind = att_var->kind;
-			c_len = att_var->c_len;
-			if ( c_len > 0 ) 
-				memcpy(content, att_var->content, c_len );
-			content[c_len] = 0;	
+			nal.reset();
+			nal.input(att_var->nal.base, att_var->nal.point-att_var->nal.base);
 			dynamic_pos = att_var->dynamic_pos;
 		};
 
 		struct PVar* prepare(TiXmlElement *var_ele, int &dy_at) //变量准备
 		{
 			const char *p, *nm, *aval;
+			size_t c_len = 0;
 			kind = VAR_None;
 			self_ele = var_ele;
 
 			nm = var_ele->Attribute("name");
-			if ( !nm ) 
-			{
-				nm = var_ele->Attribute("nick");
-				if( nm ) me_nick = true;
-			}
 			if ( !nm ) return 0;
 
 			name = nm;
 			n_len = strlen(name);
 
 			p = var_ele->GetText();
-			if ( p)
-			{
+			if ( p) {
+				nal.reset();
+				nal.grant(strlen(p)+1);
 				aval = var_ele->Attribute("escape");
 				if ( !aval ) 
 					aval = var_ele->GetDocument()->RootElement()->Attribute("escape");
 				if ( aval && (aval[0] == 'Y' || aval[0] == 'y') )
-				{
-					c_len = BTool::unescape(p, content) ;
-				} else 
-					c_len = squeeze(p, content);
+					c_len = BTool::unescape(p, nal.base) ;
+				else 
+					c_len = squeeze(p, nal.base);
+				nal.commit(c_len);
+				nal.point[0] = 0;	//保证null结尾
 			}
 			/* 变量无内容, 才认为这是特殊变量 */
 
@@ -228,29 +220,28 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 				kind = VAR_ErrStr;
 			}
 
-			if ( strcasecmp(nm, "$FlowID" ) == 0 ) //错误描述
+			if ( strcasecmp(nm, "$FlowID" ) == 0 ) //业务流标识
 			{
 				dynamic_pos = Pos_FlowID;
 				kind = VAR_FlowID;
 			}
-
-			aval =  var_ele->Attribute("link");
-			if ( aval && (aval[0] == 'Y' || aval[0] == 'y') )
-			{
-				dy_link = true;
-			}
-
 			if ( kind != VAR_None) goto P_RET; //已有定义，不再看这个Dynamic, 以上定义都与Dynamic相同处理
 
-			if ( (p = var_ele->Attribute("dynamic")) && (*p == 'Y' || *p == 'y') )
+			if ( (p = var_ele->Attribute("dynamic")) )
 			{
+				if ( strcasecmp(p, "global" ) == 0 || *p == 'G' || *p== 'g'  )
+					kind = VAR_Dynamic_Global;
+
+				if ( strcasecmp(p, "link" ) == 0 || *p == 'L' || *p== 'l' ) 
+					kind = VAR_Dynamic_Link;
+
+				if ( strcasecmp(p, "copy" ) == 0 || *p == 'Y' || *p == 'y' || *p == 'C' || *p== 'c'  ) 
+					kind = VAR_Dynamic;
+
 				dynamic_pos = dy_at;	//动态变量位置
-				kind = VAR_Dynamic;
 				dy_at++;
 				if ( (p = var_ele->Attribute("alive")) && (*p == 'Y' || *p == 'y') )
-				{
 					keep_alive = true;
-				}
 			}
 
 			if ( kind != VAR_None) goto P_RET; //已有定义，
@@ -265,9 +256,8 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 					me_nm_len = me_sub_name - &nm[sizeof(ME_VARIABLE_HEAD)-1];
 					me_sub_name++;	//当然，这个点本身不是后缀名, 从后一个开始才是后缀名
 					me_sub_nm_len = strlen(me_sub_name);
-				} else {			//如果不存在后缀
+				} else 		//如果不存在后缀
 					me_nm_len = strlen(&nm[sizeof(ME_VARIABLE_HEAD)-1]);
-				}
 
 				if ( me_nm_len >= sizeof ( me_name))	//Me变量名空间有限, 64字节最大。
 					me_nm_len = sizeof ( me_name)-1;
@@ -275,10 +265,8 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 				me_name[me_nm_len] = 0 ;
 			}
 
-			if ( kind == VAR_None && c_len > 0) 
-			{	//这里有内容但还没有类型, 那就定为常数, 其它的也可以有内容, 就要别处定义了
+			if ( kind == VAR_None && c_len > 0) //这里有内容但还没有类型, 那就定为常数, 其它的也可以有内容, 就要别处定义了
 				kind = VAR_Constant;	//认为是常数
-			}
 
 			P_RET:
 			return this;
@@ -287,17 +275,20 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 		void put_herev(TiXmlElement *h_ele) //分析一下本地变量
 		{
 			const char *p, *esc;
+			size_t c_len = 0;
 
-			if( (p = h_ele->GetText()) )
-			{
+			if( (p = h_ele->GetText()) ) {
+				nal.reset();
+				nal.grant(strlen(p)+1);
 				esc = h_ele->Attribute("escape");
 				if ( !esc ) 
 					esc = h_ele->GetDocument()->RootElement()->Attribute("escape");
 				if ( esc && (esc[0] == 'Y' || esc[0] == 'y') )
-				{
-					c_len = BTool::unescape(p, content) ;
-				} else 
-					c_len = squeeze(p, content);
+					c_len = BTool::unescape(p, nal.base) ;
+				else 
+					c_len = squeeze(p, nal.base);
+				nal.commit(c_len);
+				nal.point[0] = 0;	//保证null结尾
 				if (kind == VAR_None)	//只有原来没有定义类型的, 这里才定成常数. 
 					kind = VAR_Constant;
 			}
@@ -308,69 +299,67 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 		Var_Type kind;	//动态类型,
 		int index;	//索引, 也就是下标值
 		unsigned char *val_p;	//p有时指向这里的val， 但也可能指向输入、输出的域.c_len就是长度。
-		char val[512];	//变量内容. 随时更新, 足够空间啦
-		unsigned long c_len;
-
+		size_t c_len;
+		TBuffer *con;		//外部可访问, 通常指向nal, Global时指向G_CFG中的变量
+		TBuffer nal;		//内部数据, 
 		struct PVar *def_var;	//文件中定义的变量
 
 		DyVar () {
 			kind = VAR_None;
 			index = - 1;
-			c_len = 0;
-			val_p = 0;
-			def_var = 0;
-
-			memset(val, 0, sizeof(val));
+			to_blank();
 		};
 
-		void input(unsigned char *p, unsigned long len, bool link=false)
+		void input(unsigned char *p, size_t len, bool link=false)
 		{
 			if ( !def_var ) return;
-			if ( def_var->dy_link || link)
+			if ( def_var->kind == VAR_Dynamic_Link || link)
 			{
 				val_p = p;
 				c_len = len;
 			} else {
-				val_p = (unsigned char*)&val[0];
-				if ( (len+1) < sizeof(val) )
-				{
-					memcpy(val, p, len);
-					c_len = len;
-					val[len] = 0;
-				}
+				con->reset();
+				con->grant(len+1);
+				con->input(p,len);
+				con->point[0] = 0;
+				val_p = con->base;
+				c_len = len;
 			}
 		};
 
 		void input(int iv) {
+			unsigned char *val;
 			if ( !def_var ) return;
-			TEXTUS_SPRINTF(val, "%d", iv);
-			c_len = strlen((char*)&val[0]);
-			val[c_len] = 0;
-			val_p = (unsigned char*)&val[0];
+			con->reset();
+			con->grant(64);
+			val_p = con->base;
+			TEXTUS_SNPRINTF((char*)val_p, 64, "%d", iv);
+			c_len = strlen((char*)val_p);
+			con->commit(c_len);
+			con->point[0] = 0;
 		};
 
 		void input(const char *p, bool link=false) {
-			if ( !def_var ) return;
-			c_len = strlen(p);
-			if ( def_var->dy_link || link)
-			{
-				val_p = (unsigned char*)p;
-			} else {
-				if ( c_len > (sizeof(val)-1) )	
-					c_len = sizeof(val)-1;
-				val[c_len] = 0;
-				val_p = (unsigned char*)&val[0];
-				memcpy(val, p, c_len);
-			}
+			if ( !def_var || !p) return;
+			this->input((unsigned char*)p, strlen(p), link);
 		};
 
 		void input(const char p) {
 			if ( !def_var ) return;
+			con->reset();
+			con->base[0] = p;
+			con->base[1] = 0;
+			con->commit(1);
+			val_p = con->base;
 			c_len = 1;
-			val[1] = 0;
-			val_p = (unsigned char*)&val[0];
-			val[0] = p;
 		};
+
+		void to_blank() {
+			c_len = 0;
+			val_p = 0;
+			def_var = 0;
+			con = &nal;	//con有可能指向一个全局的,而不是本地的nal
+		}
 	};
 
 	struct MK_Session {		//记录一个事务过程中的各种临时数据
@@ -396,19 +385,12 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 
 		inline void  reset(bool soft=true) {
 			int i;
-			for ( i = 0; i < snap_num; i++)
-			{
+			for ( i = 0; i < snap_num; i++) {
 				if ( !soft || !snap[i].def_var || (snap[i].def_var && !snap[i].def_var->keep_alive) )
 				{
-					snap[i].c_len = 0;
-					snap[i].val[0] = 0;
-					snap[i].val_p = 0;
-					snap[i].def_var = 0;
-					if ( i >= Pos_Fixed_Next )
-					{
-						/* 这个Pos_Fixed_Next很重要, 要不然, 那些固有的动态变量会没有的！  */
+					snap[i].to_blank();
+					if ( i >= Pos_Fixed_Next )   //这个Pos_Fixed_Next很重要, 要不然, 那些固有的动态变量会没有的
 						snap[i].kind = VAR_None;
-					}
 				}
 			}
 			left_status = LT_Idle;
@@ -424,7 +406,7 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 		inline void init(int m_snap_num) //这个m_snap_num来自各XML定义的最大动态变量数
 		{
 			int i;
-			if ( snap )	return ;
+			if ( snap ) return ;
 			if ( m_snap_num <=0 ) return ;
 
 			snap_num = m_snap_num;
@@ -447,7 +429,6 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 			snap = 0;
 		};
 	};
-
 /* 变量集合*/
 struct PVar_Set {	
 	struct PVar *vars;
@@ -521,8 +502,7 @@ struct PVar_Set {
 					break;
 				}
 			}
-			if ( !had_nm )	//如果没有已定义的名, 才增加
-			{
+			if ( !had_nm )	{//如果没有已定义的名, 才增加
 				if ( vars[vmany].prepare(i_ele, dynamic_at) )
 					vmany++;
 			}
@@ -538,18 +518,15 @@ struct PVar_Set {
 		struct PVar *rvar =0;
 
 		if ( !n)  return 0;
-		if ( loc_v ) 
-		{
+		if ( loc_v ) {
 			rvar = loc_v->look(n);
 			if ( rvar )
 				return rvar;
 		}
 
 		d_len = strlen(n);
-		for ( int i = 0 ; i < many; i++)
-		{
-			if ( d_len == vars[i].n_len)
-			{
+		for ( int i = 0 ; i < many; i++) {
+			if ( d_len == vars[i].n_len) {
 				if (memcmp(vars[i].name, n, d_len) == 0 ) 
 					return &(vars[i]);
 			}
@@ -570,16 +547,14 @@ struct PVar_Set {
 	};
 
 	/* 找静态的变量, 获得实际内容 */
-	struct PVar *one_still(TiXmlElement *comp, const char *nm, unsigned char *buf, unsigned long &len, struct PVar_Set *loc_v=0)
+	struct PVar *one_still(TiXmlElement *comp, const char *nm, unsigned char *buf, size_t &len, struct PVar_Set *loc_v=0)
 	{
 		struct PVar  *vt;
 		const char *esc = 0;
 		/* 在这时两种情况处理, 一个是有静态常数定义的, 另一个静态常数变量 */
 		vt = look(nm, loc_v);	//看看是否为一个定义的变量名
-		if ( !vt) 
-		{
-			if ( comp )
-			{
+		if ( !vt) {
+			if ( comp ) {
 				esc = comp->Attribute("escape");
 				if ( !esc ) 
 					esc = comp->GetDocument()->RootElement()->Attribute("escape");
@@ -599,8 +574,8 @@ struct PVar_Set {
 		switch (vt->kind)
 		{
 		case VAR_Constant:	//静态常数变量
-			len = vt->c_len;
-			if ( buf && len > 0 ) memcpy(buf, vt->content, len);
+			len = vt->con->point - vt->con->base;
+			if ( buf && len > 0 ) memcpy(buf, vt->con->base, len);
 			break;
 
 		default:
@@ -613,7 +588,7 @@ struct PVar_Set {
 	};
 
 	/* nxt 下一个变量, 对于多个tag元素，将之静态内容合成到 一个变量command中。对于非静态的，返回该tag元素是个动态变量 */
-	struct PVar *all_still( TiXmlElement *ele, const char*tag, unsigned char *command, unsigned long &ac_len, TiXmlElement *&nxt, struct PVar_Set *loc_v=0)
+	struct PVar *all_still( TiXmlElement *ele, const char*tag, unsigned char *command, size_t &ac_len, TiXmlElement *&nxt, struct PVar_Set *loc_v=0)
 	{
 		TiXmlElement *comp;
 		unsigned long l;
@@ -645,7 +620,7 @@ struct PVar_Set {
 struct MatchDst {	//匹配目标
 	struct PVar *dst;
 	const char *con_dst;
-	int len_dst;
+	size_t len_dst;
 	bool c_case;	/* 是否区分大小写, 默认为是 */
 	MatchDst () {
 		dst = 0;
@@ -664,42 +639,14 @@ struct MatchDst {	//匹配目标
 		else
 			c_case = true;
 		dst = var_set->look(p, loc_v);
-		if (!dst )
-		{
+		if (!dst ) {
 			if ( p) 
 			{	//变量名可能没有内容, 这里有内容是常数了, 其它的也可以有内容, 就要别处定义了
 				con_dst = p;
 				len_dst = strlen(con_dst);
 				ret = true;
 			}
-		}  else if (dst->kind == VAR_Me && loc_v ) //只处理Me变量
-		{
-			if ( dst->c_len > 0 ) 
-			{
-				con_dst = (const char*)&dst->content[0];
-				len_dst = dst->c_len;
-				dst = 0;
-				ret = true;
-			} else {
-				val_nm = 0;
-				val_nm = loc_v->command_ele->Attribute(dst->me_name);
-				if (!val_nm )	//属性优先, 没有属性再看元素
-				{
-					body = loc_v->command_ele->FirstChildElement(dst->me_name);
-					if ( body ) val_nm = body->GetText();
-				}
-				if ( val_nm)
-				{
-					dst = var_set->look(val_nm);
-					if (!dst )
-					{
-						con_dst = val_nm;
-						len_dst = strlen(con_dst);
-					}
-					ret = true;
-				}
-			}
-		}
+		} 
 		return ret;
 	};
 
@@ -708,27 +655,28 @@ struct MatchDst {	//匹配目标
 
 		struct DyVar *dvr;
 		const unsigned char *src_con, *dst_con;
-		int src_len, dst_len;
+		size_t src_len, dst_len;
 
-		if ( src->dynamic_pos >= 0 )
-		{
+		if ( src->dynamic_pos >= 0 ) {
 			dvr = &sess->snap[src->dynamic_pos];
 			src_con = dvr->val_p;
 			src_len = dvr->c_len;
 		} else {
-			src_con = &src->content[0];
-			src_len = src->c_len;
+			//src_con = &src->content[0];
+			//src_len = src->c_len;
+			src_con = src->con->base;
+			src_len = src->con->point - src->con->base;
 		}
-		if ( dst )
-		{
-			if ( dst->dynamic_pos >= 0 ) 
-			{
+		if ( dst ) {
+			if ( dst->dynamic_pos >= 0 ) {
 				dvr = &sess->snap[dst->dynamic_pos];
 				dst_con = dvr->val_p;
 				dst_len = dvr->c_len;
 			} else {
-				dst_con = &dst->content[0];
-				dst_len = dst->c_len;
+				//dst_con = &dst->content[0];
+				//dst_len = dst->c_len;
+				dst_con = dst->con->base;
+				dst_len = dst->con->point - dst->con->base;
 			}
 		} else {
 			dst_con = (unsigned char*)con_dst;
@@ -800,8 +748,7 @@ struct Match {		//一个匹配项
 	bool will_match(MK_Session *sess) {
 		int i;
 		bool ret=false;	//假定没有一个是符合的
-		for(i = 0; i < dst_num; i++)
-		{
+		for(i = 0; i < dst_num; i++) {
 			ret = dst_arr[i].valid_val(sess, src);
 			if ( ret ) break;	//有多个值，有一个相同，就不再比较了。
 		}
@@ -885,7 +832,7 @@ struct Condition {	//一个指令的匹配列表, 包括条件与结果的匹配
 
 struct DyList {
 	unsigned char *con;  /* 指向 cmd_buf中的某个点 */
-	unsigned long len;
+	size_t len;
 	int dy_pos;
 	DyList () {
 		con  =0;
@@ -899,7 +846,7 @@ struct CmdSnd {
 	int dy_num;
 	struct DyList *dy_list;
 	unsigned char *cmd_buf;
-	unsigned long cmd_len;
+	size_t cmd_len;
 	const char *tag;	/*  比如"component"这样的内容，指明子序列中的元素 */
 
 	CmdSnd () {
@@ -915,7 +862,7 @@ struct CmdSnd {
 		struct PVar *vr_tmp, *vr2_tmp=0;
 		TiXmlElement *e_tmp, *n_ele;
 		TiXmlElement *e2_tmp, *n2_ele;
-		unsigned long g_ln;
+		size_t g_ln;
 		unsigned char *cp;
 		int dy_cur;
 		bool now_still, me_has_usr;
@@ -926,20 +873,17 @@ struct CmdSnd {
 
 		e_tmp = pac_ele->FirstChildElement(tag); 
 		g_ln = 0 ;
-		while ( e_tmp ) 
-		{
+		while ( e_tmp ) {
 			g_ln = 0 ;
 			vr_tmp = g_vars->all_still( e_tmp, tag, 0, g_ln, n_ele, me_vars);
 			e_tmp = n_ele;
 			if ( g_ln > 0 ) cmd_len += g_ln;
-			if ( !vr_tmp ) 		//还是常数, 这里应该结束了
-			{
+			if ( !vr_tmp ) 	{	//还是常数, 这里应该结束了
 				if (e_tmp) printf("plain !!!!!!!!!!\n");	//这不应该
 				continue;
 			}
 
-			if ( vr_tmp->kind <= VAR_Dynamic )	//Me变量的, 不算作动态
-			{
+			if ( vr_tmp->kind <= VAR_Dynamic ) {	//Me变量的, 不算作动态
 				dy_num++;
 				continue;
 			}
@@ -949,9 +893,9 @@ struct CmdSnd {
 				vr2_tmp = 0;
 				g_ln = 0 ;
 				me_has_usr = false;
-				if ( vr_tmp->me_had_var) { //对于主参考, 就不再从用户命令中取
+				if ( vr_tmp->me_had_var) //对于主参考, 就不再从用户命令中取
 					goto HAD_LOOK;
-				}
+
 				if ( usr_ele->Attribute(vr_tmp->me_name) ) 	//用户命令中，属性优先
 				{
 					vr2_tmp = g_vars->one_still(0, usr_ele->Attribute(vr_tmp->me_name), 0, g_ln);
@@ -979,12 +923,12 @@ struct CmdSnd {
 					}
 				}
 				HAD_LOOK:
-				if ( !me_has_usr && vr_tmp->c_len > 0) //用户命令中未找到
-					cmd_len += vr_tmp->c_len;
+				if ( !me_has_usr && vr_tmp->con->point > vr_tmp->con->base) //用户命令中未找到
+					cmd_len += (vr_tmp->con->point - vr_tmp->con->base);
 			}
 
-			if (vr_tmp->kind == VAR_Me && vr_tmp->c_len > 0 && vr_tmp->me_sub_nm_len > 0)	//Me变量已有内容,可能已有定义,并带后缀
-				cmd_len += vr_tmp->c_len;
+			if (vr_tmp->kind == VAR_Me && vr_tmp->con->point > vr_tmp->con->base && vr_tmp->me_sub_nm_len > 0)	//Me变量已有内容,可能已有定义,并带后缀
+				cmd_len += (vr_tmp->con->point - vr_tmp->con->base);
 		}
 
 		cmd_buf = new unsigned char[cmd_len+1];	//对于非动态的, cmd_buf与cmd_len刚好是其全部的内容
@@ -1019,8 +963,7 @@ struct CmdSnd {
 		now_still = true;
 
 		e_tmp = pac_ele->FirstChildElement(tag);
-		while ( e_tmp ) 
-		{
+		while ( e_tmp ) {
 ALL_STILL:
 			g_ln = 0;
 			vr_tmp= g_vars->all_still( e_tmp, tag, cp, g_ln, n_ele, me_vars);
@@ -1094,17 +1037,17 @@ ALL_STILL:
 					}
 				}
 				HAD_LOOK_VAR:
-				if ( !me_has_usr && vr_tmp->c_len > 0) //用户命令中未找到
+				if ( !me_has_usr && vr_tmp->con->point > vr_tmp->con->base ) //用户命令中未找到
 				{
-					memcpy(cp, vr_tmp->content, vr_tmp->c_len);
-					DY_STILL(vr_tmp->c_len) //cp指针后移,内容增加， 这里游标不变，因为下一个可能是Me变量的静态, 这要合并在一起
+					memcpy(cp, vr_tmp->con->base, vr_tmp->con->point - vr_tmp->con->base);
+					DY_STILL(vr_tmp->con->point - vr_tmp->con->base) //cp指针后移,内容增加,这里游标不变,因为下一个可能是Me变量的静态, 这要合并在一起
 					goto ALL_STILL;	//这里处理的是静态，所以从该处继续
 				}
 			}
-			if ( vr_tmp->kind == VAR_Me && vr_tmp->c_len > 0  && vr_tmp->me_sub_nm_len > 0)	//Me变量已有内容,可能已有定义的，并带后缀的。
+			if ( vr_tmp->kind == VAR_Me && vr_tmp->con->point > vr_tmp->con->base && vr_tmp->me_sub_nm_len > 0)	//Me变量已有内容,可能已有定义的，并带后缀的。
 			{
-				memcpy(cp, vr_tmp->content, vr_tmp->c_len);
-				DY_STILL(vr_tmp->c_len) //cp指针后移,内容增加， 这里游标不变，因为下一个可能是Me变量的静态, 这要合并在一起
+				memcpy(cp, vr_tmp->con->base, vr_tmp->con->point - vr_tmp->con->base);
+				DY_STILL(vr_tmp->con->point - vr_tmp->con->base) //cp指针后移,内容增加， 这里游标不变，因为下一个可能是Me变量的静态, 这要合并在一起
 				goto ALL_STILL;	//这里处理的是静态，所以从该处继续
 			}
 		}
@@ -1118,10 +1061,10 @@ ALL_STILL:
 struct CmdRcv {
 	int fld_no;	//接收的域号, 有多个接收定义，每个只定义一个变量.所以，有多个定义，指向同一个域。
 	int dyna_pos;	//动态变量位置, -1表示静态
-	unsigned int start;
-	int length;
+	size_t start;
+	size_t length;
 	unsigned char *must_con;
-	unsigned long must_len;
+	size_t must_len;
 	const char *err_code; //这是直接从外部定义文件得到的内容，不作任何处理。当本域不符合要求，设置此错误码。
 	bool err_disp_hex;
 
@@ -1129,7 +1072,7 @@ struct CmdRcv {
 	CmdRcv() {
 		dyna_pos = -1;
 		start =1;
-		length = -1;
+		length = 0;
 		must_con = 0;
 		must_len = 0;
 		err_code = 0;
@@ -1181,8 +1124,7 @@ struct PacIns:public Condition  {
 
 	void pac_cross_before(PacketObj *req_pac, PacketObj *rply_pac, PacketObj *first_pac, PacketObj *second_pac)
 	{
-		if ( pac_cross)
-		{
+		if ( pac_cross) {
 			if ( pac_mode == PAC_SECOND || pac_mode == PAC_BOTH )
 				second_pac->exchange(req_pac);
 			if ( pac_mode == PAC_FIRST || pac_mode == PAC_BOTH )
@@ -1198,12 +1140,10 @@ struct PacIns:public Condition  {
 	PacketObj *pac_cross_after(PacketObj *req_pac, PacketObj *rply_pac, PacketObj *first_pac, PacketObj *second_pac)
 	{
 		PacketObj *n_pac = rply_pac;
-		if ( pac_cross)
-		{
+		if ( pac_cross) {
 			if ( pac_mode == PAC_SECOND || pac_mode == PAC_BOTH )
-			{
 				second_pac->exchange(req_pac);
-			}
+
 			if ( pac_mode == PAC_FIRST || pac_mode == PAC_BOTH )
 			{
 				first_pac->exchange(rply_pac);
@@ -1216,9 +1156,7 @@ struct PacIns:public Condition  {
 				n_pac = second_pac;
 			}
 			if ( pac_mode == PAC_FIRST || pac_mode == PAC_BOTH )
-			{
 				first_pac->exchange(req_pac);
-			}
 		}
 		return n_pac;
 	};
@@ -1227,24 +1165,20 @@ struct PacIns:public Condition  {
 	{
 		int i,j;
 		unsigned long t_len;
-
-
 		bor = subor;
 		t_len = 0;
+
 		for ( i = 0 ; i < snd_num; i++ )
 		{
 			if ( snd_lst[i].dy_num ==0 ) 
-			{ 
 				t_len += snd_lst[i].cmd_len;	//这是在pacdef中send元素定义的
-			} else {
+			 else {
 				for ( j = 0; j < snd_lst[i].dy_num; j++ )
 				{
 					if (  snd_lst[i].dy_list[j].dy_pos < 0 ) 
-					{
 						t_len += snd_lst[i].dy_list[j].len;
-					} else {
+					 else 
 						t_len += sess->snap[snd_lst[i].dy_list[j].dy_pos].c_len;
-					}
 				}
 			}
 		}
@@ -1282,7 +1216,7 @@ struct PacIns:public Condition  {
 	{
 		int ii;
 		unsigned char *fc;
-		unsigned long rlen, mlen;
+		size_t rlen, mlen;
 		struct CmdRcv *rply;
 		char con[512];
 		PacketObj *n_pac=rply_pac;
@@ -1293,8 +1227,7 @@ struct PacIns:public Condition  {
 			fc = n_pac->getfld(rply->fld_no, &rlen);
 			if (rply->must_con ) 
 			{
-				if ( !fc ) 
-				{
+				if ( !fc ) {
 					TEXTUS_SPRINTF(mess->err_str, "field %d does not exist", rply->fld_no);
 					goto ErrRet;
 				}
@@ -1343,43 +1276,32 @@ ErrRet:
 		char *q;
 
 		int i = 0;
-		int lnn;
+		size_t lnn; 
+		int lnn2;
 		const char *tag;
-		p = def_ele->Attribute("log");	
-		if ( !p ) p = pac_ele->Attribute("log");	
-		if ( p )
-		{
+		p = pac_ele->Attribute("log");	
+		if ( !p ) p = def_ele->Attribute("log");	
+		if ( p ) {
 			if ( strcasecmp( p, "str") ==0 )
-			{
 				pac_log = PAC_LOG_STR;
-			} else if ( strcasecmp( p, "estr") ==0 )
-			{
+			else if ( strcasecmp( p, "estr") ==0 )
 				pac_log = PAC_LOG_STR_ERR;
-			} else if ( strcasecmp( p, "hex") ==0 )
-			{
+			else if ( strcasecmp( p, "hex") ==0 )
 				pac_log = PAC_LOG_HEX;
-			} else if ( strcasecmp( p, "ehex") ==0 )
-			{
+			else if ( strcasecmp( p, "ehex") ==0 )
 				pac_log = PAC_LOG_HEX_ERR;
-			} else if ( strcasecmp( p, "both") ==0 )
-			{
+			else if ( strcasecmp( p, "both") ==0 )
 				pac_log = PAC_LOG_BOTH;
-			} else if ( strcasecmp( p, "eboth") ==0 )
-			{
+			else if ( strcasecmp( p, "eboth") ==0 )
 				pac_log = PAC_LOG_BOTH_ERR;
-			}
 		}
 
 		p = def_ele->Attribute("dir");	
-		if ( p )
-		{
+		if ( p ) {
 			if ( strcasecmp( p, "facio") ==0 )
-			{
 				fac_spo = FACIO;
-			} else if ( strcasecmp( p, "sponte") ==0 )
-			{
+			else if ( strcasecmp( p, "sponte") ==0 )
 				fac_spo = SPONTE;
-			}
 		}
 
 		if ( strcasecmp( pac_ele->Value(), "Abort") ==0 )
@@ -1407,8 +1329,7 @@ ErrRet:
 		}
 		
 		p = def_ele->Attribute("type");	
-		if ( !p ) 
-		{
+		if ( !p ) {
 			type = INS_Normal;
 			goto DefaultUnipac;
 		}
@@ -1451,19 +1372,16 @@ ErrRet:
 		if ( (p = def_ele->Attribute("exchange")) )
 		{
 			q = (char*)strpbrk( p, ":" );
-			if ( q ) {
+			if ( q )
 				*q++ = '\0';
-			}
+
 			if (strcasecmp ( p, "first") == 0 ) 
-			{
 				pac_mode = PAC_FIRST;
-			} else if ( strcasecmp (p, "second") == 0 )
-			{
+			else if ( strcasecmp (p, "second") == 0 )
 				pac_mode = PAC_SECOND;
-			} else if ( strcasecmp (p, "both") ==0 ) 
-			{
+			else if ( strcasecmp (p, "both") ==0 ) 
 				pac_mode = PAC_BOTH;
-			}
+
 			if ( q ) {
 				if (strcasecmp ( q, "X") == 0 ) 
 					pac_cross = true;
@@ -1493,8 +1411,7 @@ ErrRet:
 				{
 					p_ele->QueryIntAttribute("field", &(snd_lst[i].fld_no));
 					p = p_ele->GetText();
-					if ( p )
-					{
+					if ( p ) {
 						lnn = strlen(p);
 						snd_lst[i].cmd_buf = new unsigned char[lnn+1];
 						snd_lst[i].cmd_len = BTool::unescape(p, snd_lst[i].cmd_buf) ;
@@ -1567,11 +1484,14 @@ ANOTHER:
 						if (vr_tmp) 
 						{
 							rcv_lst[i].dyna_pos = vr_tmp->dynamic_pos;
-							lnn = 0;
-							e_tmp->QueryIntAttribute("start", &(lnn));
-							if ( lnn >= 1) 
-								rcv_lst[i].start = (unsigned int)lnn;
-							e_tmp->QueryIntAttribute("length", &(rcv_lst[i].length));
+							lnn2 = 0;
+							e_tmp->QueryIntAttribute("start", &(lnn2));
+							if ( lnn2 >= 1) 
+								rcv_lst[i].start = (size_t)lnn2;
+							lnn2 = 0;
+							e_tmp->QueryIntAttribute("length", &(lnn2));
+							if ( lnn2 > 0) 
+								rcv_lst[i].length = (size_t)lnn2;
 						}
 					}
 					i++;
@@ -1598,7 +1518,7 @@ LAST_CON:
 			err_var = g_vars->look(err_code, me_vars);
 			if (err_var)
 			{
-				err_code = (const char*)&err_var->content[0];
+				err_code = (const char*)&err_var->con->base;
 			} 
 		}
 		set_condition ( pac_ele, g_vars, me_vars);
@@ -1734,22 +1654,25 @@ struct ComplexSubSerial {
 		}
 	};
 
-	const char *find_from_usr_ele(const char *me_name)
-	{
+	const char *find_from_usr_ele(const char *me_name) {
 		const char *nm=0;
 		TiXmlElement *body;	//用户命令的第一个body元素
 		nm = usr_ele->Attribute(me_name);	//先看属性名为me.XX.yy中的XX名，nm是$Main之的。
 		if (!nm )	//属性优先, 没有属性再看元素
 		{
 			body = usr_ele->FirstChildElement(me_name);	//再看元素为me.XX.yy中的XX名，nm是$Main之的。
-			if ( body ) nm = body->GetText();
+			if ( body ) { 
+				nm = body->GetText();
+				if ( body->NextSiblingElement(me_name) ) //不只一个元素, 这里无法处理, 留给hard_work_2
+					return 0;
+			}
 		}
 		if (!nm )	//还是没有, 那看map文件的入口元素
 			nm = usr_def_entry->Attribute(me_name);	//nm是$Main之类的。
 		return nm;
 	}
-	int pro_analyze(const char *loop_str)
-	{
+
+	int pro_analyze(const char *loop_str) {
 		struct PVar *ref_var, *me_var;
 		const char *nm;
 		char pro_nm[128];
@@ -1777,7 +1700,7 @@ struct ComplexSubSerial {
 		sv_set.dynamic_at = g_var_set->dynamic_at;
 		//{int *a =0 ; *a = 0; };
 		sv_set.defer_vars(usr_def_entry); 
-		g_var_set->dynamic_at = sv_set.dynamic_at ;
+		g_var_set->dynamic_at = sv_set.dynamic_at ;	//sv_set(局部变量集, 不能动态的, 这行和上面的一行没用)
 		sv_set.command_ele = usr_ele;
 
 		if ( pri_var_nm ) set_loc_ref_var(pri_var_nm, pri_key, true);	//先把主参考量赋值, pri_key是"protect"这样的内容
@@ -1792,13 +1715,12 @@ struct ComplexSubSerial {
 			{
 				nm = find_from_usr_ele(me_var->me_name); 	//从用户命令中找, nm是"$Main"之类的
 				if ( !nm ) continue;
-				if ( me_var->me_sub_name )  { 	//处理有后缀的Me变量
+				me_var->me_had_var = true;
+				if ( me_var->me_sub_name )  //处理有后缀的Me变量
 					/* 如果参考量没有相应的属性, 原有带后缀变量内容得以保留, 否则被更新 */
 					set_loc_ref_var(nm, me_var->me_name); /* 处理me.export.*这样的东西。这里更新局部变量集 */
-				} else if ( me_var->me_nick ) {	//无后缀, 比如me.typeid, 先找一个
+				else 
 					set_loc_var(nm, me_var->me_name); /* 处理me.typeid之类的*/
-					me_var->me_had_var = true;
-				}
 			}
 		}
 
@@ -1974,7 +1896,7 @@ struct INS_Set {
 
 	void put_inses(TiXmlElement *root, struct PVar_Set *var_set, TiXmlElement *map_root, TiXmlElement *pac_def_root)
 	{
-		int mor, vmany, refny,i;
+		int mor, vmany, refny,i,j,k;
 		refny = 0; 
 		ev_num(root, var_set, map_root, refny);
 
@@ -1990,12 +1912,9 @@ struct INS_Set {
 
 		many = vmany; //最后再更新一次用户命令数
 		//look for last_pac_ins
-		for ( i = 0 ; i < many; i++)
-		{
-			int j;
+		for ( i = 0 ; i < many; i++) {
 			for ( j = 0; j < instructions[i].comp_num; j++ )
 			{
-				int k;
 				for ( k = 0 ; k < instructions[i].complex[j].pac_many; k++ )
 				{
 					last_pac_ins = &(instructions[i].complex[j].pac_inses[k]);
@@ -2014,6 +1933,7 @@ struct  Personal_Def	//个人化定义
 	TiXmlElement *c_root;	
 	TiXmlDocument doc_k;	//map：Variable定义，子序列定义
 	TiXmlElement *k_root;
+	const char *k_name;
 
 	TiXmlDocument doc_pac_def;	//pacdef：报文定义
 	TiXmlElement *pac_def_root;
@@ -2030,6 +1950,7 @@ struct  Personal_Def	//个人化定义
 	inline Personal_Def () {
 		c_root = k_root = v_root = pac_def_root = 0;
 		flow_id = 0;
+		k_name = 0;
 		memset(flow_md, 0, sizeof(flow_md));
 	};
 	inline ~Personal_Def () {};
@@ -2043,8 +1964,7 @@ struct  Personal_Def	//个人化定义
 			TEXTUS_SPRINTF(err_global_str, "Loading %s file failed in row %d and column %d, %s", f_name, doc.ErrorRow(), doc.ErrorCol(), doc.ErrorDesc());
 			return -1;
 		} 
-		if ( md5_content)
-		{
+		if ( md5_content) {
   			FILE *inFile;
   			MD5_CTX mdContext;
   			int bytes;
@@ -2098,6 +2018,7 @@ struct  Personal_Def	//个人化定义
 		if ( !per_ele) return false;
 
 #define GET_XML_DEF(ROOT, DEF_DOC, LOC_ELE, ATTR_NAME_FILE, MD5_ATTR) \
+		nm = 0;							\
 		if ( !(ROOT = per_ele->FirstChildElement(LOC_ELE)))	\
 		{								\
 			if ( (nm = per_ele->Attribute(ATTR_NAME_FILE)))		\
@@ -2119,6 +2040,7 @@ struct  Personal_Def	//个人化定义
 		}
 		GET_XML_DEF(pac_def_root, doc_pac_def, "Pac",  "pac", "pac_md5")
 		GET_XML_DEF(k_root, doc_k, "Key",  "key", "key_md5")
+		k_name = nm;	//nm已经是key属性的内容了,即文件名
 		GET_XML_DEF(v_root, doc_v, "Var",  "var", "var_md5")
 		if ( !c_root || !k_root || !pac_def_root ) return false;
 		person_vars.defer_vars(k_root, c_root);	//变量定义, map文件优先
@@ -2201,9 +2123,12 @@ private:
 	void h_fail(char tmp[], char desc[], int p_len, int q_len, const char *p, const char *q, const char *fun);
 	void mk_hand(bool right_down=false);	//还有右边状态处理
 	void mk_result(bool end_mess=true);
+	void set_global_vars();
 
 	struct G_CFG 	//全局定义
 	{
+		TBuffer *var_bufs;	//全局变量数据区
+		size_t bufs_num;
 		TiXmlElement *prop;
 		struct PersonDef_Set person_defs;
 		struct Personal_Def null_icp_def;
@@ -2214,8 +2139,16 @@ private:
 		inline G_CFG() {
 			maxium_fldno = 64;
 			flowID_fld_no = 3;
+			var_bufs = 0;
+			bufs_num = 0;
 		};	
-		inline ~G_CFG() { };
+		inline ~G_CFG() { 
+			if ( var_bufs ) {
+				 delete[] var_bufs;
+				var_bufs = 0;
+				bufs_num = 0;
+			}
+		};
 	};
 
 	PacketObj hi_req, hi_reply; /* 向右传递的, 可能是对HMS, 或是对IC终端 */
@@ -2225,7 +2158,7 @@ private:
 	PacketObj *snd_pac;
 	Amor::Pius loc_pro_pac;
 
-	struct MK_Session mess;	//记录一个制卡过程中的各种临时数据
+	struct MK_Session mess;	//记录一个过程中的各种临时数据
 	struct Personal_Def *cur_def;	//当前定义
 
 	struct G_CFG *gCFG;     /* 全局共享参数 */
@@ -2247,6 +2180,33 @@ private:
 	#include "wlog.h"
 };
 
+void PacWay::set_global_vars()
+{
+	int i,j;
+	struct  Personal_Def *def, *def2;
+	bool found;
+
+	size_t num;
+	num = 0;
+	for ( i = 0 ; i < gCFG->person_defs.num_icp; i++ )
+	{	
+		def = &gCFG->person_defs.icp_def[i];
+		for ( j = 0 ; j < i ; j++ )
+		{
+			//def2 = &gCFG->person_defs.icp_def[j].person_vars;
+			def2 = &gCFG->person_defs.icp_def[j];
+			if ( def->k_root == def2->k_root ) 
+				break;
+			if ( def->k_name != 0 && def2->k_name != 0 ) 
+			{
+				if (strcmp(def->k_name, def2->k_name) == 0 ) 
+					break;
+			}
+		}
+		if ( j == i ) {	//未找到以前, 这是新的, 计算global变量,
+		}
+	}
+};
 void PacWay::ignite(TiXmlElement *prop) {
 	const char *comm_str;
 	if (!prop) return;
@@ -2266,7 +2226,6 @@ void PacWay::ignite(TiXmlElement *prop) {
 		gCFG->maxium_fldno = 0;
 	hi_req.produce(gCFG->maxium_fldno) ;
 	hi_reply.produce(gCFG->maxium_fldno) ;
-
 	return;
 }
 
@@ -2289,8 +2248,7 @@ PacWay::PacWay() {
 }
 
 PacWay::~PacWay() {
-	if ( has_config  )
-	{	
+	if ( has_config  ) {	
 		if(gCFG) delete gCFG;
 		gCFG = 0;
 	}
@@ -2308,11 +2266,9 @@ bool PacWay::facio( Amor::Pius *pius) {
 	PacketObj **tmp;
 	Amor::Pius tmp_pius;
 
-	switch ( pius->ordo )
-	{
+	switch ( pius->ordo ) {
 	case Notitia::SET_UNIPAC:
-		if ( (tmp = (PacketObj **)(pius->indic)))
-		{
+		if ( (tmp = (PacketObj **)(pius->indic))) {
 			if ( *tmp) rcv_pac = *tmp; 
 			else {
 				WBUG("facio SET_UNIPAC rcv_pac null");
@@ -2338,6 +2294,7 @@ bool PacWay::facio( Amor::Pius *pius) {
 		WBUG("facio IGNITE_ALL_READY" );
 		gCFG->person_defs.put_def(gCFG->prop, "bus");
 		gCFG->null_icp_def.put_def(gCFG->prop->FirstChildElement("bike"), gCFG->prop);
+		set_global_vars();
 		mess.init(gCFG->person_defs.max_snap_num);
 		if ( err_global_str[0] != 0 ) {
 			WLOG(ERR,"%s", err_global_str);
@@ -2380,12 +2337,14 @@ bool PacWay::sponte( Amor::Pius *pius) {
 	case Notitia::SET_UNIPAC:
 		WBUG("sponte SET_UNIPAC");
 		if ( (tmp = (PacketObj **)(pius->indic))) {
-			if ( *tmp) hi_req_p = *tmp; 
+			if ( *tmp) 
+				hi_req_p = *tmp; 
 			else {
 				WLOG(WARNING, "sponte SET_UNIPAC rcv_pac null");
 			}
 			tmp++;
-			if ( *tmp) hi_reply_p = *tmp;
+			if ( *tmp) 
+				hi_reply_p = *tmp;
 			else {
 				WLOG(WARNING, "sponte SET_UNIPAC snd_pac null");
 			}
@@ -2452,8 +2411,7 @@ void PacWay::handle_pac()
 	struct DyVar *dvr;
 
 	actp=rcv_pac->getfld(gCFG->flowID_fld_no, &alen);		//取得业务代码, 即流标识
-	if ( !actp)
-	{
+	if ( !actp) {
 		WBUG("business code field null");
 		return;
 	}
@@ -2471,23 +2429,23 @@ void PacWay::handle_pac()
 		TEXTUS_STRCPY(mess.err_str, " ");
 
 		cur_def = gCFG->person_defs.look(mess.flow_id); //找一个相应的指令流定义
-		if ( !cur_def ) 
-		{
+		if ( !cur_def ) {
 			mess.iRet = ERROR_INS_DEF;	
 			cur_def = &(gCFG->null_icp_def);
 		}
 		/* 寻找变量集中所有动态的, 看看是否有start_pos和get_length的, 根据定义赋值到mess中 */
-		for ( i = 0 ; i <  cur_def->person_vars.many; i++)
+		for ( i = 0 ; i <  cur_def->person_vars.many; i++) 
 		{
 			vt = &cur_def->person_vars.vars[i];
-			if ( vt->dynamic_pos >=0 )
-			{
+			if ( vt->dynamic_pos >=0 ) {
 				dvr = &mess.snap[vt->dynamic_pos];
 				if (dvr->c_len > 0) continue; //如果动态量没有清空, 就不再赋新值.这个量跨flow, 直到Notitia:START_SESSION,END_SESSION
 				dvr->kind = vt->kind;
 				dvr->def_var = vt;
-				if ( vt->c_len > 0 )	//先把定义的静态内容链接过来, 动态变量的默认值
-					dvr->input(&(vt->content[0]), vt->c_len, true);	
+				if ( vt->kind == VAR_Dynamic_Global ) 
+					dvr->con = vt->con;	//全局
+				if ( vt->con->point > vt->con->base )	//先把定义的静态内容链接过来, 动态变量的默认值
+					dvr->input(vt->con->base, vt->con->point - vt->con->base, true); //只是link, 即使全局量也不矛盾。
 			}
 		}
 		
@@ -2579,8 +2537,7 @@ void PacWay::get_peer(PacketObj *pac, int sub)
 	g_peer.indic = 0;
 	aptus->sponte(&g_peer);
 	peer = (TiXmlElement *) g_peer.indic;
-	if ( peer )
-	{
+	if ( peer ) {
 		p = peer->Attribute("cliip");
 		pac->input(1, p, strlen(p));
 		p = peer->Attribute("cliport");
@@ -2618,17 +2575,14 @@ void PacWay::log_pac(PacketObj *pac,const char *prompt, enum PAC_LOG mode)
 		rstr = (char*) tbuf.point;
 		TEXTUS_SNPRINTF(rstr, 7, "{%d [", i);
 		o_base = strlen(rstr);
-		for ( j = 0 ; j < pac->fld[i].range; j++)
-		{
+		for ( j = 0 ; j < pac->fld[i].range; j++) {
 			unsigned char c = pac->fld[i].val[j];
-			if ( has_hex) 	//需要16进制显示
-			{
+			if ( has_hex) {	//需要16进制显示
 				o = o_base + j*2;
 				rstr[o++] = Obtainx((c & 0xF0 ) >> 4 );
 				rstr[o++] = Obtainx(c & 0x0F );
 			} 
-			if ( has_str ) //需要字符显示
-			{
+			if ( has_str ) {//需要字符显示
 				o = o_base +  (pac->fld[i].range+1)*(has_hex ?2:0) + j;
 				if ( c >= 0x20 && c <= 0x7e )
 					rstr[o] =  c;
@@ -2636,8 +2590,7 @@ void PacWay::log_pac(PacketObj *pac,const char *prompt, enum PAC_LOG mode)
 					rstr[o] =  '.';
 			}
 		}
-		if ( has_hex) 	//需要16进制显示
-		{
+		if ( has_hex) { //需要16进制显示
 			o = o_base + j*2;
 			rstr[o++] = ']';
 			rstr[o] = '[';
@@ -2659,8 +2612,7 @@ int PacWay::sub_serial_pro(struct ComplexSubSerial *comp, bool &has_back,  Amor:
 	struct PacIns *paci;
 	char h_msg[1024];
 	PacketObj *n_pac ;	
-	if ( last_paci ) 
-	{
+	if ( last_paci ) {
 		paci=last_paci;
 		goto PACI_PRO;
 	}
@@ -2681,12 +2633,10 @@ SUB_INS_PRO:
 PACI_PRO:
 	has_back = false;
 	fac_ps = 0;
-	switch ( paci->type)
-	{
+	switch ( paci->type) {
 	case INS_Normal:
 	case INS_Pro_DBFace:
-		switch ( command_wt.pac_step )
-		{
+		switch ( command_wt.pac_step ) {
 		case Pac_Idle:
 			hi_req_p->reset();	//请求复位
 			paci->pac_cross_before(hi_req_p, hi_reply_p, rcv_pac, snd_pac);
@@ -2711,10 +2661,8 @@ PACI_PRO:
 			//if ( mess.pro_order == 2 &&  command_wt.pac_which ==1 ) {int *a=0; *a=0;}
 			if ( paci->type == INS_Normal )
 				fac_ps = &loc_pro_pac;
-			else if ( paci->type == INS_Pro_DBFace) 
-			{	//DB操作
-				if (paci->dbface == 0 ) 
-				{
+			else if ( paci->type == INS_Pro_DBFace) { //DB操作
+				if (paci->dbface == 0 ) {
 					Pius get_face;
 					void *ind[2];
 					get_face.ordo = Notitia::CMD_GET_DBFACE;
@@ -2724,8 +2672,7 @@ PACI_PRO:
 					get_face.subor = paci->subor;
 					aptus->facio(&get_face);
 					paci->dbface = 	(DBFace*) ind[1];
-					if (paci->dbface == 0 ) 
-					{
+					if (paci->dbface == 0 ) {
 						mess.iRet = ERROR_DB_DEF;
 						TEXTUS_SPRINTF(mess.err_str, "no dbface error at %d of %s", mess.pro_order, cur_def->flow_id);
 						if ( paci->err_code) mess.snap[Pos_ErrCode].input(paci->err_code);
@@ -2784,8 +2731,7 @@ PACI_PRO:
 		break;
 
 	case INS_ResultPacPro:
-		switch ( command_wt.pac_step )
-		{
+		switch ( command_wt.pac_step ) {
 		case Pac_Idle:
 			hi_req_p->reset();	//请求复位
 			paci->pac_cross_before(hi_req_p, hi_reply_p, rcv_pac, snd_pac);
@@ -2807,6 +2753,7 @@ PACI_PRO:
 			fac_ps = &loc_pro_pac;
 			return 0; 	/* 正在进行 */
 			break;
+
 		case Pac_Working:
 			command_wt.pac_step = Pac_End;
 			n_pac = paci->pac_cross_after(hi_req_p, hi_reply_p, rcv_pac, snd_pac);
@@ -2901,8 +2848,7 @@ INS_PRO:
 		command_wt.cur = 0;
 	}
 	//{int *a =0 ; *a = 0; };
-	switch ( command_wt.step)
-	{
+	switch ( command_wt.step) {
 	case 0:	//开始
 		if ( !usr_com->valid_condition(&mess) ) {
 			mess.right_status = RT_READY;
@@ -2935,7 +2881,7 @@ LOOP_PRI_TRY:
 				if ( command_wt.cur == (usr_com->comp_num-1) ) //最后一条复合指令啦，如果出错就调用自定义的出错过程(响应报文设置一些数据，或者向终端发些指令)
 					mess.willLast = true;
 				vt =  mess.snap[Pos_ErrCode].def_var;
-				if ( vt ) mess.snap[Pos_ErrCode].input(&(vt->content[0]), vt->c_len, true);	
+				if ( vt ) mess.snap[Pos_ErrCode].input(vt->con->base, vt->con->point - vt->con->base, true);	
 				goto NEXT_PRI_TRY;		//试另一个
 			} else {		//最后一条处理失败，定义出错值
 				mess.iRet = ERROR_USER_ABORT;			
