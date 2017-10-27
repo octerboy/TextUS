@@ -571,8 +571,7 @@ struct PVar_Set {
 		}
 
 		len = 0;
-		switch (vt->kind)
-		{
+		switch (vt->kind) {
 		case VAR_Constant:	//静态常数变量
 			len = vt->con->point - vt->con->base;
 			if ( buf && len > 0 ) memcpy(buf, vt->con->base, len);
@@ -640,8 +639,7 @@ struct MatchDst {	//匹配目标
 			c_case = true;
 		dst = var_set->look(p, loc_v);
 		if (!dst ) {
-			if ( p) 
-			{	//变量名可能没有内容, 这里有内容是常数了, 其它的也可以有内容, 就要别处定义了
+			if ( p) { //变量名可能没有内容, 这里有内容是常数了, 其它的也可以有内容, 就要别处定义了
 				con_dst = p;
 				len_dst = strlen(con_dst);
 				ret = true;
@@ -726,8 +724,7 @@ struct Match {		//一个匹配项
 		for (con_ele = mch_ele->FirstChildElement(vn); con_ele; con_ele = con_ele->NextSiblingElement(vn) ) 
 			dst_num++;
 
-		if ( dst_num == 0 )	//一个子value元素也没有
-		{
+		if ( dst_num == 0 ) {//一个子value元素也没有
 			dst_num = 1;
 			dst_arr = new struct MatchDst;
 			p = mch_ele->GetText();
@@ -905,8 +902,7 @@ struct CmdSnd {
 					me_has_usr = true;
 				} else {
 					e2_tmp = usr_ele->FirstChildElement(vr_tmp->me_name);
-					while (e2_tmp)
-					{
+					while (e2_tmp) {
 						g_ln = 0 ;
 						vr2_tmp = g_vars->all_still(e2_tmp, vr_tmp->me_name, 0, g_ln, n2_ele, 0);
 						e2_tmp = n2_ele;
@@ -969,13 +965,11 @@ ALL_STILL:
 			vr_tmp= g_vars->all_still( e_tmp, tag, cp, g_ln, n_ele, me_vars);
 			e_tmp = n_ele;
 
-			if ( g_ln > 0 )	/* 刚处理的是静态内容 */
-			{
+			if ( g_ln > 0 )	{/* 刚处理的是静态内容 */
 				DY_STILL(g_ln) //cp指针后移, 内容增加， 这里游标不变，因为下一个可能是Me变量的静态, 这要合并在一起
 			}
 
-			if ( !vr_tmp ) 		//还是常数, 这里应该结束了
-			{
+			if ( !vr_tmp ) 	{	//还是常数, 这里应该结束了
 				if (e_tmp) printf("plain !!!!!!!!!!\n");	//这不应该
 				continue;
 			}
@@ -1011,8 +1005,7 @@ ALL_STILL:
 					me_has_usr = true;
 				} else {
 					e2_tmp = usr_ele->FirstChildElement(vr_tmp->me_name);
-					while (e2_tmp)
-					{
+					while (e2_tmp) {
 						g_ln = 0;
 						vr2_tmp = g_vars->all_still(e2_tmp, vr_tmp->me_name, cp, g_ln, n2_ele, 0);
 						e2_tmp = n2_ele;
@@ -1144,14 +1137,12 @@ struct PacIns:public Condition  {
 			if ( pac_mode == PAC_SECOND || pac_mode == PAC_BOTH )
 				second_pac->exchange(req_pac);
 
-			if ( pac_mode == PAC_FIRST || pac_mode == PAC_BOTH )
-			{
+			if ( pac_mode == PAC_FIRST || pac_mode == PAC_BOTH ) {
 				first_pac->exchange(rply_pac);
 				n_pac = first_pac;
 			}
 		} else {
-			if ( pac_mode == PAC_SECOND || pac_mode == PAC_BOTH )
-			{
+			if ( pac_mode == PAC_SECOND || pac_mode == PAC_BOTH ) {
 				second_pac->exchange(rply_pac);
 				n_pac = second_pac;
 			}
@@ -1168,8 +1159,7 @@ struct PacIns:public Condition  {
 		bor = subor;
 		t_len = 0;
 
-		for ( i = 0 ; i < snd_num; i++ )
-		{
+		for ( i = 0 ; i < snd_num; i++ ) {
 			if ( snd_lst[i].dy_num ==0 ) 
 				t_len += snd_lst[i].cmd_len;	//这是在pacdef中send元素定义的
 			 else {
@@ -1183,8 +1173,7 @@ struct PacIns:public Condition  {
 			}
 		}
 		req_pac->grant(t_len);
-		for ( i = 0 ; i < snd_num; i++ )
-		{
+		for ( i = 0 ; i < snd_num; i++ ) {
 			t_len = 0;
 			if ( snd_lst[i].dy_num ==0 )
 			{	/* 这是在pacdef中send元素定义的一个域的内容 */
@@ -1225,8 +1214,7 @@ struct PacIns:public Condition  {
 		{
 			rply = &rcv_lst[ii];
 			fc = n_pac->getfld(rply->fld_no, &rlen);
-			if (rply->must_con ) 
-			{
+			if (rply->must_con ) {
 				if ( !fc ) {
 					TEXTUS_SPRINTF(mess->err_str, "field %d does not exist", rply->fld_no);
 					goto ErrRet;
@@ -1248,10 +1236,8 @@ struct PacIns:public Condition  {
 				}
 			}
 
-			if ( rply->dyna_pos > 0 && fc)
-			{
-				if ( rlen >= (rply->start ) )	
-				{
+			if ( rply->dyna_pos > 0 && fc) {
+				if ( rlen >= (rply->start ) )	{
 					rlen -= (rply->start-1); //start是从1开始
 					if ( rply->length > 0 && (unsigned int)rply->length < rlen)
 						rlen = rply->length;
@@ -1658,8 +1644,7 @@ struct ComplexSubSerial {
 		const char *nm=0;
 		TiXmlElement *body;	//用户命令的第一个body元素
 		nm = usr_ele->Attribute(me_name);	//先看属性名为me.XX.yy中的XX名，nm是$Main之的。
-		if (!nm )	//属性优先, 没有属性再看元素
-		{
+		if (!nm ) { //属性优先, 没有属性再看元素
 			body = usr_ele->FirstChildElement(me_name);	//再看元素为me.XX.yy中的XX名，nm是$Main之的。
 			if ( body ) { 
 				nm = body->GetText();
@@ -1684,8 +1669,7 @@ struct ComplexSubSerial {
 		if ( loop_n < 0 ) loop_n = 1;
 			
 		TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s", "Pro"); //先假定子序列是Pro element，如果有主参考变量，则找合成的
-		if ( pri_var_nm ) //如果有主参考变量, 就即根据这个主参考变量中找到相应的sub_pro, pri_var_nm就是$Main之类的。
-		{
+		if ( pri_var_nm ) {//如果有主参考变量, 就即根据这个主参考变量中找到相应的sub_pro, pri_var_nm就是$Main之类的。
 			ref_var = g_var_set->one_still(0,pri_var_nm, 0, tmplen);	//找到已定义参考变量的
 			if ( ref_var ) {
 				if ( (nm = ref_var->self_ele->Attribute("SubPro")) )  { //参考变量的pro属性指示子序列
@@ -1711,8 +1695,7 @@ struct ComplexSubSerial {
 				me_var->me_had_var = true;
 				continue;	
 			} 
-			if ( me_var->kind == VAR_Me ) 
-			{
+			if ( me_var->kind == VAR_Me ) {
 				nm = find_from_usr_ele(me_var->me_name); 	//从用户命令中找, nm是"$Main"之类的
 				if ( !nm ) continue;
 				me_var->me_had_var = true;
@@ -1763,10 +1746,8 @@ struct User_Command : public Condition {
 
 		//前面已经分析过了, 这里肯定不为NULL,nm就是Command之类的。 sub_serial 
 		pri_nm = sub_serial->Attribute("primary");
-		if ( pri_nm)
-		{
-			if ( usr_ele->Attribute(pri_nm))
-			{
+		if ( pri_nm) {
+			if ( usr_ele->Attribute(pri_nm)) {
 				/* pro_analyze 根据变量名, 去找到实际真正的变量内容(必须是参考变量)。变量内容中指定了Pro等 */
 				comp_num = 1;
 				complex = new struct ComplexSubSerial;
@@ -2125,8 +2106,7 @@ private:
 	void mk_result(bool end_mess=true);
 	void set_global_vars();
 
-	struct G_CFG 	//全局定义
-	{
+	struct G_CFG { 	//全局定义
 		TBuffer *var_bufs;	//全局变量数据区
 		size_t bufs_num;
 		TiXmlElement *prop;
@@ -2182,7 +2162,7 @@ private:
 
 void PacWay::set_global_vars()
 {
-	int i,j;
+	int i,j,k;
 	struct  Personal_Def *def, *def2;
 	bool found;
 
@@ -2191,8 +2171,7 @@ void PacWay::set_global_vars()
 	for ( i = 0 ; i < gCFG->person_defs.num_icp; i++ )
 	{	
 		def = &gCFG->person_defs.icp_def[i];
-		for ( j = 0 ; j < i ; j++ )
-		{
+		for ( j = 0 ; j < i ; j++ ) {	//往前寻找
 			//def2 = &gCFG->person_defs.icp_def[j].person_vars;
 			def2 = &gCFG->person_defs.icp_def[j];
 			if ( def->k_root == def2->k_root ) 
@@ -2204,9 +2183,43 @@ void PacWay::set_global_vars()
 			}
 		}
 		if ( j == i ) {	//未找到以前, 这是新的, 计算global变量,
+			for ( k = 0; k < def->person_vars.many; k++ )
+				if ( def->person_vars.vars[k].kind == VAR_Dynamic_Global ) num++;	
 		}
 	}
-};
+	gCFG->var_bufs = new TBuffer[num];
+	gCFG->bufs_num = num;
+	num = 0;
+	for ( i = 0 ; i < gCFG->person_defs.num_icp; i++ )
+	{	
+		def = &gCFG->person_defs.icp_def[i];
+		for ( j = 0 ; j < i ; j++ ) {	//往前寻找
+			//def2 = &gCFG->person_defs.icp_def[j].person_vars;
+			def2 = &gCFG->person_defs.icp_def[j];
+			if ( def->k_root == def2->k_root ) 
+				break;
+			if ( def->k_name != 0 && def2->k_name != 0 ) 
+			{
+				if (strcmp(def->k_name, def2->k_name) == 0 ) 
+					break;
+			}
+		}
+		if ( j == i ) {	//未找到以前, 这是新的, 赋予全局指针
+			for ( k = 0; k < def->person_vars.many; k++ )
+				if ( def->person_vars.vars[k].kind == VAR_Dynamic_Global ) {
+					def->person_vars.vars[k].con = &gCFG->var_bufs[num];
+					TBuffer::pour(gCFG->var_bufs[num], def->person_vars.vars[k].nal);
+					num++;
+				}
+		} else { //找到以前的, 就复制过来
+			for ( k = 0; k < def->person_vars.many; k++ )
+				if ( def->person_vars.vars[k].kind == VAR_Dynamic_Global ) 
+					def->person_vars.vars[k].con = def2->person_vars.vars[k].con;
+		}
+	}
+	//{int *a =0 ; *a = 0; };
+}
+
 void PacWay::ignite(TiXmlElement *prop) {
 	const char *comm_str;
 	if (!prop) return;
@@ -2399,14 +2412,11 @@ bool PacWay::sponte( Amor::Pius *pius) {
 	return true;
 }
 
-void PacWay::handle_pac()
-{
-	int plen=0;
-	int i;
+void PacWay::handle_pac() {
+	int plen=0,i;
 
 	unsigned char *actp;
-	unsigned long alen;
-
+	size_t alen;
 	struct PVar  *vt;
 	struct DyVar *dvr;
 
@@ -2450,8 +2460,7 @@ void PacWay::handle_pac()
 		}
 		
 		//{int *a =0 ; *a = 0; };
-		if (mess.iRet == ERROR_INS_DEF)
-		{
+		if (mess.iRet == ERROR_INS_DEF) {
 			TEXTUS_SPRINTF(mess.err_str, "not defined flow_id: %s ", mess.flow_id );
 			mess.snap[Pos_ErrCode].input(mess.iRet);
 			mk_result();	//工作结束
@@ -2468,8 +2477,7 @@ void PacWay::handle_pac()
 		mess.right_status = RT_READY;	//指示终端准备开始工作,
 
 		//if ( strcmp(mess.flow_id, "22TY") ==0 ) {int *a =0 ; *a = 0; };
-		if ( !cur_def->ins_all.instructions )
-		{
+		if ( !cur_def->ins_all.instructions ) {
 			mk_result();
 			goto HERE_END;
 		}
