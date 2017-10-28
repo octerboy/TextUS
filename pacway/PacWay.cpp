@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2016-2018 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -660,8 +660,6 @@ struct MatchDst {	//匹配目标
 			src_con = dvr->val_p;
 			src_len = dvr->c_len;
 		} else {
-			//src_con = &src->content[0];
-			//src_len = src->c_len;
 			src_con = src->con->base;
 			src_len = src->con->point - src->con->base;
 		}
@@ -671,8 +669,6 @@ struct MatchDst {	//匹配目标
 				dst_con = dvr->val_p;
 				dst_len = dvr->c_len;
 			} else {
-				//dst_con = &dst->content[0];
-				//dst_len = dst->c_len;
 				dst_con = dst->con->base;
 				dst_len = dst->con->point - dst->con->base;
 			}
@@ -1086,8 +1082,8 @@ struct PacIns:public Condition  {
 
 	const char *err_code; //这是直接从外部定义文件得到的内容，不作任何处理。 当本报文出现通信错误，包括报文不能解析的、通道关闭。
 	bool counted;		//是否计数
-	bool isFunction;	//是否为函数
-	enum ACT_DIR fac_spo;	//动作方向, to do..... no work yet.
+	bool isFunction;	//是否为函数方式
+	enum ACT_DIR fac_spo;	//动作方向
 	TEXTUS_ORDO ordo;	//其它动作
 	const char *dbface_name;
 	DBFace *dbface;
@@ -2136,7 +2132,7 @@ private:
 	PacketObj *hipa[3];
 	PacketObj *rcv_pac;	/* 来自左节点的PacketObj */
 	PacketObj *snd_pac;
-	Amor::Pius loc_pro_pac;
+	Amor::Pius loc_pro_pac, prodb_ps, other_ps;
 
 	struct MK_Session mess;	//记录一个过程中的各种临时数据
 	struct Personal_Def *cur_def;	//当前定义
@@ -2151,12 +2147,11 @@ private:
 		long sub_loop;	//循环次数
 	} command_wt;
 
-	int sub_serial_pro(struct ComplexSubSerial *comp, bool &has_back,  Amor::Pius *&fac_ps, struct PacIns *last_paci=0);
+	int sub_serial_pro(struct ComplexSubSerial *comp, bool &has_back,  enum ACT_DIR &adir, Amor::Pius *&fac_ps, struct PacIns *last_paci=0);
 	void set_peer(PacketObj *pac, int sub);
 	void get_cert(PacketObj *pac, int sub);
 	void get_peer(PacketObj *pac, int sub);
 	void log_pac(PacketObj *pac,const char *prompt, enum PAC_LOG mode);
-	Amor::Pius prodb_ps;
 	#include "wlog.h"
 };
 
@@ -2476,7 +2471,6 @@ void PacWay::handle_pac() {
 		mess.left_status = LT_Working;
 		mess.right_status = RT_READY;	//指示终端准备开始工作,
 
-		//if ( strcmp(mess.flow_id, "22TY") ==0 ) {int *a =0 ; *a = 0; };
 		if ( !cur_def->ins_all.instructions ) {
 			mk_result();
 			goto HERE_END;
@@ -2615,11 +2609,12 @@ void PacWay::log_pac(PacketObj *pac,const char *prompt, enum PAC_LOG mode)
 }
 
 /* 子序列入口 */
-int PacWay::sub_serial_pro(struct ComplexSubSerial *comp, bool &has_back,  Amor::Pius *&fac_ps, struct PacIns *last_paci)
+int PacWay::sub_serial_pro(struct ComplexSubSerial *comp, bool &has_back, enum ACT_DIR &adir, Amor::Pius *&fac_ps, struct PacIns *last_paci)
 {
 	struct PacIns *paci;
 	char h_msg[1024];
 	PacketObj *n_pac ;	
+	adir = FACIO;
 	if ( last_paci ) {
 		paci=last_paci;
 		goto PACI_PRO;
@@ -2729,8 +2724,28 @@ PACI_PRO:
 		break;
 
 	case INS_Cmd_Ordo:
-		command_wt.pac_step = Pac_End;
-		break;
+		switch ( command_wt.pac_step ) {
+		case Pac_Idle:
+			other_ps.indic = 0;
+			other_ps.ordo = paci->ordo;
+			other_ps.subor = paci->subor;
+			command_wt.pac_step = Pac_Working;
+			fac_ps = &loc_pro_pac;
+			has_back = true;
+			adir = paci->fac_spo;
+			return 0;
+			break;
+		case Pac_Working:
+			command_wt.pac_which++;	//指向下一条报文处理
+			command_wt.pac_step = Pac_Idle;
+			if (  command_wt.pac_which == comp->pac_many )
+				return 1;	//整个已经完成
+			else
+				goto SUB_INS_PRO;
+			break;
+		default:
+			break;
+		}
 
 	case INS_Get_CertNo:
 		hi_reply_p->reset();
@@ -2830,6 +2845,7 @@ void PacWay::mk_hand(bool right_down)
 	int i_ret;
 	Amor::Pius *fac_ps;
 	bool has_back;
+	enum ACT_DIR  adir;
 	struct PVar  *vt;
 
 #define NEXT_INS	\
@@ -2875,7 +2891,7 @@ LOOP_PRI_TRY:
 		command_wt.pac_step = Pac_Idle;	//pac处理开始, 
 		command_wt.step++;	//指向下一步
 	case 1:
-		i_ret = sub_serial_pro( &(usr_com->complex[command_wt.cur]), has_back, fac_ps );
+		i_ret = sub_serial_pro( &(usr_com->complex[command_wt.cur]), has_back, adir, fac_ps );
 		if ( i_ret == -1 ) { //这是软失败
 			command_wt.sub_loop--;
 			if ( command_wt.sub_loop != 0 ) { //如果原为是0,则为负,几乎到不了0
@@ -2899,11 +2915,18 @@ LOOP_PRI_TRY:
 		} else if ( i_ret ==0  ) {
 			mess.right_status = RT_OUT;
 			if ( has_back ) {
-				aptus->facio(fac_ps);     //向右发出指令, 右节点不再sponte
+				if ( adir == FACIO ) 
+					aptus->facio(fac_ps);     //向右发出指令, 右节点不再sponte
+				else
+					aptus->sponte(fac_ps);     //向左发出指令, 
 				if ( mess.right_status == RT_OUT ) 
 					goto INS_PRO;		//本指令处理结果. 但是右节点dmd_end_session导致复位, 就不再处理
-			} else 
-				aptus->facio(fac_ps);     //向右发出指令,aptus.facio的处理放在最后,很重要!! 因为这个调用中可能收到右节点的sponte. 注意!!,一定要注意.
+			} else {
+				if ( adir == FACIO ) 
+					aptus->facio(fac_ps);     //向右发出指令,aptus.facio的处理放在最后,很重要!! 因为这个调用中可能收到右节点的sponte. 注意!!,一定要注意.
+				else
+					aptus->sponte(fac_ps);     //向左发出指令, 
+			}
 		} else 	if ( i_ret > 0  ) {
 			mess.right_status = RT_READY;	//右端闲
 			WBUG("has completed %d, order %d", mess.ins_which, mess.pro_order);
@@ -2919,6 +2942,7 @@ void PacWay::mk_result(bool end_mess)
 	Amor::Pius *fac_ps;
 	bool has_back;
 	int ret;
+	enum ACT_DIR  adir;
 
 	if ( mess.iRet != 0 ) {
 		WLOG(WARNING, "Error %s:  %s", mess.snap[Pos_ErrCode].val_p, mess.err_str);
@@ -2928,12 +2952,14 @@ void PacWay::mk_result(bool end_mess)
 	if ( !mess.handle_last_pac ) {
 		if ( cur_def->ins_all.last_pac_ins ) {
 			command_wt.pac_step = Pac_Idle;	//pac处理开始, 
-			ret = sub_serial_pro( 0, has_back, fac_ps, cur_def->ins_all.last_pac_ins);
+			ret = sub_serial_pro( 0, has_back, adir, fac_ps, cur_def->ins_all.last_pac_ins);
 			mess.right_status = RT_OUT;
-			if ( ret == 0  )
-			{
-				aptus->facio(fac_ps);     //向右发出指令, 右节点不再sponte
-				ret = sub_serial_pro( 0, has_back, fac_ps, cur_def->ins_all.last_pac_ins);
+			if ( ret == 0 ) {
+				if ( adir == FACIO ) 
+					aptus->facio(fac_ps);     //向右发出指令, 右节点不再sponte
+				else
+					aptus->sponte(fac_ps);     //向左发出指令, 
+				ret = sub_serial_pro( 0, has_back, adir, fac_ps, cur_def->ins_all.last_pac_ins);
 			}
 			if ( ret == 0  ) {
 				WLOG(EMERG, "bug! last_pac_pro should finished!");
