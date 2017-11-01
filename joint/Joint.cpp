@@ -69,6 +69,9 @@ void Joint::ignite_t (TiXmlElement *cfg, TiXmlElement *sz_ele)
 	if ( !sz_ele) return;
 	
 	canAccessed = true;
+	dup_top = false;
+	if ( (comm_str =sz_ele->Attribute("action")) && strcasecmp(comm_str, "clone") == 0 )
+		dup_top = true;
 
 	isRight = false;
 	if ( (comm_str =sz_ele->Attribute("location")) && strcasecmp(comm_str, "right") == 0 )
@@ -76,10 +79,6 @@ void Joint::ignite_t (TiXmlElement *cfg, TiXmlElement *sz_ele)
 		isRight = true;
 		append(g_right, ele);
 	}
-	
-	dup_top = false;
-	if ( (comm_str =sz_ele->Attribute("action")) && strcasecmp(comm_str, "clone") == 0 )
-		dup_top = true;
 	
 	if ( !isRight && comm_str && strcasecmp(comm_str, "left") !=0 ) /* 要么没有, 默认为left */
 		canAccessed = false;
