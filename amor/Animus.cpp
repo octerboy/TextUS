@@ -591,11 +591,15 @@ Next:
 void Animus::info(Amor::Pius &piu)
 {
 	unsigned int i;
-	for (i = 0; i < duco_num; i++)  ((Animus*)compactor[i])->info(piu);
+	if ( !ignite_info_ready )
+	{
+		ignite_info_ready = true;
+		for (i = 0; i < duco_num; i++) ((Animus*)compactor[i])->info(piu);
 
-	for (i = 0; i < num_real_ext; i++) consors[i]->facio(&piu);
+		for (i = 0; i < num_real_ext; i++) consors[i]->facio(&piu);
 
-	if ( owner ) owner->facio(&piu);
+		if ( owner ) owner->facio(&piu);
+	}
 }
 
 void Animus::scratch(Aptus *dst)
@@ -643,6 +647,7 @@ Animus::Animus()
 	bran_num_lae = 0;
 	bran_num_spo = 0;
 	bran_num_dex = 0;
+	ignite_info_ready = false;
 }
 
 void Animus::destroy_right()

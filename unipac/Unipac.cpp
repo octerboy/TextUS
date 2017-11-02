@@ -973,7 +973,7 @@ DO_PAC:
 		goto ALL_READY;
 
 	case Notitia::CLONE_ALL_READY:
-		WBUG("facio CLONE(IGNITE)_ALL_READY" );			
+		WBUG("facio CLONE_ALL_READY" );			
 ALL_READY:
 		if ( gCFG->hasBuff)
 			deliver(Notitia::SET_TBUF);

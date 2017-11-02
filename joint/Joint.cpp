@@ -107,10 +107,12 @@ Amor *Joint::clone()
 
 void Joint::dup()
 {
-	Animus *apt;
+	Animus *apt, *comp;
 	Aptus **o_c;
 	List *n;
 	unsigned int i, o_d;
+	Amor::Pius ready = {Notitia::IGNITE_ALL_READY, 0, 0};
+	Amor::Pius ready2 = {Notitia::CLONE_ALL_READY,0,0};
 
 	if (isRight)  return;
 
@@ -132,10 +134,14 @@ void Joint::dup()
 
 		if ( dup_top )
 		{
-			apt->compactor[o_d] = ((Animus *) (n->next->me->aptus))->clone_p ((Aptus*)aptus);
+			comp = (Animus *)((Animus *) (n->next->me->aptus))->clone_p ((Aptus*)aptus);
+			apt->compactor[o_d] = comp;
+			comp->info(ready2);
 		} else {
-			apt->compactor[o_d] = (Aptus *) (n->next->me->aptus);
-			((Animus *) apt->compactor[o_d] )->refer_count++;
+			comp = (Animus *) (n->next->me->aptus);
+			apt->compactor[o_d] = comp;
+			comp->refer_count++;
+			comp->info(ready);
 		}
 		n = n->next;
 	}

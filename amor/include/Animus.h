@@ -64,6 +64,7 @@ public:
 	static bool pst_added;			/* false: not load the aptus yet */
 
 	int refer_count;
+	bool ignite_info_ready;		//whether info IGNITE_ALL_READY
 	void info(Amor::Pius &);
 	void destroy_right();
 	
