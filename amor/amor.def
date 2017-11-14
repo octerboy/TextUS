@@ -1,6 +1,0 @@
-LIBRARY      "libanimus"
-
-EXPORTS
-    ; Explicit exports 
-
- textus_animus_start        					@1
