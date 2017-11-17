@@ -328,7 +328,6 @@ enum PAC_STEP {Pac_Idle = 0, Pac_Working = 1, Pac_End=2};
 		};
 
 		void input(int iv) {
-			unsigned char *val;
 			if ( !def_var ) return;
 			con->reset();
 			con->grant(64);
@@ -534,7 +533,7 @@ struct PVar_Set {
 		return 0;
 	};
 
-	void put_still(const char *nm, const unsigned char *val, unsigned int len=0)
+	void put_still(const char *nm, const unsigned char *val, size_t len=0)
 	{
 		struct PVar *av = look(nm,0);
 		if ( av) av->put_still(val, len);
@@ -590,7 +589,7 @@ struct PVar_Set {
 	struct PVar *all_still( TiXmlElement *ele, const char*tag, unsigned char *command, size_t &ac_len, TiXmlElement *&nxt, struct PVar_Set *loc_v=0)
 	{
 		TiXmlElement *comp;
-		unsigned long l;
+		size_t l;
 		struct PVar  *rt;
 		bool will_break= false;
 				
@@ -630,8 +629,6 @@ struct MatchDst {	//匹配目标
 
 	bool set_val(struct PVar_Set *var_set, struct PVar_Set *loc_v, const char *p, const char *case_str) {
 		bool ret = false;
-		const char *val_nm;
-		TiXmlElement *body;
 
 		if ( case_str && ( case_str[0] == 'N' ||  case_str[0] == 'n') )
 			c_case= false;
@@ -1209,7 +1206,7 @@ struct PacIns:public Condition  {
 		for (ii = 0; ii < rcv_num; ii++)
 		{
 			rply = &rcv_lst[ii];
-			fc = n_pac->getfld(rply->fld_no, &rlen);
+			fc = n_pac->getfld(rply->fld_no, (unsigned long *)&rlen);
 			if (rply->must_con ) {
 				if ( !fc ) {
 					TEXTUS_SPRINTF(mess->err_str, "field %d does not exist", rply->fld_no);
@@ -1554,7 +1551,7 @@ struct ComplexSubSerial {
 		unsigned char buf[512];		//实际内容, 常数内容
 		char loc_v_nm[128];
 		TiXmlAttribute *att; 
-		unsigned long len;
+		size_t len;
 		struct PVar *ref_var = 0, *att_var=0;
 		const char *att_val;
 		
@@ -1589,7 +1586,7 @@ struct ComplexSubSerial {
 	{
 		unsigned char buf[512];		//实际内容, 常数内容
 		char loc_v_nm[128];
-		unsigned long len;
+		size_t len;
 		struct PVar *avar = 0;
 		TEXTUS_SPRINTF(loc_v_nm, "%s%s", ME_VARIABLE_HEAD, mid_nm); 
 		
@@ -1659,7 +1656,7 @@ struct ComplexSubSerial {
 		char pro_nm[128];
 		int which, icc_num=0, i;
 		struct PVar_Set tmp_sv;		//临时局域变量集
-		unsigned long tmplen;
+		size_t tmplen;
 
 		if ( loop_str ) loop_n = atoi(loop_str);
 		if ( loop_n < 0 ) loop_n = 1;
@@ -2159,7 +2156,6 @@ void PacWay::set_global_vars()
 {
 	int i,j,k;
 	struct  Personal_Def *def, *def2;
-	bool found;
 
 	size_t num;
 	num = 0;
@@ -2415,7 +2411,7 @@ void PacWay::handle_pac() {
 	struct PVar  *vt;
 	struct DyVar *dvr;
 
-	actp=rcv_pac->getfld(gCFG->flowID_fld_no, &alen);		//取得业务代码, 即流标识
+	actp=rcv_pac->getfld(gCFG->flowID_fld_no, (unsigned long*)&alen);		//取得业务代码, 即流标识
 	if ( !actp) {
 		WBUG("business code field null");
 		return;
@@ -2426,7 +2422,7 @@ void PacWay::handle_pac() {
 		/* 这里就是一般的业务啦 */
 		mess.reset();	//会话复位
 		snd_pac->reset();
-		actp = rcv_pac->getfld(gCFG->flowID_fld_no, &alen);
+		actp = rcv_pac->getfld(gCFG->flowID_fld_no, (unsigned long*)&alen);
 		if (alen >= sizeof(mess.flow_id) ) alen = sizeof(mess.flow_id)-1 ;
 		memcpy(mess.flow_id, actp, alen);
 		mess.flow_id[alen] = 0;
