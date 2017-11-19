@@ -73,6 +73,8 @@ private:
 	INLINE void deliver(Notitia::HERE_ORDO aordo);
 	INLINE void end();
 	INLINE bool init();
+	INLINE bool parent_exec();
+	INLINE bool child_exec();
 
 	typedef struct _Argv {
 		char *val;
@@ -322,6 +324,13 @@ bool TCgi::facio( Amor::Pius *pius)
 		init();		/* 启动外部进程 */
 		break;
 
+	case Notitia::FORKED_PARENT:
+		parent_exec();
+		break;
+
+	case Notitia::FORKED_CHILD:
+		child_exec();
+		break;
 	default:
 		return false;
 	}	
@@ -582,30 +591,32 @@ bool TCgi::init()
 	mytor.scanfd = sv[0];
 	deliver(Notitia::FD_SETEX);
 	deliver(Notitia::FD_SETRD);
-
-	if ( (pid = fork()) == 0) 
-	{	// 子进程
-		close(sv[0]);	// 关闭管道的父进程端
-		WBUG("sub process exec %s", gCFG->exec_file);
-		if ( dup2(sv[1], STDOUT_FILENO) == -1 )	// 复制管道的子进程端到标准输出
-			WLOG_OSERR("dup2 socket to stdout");
-		if ( dup2(sv[1], STDIN_FILENO) == -1 )	// 复制管道的子进程端到标准输入
-			WLOG_OSERR("dup2 socket to stdin");
-		close(sv[1]);	// 关闭已复制的读管道
-		/* exec执行命令或外部程序 */
-		execvp(gCFG->exec_file, cgi_argv);
-
-	} else if ( pid > 0 ) {	
-		// 父进程
-		close(sv[1]);	// 关闭管道的子进程端
-		/* 现在可向sv[0]读写  */
-
-		/* 使用wait系列函数等待子进程退出并取得退出代码 */
-	} else {
-		WLOG_OSERR("fork");
-		return false;
-	}
+	deliver(Notitia::CMD_FORK);
 #endif
+	return true;
+}
+
+INLINE bool TCgi::parent_exec()
+{
+	close(sv[1]);	// 关闭管道的子进程端
+	/* 现在可向sv[0]读写  */
+	sessioning = true;
+	
+	memset(cgi_argv, 0, sizeof(char*) * ( gCFG->argc+1) );	/* cgi_argv清空, 每次init再赋值 */
+	return true;
+}
+
+INLINE bool TCgi::child_exec()
+{
+	close(sv[0]);	// 关闭管道的父进程端
+	WBUG("sub process exec %s", gCFG->exec_file);
+	if ( dup2(sv[1], STDOUT_FILENO) == -1 )	// 复制管道的子进程端到标准输出
+		WLOG_OSERR("dup2 socket to stdout");
+	if ( dup2(sv[1], STDIN_FILENO) == -1 )	// 复制管道的子进程端到标准输入
+		WLOG_OSERR("dup2 socket to stdin");
+	close(sv[1]);	// 关闭已复制的读管道
+	/* exec执行命令或外部程序 */
+	execvp(gCFG->exec_file, cgi_argv);
 	sessioning = true;
 	
 	memset(cgi_argv, 0, sizeof(char*) * ( gCFG->argc+1) );	/* cgi_argv清空, 每次init再赋值 */
@@ -691,6 +702,10 @@ INLINE void TCgi::deliver(Notitia::HERE_ORDO aordo)
 	case Notitia::DMD_CLR_TIMER:
 		WBUG("deliver DMD_SET(CLR)_TIMER(%d)", aordo);
 		tmp_pius.indic = this;
+		break;
+
+	case Notitia::CMD_FORK:
+		WBUG("deliver CMD_FORK");
 		break;
 
 	case Notitia::FD_CLRRD:
