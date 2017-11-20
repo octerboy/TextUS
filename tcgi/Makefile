@@ -11,7 +11,7 @@ TCgi.o:TCgi.cpp
 	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=TCgi -o $@ $^
 
 tcgi.so: TCgi.o
-	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase
+	${LD} $(LDFLAGS) -o $@ $^ $(LIBSOCKET) $(LDLIBS) -lbase
 	$(_POST_RPO_SUB)
 
 clean:
