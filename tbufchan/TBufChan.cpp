@@ -70,6 +70,7 @@ private:
 		Amor::Pius chn_timeout;
 		int expired;	/* 超时时间。0: 不设超时 */
 		enum MODE mode;
+		bool move_data;	//是否移走数据, 默认为true, 即将数据从左搬至右边; 有时为false, 即为复制, 左边数据还可以作它用
 		int pac_fld;	/* PacketObj中那个域进入本缓冲 */
 		bool once;
 		bool willAsk;
@@ -95,6 +96,13 @@ private:
 			comm_str = cfg->Attribute("demand");
 			if ( comm_str && strcasecmp(comm_str, "no" ) ==0 )
 				willAsk = false;
+
+			move_data = true;
+			comm_str = cfg->Attribute("data");
+			if ( comm_str && strcasecmp(comm_str, "move" ) ==0 )
+				move_data = true;
+			if ( comm_str && strcasecmp(comm_str, "copy" ) ==0 )
+				move_data = false;
 
 			cfg->QueryIntAttribute("expired", &(expired));
 			comm_str = cfg->Attribute("mode");
@@ -208,7 +216,10 @@ bool TBufChan::facio( Amor::Pius *pius)
 
 		if (alive )
 		{
-			TBuffer::pour(right_snd, *rcv_buf);
+			if ( gCFG->move_data)
+				TBuffer::pour(right_snd, *rcv_buf);
+			else
+				right_snd.input(rcv_buf->base, rcv_buf->point - rcv_buf->base);
 			aptus->facio(&pro_tbuf);
 		} else {
 			if ( has_buffered_num == gCFG->max_buffer_times ) 
@@ -218,7 +229,10 @@ bool TBufChan::facio( Amor::Pius *pius)
 			}
 			has_buffered_num++;
 
-			TBuffer::pour(house, *rcv_buf);	/* 数据进入暂存 */
+			if ( gCFG->move_data)
+				TBuffer::pour(house, *rcv_buf);	/* 数据进入暂存 */
+			else
+				house.input(rcv_buf->base, rcv_buf->point - rcv_buf->base);
 	Demand:
 			if( !demanding && gCFG->willAsk )
 			{
