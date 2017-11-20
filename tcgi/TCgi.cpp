@@ -598,16 +598,20 @@ bool TCgi::init()
 
 INLINE bool TCgi::parent_exec()
 {
-	close(sv[1]);	// 关闭管道的子进程端
+#if !defined(_WIN32)
+	close(sv[1]);	
+	// 关闭管道的子进程端
 	/* 现在可向sv[0]读写  */
 	sessioning = true;
 	
 	memset(cgi_argv, 0, sizeof(char*) * ( gCFG->argc+1) );	/* cgi_argv清空, 每次init再赋值 */
+#endif
 	return true;
 }
 
 INLINE bool TCgi::child_exec()
 {
+#if !defined(_WIN32)
 	close(sv[0]);	// 关闭管道的父进程端
 	WBUG("sub process exec %s", gCFG->exec_file);
 	if ( dup2(sv[1], STDOUT_FILENO) == -1 )	// 复制管道的子进程端到标准输出
@@ -620,6 +624,7 @@ INLINE bool TCgi::child_exec()
 	sessioning = true;
 	
 	memset(cgi_argv, 0, sizeof(char*) * ( gCFG->argc+1) );	/* cgi_argv清空, 每次init再赋值 */
+#endif
 	return true;
 }
 
@@ -677,7 +682,9 @@ INLINE void TCgi::deliver(Notitia::HERE_ORDO aordo)
 		WBUG("deliver PRO_TBUF");
 		if ( gCFG->has_buffer )
 			aptus->facio(&tmp_pius);
-		break;
+		else
+			aptus->sponte(&tmp_pius);
+		return;
 
 	case Notitia::SET_TBUF:
 		WBUG("deliver SET_TBUF");
