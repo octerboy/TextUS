@@ -325,11 +325,15 @@ bool TCgi::facio( Amor::Pius *pius)
 		break;
 
 	case Notitia::FORKED_PARENT:
-		parent_exec();
+		WBUG("facio FORKED_PARENT");
+		if ( sessioning )
+			parent_exec();
 		break;
 
 	case Notitia::FORKED_CHILD:
-		child_exec();
+		WBUG("facio FORKED_CHILD");
+		if ( sessioning )
+			child_exec();
 		break;
 	default:
 		return false;
@@ -571,6 +575,7 @@ bool TCgi::init()
 	CloseHandle(pipe_in[1]); // 关闭读管道的写端
 	CloseHandle(pipe_out[0]); // 关闭写管道的读端
 
+	sessioning = true;
 	if ( direction == BOTH || direction == FROM_PROG )
 	{
 		/* 以另一线程去读管道 */
@@ -587,6 +592,7 @@ bool TCgi::init()
 		return false;
 	}
 
+	sessioning = true;
 	/* 加入轮询 */
 	mytor.scanfd = sv[0];
 	deliver(Notitia::FD_SETEX);
@@ -599,11 +605,10 @@ bool TCgi::init()
 INLINE bool TCgi::parent_exec()
 {
 #if !defined(_WIN32)
+	WBUG("parent process ");
 	close(sv[1]);	
 	// 关闭管道的子进程端
 	/* 现在可向sv[0]读写  */
-	sessioning = true;
-	
 	memset(cgi_argv, 0, sizeof(char*) * ( gCFG->argc+1) );	/* cgi_argv清空, 每次init再赋值 */
 #endif
 	return true;
@@ -613,16 +618,23 @@ INLINE bool TCgi::child_exec()
 {
 #if !defined(_WIN32)
 	close(sv[0]);	// 关闭管道的父进程端
-	WBUG("sub process exec %s", gCFG->exec_file);
+	WBUG("child process exec %s", gCFG->exec_file);
 	if ( dup2(sv[1], STDOUT_FILENO) == -1 )	// 复制管道的子进程端到标准输出
+	{
 		WLOG_OSERR("dup2 socket to stdout");
+	} else {
+		WBUG("dup2 socket to stdout successfully!");
+	}
 	if ( dup2(sv[1], STDIN_FILENO) == -1 )	// 复制管道的子进程端到标准输入
+	{
 		WLOG_OSERR("dup2 socket to stdin");
+	} else {
+		WBUG("dup2 socket to stdin successfully!");
+	}
 	close(sv[1]);	// 关闭已复制的读管道
 	/* exec执行命令或外部程序 */
 	execvp(gCFG->exec_file, cgi_argv);
-	sessioning = true;
-	
+	WBUG("child process exec ok");
 	memset(cgi_argv, 0, sizeof(char*) * ( gCFG->argc+1) );	/* cgi_argv清空, 每次init再赋值 */
 #endif
 	return true;
