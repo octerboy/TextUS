@@ -632,10 +632,8 @@ INLINE bool TCgi::child_exec()
 		WBUG("dup2 socket to stdin successfully!");
 	}
 	close(sv[1]);	// 关闭已复制的读管道
-	/* exec执行命令或外部程序 */
+	/* exec执行命令或外部程序, 映像被替换 */
 	execvp(gCFG->exec_file, cgi_argv);
-	WBUG("child process exec ok");
-	memset(cgi_argv, 0, sizeof(char*) * ( gCFG->argc+1) );	/* cgi_argv清空, 每次init再赋值 */
 #endif
 	return true;
 }
@@ -656,7 +654,7 @@ INLINE void TCgi::end()
 	deliver(Notitia::FD_CLRRD);
 
 	//close(pipe_in[0]);	/* 关闭读管道会导致另一个子实例中的pipe_in[0]成为非法(尽管其具体值不同) 所以这里不用了 */
-	close(sv[0]);
+	//close(sv[0]);
 #endif
 	deliver(Notitia::END_SESSION);/* 向左、右传递本类的会话关闭信号 */
 }
@@ -733,6 +731,7 @@ INLINE void TCgi::deliver(Notitia::HERE_ORDO aordo)
 	case Notitia::FD_SETRD:
 	case Notitia::FD_SETWR:
 	case Notitia::FD_SETEX:
+		WBUG("deliver FD_CLR/SET(%d)", aordo);
 		local_pius.ordo =aordo;
 		aptus->sponte(&local_pius);	//向Sched
 		return ;

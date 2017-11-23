@@ -54,11 +54,12 @@ enum WHDir {	/* 处理方向 */
 };
 
 enum MatchType {	/* 匹配类型 */
-	VAR_ANY	=0,	/* 任意 */	
-	CONSTANT=1,	/* 完全相同 */
-	BEGIN_W	=2,	/* 以某个开头 */
-	END_W	=3,	/* 以某个结尾 */
-	REGEX	=4	/* regular表达式 */
+	NO_MATCH=0,	/* 无 */	
+	VAR_ANY	=1,	/* 任意 */	
+	CONSTANT=2,	/* 完全相同 */
+	BEGIN_W	=3,	/* 以某个开头 */
+	END_W	=4,	/* 以某个结尾 */
+	REGEX	=5	/* regular表达式 */
 };
 
 typedef struct _FldDef {
@@ -333,19 +334,13 @@ void Ramify::setDef(PacDef *pdef, TiXmlElement *fdset_ele, const char *which_pac
 		/* 处理匹配规则 */
 		total_len = 0;
 		fdef->m_num = 0;
-		for ( m_ele = p_ele->FirstChildElement(); 
-			m_ele;
+		for ( m_ele = p_ele->FirstChildElement(); m_ele;
 			m_ele = m_ele->NextSiblingElement())
 		{
-			if ( strcasecmp ( m_ele->Value(), "match" ) == 0 
-				|| strcasecmp ( m_ele->Value(), "dismatch" ) == 0 )
-			{
-				fdef->m_num++;
-				total_len += 1;
-				if ( m_ele->GetText())
-					total_len += strlen(m_ele->GetText());
-			}
-
+			fdef->m_num++;
+			total_len += 1;
+			if ( m_ele->GetText())
+				total_len += strlen(m_ele->GetText());
 		}
 		if ( fdef->m_num == 0)
 			goto NEXTFLD;
@@ -353,51 +348,65 @@ void Ramify::setDef(PacDef *pdef, TiXmlElement *fdset_ele, const char *which_pac
 		fdef->match = new FldDef::Match [fdef->m_num];
 		fdef->match[0].val = new unsigned char[total_len];
 		memset(fdef->match[0].val, 0 , total_len);
-		k = 0;
-		for ( m_ele = p_ele->FirstChildElement();
-			m_ele;
+		for ( m_ele = p_ele->FirstChildElement(), k=0; m_ele;
 			m_ele = m_ele->NextSiblingElement())
 		{
-			if ( strcasecmp ( m_ele->Value(), "match" ) == 0 
-				|| strcasecmp ( m_ele->Value(), "dismatch" ) == 0 )
-			{
-				FldDef::Match &match = fdef->match[k];
-				if ( strcasecmp ( m_ele->Value(), "dismatch" ) == 0 )
-					match.NOT = true;
-				else
-					match.NOT = false;
-
+			FldDef::Match &match = fdef->match[k];
+			match.type = NO_MATCH;
+			match.NOT = false;
+			if ( strcasecmp ( m_ele->Value(), "match" ) == 0  ) {
+				match.NOT = false;
 				match.type = CONSTANT;	/* 默认为恒相等 */
-				comm_str = m_ele->Attribute("type");
-				if ( !comm_str ) 
-					goto GETTEXT;	
-				if ( strcasecmp(comm_str, "any") == 0 )
-					match.type = VAR_ANY;
-				if ( strcasecmp(comm_str, "constant") == 0 )
-					match.type = CONSTANT;
-				if ( strcasecmp(comm_str, "begin") == 0 )
-					match.type = BEGIN_W;
-				if ( strcasecmp(comm_str, "end") == 0 )
-					match.type = END_W;
-				if ( strcasecmp(comm_str, "regex") == 0 )
-				{
-					match.type = REGEX;
-					if ( regcomp(&match.rgx, (const char*)match.val, 0) != 0 )
-					{
-						match.type = VAR_ANY;	/* 如果规则不合法，就设为无限制 */
-					}
-				}
-
-			GETTEXT:
-				match.len = BTool::unescape(m_ele->GetText(), match.val) ;
-				if ( match.len == 0 )
-					match.type = VAR_ANY;	/* 没有内容被设为无限制 */
-
-				if ( k+1 < fdef->m_num )
-					fdef->match[k+1].val  = match.val + match.len + 1;
-				k++;	/* 下一个*/
 			}
+			if ( strcasecmp ( m_ele->Value(), "dismatch" ) == 0 ) {
+				match.NOT = true;
+				match.type = CONSTANT;	/* 默认为恒相等 */
+			}
+			if ( strcasecmp ( m_ele->Value(), "any" ) == 0 ) {
+				match.NOT = false;
+				match.type = VAR_ANY; /* 任何的存在 */
+			}
+			if ( strcasecmp ( m_ele->Value(), "not_any" ) == 0 ) {
+				match.NOT = true;
+				match.type = VAR_ANY; /* 任何的存在 */
+			}
+			if ( strcasecmp ( m_ele->Value(), "begin" ) == 0 ) {
+				match.NOT = false;
+				match.type = BEGIN_W; 
+			}
+			if ( strcasecmp ( m_ele->Value(), "not_begin" ) == 0 ) {
+				match.NOT = true;
+				match.type = BEGIN_W; 
+			}
+			if ( strcasecmp ( m_ele->Value(), "end" ) == 0 ) {
+				match.NOT = false;
+				match.type = END_W; 
+			}
+			if ( strcasecmp ( m_ele->Value(), "not_end" ) == 0 ) {
+				match.NOT = true;
+				match.type = END_W; 
+			}
+			if ( strcasecmp ( m_ele->Value(), "regex" ) == 0 ) {
+				match.NOT = false;
+				match.type = REGEX; 
+			}
+			if ( strcasecmp ( m_ele->Value(), "not_regex" ) == 0 ) {
+				match.NOT = true;
+				match.type = REGEX; 
+			}
+			if ( match.type == REGEX) 
+				if ( regcomp(&match.rgx, (const char*)match.val, 0) != 0 )
+					match.type = VAR_ANY;	/* 如果规则不合法，就设为无限制 */
+	
+			if ( match.type == NO_MATCH) continue;
+			match.len = BTool::unescape(m_ele->GetText(), match.val) ;
+			if ( match.len == 0 && match.type != VAR_ANY ) continue; /* 没有内容就无效, except for VAR_ANY */
+
+			if ( k+1 < fdef->m_num )
+				fdef->match[k+1].val  = match.val + match.len + 1;
+			k++;	/* 下一个*/
 		}
+		fdef->m_num = k;	//再次更新
 NEXTFLD:
 			
 		i++; fdef++;
