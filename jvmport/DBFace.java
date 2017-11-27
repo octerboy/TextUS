@@ -39,6 +39,7 @@ public class DBFace {
 		public int pos;		/* 参数位置, pos应用等于其数组下标值 */
 		public int fld;		/* 相应域号, -1 指未确定, 对输出更是 */
 		public String name;	/* 参数名称, pos优先 */
+		public String charset;	/* 字符集名称,这对来自UniPac的有帮助 */
 		public int namelen;	/* 参数名称的长度 */
 		public int data_type;	/* 数据类型 */
 		public int inout;	/* 定义参数方向, PARA_IN为输入, PARA_OUT为输出, PARA_INOUT输入与输出 */
@@ -49,6 +50,7 @@ public class DBFace {
 			pos = 0;
 			fld = 0;
 			name = "";
+			charset= "";
 			namelen = 0;
 			data_type = 0;
 			inout = 0;

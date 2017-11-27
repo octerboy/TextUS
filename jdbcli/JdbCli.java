@@ -221,7 +221,11 @@ public class JdbCli
 		case DBFace.Char:
 		case DBFace.String:
 		case DBFace.Text:
-			p_stmt.setString(j,  rcv_pac.getString(rNo));
+			if ( para.charset!=null ) {
+				p_stmt.setString(j, rcv_pac.getString(rNo, para.charset));
+			} else {
+				p_stmt.setString(j, rcv_pac.getString(rNo));
+			}
 			break;
 
 		case DBFace.Decimal:
@@ -436,10 +440,18 @@ public class JdbCli
 		case DBFace.String:
 		case DBFace.Text:
 		case DBFace.Char:
-			if ( para.namelen > 0 ) 
-				snd_pac.input(para.fld, stmt.getString(para.name));
-			else
-				snd_pac.input(para.fld, stmt.getString(j));
+			if ( para.charset!=null ) {
+				System.out.println("para.charset " + para.charset );
+				if ( para.namelen > 0 ) 
+					snd_pac.input(para.fld, stmt.getString(para.name), para.charset);
+				else
+					snd_pac.input(para.fld, stmt.getString(j), para.charset);
+			} else {
+				if ( para.namelen > 0 ) 
+					snd_pac.input(para.fld, stmt.getString(para.name));
+				else
+					snd_pac.input(para.fld, stmt.getString(j));
+			}
 			break;
 
 		case DBFace.Decimal:
@@ -549,10 +561,18 @@ public class JdbCli
 		case DBFace.Text:
 		case DBFace.Char:
 		//System.out.println("rs_get end para["+j+"] =" +  rSet.getString(para.name) );
-			if ( para.namelen > 0 ) 
-				snd_pac.input(para.fld, rSet.getString(para.name));
-			else
-				snd_pac.input(para.fld, rSet.getString(j));
+			if ( para.charset!=null ) {
+				//System.out.println("para.charset " + para.charset );
+				if ( para.namelen > 0 ) 
+					snd_pac.input(para.fld, rSet.getString(para.name), para.charset);
+				else
+					snd_pac.input(para.fld, rSet.getString(j), para.charset);
+			} else {
+				if ( para.namelen > 0 ) 
+					snd_pac.input(para.fld, rSet.getString(para.name));
+				else
+					snd_pac.input(para.fld, rSet.getString(j));
+			}
 			break;
 
 		case DBFace.Decimal:

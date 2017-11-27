@@ -351,6 +351,7 @@ void DBPort::getDef(struct DBFace *face, TiXmlElement *cfg, DBFace::WHAT gin, DB
 		if ( (comm_str = fld_ele->Attribute("field")) && atoi(comm_str) >= 0 )
 			par->fld = atoi(comm_str);
 
+		par->charset = fld_ele->Attribute("charset");
 		comm_str =  fld_ele->Attribute("name");
 		if ( comm_str)
 		{

@@ -393,7 +393,6 @@ bool JvmPort::facio( Amor::Pius *pius)
 	assert(pius);
 	assert(jvmcfg);
 	jint jret;
-//	PacketObj **tmp;
 	if ( !jvmcfg->env )
 	{
 		WLOG(ERR,"JVM not created!");
@@ -860,13 +859,38 @@ JNIEXPORT jbyteArray JNICALL Java_textor_jvmport_PacketData_getfld (JNIEnv *env,
 	reta = 0;
 	if ( pcp)
 	{
-		unsigned long len;
-		unsigned char *val;
+		unsigned long len = 0 ;
+		unsigned char *val = 0;
 		val = pcp->getfld((int)no, &len);
-		if ( val)
+		if ( val && len > 0 )
 			reta =  buf2ba(env, val, (int) len);
 	}
 	return reta;
+}
+
+JNIEXPORT jstring JNICALL Java_textor_jvmport_PacketData_getString__ILjava_lang_String_2 (JNIEnv *env, jobject paco, jint no, jstring dec)
+{
+	jbyteArray reta;
+	jstring jstr =NULL;
+	jmethodID strInit_mid;
+	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
+	jclass str_cls = env->FindClass("java/lang/String");
+	strInit_mid = env->GetMethodID(str_cls, "<init>", "([BLjava/lang/String;)V");
+	reta = 0;
+	if ( pcp)
+	{
+		unsigned long len=0;
+		unsigned char *val=0;
+		val = pcp->getfld((int)no, &len);
+		if ( val && len > 0)
+		{
+			reta =  buf2ba(env, val, (int) len);
+			jstr = (jstring) env->NewObject(str_cls, strInit_mid, reta,dec);
+			env->DeleteLocalRef(reta);
+		}
+	}
+	env->DeleteLocalRef(str_cls);
+	return jstr;
 }
 
 JNIEXPORT jstring JNICALL Java_textor_jvmport_PacketData_getString__I(JNIEnv *env, jobject paco, jint no)
@@ -880,10 +904,10 @@ JNIEXPORT jstring JNICALL Java_textor_jvmport_PacketData_getString__I(JNIEnv *en
 	reta = 0;
 	if ( pcp)
 	{
-		unsigned long len;
-		unsigned char *val;
+		unsigned long len=0;
+		unsigned char *val=0;
 		val = pcp->getfld((int)no, &len);
-		if ( val)
+		if ( val && len > 0)
 		{
 			reta =  buf2ba(env, val, (int) len);
 			jstr = (jstring) env->NewObject(str_cls, strInit_mid, reta);
@@ -900,8 +924,8 @@ JNIEXPORT jint JNICALL Java_textor_jvmport_PacketData_getInt (JNIEnv *env, jobje
 	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
 	if ( pcp)
 	{
-		unsigned long len;
-		unsigned char *val;
+		unsigned long len = 0;
+		unsigned char *val = 0;
 		val = pcp->getfld((int)no, &len);
 		if ( val && sizeof(jint) == len)
 		{
@@ -934,8 +958,8 @@ JNIEXPORT jboolean JNICALL Java_textor_jvmport_PacketData_getBool (JNIEnv *env, 
 	jboolean ret = JNI_TRUE;
 	if ( pcp)
 	{
-		unsigned long len;
-		unsigned char *val;
+		unsigned long len = 0;
+		unsigned char *val = 0;
 		val = pcp->getfld((int)no, &len);
 		if ( val && len == 4)
 		{
@@ -975,8 +999,8 @@ JNIEXPORT jshort JNICALL Java_textor_jvmport_PacketData_getShort (JNIEnv *env, j
 	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
 	if ( pcp)
 	{
-		unsigned long len;
-		unsigned char *val;
+		unsigned long len = 0;
+		unsigned char *val = 0;
 		val = pcp->getfld((int)no, &len);
 		if ( val && sizeof(jshort) == len)
 		{
@@ -992,8 +1016,8 @@ JNIEXPORT jfloat JNICALL Java_textor_jvmport_PacketData_getFloat (JNIEnv *env, j
 	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
 	if ( pcp)
 	{
-		unsigned long len;
-		unsigned char *val;
+		unsigned long len = 0 ;
+		unsigned char *val = 0;
 		val = pcp->getfld((int)no, &len);
 		if ( val && sizeof(jfloat) == len)
 		{
@@ -1009,8 +1033,8 @@ JNIEXPORT jdouble JNICALL Java_textor_jvmport_PacketData_getDouble (JNIEnv *env,
 	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
 	if ( pcp)
 	{
-		unsigned long len;
-		unsigned char *val;
+		unsigned long len = 0;
+		unsigned char *val = 0;
 		val = pcp->getfld((int)no, &len);
 		if ( val && sizeof(jdouble) == len)
 		{
@@ -1034,8 +1058,8 @@ JNIEXPORT jobject JNICALL Java_textor_jvmport_PacketData_getBigDecimal (JNIEnv *
 
 	if ( pcp)
 	{
-		unsigned long len;
-		unsigned char *val;
+		unsigned long len =0 ;
+		unsigned char *val = 0;
 		val = pcp->getfld((int)no, &len);
 		if ( !val || len <= 4 ) 
 			return NULL;
@@ -1135,6 +1159,28 @@ JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__IJ (JNIEnv *env, jo
 	{
 		pcp->input((int)no, (unsigned char*)&jVal, sizeof(jlong));
 	}
+	return;
+}
+
+JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ILjava_lang_String_2Ljava_lang_String_2 (JNIEnv *env, jobject paco, jint no , jstring sVal, jstring charset)
+{
+	struct PacketObj *pcp = (struct PacketObj *) getPointer(env,paco);
+	jclass str_cls = env->FindClass("java/lang/String");
+	jmethodID getBytes_mid = env->GetMethodID(str_cls, "getBytes", "(Ljava/lang/String;)[B");
+	jbyteArray strBytes;
+	unsigned long len;
+	
+	if (!sVal ) return;
+	if ( pcp)
+	{
+		strBytes = (jbyteArray)env->CallObjectMethod(sVal, getBytes_mid, charset);
+		len = env->GetArrayLength(strBytes);
+		pcp->grant(len);
+		env->GetByteArrayRegion(strBytes, 0, len, (jbyte*)pcp->buf.point);
+		pcp->commit((int)no, len);
+		env->DeleteLocalRef(strBytes);
+	}
+	env->DeleteLocalRef(str_cls);
 	return;
 }
 
@@ -1598,9 +1644,7 @@ static void getPiusIndic (JNIEnv *env,  Amor::Pius &pius, jobject ps, jobject am
 
 	case Notitia::DMD_SET_TIMER:
 		/* ps.indic 是一个java.lang.integer, 转成int, 并且还要加一个jvmport的指针 */
-	{
 		pius.indic = getPointer(env, amor);
-	}
 		break;
 
 	case Notitia::DMD_SET_ALARM:
@@ -2064,6 +2108,7 @@ void toJFace (JNIEnv *env, DBFace *dface, jobject face_obj, jclass face_cls,  co
 		env->SetIntField(rowset_obj, env->GetFieldID(rowset_cls, "chunk", "I"), dface->rowset->chunk);
 		env->SetBooleanField(rowset_obj, env->GetFieldID(rowset_cls, "useEnd", "Z"), dface->rowset->useEnd);
 	}
+
 	if ( dface->num > 0 )
 	{
 		jobjectArray para_obj_arr;
@@ -2095,6 +2140,7 @@ void toJFace (JNIEnv *env, DBFace *dface, jobject face_obj, jclass face_cls,  co
 			OBJ_PARA_SET_INT("pos", pos)
 			OBJ_PARA_SET_INT("fld", fld)
 			OBJ_PARA_SET_STR("name",name)
+			OBJ_PARA_SET_STR("charset",charset)
 			OBJ_PARA_SET_INT("namelen", namelen)
 			switch ( dface->paras[i].inout)
 			{

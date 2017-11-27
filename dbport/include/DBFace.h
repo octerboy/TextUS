@@ -39,6 +39,7 @@
 		unsigned int pos;	/* 参数位置, pos应用等于其数组下标值 */
 		int fld;		/* 相应域号, -1 指未确定, 对输出更是 */
 		const char *name;	/* 参数名称, pos优先 */
+		const char *charset;	/* 字符集名 */
 		int namelen;		/* 参数名称的长度 */
 		DataType type;		/* 数据类型 */
 		DIRECTION inout;	/* 定义参数方向, PARA_IN为输入, PARA_OUT为输出, PARA_INOUT输入与输出 */
@@ -49,6 +50,7 @@
 			pos = 0;
 			fld = 0;
 			name = (const char*)0;
+			charset = 0;
 			namelen = 0;
 			type = DBFace::UNKNOWN_TYPE;
 			inout = DBFace::UNKNOWN;

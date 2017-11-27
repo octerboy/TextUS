@@ -50,6 +50,7 @@ public class PacketData {
 	public native void input(int no, int iVal);
 	public native void input(int no, long lVal);
 	public native void input(int no, String str);
+	public native void input(int no, String str, String charset);
 	public native void input(int no, Boolean val);
 	public native void input(int no, boolean val);
 	public native void input(int no, short val);
