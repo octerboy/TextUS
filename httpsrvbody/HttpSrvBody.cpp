@@ -400,15 +400,6 @@ REAL_OUTPUT:		snd_buf->input((unsigned char*)res_cmd->valStr, len);
 		head_outed = true;	/* 置一下标志, 表示已经HEAD处理, 在处理RESPONSE时不再处理 */
 		aptus->sponte(pius);	/* 转向httpsrvhead */
 		break;
-#ifdef NOOOOOO
-	case Notitia::PRO_WEBSock_HEAD :	/* 响应的WebSocket头已经准备好 */
-		WBUG("sponte PRO_WEBSock_HEAD");
-		if (!session ) break;
-		head_outed = true;	/* 置一下标志, 表示已经HEAD处理, */
-		local_pius.ordo = Notitia::PRO_HTTP_HEAD;
-		aptus->sponte(&local_pius);	/* 转向httpsrvhead */
-		break;
-#endif
 
 	case Notitia::PRO_HTTP_RESPONSE:	/* HTTP响应已备 */
 		WBUG("sponte PRO_HTTP_RESPONSE");
@@ -502,9 +493,7 @@ Amor* HttpSrvBody::clone()
 HTTPSRVINLINE void HttpSrvBody::end()
 {
 	if (session )
-	{
 		reset();
-	}
 }
 
 HTTPSRVINLINE void HttpSrvBody::deliver(Notitia::HERE_ORDO aordo, void *indic)
@@ -628,10 +617,7 @@ HTTPSRVINLINE void HttpSrvBody::outjs(const char *in)
 
 	outLen = 2*inlen;
 	out = new char [outLen+1];
-	if (  out == (char*)0 )
-	{
-		return;
-	}
+	if (  out == (char*)0 ) return;
 
 	memset(out,0,outLen+1);
 	usedLen = 0;
@@ -753,11 +739,15 @@ HTTPSRVINLINE bool HttpSrvBody::lookSocket()
 						break;
 					}
 				}
-				if ( i == gCFG->sock_num )	//未找到相应协议
+				if ( i == gCFG->sock_num && gCFG->sock_num > 0 )	//未找到相应协议
 				{
 					setStatus(400);
 					has_pro = false;
 				} else {		//已定义已有协议
+					if ( gCFG->sock_num ==0 ) // 或者本来就没有限定
+					{
+						cur_sock_name =  protocol[0];	//取第一个
+					}
 					setStatus(101);
 					setHead("Title", "Switching Protocols");
 					setHead("Connection", "Upgrade");
