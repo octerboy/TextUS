@@ -30,6 +30,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <errno.h>
+#include <stdarg.h>
 #if !defined (_WIN32)
 #include <unistd.h>
 #include <sys/ioctl.h>
