@@ -180,7 +180,6 @@ enum HERE_ORDO {
 	ERR_UNIPAC_INFO		=204,	/* 这里来的packetobj要对应到SOAP响应的fault中去 */
 	MULTI_UNIPAC_END	=205,	/* 多个PACKETOBJ结束 */
 
-
 	CMD_SET_DBFACE	=300, 	/* set the DB data interface definition */
 	CMD_SET_DBCONN	=301, 	/* indic[0] points type (an integer): 0: SQL, 1: RPC, 2:FUNCTION
 				   indic[1] is a char *: SQL statement, procedure name etc */
