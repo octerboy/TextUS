@@ -14,7 +14,7 @@ Tcpsrv.obj: Tcpsrv.cpp
 	$(CC) $(CFLAGS) -DDEBUG Tcpsrv.cpp
 
 Tcpsrvuna.obj: Tcpsrvuna.cpp
-	$(CC) $(CFLAGS) -I..\sched\include -DNNDEBUG -DAMOR_CLS_TYPE=Tcpsrvuna Tcpsrvuna.cpp
+	$(CC) $(CFLAGS) -I..\sched\include $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Tcpsrvuna Tcpsrvuna.cpp
 
 tcpsrv.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

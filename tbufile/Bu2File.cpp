@@ -242,8 +242,8 @@ bool Bu2File::facio( Amor::Pius *pius)
 				_close(gCFG->fileD);
 #endif
 				gCFG->fileD = -1;
+				deliver(Notitia::DMD_SET_ALARM);
 			}
-			deliver(Notitia::DMD_SET_ALARM);
 		}
 
 		break;

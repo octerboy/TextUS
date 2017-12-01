@@ -13,7 +13,7 @@ DeHead.obj: DeHead.cpp tdate_parse.c
 	$(CC) $(CFLAGS)  -DDEBUG DeHead.cpp
 
 TBufChan.obj: TBufChan.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=TBufChan TBufChan.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=TBufChan TBufChan.cpp
 
 tbufchan.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
