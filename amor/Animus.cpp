@@ -407,9 +407,9 @@ void Animus::ignite(TiXmlElement *cfg)
 	}
 	
 	k= 0;	/* k is last the num of Aptus objects created really */
-	/* 好了, 下面根据Aptus的tag 来创建， 也不用排序 ..... */
+	/* ????, ????????Aptus??tag 来?????? 也???????? ..... */
 	for ( i = 0; i < num_extension; i++ )
-	{	/* i is index of Aptus extension，j is index of the instances available really */
+	{	/* i is index of Aptus extension??j is index of the instances available really */
 		char apTagExtern[2048];
 		int tmpLen;
 
@@ -1082,6 +1082,8 @@ unsigned long Notitia::get_ordo(const char *comm_str)
 	WHAT_ORDO(FAC_LOG_INFO , Y); \
 	WHAT_ORDO(FAC_LOG_DEBUG , Y); \
 	WHAT_ORDO(CMD_GET_VERSION , Y); \
+	WHAT_ORDO(CMD_ZERO_FILE , Y); \
+	WHAT_ORDO(CMD_CLOSE_FILE , Y); \
 	WHAT_ORDO(CMD_GET_PIUS , Y); \
 	WHAT_ORDO(DMD_CONTINUE_SELF , Y); \
 	WHAT_ORDO(DMD_STOP_NEXT , Y); \

@@ -52,11 +52,8 @@ enum HERE_ORDO {
 	FAC_LOG_DEBUG	=27,
 
 	CMD_GET_VERSION	=30,	//取得版本信息		
-	SET_DEXTRA_SKIP	=31,	//设置忽略dextra时辅助处理的ordo, indic指向一个整数
-	SET_LAEVE_SKIP	=32,	//设置忽略laeve时辅助处理的ordo, indic指向一个整数
-	SET_FACIO_SKIP	=33,	//设置忽略facio时辅助处理的ordo, indic指向一个整数
-	SET_SPONTE_SKIP	=34,	//设置忽略sponte时辅助处理的ordo, indic指向一个整数
-
+    CMD_ZERO_FILE	=31,
+    CMD_CLOSE_FILE	=32,
 	CMD_GET_PIUS		=41,	/* get pius from a keeper */
 	DMD_CONTINUE_SELF	=42,	//继续下本接力者
 	DMD_STOP_NEXT 		=43,	//停止下一个接力者

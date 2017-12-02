@@ -53,6 +53,21 @@
 #define FACIO 0
 #define SPONTE 1
 
+#if defined (_WIN32 )
+#define ERROR_PRO(X) { \
+	char *s; \
+	char error_string[1024]; \
+	DWORD dw = GetLastError(); \
+	FormatMessage( FORMAT_MESSAGE_FROM_SYSTEM, NULL, dw, \
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR) error_string, 1024, NULL );\
+	s= strstr(error_string, "\r\n") ; \
+	if (s )  *s = '\0';  \
+	WLOG(WARNING,  errMsg, "%s errno %d, %s", X,dw, error_string);\
+	}
+#else
+#define ERROR_PRO(X)  WLOG(WARNING, errMsg, "%s errno %d, %s.", X, errno, strerror(errno));
+#endif
+
 class Bu2File: public Amor
 {
 public:
@@ -73,6 +88,7 @@ public:
 	enum SPLIT { SP_NONE = 0 ,  SP_DATE =1};
 
 private:
+	char errMsg[256];
 	struct G_CFG {
 		const char *filename;	//文件名, 当SPLIT不为0时, 这个文件名就成为一个格式符
 		OUT_FORM form;		/* 输出形式, 0: 标准, 直接输出; 1: 16进制, 并输出ASCII */
@@ -134,9 +150,21 @@ private:
 	TINLINE int bug_view(TBuffer *, char*);
 
 	char *out_buf; int out_len;
+	bool get_file_name();
+	char real_fname[128];
+	
 #include "wlog.h"
 
 };
+#if !defined (_WIN32)
+#define MY_CLOSE	\
+		if (close(gCFG->fileD) != 0 ) 	\
+			ERROR_PRO("close file")
+#else
+#define MY_CLOSE	\
+		if (_close(gCFG->fileD) != 0) \
+			ERROR_PRO("close file")
+#endif
 
 void Bu2File::ignite(TiXmlElement *prop)
 {
@@ -236,14 +264,40 @@ bool Bu2File::facio( Amor::Pius *pius)
 		{
 			if ( gCFG->fileD >= 0 )
 			{
-#if !defined (_WIN32)
-				close(gCFG->fileD);
-#else
-				_close(gCFG->fileD);
-#endif
+				MY_CLOSE
 				gCFG->fileD = -1;
 				deliver(Notitia::DMD_SET_ALARM);
 			}
+		}
+
+		break;
+
+	case Notitia::CMD_CLOSE_FILE:	/* close file */
+		WBUG("facio CMD_CLOSE_FILE" )
+		if ( gCFG->fileD >= 0 )
+		{
+			MY_CLOSE
+			gCFG->fileD = -1;
+		}
+		break;
+
+	case Notitia::CMD_ZERO_FILE:	/* 清零 */
+		WBUG("facio CMD_ZERO_FILE" )
+		if ( gCFG->fileD >= 0 )
+		{
+			MY_CLOSE
+			gCFG->fileD = -1;
+#if !defined (_WIN32)
+			if ( (gCFG->fileD = open(real_fname, O_CREAT|O_RDWR|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH)) == -1 )
+				ERROR_PRO("open when ZERO_FILE")
+#else
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+			if( _sopen_s(&gCFG->fileD, real_fname, O_CREAT|O_RDWR|O_TRUNC, SH_DENYNO, _S_IWRITE )!=0 )
+#else
+			if ( (gCFG->fileD = _sopen(real_fname, O_CREAT|O_RDWR|O_TRUNC, SH_DENYNO,_S_IWRITE )) < 0 )
+				ERROR_PRO("sopen when ZERO_FILE")
+#endif
+#endif
 		}
 
 		break;
@@ -314,12 +368,63 @@ int Bu2File::bug_view(TBuffer *tbuf, char *str )
 	return offset;
 }
 
+bool Bu2File::get_file_name()
+{
+	if (!gCFG->filename)
+		return false;
+
+	if ( gCFG->split == SP_DATE)
+	{
+		int here_day;
+#if defined(_WIN32) && (_MSC_VER < 1400 )
+	struct _timeb now;
+#else
+	struct timeb now;
+#endif
+		struct tm *tdatePtr;
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+		struct tm tdate;
+#endif
+		char timestr[64];
+		char ftmstr[128];
+
+#if defined(_WIN32) && (_MSC_VER < 1400 )
+	_ftime(&now);
+#else
+	ftime(&now);
+#endif
+
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+		tdatePtr = &tdate;
+		localtime_s(tdatePtr, &now.time);
+#else
+		tdatePtr = localtime(&now.time);
+#endif
+		here_day=tdatePtr->tm_mday;
+		if ( gCFG->last_day != here_day)
+		{
+			if ( gCFG->fileD >= 0 )
+			{
+				MY_CLOSE
+				gCFG->fileD = -1;
+			}
+			gCFG->last_day = here_day;
+		}
+		
+		TEXTUS_STRCPY(ftmstr,"%y-%m-%d");
+		strftime(timestr, 64, ftmstr, tdatePtr);
+
+		TEXTUS_SPRINTF(real_fname, gCFG->filename, timestr);
+	} else
+		TEXTUS_STRCPY(real_fname, gCFG->filename);
+
+	return true;
+}
+
 void Bu2File::output(TBuffer *tbuf, int direct )
 {
 	int wLen, w2Len;
 	char *w_buf;
-	char r_name[128];
-	const char *rn;
 
 	assert(gCFG);
 	if ( gCFG->form != DIRECT_VIEW )
@@ -361,6 +466,7 @@ void Bu2File::output(TBuffer *tbuf, int direct )
 		fprintf(stdout, "%s",  w_buf);	//有一天发现, 用vs 2003编译, stdout导致程序崩溃。
 #endif
 	}
+	if (!get_file_name()) goto NOFILE_PRO;
 	else if ( gCFG->show == STDERR_SHOW )
 	{
 #if defined(_WIN32)
@@ -370,74 +476,23 @@ void Bu2File::output(TBuffer *tbuf, int direct )
 #endif
 	}
 		
-	if (!gCFG->filename)
-		goto NOFILE_PRO;
-
-	if ( gCFG->split == SP_DATE)
-	{
-		int here_day;
-#if defined(_WIN32) && (_MSC_VER < 1400 )
-	struct _timeb now;
-#else
-	struct timeb now;
-#endif
-		struct tm *tdatePtr;
-#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
-		struct tm tdate;
-#endif
-		char timestr[64];
-		char ftmstr[128];
-
-#if defined(_WIN32) && (_MSC_VER < 1400 )
-	_ftime(&now);
-#else
-	ftime(&now);
-#endif
-
-#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
-		tdatePtr = &tdate;
-		localtime_s(tdatePtr, &now.time);
-#else
-		tdatePtr = localtime(&now.time);
-#endif
-		here_day=tdatePtr->tm_mday;
-		if ( gCFG->last_day != here_day)
-		{
-			if ( gCFG->fileD >= 0 )
-			{
-#if !defined (_WIN32)
-				close(gCFG->fileD);
-#else
-				_close(gCFG->fileD);
-#endif
-				gCFG->fileD = -1;
-			}
-			gCFG->last_day = here_day;
-		}
-		
-		TEXTUS_STRCPY(ftmstr,"%y-%m-%d");
-		strftime(timestr, 64, ftmstr, tdatePtr);
-
-		rn=&r_name[0];
-		TEXTUS_SPRINTF(r_name, gCFG->filename, timestr);
-		
-	} else
-		rn = gCFG->filename;
 
 	if ( gCFG->fileD < 0)
 	{
 #if !defined (_WIN32)
-		if( (gCFG->fileD = open(rn,O_CREAT|O_RDWR|O_APPEND, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH) ) < 0)
+		if( (gCFG->fileD = open(real_fname, O_CREAT|O_RDWR|O_APPEND, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH) ) < 0)
 		{
+			ERROR_PRO("open file")
 			goto NOFILE_PRO;
 		}
 #else
 #if defined(_MSC_VER) && (_MSC_VER >= 1400 )
-		if( (_sopen_s(&gCFG->fileD, rn, O_CREAT|O_RDWR|O_APPEND, SH_DENYNO, _S_IWRITE )) !=0 )
+		if( (_sopen_s(&gCFG->fileD, real_fname, O_CREAT|O_RDWR|O_APPEND, SH_DENYNO, _S_IWRITE )) !=0 )
 #else
-		if( (gCFG->fileD = _sopen(rn, O_CREAT|O_RDWR|O_APPEND, SH_DENYNO,_S_IWRITE )) < 0)
+		if( (gCFG->fileD = _sopen(real_fname, O_CREAT|O_RDWR|O_APPEND, SH_DENYNO,_S_IWRITE )) < 0)
 #endif
 		{
+			ERROR_PRO("sopen file")
 			goto NOFILE_PRO;
 		}
 #endif
@@ -449,7 +504,10 @@ void Bu2File::output(TBuffer *tbuf, int direct )
 #else
 		if( _locking( gCFG->fileD, _LK_LOCK, w2Len) != 0 )
 #endif
+		{
+			ERROR_PRO("lock file")
 			goto NOFILE_PRO;
+		}
 
 #if !defined (_WIN32)
 	wLen = write(gCFG->fileD, w_buf, w2Len);
@@ -464,13 +522,9 @@ void Bu2File::output(TBuffer *tbuf, int direct )
 #endif
 			goto NOFILE_PRO;
 
-	if ( gCFG->interval <=0 )
+	if ( gCFG->interval < 0 )	//对于＝0的情况，文件永不关闭
 	{
-#if !defined (_WIN32)
-		close(gCFG->fileD);
-#else
-		_close(gCFG->fileD);
-#endif
+		MY_CLOSE
 		gCFG->fileD = -1;
 	}
 
