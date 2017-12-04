@@ -85,7 +85,7 @@ private:
 		};
 	} Argv;
 	
-	enum DIRECTION { BOTH, TO_PROG, FROM_PROG, PROG_ONCE } direction;
+	enum DIRECTION { BOTH=0, TO_PROG=1, FROM_PROG=3, PROG_ONCE=4 } ;
 
 	struct G_CFG {
 		const char *exec_file;
@@ -470,7 +470,7 @@ INLINE void TCgi::fromExprog()
 	unsigned char tmp[1024], *t_buf;
 	bool has = false;
 	int rBytes;
-	if (snd_buf && ( direction == BOTH || direction == FROM_PROG ))
+	if (snd_buf && ( gCFG->direction == BOTH || gCFG->direction == FROM_PROG ))
 	{
 		snd_buf->grant(1024);
 		t_buf = snd_buf->point;
@@ -494,7 +494,7 @@ INLINE void TCgi::fromExprog()
 		{
 			snd_buf->commit(rBytes);
 			deliver(Notitia::PRO_TBUF);
-		}
+		} 
 	}
 }
 

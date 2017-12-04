@@ -61,8 +61,7 @@
 	FormatMessage( FORMAT_MESSAGE_FROM_SYSTEM, NULL, dw, \
 		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR) error_string, 1024, NULL );\
 	s= strstr(error_string, "\r\n") ; \
-	if (s )  *s = '\0';  \
-	WLOG(WARNING,  errMsg, "%s errno %d, %s", X,dw, error_string);\
+	if (s )  *s = '\0';  WLOG(WARNING,  errMsg, "%s errno %d, %s", X,dw, error_string); \
 	}
 #else
 #define ERROR_PRO(X)  WLOG(WARNING, errMsg, "%s errno %d, %s.", X, errno, strerror(errno));
@@ -295,8 +294,8 @@ bool Bu2File::facio( Amor::Pius *pius)
 			if( _sopen_s(&gCFG->fileD, real_fname, O_CREAT|O_RDWR|O_TRUNC, SH_DENYNO, _S_IWRITE )!=0 )
 #else
 			if ( (gCFG->fileD = _sopen(real_fname, O_CREAT|O_RDWR|O_TRUNC, SH_DENYNO,_S_IWRITE )) < 0 )
-				ERROR_PRO("sopen when ZERO_FILE")
 #endif
+			ERROR_PRO("sopen when ZERO_FILE")
 #endif
 		}
 
