@@ -286,19 +286,18 @@ bool Bu2File::facio( Amor::Pius *pius)
 		{
 			MY_CLOSE
 			gCFG->fileD = -1;
+		}
 #if !defined (_WIN32)
-			if ( (gCFG->fileD = open(real_fname, O_CREAT|O_RDWR|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH)) == -1 )
-				ERROR_PRO("open when ZERO_FILE")
+		if ( (gCFG->fileD = open(real_fname, O_CREAT|O_RDWR|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH)) == -1 )
+			ERROR_PRO("open when ZERO_FILE")
 #else
 #if defined(_MSC_VER) && (_MSC_VER >= 1400 )
-			if( _sopen_s(&gCFG->fileD, real_fname, O_CREAT|O_RDWR|O_TRUNC, SH_DENYNO, _S_IWRITE )!=0 )
+		if( _sopen_s(&gCFG->fileD, real_fname, O_CREAT|O_RDWR|O_TRUNC, SH_DENYNO, _S_IWRITE )!=0 )
 #else
-			if ( (gCFG->fileD = _sopen(real_fname, O_CREAT|O_RDWR|O_TRUNC, SH_DENYNO,_S_IWRITE )) < 0 )
+		if ( (gCFG->fileD = _sopen(real_fname, O_CREAT|O_RDWR|O_TRUNC, SH_DENYNO,_S_IWRITE )) < 0 )
 #endif
 			ERROR_PRO("sopen when ZERO_FILE")
 #endif
-		}
-
 		break;
 
 	default:
