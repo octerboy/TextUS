@@ -456,7 +456,6 @@ void Bu2File::output(TBuffer *tbuf, int direct )
 				*tbuf->point = 0;
 		}
 		w2Len = tbuf->point - tbuf->base;
-		printf("-----this=%p, buf=%p buf.base=%p, buf.point=%p, ----w2Len %d\n", this, tbuf, tbuf->base, tbuf->point, w2Len);
 		w_buf = (char*) tbuf->base;
 	}
 	
@@ -477,7 +476,6 @@ void Bu2File::output(TBuffer *tbuf, int direct )
 	}
 		
 	if (!get_file_name()) goto NOFILE_PRO;
-		printf("-22--this=%p, buf=%p buf.base=%p, buf.point=%p, ----w2Len %d\n", this, tbuf, tbuf->base, tbuf->point, w2Len);
 	if ( gCFG->fileD < 0)
 	{
 #if !defined (_WIN32)
@@ -513,7 +511,6 @@ void Bu2File::output(TBuffer *tbuf, int direct )
 	}
 
 #if !defined (_WIN32)
-		printf("++ this=%p, buf=%p buf.base=%p, buf.point=%p, ----w2Len %d+++++++++\n", this, tbuf, tbuf->base, tbuf->point, w2Len);
 	wLen = write(gCFG->fileD, w_buf, w2Len);
 #else
 	wLen = _write(gCFG->fileD, w_buf, w2Len);
@@ -543,10 +540,8 @@ void Bu2File::output(TBuffer *tbuf, int direct )
 		deliver(Notitia::DMD_SET_ALARM); /* �趨ʱ */ 
 	}
 
-		printf("++ 999  this=%p, buf=%p buf.base=%p, buf.point=%p, ----w2Len %d+++++++++\n", this, tbuf, tbuf->base, tbuf->point, w2Len);
 	if ( gCFG->toClear && wLen > 0)
 	{
-		printf("++ this=%p, buf=%p buf.base=%p, buf.point=%p, ----wLen %d\n", this, tbuf, tbuf->base, tbuf->point, wLen);
 		if (  gCFG->form != DIRECT_VIEW )
 			tbuf->reset();
 		else
