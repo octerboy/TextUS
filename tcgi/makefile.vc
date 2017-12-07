@@ -10,7 +10,7 @@ LDLIB =$(LDLIB) ..\baselib\libbase.lib
 all: tcgi.dll
 
 TCgi.obj: TCgi.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=TCgi TCgi.cpp
+	$(CC) $(CFLAGS)  $(DEBUG_FLAG) -DAMOR_CLS_TYPE=TCgi TCgi.cpp
 
 tcgi.dll: TCgi.obj
 	$(LD) $(LDFLAGS) -out:$@ TCgi.obj  $(LDLIB)

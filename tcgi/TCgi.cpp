@@ -418,7 +418,7 @@ INLINE void TCgi::toExprog()
 		{
 #if defined(_WIN32)
 		WAgain:
-		if ( WriteFile( pipe_out[1], rcv_buf->base, rcv_buf->point - rcv_buf->base, (LPDWORD) &wBytes, NULL) == NULL )
+		if ( WriteFile( pipe_out[1], rcv_buf->base, rcv_buf->point - rcv_buf->base, (LPDWORD) &wBytes, NULL) == FALSE )
 #else
 		if ( rcv_buf->point ==  rcv_buf->base  ) 
 		{
@@ -479,7 +479,7 @@ INLINE void TCgi::fromExprog()
 		t_buf = tmp;
 
 #if defined(_WIN32)
-	if (ReadFile(pipe_in[0], t_buf, 1024, (LPDWORD)&rBytes, NULL) == NULL)
+	if (ReadFile(pipe_in[0], t_buf, 1024, (LPDWORD)&rBytes, NULL) == FALSE)
 #else
 	if ( (rBytes = recv(sv[0], t_buf, 1024, MSG_NOSIGNAL)) < 0 )
 #endif
@@ -576,16 +576,13 @@ bool TCgi::init()
 	CloseHandle(pipe_out[0]); // 关闭写管道的读端
 
 	sessioning = true;
-	if ( direction == BOTH || direction == FROM_PROG )
+	if ( gCFG->direction == BOTH || gCFG->direction == FROM_PROG )
 	{
 		/* 以另一线程去读管道 */
 		if ( _beginthread((my_thread_func)cycle_fromPro, 0, this) == -1 )
 			WLOG_OSERR("_beginthread");
 	}
 #else
-	pid_t pid;
-
-
 	if ( socketpair(AF_UNIX, SOCK_STREAM, 0, sv) == -1 )	// 创建管道
 	{
 		WLOG_OSERR("create socketpair)");

@@ -287,17 +287,20 @@ bool Bu2File::facio( Amor::Pius *pius)
 			MY_CLOSE
 			gCFG->fileD = -1;
 		}
+		if (get_file_name())
+		{
 #if !defined (_WIN32)
-		if ( (gCFG->fileD = open(real_fname, O_CREAT|O_RDWR|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH)) == -1 )
-			ERROR_PRO("open when ZERO_FILE")
+			if ( (gCFG->fileD = open(real_fname, O_CREAT|O_RDWR|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH)) == -1 )
+				ERROR_PRO("open when ZERO_FILE")
 #else
 #if defined(_MSC_VER) && (_MSC_VER >= 1400 )
-		if( _sopen_s(&gCFG->fileD, real_fname, O_CREAT|O_RDWR|O_TRUNC, SH_DENYNO, _S_IWRITE )!=0 )
+			if( _sopen_s(&gCFG->fileD, real_fname, O_CREAT|O_RDWR|O_TRUNC, SH_DENYNO, _S_IWRITE )!=0 )
 #else
-		if ( (gCFG->fileD = _sopen(real_fname, O_CREAT|O_RDWR|O_TRUNC, SH_DENYNO,_S_IWRITE )) < 0 )
+			if ( (gCFG->fileD = _sopen(real_fname, O_CREAT|O_RDWR|O_TRUNC, SH_DENYNO,_S_IWRITE )) < 0 )
 #endif
-			ERROR_PRO("sopen when ZERO_FILE")
+				ERROR_PRO("sopen when ZERO_FILE")
 #endif
+		}
 		break;
 
 	default:
@@ -453,6 +456,7 @@ void Bu2File::output(TBuffer *tbuf, int direct )
 				*tbuf->point = 0;
 		}
 		w2Len = tbuf->point - tbuf->base;
+		printf("-----this=%p, buf=%p buf.base=%p, buf.point=%p, ----w2Len %d\n", this, tbuf, tbuf->base, tbuf->point, w2Len);
 		w_buf = (char*) tbuf->base;
 	}
 	
@@ -463,9 +467,7 @@ void Bu2File::output(TBuffer *tbuf, int direct )
 #else
 		fprintf(stdout, "%s",  w_buf);	//有一天发现, 用vs 2003编译, stdout导致程序崩溃。
 #endif
-	}
-	if (!get_file_name()) goto NOFILE_PRO;
-	else if ( gCFG->show == STDERR_SHOW )
+	} else if ( gCFG->show == STDERR_SHOW )
 	{
 #if defined(_WIN32)
 		printf("%s",  w_buf);
@@ -474,7 +476,8 @@ void Bu2File::output(TBuffer *tbuf, int direct )
 #endif
 	}
 		
-
+	if (!get_file_name()) goto NOFILE_PRO;
+		printf("-22--this=%p, buf=%p buf.base=%p, buf.point=%p, ----w2Len %d\n", this, tbuf, tbuf->base, tbuf->point, w2Len);
 	if ( gCFG->fileD < 0)
 	{
 #if !defined (_WIN32)
@@ -497,6 +500,7 @@ void Bu2File::output(TBuffer *tbuf, int direct )
 	}
 
 	if (gCFG->hasLock)	/* 文件加锁 */
+	{
 #if !defined (_WIN32)
 		if(fcntl(gCFG->fileD, F_SETLKW, &gCFG->lock)==-1)
 #else
@@ -506,19 +510,26 @@ void Bu2File::output(TBuffer *tbuf, int direct )
 			ERROR_PRO("lock file")
 			goto NOFILE_PRO;
 		}
+	}
 
 #if !defined (_WIN32)
+		printf("++ this=%p, buf=%p buf.base=%p, buf.point=%p, ----w2Len %d+++++++++\n", this, tbuf, tbuf->base, tbuf->point, w2Len);
 	wLen = write(gCFG->fileD, w_buf, w2Len);
 #else
 	wLen = _write(gCFG->fileD, w_buf, w2Len);
 #endif
 	if (gCFG->hasLock)	/* 文件解锁, 对于MS VC,采用CRT的函数, 一个字节 */
+	{
 #if !defined (_WIN32)
 		if(fcntl(gCFG->fileD, F_SETLKW, &gCFG->unlock)==-1)
 #else
 		if( _locking( gCFG->fileD, LK_UNLCK, wLen) != 0 )
 #endif
+		{
+			ERROR_PRO("unlock file")
 			goto NOFILE_PRO;
+		}
+	}
 
 	if ( gCFG->interval < 0 )	//对于＝0的情况，文件永不关闭
 	{
@@ -532,8 +543,10 @@ void Bu2File::output(TBuffer *tbuf, int direct )
 		deliver(Notitia::DMD_SET_ALARM); /* 设定时 */ 
 	}
 
+		printf("++ 999  this=%p, buf=%p buf.base=%p, buf.point=%p, ----w2Len %d+++++++++\n", this, tbuf, tbuf->base, tbuf->point, w2Len);
 	if ( gCFG->toClear && wLen > 0)
 	{
+		printf("++ this=%p, buf=%p buf.base=%p, buf.point=%p, ----wLen %d\n", this, tbuf, tbuf->base, tbuf->point, wLen);
 		if (  gCFG->form != DIRECT_VIEW )
 			tbuf->reset();
 		else
