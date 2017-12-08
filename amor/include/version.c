@@ -42,7 +42,5 @@ static void textus_base_get_version(char *scm_id, char *time_str, char *ver_no, 
 
 #ifdef TEXTUS_MODTIME
 	GET_SCM_VERSION_INFO(TEXTUS_MODTIME, time_str)
-	p = strpbrk(time_str, "(");
-	*p = '\0';
 #endif
 }
