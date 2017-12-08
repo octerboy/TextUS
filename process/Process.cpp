@@ -147,7 +147,7 @@ public:
 			if ( strcasecmp(comm_str, "both") == 0 ) current = FACIO | SPONTE;
 		NEXT:
 			maxProcs = 2;
-			c->Attribute("maxium", &maxProcs);
+			c->QueryIntAttribute("maxium", &maxProcs);
 
 			act.sa_handler = 0;
 			act.sa_sigaction = pro_child;
