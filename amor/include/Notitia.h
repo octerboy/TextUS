@@ -217,5 +217,6 @@ enum HERE_ORDO {
 	TEXTUS_RESERVED =0	/* reserved */
 };
 	TEXTUS_AMOR_STORAGE unsigned long get_ordo(const char *comm_str);
+	void env_sub(const char *ps, char *pt);
 };
 #endif

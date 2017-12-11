@@ -17,6 +17,7 @@
 #if defined(_MSC_VER) && (_MSC_VER >= 1400 )
 	// Microsoft visual studio, version 2005 and higher.
 	#define TEXTUS_STRCAT strcat_s
+	#define TEXTUS_STRNCAT strncat_s
 	#define TEXTUS_SPRINTF sprintf_s
 	#define TEXTUS_STRNCPY strncpy_s
 	#define TEXTUS_STRCPY(x,y) strcpy_s(x, strlen(y)+1, y)
@@ -39,6 +40,7 @@
  #endif
 
 	#define TEXTUS_SSCANF  sscanf
+	#define TEXTUS_STRNCAT strncat
 	#define TEXTUS_STRCAT strcat
 	#define TEXTUS_SPRINTF sprintf
 	#define TEXTUS_STRNCPY strncpy

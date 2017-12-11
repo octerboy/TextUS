@@ -66,6 +66,7 @@
 #include "hook.h" 
 #include "fileOK.c" 
 #include <stdio.h>
+#include <stdlib.h>
 #include <assert.h>
 #if !defined(RTLD_GLOBAL) 
 #define RTLD_GLOBAL        0x00100
@@ -80,7 +81,7 @@
 static void error_pro(const char* so_file);
 static char* r_share(const char *so_file);
 static TiXmlElement* get_out_prop(TiXmlElement *cfg);
-static const char *ld_lib_path = 0;
+static char ld_lib_path[2048] = {0};
 static unsigned int all_runtimes = 0;
 #define RUN_PERIOD 100000000
 static unsigned int period_runtimes = RUN_PERIOD;
@@ -935,7 +936,7 @@ static  int go(char *xml_file, Amor::Pius &para)
 		if ( root->Attribute("tag"))
 			TEXTUS_STRNCPY(apt->module_tag, root->Attribute("tag"), sizeof(apt->module_tag)-2);
 
-		ld_lib_path = root->Attribute("path");
+		Notitia::env_sub(root->Attribute("path"), ld_lib_path);
 		apt->ignite(root);
 		apt->info(ready);
 		apt->facio(&para);
@@ -1226,4 +1227,68 @@ unsigned long Notitia::get_ordo(const char *comm_str)
 	return ret_ordo;
 #undef GET_ORDO
 #undef WHAT_ORDO
+}
+void Notitia::env_sub(const char *path_source, char *path_dest)
+{
+	char *ps, *q,*qw, *qr;
+	const char *right;
+	char env_n[128], pt[2048];
+	char *env;
+	ps = (char*)path_source;
+	*pt = 0;
+	while ( *ps )
+	{
+		q = 0;
+		right= 0;
+		env = 0;
+		q = strstr(ps, "$(");
+		qw = strstr(ps, "${");
+		if ( q && qw  )
+		{
+			if ( q > qw )
+				q = qw;
+		} else {	//若有一个为空
+			if ( !q )	//不管哪个为null, 结果一样 
+				q = qw;
+		}
+		if (!q)
+		{	//没有$( ${开头, 整结束了
+			TEXTUS_STRCAT(pt, ps);
+			break;
+		} else {	//有
+			TEXTUS_STRNCAT(pt, ps, q-ps);
+			q++;
+			if ( *q == '(' )
+				right =")";
+			else
+				right= "}";
+
+			q++;	//q跳过括号
+			qr = strpbrk(q, right);
+			if ( qr && (qr - q) < (sizeof(env_n)-1) )
+			{
+				memcpy(env_n, q, qr-q);
+				env_n [qr-q] = 0;
+		#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+				char *env_o;
+				size_t env_l;
+				if (!_dupenv_s(&env_o, &env_l, env_n))
+				{
+					TEXTUS_STRCAT(pt, env_o);
+					free(env_o);
+				}
+		#else
+				env = getenv(env_n);
+				if (env )
+					TEXTUS_STRCAT(pt, env);
+		#endif
+				ps = (qr+1);	//不管有无环境变量, 都跳过了
+			} else {
+				//没有右括号
+				ps = q;
+			}
+		}
+	}
+	memcpy(path_dest, pt, strlen(pt));
+	path_dest[strlen(pt)] = 0;
 }
