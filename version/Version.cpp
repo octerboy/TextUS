@@ -21,7 +21,7 @@
 #include "Aptus.h"
 #include "textus_load_mod.h"
 #include "hook.h"
-static const char *ld_lib_path = 0;
+static char ld_lib_path[2048] = {0};
 class Version: public Aptus {
 public:
 	void ignite(TiXmlElement *);
@@ -70,9 +70,7 @@ void Version::ignite(TiXmlElement *cfg)
 {
 	WBUG("this %p , prius %p, aptus %p, cfg %p\n", this, prius, aptus, cfg);
 
-	if ( !ld_lib_path )
-		ld_lib_path = cfg->GetDocument()->RootElement()->Attribute("path");
-
+	Notitia::env_sub(cfg->GetDocument()->RootElement()->Attribute("path"), ld_lib_path);
 	get_module_version(cfg);
 }
 
@@ -263,7 +261,7 @@ char* r_share(const char *so_file)
 	static char r_file[1024];
 	int l = 0, n = 0;
 	memset(r_file, 0, sizeof(r_file));
-	if ( ld_lib_path)
+	if ( ld_lib_path[0])
 	{
 		l = strlen(ld_lib_path);
 		if (l > 512 ) l = 512;
