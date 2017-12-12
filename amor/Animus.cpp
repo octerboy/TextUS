@@ -963,7 +963,7 @@ char* r_share(const char *so_file)
 	static char r_file[1024];
 	int l = 0, n = 0;
 	memset(r_file, 0, sizeof(r_file));
-	if ( ld_lib_path && so_file[0] != '\\' && so_file[0] != '/' 
+	if ( ld_lib_path[0] && so_file[0] != '\\' && so_file[0] != '/' 
 		&& !( strlen(so_file) > 2 && so_file[1] == ':' && 
 			(( so_file[0] >= 'a' && so_file[0] <= 'z') || ( so_file[0] >= 'A' && so_file[0] <= 'Z')) ) )
 	{
@@ -1236,6 +1236,8 @@ void Notitia::env_sub(const char *path_source, char *path_dest)
 	char *env;
 	ps = (char*)path_source;
 	*pt = 0;
+	if ( path_dest ) *path_dest = 0;
+	if ( !path_source ) return;
 	while ( *ps )
 	{
 		q = 0;
@@ -1265,7 +1267,7 @@ void Notitia::env_sub(const char *path_source, char *path_dest)
 
 			q++;	//qÌø¹ýÀ¨ºÅ
 			qr = strpbrk(q, right);
-			if ( qr && (qr - q) < (sizeof(env_n)-1) )
+			if ( qr && ((size_t) (qr - q+1)) < sizeof(env_n) )
 			{
 				memcpy(env_n, q, qr-q);
 				env_n [qr-q] = 0;
