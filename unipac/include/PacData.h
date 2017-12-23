@@ -366,7 +366,7 @@
 	};
 */
 	inline  unsigned char *getfld(int no, int *lenp) { 
-		unsigned long ulen;
+		unsigned long ulen=0;
 		unsigned char *p;
 		p =  getfld(no, &ulen);
 		*lenp = (int)ulen;

@@ -8,7 +8,7 @@ INCLUDE_DIR  += -I../baselib/include -I../logdata/include -I../unipac/include
 all:tbufchan.so
 
 TBufChan.o: TBufChan.cpp
-	${CC} ${CFLAGS} $(INCLUDE_DIR) -DNNDEBUG -DAMOR_CLS_TYPE=TBufChan -o $@ $^ 
+	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=TBufChan -o $@ $^ 
 	
 tbufchan.so: TBufChan.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase

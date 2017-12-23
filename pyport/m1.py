@@ -1,18 +1,13 @@
-class zewClass(object):  
+class zewClass:  
     num_count = 0
-    def __init__(self,name):  
-        self.name = name  
+    def __init__(self):  
         zewClass.num_count += 1  
-        print name,zewClass.num_count  
+        print zewClass.num_count  
     def __del__(self):  
         zewClass.num_count -= 1  
-        print "Del",self.name,zewClass.num_count  
-    def test():  
-        print "aa"  
+        print "Del",zewClass.num_count  
+    def test(self,str):  
+	print str
+        print "tt\n"  
   
-aa = zewClass("Hello")  
-bb = zewClass("World")  
-cc = zewClass("aaaa")  
-  
-print "Over"  
 

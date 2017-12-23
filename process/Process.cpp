@@ -20,6 +20,7 @@
 
 #include "Amor.h"
 #include "Notitia.h"
+#include "textus_string.h"
 #include "casecmp.h"
 #include <assert.h>
 #include <time.h>

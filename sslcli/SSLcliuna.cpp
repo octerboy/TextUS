@@ -21,6 +21,7 @@
 #include "Amor.h"
 #include "SSLcli.h"
 #include "Notitia.h"
+#include "textus_string.h"
 #include "TBuffer.h"
 #include "casecmp.h"
 #ifndef TINLINE

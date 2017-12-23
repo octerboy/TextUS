@@ -1,4 +1,3 @@
-#include "textus_string.h"
 #if defined( _MSC_VER ) && (_MSC_VER >= 1400 ) || defined(__GNUC__) && (__GNUC__ >= 3 ) || defined(__SUNPRO_CC) && (__SUNPRO_CC >= 0x560)
 #if !defined (WBUG)
 #ifndef NDEBUG

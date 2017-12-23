@@ -18,6 +18,7 @@
 
 #include "Amor.h"
 #include "Notitia.h"
+#include "textus_string.h"
 #include "casecmp.h"
 #include "TBuffer.h"
 #include <stdarg.h>

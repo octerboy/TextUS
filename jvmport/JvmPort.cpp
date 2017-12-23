@@ -20,6 +20,7 @@
 
 #include "Amor.h"
 #include "Notitia.h"
+#include "textus_string.h"
 #include "textor_jvmport_TiXML.h"
 #include "textor_jvmport_Amor.h"
 #include "textor_jvmport_PacketData.h"
@@ -33,6 +34,7 @@
 #include <jni.h>
 #include <string.h>
 #include <assert.h>
+#include <stdarg.h>
 
 static bool jvmError(JNIEnv *env)
 {
@@ -1434,7 +1436,7 @@ jobject getDocumentObj(JNIEnv *env, const char*xmlstr, const char *encoding )
 	jobject jstr, encStr ;
 	jobject factory, docBuilder, document;
 	jclass str_cls, dbFac_cls, doc_cls, docBuild_cls;
-	jmethodID strInit_mid, getBytes_mid, newFac_mid, newDocBuilder_mid, parse_mid;
+	jmethodID strInit_mid, newFac_mid, newDocBuilder_mid, parse_mid;
 
 	jclass strRd_cls, inputSrc_cls;
 	jmethodID strRdInit_mid, inputSrcInit_mid;
@@ -1455,7 +1457,7 @@ jobject getDocumentObj(JNIEnv *env, const char*xmlstr, const char *encoding )
 	if ( jvmError(env) )
 		return 0;
 
-	getBytes_mid = env->GetMethodID(str_cls, "getBytes", "(Ljava/lang/String;)[B");
+	//getBytes_mid = env->GetMethodID(str_cls, "getBytes", "(Ljava/lang/String;)[B");
 	newFac_mid = env->GetStaticMethodID(dbFac_cls, "newInstance", "()Ljavax/xml/parsers/DocumentBuilderFactory;");
 	newDocBuilder_mid = env->GetMethodID(dbFac_cls, "newDocumentBuilder", "()Ljavax/xml/parsers/DocumentBuilder;");
 	parse_mid = env->GetMethodID(docBuild_cls, "parse", "(Lorg/xml/sax/InputSource;)Lorg/w3c/dom/Document;");

@@ -26,6 +26,7 @@
 #include "Describo.h"
 #include "Amor.h"
 #include "Notitia.h"
+#include "textus_string.h"
 #include <stdarg.h>
 #if !defined(_WIN32)
 #include <sys/types.h>

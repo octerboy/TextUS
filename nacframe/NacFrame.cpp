@@ -20,6 +20,7 @@
 
 #include "Amor.h"
 #include "Notitia.h"
+#include "textus_string.h"
 #include "TBuffer.h"
 #include "BTool.h"
 #include "casecmp.h"

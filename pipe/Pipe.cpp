@@ -26,6 +26,7 @@
 #define CANCELLED 2
 #include "Amor.h"
 #include "Notitia.h"
+#include "textus_string.h"
 #include <stdarg.h>
 
 struct AppcData

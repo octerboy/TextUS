@@ -15,7 +15,7 @@ tbufchan tbufile \
 tcgi tcpcli tcpctrl tcpsrv \
 thread tix2pac toway trend tsoap \
 unifom unipac version \
-jsport jdbcli \
+jdbcli jsport \
 oracli \
 sysadm tpcap ttyop \
 nosuch

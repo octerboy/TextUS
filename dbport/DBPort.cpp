@@ -20,6 +20,7 @@
 
 #include "Amor.h"
 #include "Notitia.h"
+#include "textus_string.h"
 #include "casecmp.h"
 #include "DBFace.h"
 #include "BTool.h"

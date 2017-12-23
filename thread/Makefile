@@ -10,7 +10,7 @@ AMOROBJS=Thread.o
 all:thread.so
 
 Thread.o:Thread.cpp
-	${CC} ${CFLAGS} $(INCLUDE_DIR) -DNNDEBUG -DAMOR_CLS_TYPE=Thread -o $@ $^
+	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Thread -o $@ $^
 
 thread.so:$(AMOROBJS)
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lpthread -lbase

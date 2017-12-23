@@ -276,8 +276,6 @@ END:
 
 bool HttpSrvHead::sponte( Amor::Pius *pius)
 {
-	const char *p;
-	const char **pp;
 	assert(pius);
 	struct GetRequestCmd *req_cmd = 0;
 	struct SetResponseCmd *res_cmd = 0;
@@ -290,13 +288,13 @@ bool HttpSrvHead::sponte( Amor::Pius *pius)
 		switch ( req_cmd->fun)
 		{
 		case GetRequestCmd::GetHead :
-			p = req_cmd->valStr = request.getHead(req_cmd->name);
-			WBUG("sponte CMD_HTTP_GET GetHead(\"%s\")=\"%s\"", req_cmd->name, p == 0? "": req_cmd->valStr);
+			req_cmd->valStr = request.getHead(req_cmd->name);
+			WBUG("sponte CMD_HTTP_GET GetHead(\"%s\")=\"%s\"", req_cmd->name, req_cmd->valStr == 0? "": req_cmd->valStr);
 			break;
 						
 		case GetRequestCmd::GetHeadArr :
-			pp = req_cmd->valStrArr = request.getHeadArray(req_cmd->name);
-			WBUG("sponte CMD_HTTP_GET GetHeadArr(\"%s\")=\"%s\"", req_cmd->name, pp == 0? "": req_cmd->valStrArr[0]);
+			req_cmd->valStrArr = request.getHeadArray(req_cmd->name);
+			WBUG("sponte CMD_HTTP_GET GetHeadArr(\"%s\")=\"%s\"", req_cmd->name, req_cmd->valStrArr == 0? "": req_cmd->valStrArr[0]);
 			break;
 						
 		case GetRequestCmd::GetHeadInt:
