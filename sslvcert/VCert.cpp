@@ -49,7 +49,6 @@ private:
 void VCert::ignite(TiXmlElement *cfg)
 {
 	TiXmlElement *usrno_ele;	
-	const char *str;
 	int i = 0;
 
 	usrno_ele = cfg->FirstChildElement("client");
@@ -106,8 +105,6 @@ bool VCert::facio( Amor::Pius *pius)
 			int i ;
 			X509 *peer;
 			ASN1_STRING *serial;
-			char nostring[64];
-			char tmp[64];
 
 			peer = SSL_get_peer_certificate(ssl);
 			if ( !peer )

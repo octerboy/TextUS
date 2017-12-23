@@ -433,11 +433,11 @@ bool Wsdl::parse ( TiXmlElement *def )
 				Operation &oop = (ports[sName]).ops[sOpName];
 				char *s =  (char*) nInputs->Attribute("message");
 				const char *sMsgName, *sin;
-				char *sNs;
+				//char *sNs;
 				Part *firstArg = (Part *)0;
 
 				sMsgName = getBaseName(s);
-				sNs = getQualifier(s);
+				//sNs = getQualifier(s);
 				mInput = &msgs[sMsgName];
 				oop.msgp = mInput;
 				

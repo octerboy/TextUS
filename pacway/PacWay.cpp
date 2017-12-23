@@ -2155,7 +2155,7 @@ private:
 void PacWay::set_global_vars()
 {
 	int i,j,k;
-	struct  Personal_Def *def, *def2;
+	struct  Personal_Def *def=0, *def2=0;
 
 	size_t num;
 	num = 0;
@@ -2365,7 +2365,7 @@ bool PacWay::sponte( Amor::Pius *pius) {
 		WBUG("sponte PRO_UNIPAC");
 		if ( mess.right_status != RT_OUT || mess.right_subor != pius->subor  )	//表明是右端返回
 		{
-			const char *r_str;
+			const char *r_str="";
 			switch (mess.right_status)
 			{
 			case RT_OUT:
@@ -2404,7 +2404,8 @@ bool PacWay::sponte( Amor::Pius *pius) {
 }
 
 void PacWay::handle_pac() {
-	int plen=0,i;
+	//int plen=0,i;
+	int i;
 
 	unsigned char *actp;
 	size_t alen;
@@ -2504,7 +2505,7 @@ void PacWay::set_peer(PacketObj *pac, int sub)
 	Amor::Pius peer_ps;
 	char ip[64], port[32];
 	unsigned char *p;
-	unsigned long rlen;
+	unsigned long rlen=0;
 
 	/* 外部配置文件中, 必须将ip设置1域, port设置为2域 */
 	p = pac->getfld(1, &rlen);

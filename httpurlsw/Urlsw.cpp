@@ -81,8 +81,7 @@ void Urlsw::ignite(TiXmlElement *cfg)
 {	
 	const char *comm_str, *g_field;
 	TiXmlElement *p_ele;
-	int p_len, m;
-	char *p=(char*)0;
+	int m;
 	bool g_case;
 
 	concerned = Notitia::get_ordo(cfg->Attribute("ordo"));
@@ -96,7 +95,7 @@ void Urlsw::ignite(TiXmlElement *cfg)
 		g_case = false;
 
 
-	p_ele = cfg->FirstChildElement("match"); p_num = 0; p_len = 0;
+	p_ele = cfg->FirstChildElement("match"); p_num = 0;
 	while(p_ele)
 	{
 		comm_str = p_ele->GetText();
@@ -203,7 +202,6 @@ bool Urlsw::canMatch()
 	bool match;
 	int i;
 	const char *head_val;
-	int retor = -1;
 
 	match = false;
 	for (i = 0; i <p_num && !match ; i++)

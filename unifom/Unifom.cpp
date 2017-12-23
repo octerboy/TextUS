@@ -1539,7 +1539,7 @@ void Unifom::do_obu_sn(FieldObj &fldIn, PacketObj &pac, unsigned int out, bool &
 	int num, i;
 	struct With_Map *pmap;
 	unsigned char *from, *to;
-	unsigned int flen, tlen;
+	unsigned int flen;
 	unsigned char o_sn[128], n_sn[128], fac_type[2];
 	unsigned int o_len, n_len;
 	
@@ -1561,12 +1561,10 @@ void Unifom::do_obu_sn(FieldObj &fldIn, PacketObj &pac, unsigned int out, bool &
 			from = pmap->from;
 			to = pmap->to;
 			flen = pmap->len_from;
-			tlen = pmap->len_to;
 		} else {
 			from = pmap->to;
 			to = pmap->from;
 			flen = pmap->len_to;
-			tlen = pmap->len_from;
 		}
 
 		if ( from == (unsigned char*) 0 

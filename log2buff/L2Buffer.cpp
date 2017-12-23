@@ -157,7 +157,7 @@ void L2Buffer::ignite(TiXmlElement *prop)
 bool L2Buffer::facio( Amor::Pius *pius)
 {
 	void **ind;
-	int id;
+	//int id;
 	unsigned char *buf;
 
 	switch(pius->ordo )
@@ -205,7 +205,8 @@ NOWLOG:
 		ind = (void **)(pius->indic);
 		if (ind) 
 		{
-			if ( *ind) id = *((int*)(*ind)); 
+			//if ( *ind) 
+			//	id = *((int*)(*ind)); 
 			ind++;
 			if ( *ind) { 
 				buf = (unsigned char*)(*ind);

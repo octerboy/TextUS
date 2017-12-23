@@ -126,9 +126,6 @@ void Thread::ignite_t (TiXmlElement *cfg, TiXmlElement *cf_ele)
 			shouldInfo = true;
 	}
 
-//#define WHORDO(Y, Z) \
-	comm_str = cf_ele->Attribute(Z);	\
-		BTool::get_textus_ordo(&Y, comm_str);	
 #define WHORDO(Y, Z) Y = Notitia::get_ordo(cf_ele->Attribute(Z));
 
 	WHORDO(lae_do, "sponte");
