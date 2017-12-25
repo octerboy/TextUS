@@ -522,7 +522,6 @@ void Unipac::ignite(TiXmlElement *cfg)
 			FldDef *fdef;
 			LenPara *pra;
 			TermPara *tra;
-			//ArrayPara *ara;
 			AjpHeadPara *jra;
 
 			TiXmlElement *t_ele, *m_ele;
@@ -1027,13 +1026,6 @@ bool Unipac::sponte( Amor::Pius *pius)
 	case Notitia::PRO_UNIPAC:
 		WBUG("sponte PRO_UNIPAC");
 	
-		/* ×÷µ÷ÊÔÓÃ, 
-		if ( gCFG->hasPack )
-		{
-			int *aa = 0; *aa =0 ;		
-		}
-		*/
-
 		if ( gCFG->inversed ) 
 			goto UN_PAC;
 

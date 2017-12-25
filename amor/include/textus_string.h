@@ -51,7 +51,7 @@
 #define Obtainx(s)   "0123456789abcdef"[s]
 #define ObtainX(s)   "0123456789ABCDEF"[s]
 #define Obtainc(s)   (s >= 'A' && s <='F' ? s-'A'+10 :(s >= 'a' && s <='f' ? s-'a'+10 : s-'0' ) )
-#if __GNUC__ > 3  || __clang_major__ > 2
+#if __GNUC__ >= 3  || __clang_major__ >= 2
 static unsigned char* hex2byte(unsigned char *byte, unsigned long blen, const char *hex) __attribute__ ((unused));
 static char* byte2hex(const unsigned char *byte, unsigned long blen, char *hex) __attribute__ ((unused));
 #endif
