@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -9,7 +9,6 @@
  $Date$
  $Revision$
 */
-
 /* $NoKeywords: $ */
 
 #if defined( _WIN32 )
@@ -44,4 +43,3 @@
 #define TEXTUS_MOD_SUFFIX ".so"
 
 #endif
-

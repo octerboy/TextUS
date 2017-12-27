@@ -11,7 +11,7 @@ AMOROBJS=Ramify.obj
 all: ramify.dll
 
 Ramify.obj: Ramify.cpp
-	$(CC) $(CFLAGS) -DNDEBUG -DAMOR_CLS_TYPE=Ramify Ramify.cpp
+	$(CC) $(CFLAGS) /EHsc -DNDEBUG -DAMOR_CLS_TYPE=Ramify Ramify.cpp
 
 ramify.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

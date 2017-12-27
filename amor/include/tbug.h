@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -43,7 +43,7 @@
 	#endif /* for _MSC_VER >= 1400 */
 	#else
 	#include <stdio.h>
-	#if defined(__GNUC__) && (__GNUC__ >= 3 ) || defined(__SUNPRO_CC)  && (__SUNPRO_CC >= 0x560)
+	#if defined(__GNUC__) && (__GNUC__ >= 3 ) || defined(__SUNPRO_CC)  && (__SUNPRO_CC >= 0x560) ||  defined(__clang_major__) && (__clang_major__ >= 2)
 	#ifndef WBUG
 	#define WBUG(...) {printf("%s(%d) ", __FILE__, __LINE__); printf (__VA_ARGS__); printf("\n");}
 	#endif
@@ -60,7 +60,7 @@
 	#endif	/* for __GNUC__ >= 3*/
 	#endif
 #else
-#if defined(__SUNPRO_CC) && (__SUNPRO_CC >= 0x560) || defined( _MSC_VER ) && (_MSC_VER >= 1400 ) || defined(__GNUC__) && (__GNUC__ >= 3 )
+#if defined(__SUNPRO_CC) && (__SUNPRO_CC >= 0x560) || defined( _MSC_VER ) && (_MSC_VER >= 1400 ) || defined(__GNUC__) && (__GNUC__ >= 3 ) ||  defined(__clang_major__) && (__clang_major__ >= 2)
 	#ifndef WBUG
 	#define WBUG(...)
 	#endif
