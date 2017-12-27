@@ -9,7 +9,7 @@ AMOROBJS=Urlsw.o
 all:httpurlsw.so
 
 Urlsw.o:Urlsw.cpp
-	${CC} ${CFLAGS} $(INCLUDE_DIR) -DNDEBUG -DAMOR_CLS_TYPE=Urlsw -o $@ $^
+	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Urlsw -o $@ $^
 
 httpurlsw.so:$(AMOROBJS)
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase

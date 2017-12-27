@@ -180,6 +180,10 @@ bool Urlsw::facio(Amor::Pius *pius)
 		WBUG("Urlsw facio PRO_SOAP_HEAD");
 		goto HANDLEPRO;
 
+	case Notitia::WebSock_Start:	/* WebSock协议开始 */
+		WBUG("Urlsw facio WebSock_Start");
+		goto HANDLEPRO;
+
 	case Notitia::PRO_SOAP_BODY:	/* SOAP请求BODY */
 		WBUG("Urlsw facio PRO_SOAP_BODY");
 
@@ -235,5 +239,5 @@ bool Urlsw::canMatch()
 
 	return match;
 }
-
+/* 不再采用Attachment的方式了, 匹配后赋值subor */
 #include "hook.c"
