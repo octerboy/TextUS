@@ -10,7 +10,7 @@ AMOROBJS=Seque.obj
 all: sequence.dll
 
 Seque.obj: Seque.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Seque Seque.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Seque Seque.cpp
 
 sequence.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

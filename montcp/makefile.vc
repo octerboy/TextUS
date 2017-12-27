@@ -10,7 +10,7 @@ AMOROBJS=NetTcp.obj
 all: montcp.dll
 
 NetTcp.obj: NetTcp.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=NetTcp NetTcp.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=NetTcp NetTcp.cpp
 
 montcp.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

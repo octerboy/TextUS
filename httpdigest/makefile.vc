@@ -10,7 +10,7 @@ AMOROBJS=Digest.obj  md5.obj tools.obj digcalc.obj
 all: httpdigest.dll
 
 Digest.obj: Digest.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Digest Digest.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Digest Digest.cpp
 
 md5.obj:md5.c
 	$(CC)  $(CFLAGS) md5.c

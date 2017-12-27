@@ -11,7 +11,7 @@ AMOROBJS=httpform.obj
 all: httpform.dll
 
 HttpForm.obj: HttpForm.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=HttpForm HttpForm.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=HttpForm HttpForm.cpp
 
 httpform.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

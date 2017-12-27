@@ -10,7 +10,7 @@ AMOROBJS=Unipac.obj
 all: unipac.dll
 
 Unipac.obj: Unipac.cpp cupsDef.h const_para.h iso8583-87.h
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Unipac Unipac.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Unipac Unipac.cpp
 
 unipac.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

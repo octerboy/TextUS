@@ -9,7 +9,7 @@ AMOROBJS=ForkPro.obj
 all: forkpro.dll
 
 ForkPro.obj: ForkPro.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=ForkPro ForkPro.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=ForkPro ForkPro.cpp
 
 forkpro.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

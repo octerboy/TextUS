@@ -14,7 +14,7 @@ DeHead.obj: DeHead.cpp tdate_parse.c
 	$(CC) $(CFLAGS)  -DDEBUG DeHead.cpp
 
 HttpSrvHead.obj: HttpSrvHead.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=HttpSrvHead HttpSrvHead.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=HttpSrvHead HttpSrvHead.cpp
 	
 httpsrvhead.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

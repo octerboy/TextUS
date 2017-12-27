@@ -10,7 +10,7 @@ AMOROBJS=L2Buffer.obj
 all: log2buff.dll
 
 L2Buffer.obj: L2Buffer.cpp
-	$(CC) $(CFLAGS) -DNDEBUG -DAMOR_CLS_TYPE=L2Buffer L2Buffer.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=L2Buffer L2Buffer.cpp
 
 log2buff.dll: $(AMOROBJS)
 	$(LD)  $(LDFLAGS) -out:$@ $(AMOROBJS) $(LDLIB)

@@ -10,7 +10,7 @@ AMOROBJS=HttpNTLM.obj
 all: httpntlm.dll
 
 HttpNTLM.obj: HttpNTLM.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=HttpNTLM HttpNTLM.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=HttpNTLM HttpNTLM.cpp
 
 httpntlm.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

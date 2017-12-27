@@ -10,7 +10,7 @@ AMOROBJS=HttpAuth.obj
 all: httpauth.dll
 
 HttpAuth.obj: HttpAuth.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=HttpAuth HttpAuth.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=HttpAuth HttpAuth.cpp
 
 httpauth.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

@@ -11,7 +11,7 @@ AMOROBJS=httpupfile.obj
 all: httpupfile.dll
 
 HttpUpFile.obj: HttpUpFile.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=HttpUpFile HttpUpFile.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=HttpUpFile HttpUpFile.cpp
 
 httpupfile.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

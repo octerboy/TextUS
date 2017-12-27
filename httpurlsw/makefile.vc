@@ -10,7 +10,7 @@ AMOROBJS=Urlsw.obj
 all: httpurlsw.dll
 
 Urlsw.obj: Urlsw.cpp
-	$(CC) $(CFLAGS) -DNDEBUG -DAMOR_CLS_TYPE=Urlsw Urlsw.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Urlsw Urlsw.cpp
 
 httpurlsw.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

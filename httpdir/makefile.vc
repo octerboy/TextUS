@@ -10,7 +10,7 @@ AMOROBJS=DirLet.obj
 all: httpdir.dll
 
 DirLet.obj: DirLet.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=DirLet DirLet.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=DirLet DirLet.cpp
 
 httpdir.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

@@ -10,7 +10,7 @@ AMOROBJS=Ef06.obj
 all: ef06.dll 
 
 Ef06.obj: Ef06.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Ef06 Ef06.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Ef06 Ef06.cpp
 
 ef06.dll: Ef06.obj
 	$(LD) /NODEFAULTLIB  /NOLOGO -dll -out:$@ Ef06.obj $(LDLIB) Winscard.lib

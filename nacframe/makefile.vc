@@ -10,7 +10,7 @@ AMOROBJS=NacFrame.obj
 all: nacframe.dll
 
 NacFrame.obj: NacFrame.cpp 
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=NacFrame NacFrame.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=NacFrame NacFrame.cpp
 
 nacframe.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

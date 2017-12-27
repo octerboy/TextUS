@@ -10,7 +10,7 @@ AMOROBJS=monway.obj
 all: monway.dll
 
 monway.obj: MonWay.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=MonWay MonWay.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=MonWay MonWay.cpp
 
 monway.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

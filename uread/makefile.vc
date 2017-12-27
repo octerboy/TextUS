@@ -10,7 +10,7 @@ AMOROBJS=URead.obj
 all: uread.dll
 
 URead.obj: URead.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=URead URead.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=URead URead.cpp
 
 uread.dll: URead.obj
 	$(LD) $(LDFLAGS) -dll -out:$@ uread.obj $(LDLIB)

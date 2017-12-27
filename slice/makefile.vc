@@ -10,7 +10,7 @@ AMOROBJS=Slice.obj
 all: slice.dll
 
 Slice.obj: Slice.cpp 
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Slice Slice.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Slice Slice.cpp
 
 slice.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

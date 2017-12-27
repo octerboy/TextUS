@@ -9,7 +9,7 @@ AMOROBJS=Sift.obj
 all: htmlsift.dll
 
 Sift.obj: Sift.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Sift Sift.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Sift Sift.cpp
 
 htmlsift.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

@@ -9,7 +9,7 @@ AMOROBJS=Dummy.obj
 all: dummy.dll
 
 Dummy.obj: Dummy.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Dummy Dummy.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Dummy Dummy.cpp
 
 dummy.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

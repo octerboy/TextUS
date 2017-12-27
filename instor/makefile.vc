@@ -10,7 +10,7 @@ AMOROBJS=Instor.obj
 all: instor.dll
 
 Instor.obj: Instor.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Instor Instor.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Instor Instor.cpp
 
 instor.dll: Instor.obj
 	$(LD) /NODEFAULTLIB  /NOLOGO -dll -out:$@ Instor.obj $(LDLIB)

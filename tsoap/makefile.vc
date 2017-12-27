@@ -10,13 +10,13 @@ AMOROBJS=TSoap.obj Wsdl.obj Schema.obj
 all: tsoap.dll
 
 Wsdl.obj: Wsdl.cpp Array.h Wsdl.h
-	$(CC) $(CFLAGS) -DNNDEBUG Wsdl.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) Wsdl.cpp
 
 Schema.obj: Schema.cpp Array.h Wsdl.h
-	$(CC) $(CFLAGS) -DNNDEBUG Schema.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) Schema.cpp
 
 TSoap.obj: TSoap.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=TSoap TSoap.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=TSoap TSoap.cpp
 
 tsoap.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

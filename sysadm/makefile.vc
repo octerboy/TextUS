@@ -9,7 +9,7 @@ CFLAGS  = $(CFLAGS) -I..\logdata\include
 all: restart.dll getversions.dll systime.dll
 
 GetVer.obj: GetVer.cpp
-	$(CC) $(CFLAGS) -I..\httpsrvhead\include -DNNDEBUG -DAMOR_CLS_TYPE=GetVer GetVer.cpp
+	$(CC) $(CFLAGS) -I..\httpsrvhead\include $(DEBUG_FLAG) -DAMOR_CLS_TYPE=GetVer GetVer.cpp
 
 getversions.dll: GetVer.obj
 	$(LD) $(LDFLAGS) -out:$@ GetVer.obj  $(LDLIB)
@@ -17,7 +17,7 @@ getversions.dll: GetVer.obj
 	$(_POST_RPO_SUB)
 
 Systime.obj: Systime.cpp
-	$(CC) $(CFLAGS) -I..\httpsrvhead\include -DNNDEBUG -DAMOR_CLS_TYPE=Systime Systime.cpp
+	$(CC) $(CFLAGS) -I..\httpsrvhead\include $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Systime Systime.cpp
 
 systime.dll: Systime.obj
 	$(LD) $(LDFLAGS) -out:$@ Systime.obj  $(LDLIB)
@@ -25,7 +25,7 @@ systime.dll: Systime.obj
 	$(_POST_RPO_SUB)
 
 Restart.obj: Restart.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -I..\httpsrvhead\include -DAMOR_CLS_TYPE=Restart Restart.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -I..\httpsrvhead\include -DAMOR_CLS_TYPE=Restart Restart.cpp
 
 restart.dll: Restart.obj
 	$(LD) $(LDFLAGS) -out:$@ Restart.obj  $(LDLIB)

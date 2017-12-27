@@ -10,7 +10,7 @@ AMOROBJS=DWave.obj
 all: dwave.dll
 
 DWave.obj: DWave.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=DWave DWave.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=DWave DWave.cpp
 
 dwave.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB) NIDAQmx.lib

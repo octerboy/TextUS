@@ -10,7 +10,7 @@ AMOROBJS=Unifom.obj
 all: unifom.dll
 
 Unifom.obj: Unifom.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Unifom Unifom.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Unifom Unifom.cpp
 
 unifom.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

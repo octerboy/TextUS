@@ -10,7 +10,7 @@ AMOROBJS=httpsrvbody.obj
 all: httpsrvbody.dll
 
 HttpSrvBody.obj: HttpSrvBody.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=HttpSrvBody HttpSrvBody.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=HttpSrvBody HttpSrvBody.cpp
 
 httpsrvbody.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

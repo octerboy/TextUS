@@ -11,7 +11,7 @@ AMOROBJS=X2pac.obj
 all: tix2pac.dll
 
 X2pac.obj: X2pac.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=X2pac X2pac.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=X2pac X2pac.cpp
 
 tix2pac.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

@@ -10,7 +10,7 @@ AMOROBJS=Obu.obj
 all: obu.dll
 
 Obu.obj: Obu.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Obu Obu.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Obu Obu.cpp
 
 obu.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

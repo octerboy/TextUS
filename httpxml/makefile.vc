@@ -11,7 +11,7 @@ AMOROBJS=HttpXML.obj
 all: httpxml.dll
 
 HttpXML.obj: HttpXML.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=HttpXML HttpXML.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=HttpXML HttpXML.cpp
 
 httpxml.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

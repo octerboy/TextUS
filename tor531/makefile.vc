@@ -9,10 +9,10 @@ AMOROBJS=ToR531.obj R531DeviceFunc.obj publicFunc.obj des.obj atr.obj
 all: tor531.dll
 
 ToR531.obj: ToR531.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=ToR531 ToR531.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=ToR531 ToR531.cpp
 
 FoR531.obj: ToR531.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DFOR_NET -DAMOR_CLS_TYPE=ToR531 ToR531.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DFOR_NET -DAMOR_CLS_TYPE=ToR531 ToR531.cpp
 
 R531DeviceFunc.obj:R531DeviceFunc.cpp 
 	$(CC) $(CFLAGS) R531DeviceFunc.cpp

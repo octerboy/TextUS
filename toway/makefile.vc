@@ -10,7 +10,7 @@ AMOROBJS=Toway.obj
 all: toway.dll
 
 Toway.obj: ToWay.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=ToWay ToWay.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=ToWay ToWay.cpp
 
 toway.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

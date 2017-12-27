@@ -10,7 +10,7 @@ AMOROBJS=DBPort.obj
 all: dbport.dll
 
 DBPort.obj: DBPort.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=DBPort DBPort.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=DBPort DBPort.cpp
 
 dbport.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

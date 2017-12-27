@@ -10,7 +10,7 @@ AMOROBJS=PacWay.obj
 all: pacway.dll
 
 PacWay.obj: PacWay.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=PacWay PacWay.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=PacWay PacWay.cpp
 
 pacway.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

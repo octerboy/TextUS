@@ -10,7 +10,7 @@ AMOROBJS=FormAuth.obj
 all: formauth.dll
 
 FormAuth.obj: FormAuth.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=FormAuth FormAuth.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=FormAuth FormAuth.cpp
 
 formauth.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

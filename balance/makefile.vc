@@ -8,7 +8,7 @@ AMOROBJS=Balance.obj
 all: balance.dll
 
 Balance.obj: Balance.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Balance Balance.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Balance Balance.cpp
 
 balance.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

@@ -9,7 +9,7 @@ AMOROBJS=HttpCookie.obj
 all: httpcookie.dll
 
 HttpCookie.obj: HttpCookie.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=HttpCookie HttpCookie.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=HttpCookie HttpCookie.cpp
 
 httpcookie.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  Ws2_32.lib $(LDLIB)

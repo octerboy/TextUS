@@ -10,7 +10,7 @@ AMOROBJS=Pipe.obj
 all: pipe.dll
 
 Pipe.obj: Pipe.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Pipe Pipe.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Pipe Pipe.cpp
 
 pipe.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

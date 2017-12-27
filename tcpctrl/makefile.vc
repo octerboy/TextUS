@@ -11,7 +11,7 @@ AMOROBJS=TCtrl.obj
 all: tcpctrl.dll
 
 TCtrl.obj: TCtrl.cpp
-	$(CC) $(CFLAGS) -I..\sched\include -DNNDEBUG -DAMOR_CLS_TYPE=TCtrl TCtrl.cpp
+	$(CC) $(CFLAGS) -I..\sched\include $(DEBUG_FLAG) -DAMOR_CLS_TYPE=TCtrl TCtrl.cpp
 
 tcpctrl.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

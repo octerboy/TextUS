@@ -10,7 +10,7 @@ AMOROBJS=ajpfwd.obj
 all: ajpfwd.dll
 
 ajpfwd.obj: Ajpfwd.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Ajpfwd Ajpfwd.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Ajpfwd Ajpfwd.cpp
 
 ajpfwd.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

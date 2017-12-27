@@ -14,7 +14,7 @@ Udp.obj: Udp.cpp
 	$(CC) $(CFLAGS) -DDEBUG Udp.cpp
 
 Udpuna.obj: Udpuna.cpp
-	$(CC) $(CFLAGS) -I..\sched\include -DNNDEBUG -DAMOR_CLS_TYPE=Udpuna Udpuna.cpp
+	$(CC) $(CFLAGS) -I..\sched\include $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Udpuna Udpuna.cpp
 
 udp.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

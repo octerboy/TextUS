@@ -11,7 +11,7 @@ AMOROBJS=Sched.obj
 all: sched.dll
 
 Sched.obj: Sched.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Sched Sched.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Sched Sched.cpp
 
 sched.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

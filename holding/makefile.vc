@@ -9,7 +9,7 @@ AMOROBJS=Hold.obj
 all: Holding.dll
 
 Hold.obj: Hold.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Hold Hold.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Hold Hold.cpp
 
 holding.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
