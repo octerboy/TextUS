@@ -10,7 +10,7 @@ AMOROBJS=Joint.obj
 all: joint.dll
 
 Joint.obj: Joint.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Joint Joint.cpp
+	$(CC) $(CFLAGS) -DNDEBUG -DAMOR_CLS_TYPE=Joint Joint.cpp
 
 joint.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

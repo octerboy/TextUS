@@ -10,7 +10,7 @@ AMOROBJS=Muto.obj
 all: pmuto.dll
 
 Muto.obj: Muto.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Muto Muto.cpp
+	$(CC) $(CFLAGS) -DNDEBUG -DAMOR_CLS_TYPE=Muto Muto.cpp
 
 pmuto.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
