@@ -873,7 +873,7 @@ inline bool Animus::branch_pro( Amor::Pius *pius, enum BRA_DIRECT dir)
 		{
 			can = true;
 			pius->subor = branch[i].sub ;
-		} else if ( branch[i].sub == -1 || pius->subor == branch[i].sub ) 
+		} else if ( branch[i].sub == Amor::CAN_ALL || pius->subor == branch[i].sub ) 
 		{
 			can = ( branch[i].act == ACCEPT_BRA);
 		} else {
@@ -897,7 +897,8 @@ static  int go(char *xml_file, Amor::Pius &para)
 	char ver_str[64];
 	char scmid_str[64];
 
-	Amor::Pius ready = {Notitia::IGNITE_ALL_READY, 0, 0};
+	Amor::Pius ready;
+	ready.ordo = Notitia::IGNITE_ALL_READY;
 
 #define GETAPRK(X,Y)				\
 	p = (char*)X;				\
@@ -950,7 +951,8 @@ END:
 extern "C" TEXTUS_AMOR_STORAGE int textus_animus_start(int argc, char *argv[])
 {
 	void *ps[3];
-	Amor::Pius para = {Notitia::MAIN_PARA, 0, 0};
+	Amor::Pius para;
+	para.ordo = Notitia::MAIN_PARA;
 	ps[0] = &argc;
 	ps[1] = argv;
 	ps[2] = 0;

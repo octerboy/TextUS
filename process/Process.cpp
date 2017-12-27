@@ -316,7 +316,7 @@ END:
 
 void pro_child(int signo,  siginfo_t *info, void *u)
 {
-	int i, status, child_val;
+	int i, status;//, child_val;
 	ProcInfo *pi ;
 	pid_t child;
 	bool foundChild = false;
@@ -330,7 +330,7 @@ AGAIN:
 
 	if (WIFEXITED(status))                /* 子进程是正常退出吗? */
 	{
-		child_val = WEXITSTATUS(status); /* 获取子进程的退出状态 */
+		//child_val = WEXITSTATUS(status); /* 获取子进程的退出状态 */
 	} else 
 		fprintf(stderr, "child's exited abnormally\n");
 

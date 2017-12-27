@@ -111,8 +111,9 @@ void Joint::dup()
 	Aptus **o_c;
 	List *n;
 	unsigned int i, o_d;
-	Amor::Pius ready = {Notitia::IGNITE_ALL_READY, 0, 0};
-	Amor::Pius ready2 = {Notitia::CLONE_ALL_READY,0,0};
+	Amor::Pius ready, ready2; 
+	ready.ordo = Notitia::IGNITE_ALL_READY;
+	ready2.ordo = Notitia::CLONE_ALL_READY;
 
 	if (isRight)  return;
 

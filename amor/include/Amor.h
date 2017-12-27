@@ -37,6 +37,7 @@ typedef unsigned long TEXTUS_ORDO;
 class TEXTUS_AMOR_STORAGE Amor {
 public:
 	Amor *aptus;
+	enum SUB_ORDO { CAN_ALL = -1 };
 	virtual void ignite(TiXmlElement *wood) {};
 
 	/* Amor objects communicate by Pius object */
@@ -46,6 +47,7 @@ public:
 						此量区分不同的Module. */
 						
 		 void *indic;		/* data pointer for any type */
+		Pius() { subor = CAN_ALL; indic=0;};	
 	};
 	virtual bool facio( Pius *) = 0 ;
 	virtual bool sponte( Pius *) = 0;

@@ -125,7 +125,8 @@ void Nostra::ignite_t (TiXmlElement *cfg, TiXmlElement *nos_ele)
 
 bool Nostra::facio( Amor::Pius *pius)
 {
-	Amor::Pius ready2 = {Notitia::CLONE_ALL_READY,0,0};
+	Amor::Pius ready2;
+	ready2.ordo = Notitia::CLONE_ALL_READY;
 	switch(pius->ordo)
 	{
 	case Notitia::IGNITE_ALL_READY:
@@ -151,8 +152,9 @@ bool Nostra::facio( Amor::Pius *pius)
 bool Nostra::sponte_n (Amor::Pius *pius, unsigned int from)
 {
 	int here_num;
-	Amor::Pius ready2= {Notitia::CLONE_ALL_READY,0,0};
-	Amor::Pius cln_ps= {Notitia::DMD_CLONE_OBJ,0,0};
+	Amor::Pius ready2,cln_ps;
+	ready2.ordo = Notitia::CLONE_ALL_READY;
+	cln_ps.ordo = Notitia::DMD_CLONE_OBJ;
 	int i;
 
 	switch(pius->ordo)
