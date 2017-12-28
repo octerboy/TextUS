@@ -1,3 +1,8 @@
+/**
+ Title: pius class for Java
+ Build:created by octerboy 2007/10/27, Panyu
+ $Id: Pius.java 244 2017-12-23 03:38:31Z octerboy $
+*/
 package textor.jvmport;
 import java.lang.Object;
 
@@ -5,6 +10,10 @@ public class Pius {
 	public long ordo;
 	public int subor;
 	public Object indic;
+	public Pius() {
+		subor = -1;
+		indic = null;
+	}
 
 	public static final int 	TEST_NOTITIA_FLAG = 0x0F000000;	/* 该4位为测试位, 表示其语言领域 */
 	public static final int 	FRANK_NOTITIA_FLAG = 0x10000000;	/* 直通处理标志位 */

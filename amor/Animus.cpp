@@ -1018,7 +1018,8 @@ extern "C" TEXTUS_AMOR_STORAGE int textus_animus_winstart(HINSTANCE hInst, HINST
 {
 	char *xmlfile, *p;
 	void *ps[5];
-	Amor::Pius para = {Notitia::WINMAIN_PARA, 0, 0};
+	Amor::Pius para;
+	para.ordo = Notitia::WINMAIN_PARA;
 	ps[0] = hInst;
 	ps[1] = hPrev;
 	ps[2] = cmd;
