@@ -68,4 +68,4 @@ jv:jv.c
 
 clean:
 	rm *.o
-	m *.so
+	rm *.so

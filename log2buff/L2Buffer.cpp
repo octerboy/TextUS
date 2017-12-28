@@ -20,6 +20,7 @@
 
 #include "Amor.h"
 #include "Notitia.h"
+#include "textus_string.h"
 #include "TBuffer.h"
 #include "BTool.h"
 #include "casecmp.h"
@@ -27,6 +28,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <stdarg.h>
 
 #ifndef TINLINE
 #define TINLINE inline
@@ -81,7 +83,7 @@ private:
 
 	TINLINE void deliver(Notitia::HERE_ORDO aordo);
 
-#include "tbug.h"
+#include "wlog.h"
 
 #ifdef DEBUG
 #undef DEBUG
