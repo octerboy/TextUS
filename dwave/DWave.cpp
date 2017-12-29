@@ -19,6 +19,7 @@
 /* $NoKeywords: $ */
 
 #include "Amor.h"
+#include "textus_string.h"
 #include "casecmp.h"
 #include "Notitia.h"
 #include "TBuffer.h"
@@ -567,10 +568,10 @@ int32 CVICALLBACK DWave::analyze(TaskHandle taskIn,uInt32 nSamples)
 				fprintf_s(fp, "% 9d %04d\n", j, data[j]);
 			}
 			fclose(fp);
-			WLOG(INFO, "file %s out", msg)
+			WLOG(INFO, "file %s out", msg);
 		} else {
 			printf("file error\n");
-			WLOG(ERR, "file %s error", msg)
+			WLOG(ERR, "file %s error", msg);
 		}
 		total = 0;
 		wv_index = 0;

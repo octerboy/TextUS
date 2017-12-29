@@ -4,24 +4,24 @@ include ./Allmodules
 all:
 	@for i in $(DIRS); \
 	do \
-	if [ -d "$$i" ]; then \
-		(cd $$i && $(MAKE) all) || exit 1; \
-	else \
-		$(MAKE) tus; \
+	(echo "Now for $$i") ;\
+	if [ -f "$$i/Makefile" ]; then \
+		(cd $$i && echo "making all in $$i..." && $(MAKE) all) || exit 1; \
 	fi; \
 	done;
+	$(MAKE) tus
 
 clean:
 	@for i in $(DIRS); \
 	do \
-	if [ -d "$$i" ]; then \
+	(echo "Now for $$i") ;\
+	if [ -f "$$i/Makefile" ]; then \
 		(cd $$i && echo "making clean in $$i..." && \
-		$(MAKE) clean) ; \
-	else \
-		rm *.o; \
-		rm tus; \
+		$(MAKE) clean) || exit 1; \
 	fi; \
 	done;
+	rm *.o; 
+	rm tus	
 	
 tus:	main.c
 	$(CXX) main.c -o $@ -ldl
