@@ -27,6 +27,7 @@
 #include "textus_string.h"
 
 #include <stdio.h>
+#include <stdarg.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -302,6 +303,10 @@ void TPCap::deliver(Notitia::HERE_ORDO aordo)
 	return ;
 }
 
+#if __GNUC__ >= 3  || __clang_major__ >= 2
+static int set_kernel_filter(int sock_fd, struct sock_fprog *fcode, char *ebuf) __attribute__ ((unused));
+#endif
+
 static int
 set_kernel_filter(int sock_fd, struct sock_fprog *fcode, char *ebuf)
 {
@@ -367,7 +372,8 @@ set_kernel_filter(int sock_fd, struct sock_fprog *fcode, char *ebuf)
 			if (save_errno != EAGAIN) {
 				/* Fatal error */
 				reset_kernel_filter(sock_fd);
-				snprintf(ebuf, sizeof(ebuf),
+				//snprintf(ebuf, sizeof(ebuf),
+				sprintf(ebuf, 
 				 "recv: %s", strerror(save_errno));
 				return -2;
 			}
