@@ -127,4 +127,3 @@ int ftATRTCKCal(unsigned char  atr_buffer[ATR_MAX_SIZE],int length ,unsigned int
  TD2：[31]：TB3,TA3存在，协议类型为：T=1
  TA3：[F0]：
  TB3：[9F]：
-*/
