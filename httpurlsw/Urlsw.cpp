@@ -52,6 +52,7 @@ public:
 
 	bool isPoineer;
 	inline bool canMatch();
+	bool http_doing;
 #include "httpsrv_obj.h"
 #include "wlog.h"
 };
@@ -64,6 +65,7 @@ Urlsw::Urlsw()
 
 	isPoineer = false;
 	concerned = Notitia::TEXTUS_RESERVED;
+	http_doing = false;
 }
 
 Urlsw::~Urlsw()
@@ -162,36 +164,61 @@ bool Urlsw::sponte(Amor::Pius *pius)
 
 bool Urlsw::facio(Amor::Pius *pius)
 {
+	bool will_do = false;
 	switch (pius->ordo)
 	{
+	case Notitia::PRO_TBUF:	
+		WBUG("Urlsw facio PRO_TBUF");
+		if ( http_doing )
+		{
+			pius->subor = cur_subor;
+		}
+		break;
 	case Notitia::PRO_HTTP_HEAD:	/* HTTP请求HEAD */
 		WBUG("Urlsw facio PRO_HTTP_HEAD");
+		will_do = true;
 		goto HANDLEPRO;
 
 	case Notitia::PRO_HTTP_REQUEST:	/* HTTP请求 */
 		WBUG("Urlsw facio PRO_HTTP_REQUEST");
+		http_doing = false;
 		goto HANDLEPRO;
 
 	case Notitia::PRO_TINY_XML:	/* XML请求 */
 		WBUG("Urlsw dextra PRO_TINY_XML");
+		http_doing = false;
 		goto HANDLEPRO;
 
 	case Notitia::PRO_SOAP_HEAD:	/* SOAP请求HEAD */
 		WBUG("Urlsw facio PRO_SOAP_HEAD");
+		http_doing = false;
 		goto HANDLEPRO;
 
 	case Notitia::WebSock_Start:	/* WebSock协议开始 */
 		WBUG("Urlsw facio WebSock_Start");
+		will_do = true;
 		goto HANDLEPRO;
 
 	case Notitia::PRO_SOAP_BODY:	/* SOAP请求BODY */
 		WBUG("Urlsw facio PRO_SOAP_BODY");
-
+		http_doing = false;
 HANDLEPRO:
 	if ( canMatch() ) 
+	{
 		pius->subor = cur_subor;
+		if ( will_do )
+			http_doing = true;
+	} else {
+		http_doing = false;
+	}
 		break;
 			
+	case Notitia::END_SESSION:
+	case Notitia::DMD_END_SESSION:
+		WBUG("Urlsw dextra EMD_SESSION/DMD_END_SESSION");
+		http_doing = false;
+		break;
+
 	default:
 		WBUG("Urlsw facio Notitia:%lu", concerned);
 		if ( concerned == pius->ordo && canMatch() ) 
