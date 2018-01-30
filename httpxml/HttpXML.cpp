@@ -38,6 +38,7 @@ public:
 		
 	HttpXML();
 	~HttpXML();
+	bool work_tbuf;
 
 private:
 	int data_type;
@@ -50,7 +51,7 @@ private:
 	TiXmlComment comment;
 	TiXmlDeclaration *dec;
 	
-	Amor::Pius local_pius;
+	Amor::Pius local_pius, local_pius2;
 	
 	TBuffer *rcv_buf;	/* http body content */
 	TBuffer *snd_buf;
@@ -107,6 +108,10 @@ void HttpXML::ignite(TiXmlElement *cfg)
 	
 	if ( dec ) delete dec;
 	dec = new TiXmlDeclaration(xmlVersion, xmlEncode, xmlStandalone);
+
+	comm_str = cfg->Attribute("mode");
+	if ( comm_str && strcasecmp(comm_str, "tbuf") ==0 )
+		work_tbuf = true;
 }
 
 bool HttpXML::facio( Amor::Pius *pius)
@@ -114,7 +119,19 @@ bool HttpXML::facio( Amor::Pius *pius)
 	TBuffer **tb = 0;
 	switch ( pius->ordo )
 	{
-	case Notitia::PRO_HTTP_REQUEST:	/* HTTP头已经OK */
+	case Notitia::PRO_TBUF:	
+		WBUG("facio PRO_HTTP_REQUEST");
+		reset();
+		req_doc.Parse((const char*) rcv_buf->base);
+
+		if (req_doc.Error())
+		{
+			WLOG(ERR, "xml data parse error: %s", req_doc.ErrorDesc());
+		} else { 
+			deliver(Notitia::PRO_TINY_XML); /* 请求XML数据已经OK */
+		}
+		break;
+	case Notitia::PRO_HTTP_REQUEST:	/* HTTP已经OK */
 		WBUG("facio PRO_HTTP_REQUEST");
 		reset();
 		content_length=getContentSize();
@@ -197,11 +214,15 @@ bool HttpXML::sponte( Amor::Pius *pius)
 	{
 	case Notitia::PRO_TINY_XML:	/* XML数据已备 */
 		WBUG("sponte PRO_TINY_XML");
-		setHead("Content-Type", "text/xml");
-		setHead("Accept-Ranges", "bytes");
-		setContentSize( get_xml_content());
-
-		aptus->sponte(&local_pius);	/* HTTP响应已备 */
+		if ( work_tbuf) {
+			get_xml_content();
+			aptus->sponte(&local_pius2);	/* pro_tbuf */
+		} else {
+			setHead("Content-Type", "text/xml");
+			setHead("Accept-Ranges", "bytes");
+			setContentSize( get_xml_content());
+			aptus->sponte(&local_pius);	/* HTTP响应已备 */
+		}
 		break;
 
 	case Notitia::DMD_END_SESSION:	/* 强制关闭 */
@@ -218,10 +239,13 @@ HttpXML::HttpXML()
 {
 	local_pius.ordo = Notitia::PRO_HTTP_RESPONSE;
 	local_pius.indic = 0;
+	local_pius.ordo = Notitia::PRO_TBUF;
+	local_pius.indic = 0;
 	comment.SetValue("");
 	dec = 0;
 	data_type = HTTP_NONE;
 	content_type = (char*) 0;
+	work_tbuf = false;
 }
 
 void HttpXML::reset()
