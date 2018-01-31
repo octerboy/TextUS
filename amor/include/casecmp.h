@@ -18,7 +18,6 @@ static int strcasecmp(const char *s1, const char *s2)
 		s1++;
 		s2++;
 	}
-
 	return tolower(*(unsigned char *) s1) - tolower(*(unsigned char *) s2);
 }
 
@@ -34,7 +33,6 @@ static int strncasecmp(const char *s1, const char *s2, unsigned int n)
 		s1++;
 		s2++;
 	}
-
 	return tolower(*(unsigned char *) s1) - tolower(*(unsigned char *) s2);
 }
 #endif
