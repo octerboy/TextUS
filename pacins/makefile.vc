@@ -1,0 +1,24 @@
+# Title: Makefile(VC)
+# ID: Textus-pacins-Makefile-vc
+# Build: B01:created by octerboy 2018/02/24, Gaungzhou
+
+include ..\Rules.basemod.vc
+CFLAGS  =  $(CFLAGS) -I..\baselib\include -I..\unipac\include -I..\logdata\include -I$(OPENSSL_DIR)\include
+LDLIB = $(LDLIB) ..\baselib\libbase.lib $(OPENSSL_DIR)\lib\libeay32.lib 
+AMOROBJS=PacIns.obj 
+
+all: pacins.dll
+
+PacIns.obj: PacIns.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=PacIns PacIns.cpp
+
+pacins.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

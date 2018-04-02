@@ -23,14 +23,14 @@
 namespace Notitia
 {
 enum HERE_ORDO { 
-	MAIN_PARA		=1,	/* the parameter of main(), *indic[0] = argc, *indic[1] = argv  */
+	MAIN_PARA	=1,	/* the parameter of main(), *indic[0] = argc, *indic[1] = argv  */
 	WINMAIN_PARA	=2,	/* the parameter of WinMain()  */
 	CMD_MAIN_EXIT	=3,	/* 退出主程序 */
 	
 	CLONE_ALL_READY	=5,	/* 所有子节点已clone完毕 */
 	CMD_GET_OWNER	=6,	/* 取得aptus的owner对象指针 */
 	SET_SAME_PRIUS	=7,	/* 使indic所指的amor对象与本对象有相同的prius */
-	WHO_AM_I		=8,	/* 以sponte方式给出, 指示自身的this指针 */
+	WHO_AM_I	=8,	/* 以sponte方式给出, 指示自身的this指针 */
 	IGNITE_ALL_READY=9,	/* info, all children node have been ignited */
 
 	LOG_EMERG	=10,
@@ -52,8 +52,8 @@ enum HERE_ORDO {
 	FAC_LOG_DEBUG	=27,
 
 	CMD_GET_VERSION	=30,	//取得版本信息		
-    CMD_ZERO_FILE	=31,
-    CMD_CLOSE_FILE	=32,
+	CMD_ZERO_FILE	=31,
+	CMD_CLOSE_FILE	=32,
 	CMD_GET_PIUS		=41,	/* get pius from a keeper */
 	DMD_CONTINUE_SELF	=42,	//继续下本接力者
 	DMD_STOP_NEXT 		=43,	//停止下一个接力者
@@ -142,6 +142,9 @@ enum HERE_ORDO {
 	PRO_SOAP_HEAD	=153, 	/* indic是一个TiXmlElement指针 */
 	PRO_SOAP_BODY	=154, 	/* indic是一个TiXmlElement指针 */
 	ERR_SOAP_FAULT	=155, 	/* indic是一个TiXmlElement指针 */
+	SET_TINY_JSON 	=156,
+	PRO_TINY_JSON	=157, 
+	CMD_GET_JSON	=158, 
 
 	CMD_GET_FD	=160,	//取得描述符
 	CMD_SET_PEER	=161,	//设置对方(如IP地址), indic是一个TiXmlElment指针
@@ -176,6 +179,12 @@ enum HERE_ORDO {
 	ERR_UNIPAC_RESOLVE	=203,
 	ERR_UNIPAC_INFO		=204,	/* 这里来的packetobj要对应到SOAP响应的fault中去 */
 	MULTI_UNIPAC_END	=205,	/* 多个PACKETOBJ结束 */
+
+	Set_InsWay		=210, 	//设置InsWay结构数据
+	Pro_InsWay		=211, 	//要求处理InsWay结构数据
+	Ans_InsWay		=212,	//应答处理InsWay结构数据
+	Pro_TranWay		=213,	//要求处理TranWay
+	Ans_TranWay		=214,	//应答处理TranWay
 
 	CMD_SET_DBFACE	=300, 	/* set the DB data interface definition */
 	CMD_SET_DBCONN	=301, 	/* indic[0] points type (an integer): 0: SQL, 1: RPC, 2:FUNCTION
