@@ -100,6 +100,7 @@ struct InsData {
 
 	void *ext_ins;	//基础报文定义，下一级处理
 	InsData() {
+		ins_tag = 0;
 		log_str = 0;
 		up_subor = -1;
 		snd_lst = 0;
@@ -130,7 +131,7 @@ struct FlowStr {		//Pro_TranWay的indic
 	unsigned char *flow_str;
 	size_t len;
 };
-
+#ifndef NOT_LOAD_XML
 int load_xml(const char *f_name, TiXmlDocument &doc,  TiXmlElement *&root, const char *md5_content, char err_str[])
 {
 	if ( !f_name || strlen(f_name) ==0 ) return 0;
@@ -172,3 +173,4 @@ int load_xml(const char *f_name, TiXmlDocument &doc,  TiXmlElement *&root, const
 	root = doc.RootElement();
 	return 0;
 };
+#endif

@@ -314,7 +314,6 @@ void PacIns::ignite(TiXmlElement *prop)
 		gCFG = new struct G_CFG();
 		gCFG->prop = prop;
 		has_config = true;
-		load_pac_def();
 	}
 
 	if ( (comm_str = prop->Attribute("max_fld")) )
@@ -395,7 +394,7 @@ bool PacIns::facio( Amor::Pius *pius) {
 		break;
 
 	case Notitia::Set_InsWay:    /* ÉèÖÃ */
-		WBUG("facio Set_InsWay");
+		WBUG("facio Set_InsWay, InsData %p", pius->indic);
 		set_ins((struct InsData*)pius->indic);
 		break;
 
@@ -407,6 +406,7 @@ bool PacIns::facio( Amor::Pius *pius) {
 
 	case Notitia::IGNITE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY" );
+		load_pac_def();
 		tmp_pius.ordo = Notitia::SET_UNIPAC;
 		tmp_pius.indic = &hipa[0];
 		aptus->facio(&tmp_pius);

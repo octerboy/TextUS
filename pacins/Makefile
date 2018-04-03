@@ -11,7 +11,7 @@ PacIns.o: PacIns.cpp
 	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=PacIns -o $@ PacIns.cpp
 	
 pacins.so: PacIns.o
-	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase
+	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lcrypto -lbase
 	$(_POST_RPO_SUB)
 
 clean:

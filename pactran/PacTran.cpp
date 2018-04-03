@@ -29,12 +29,7 @@
 #include <errno.h>
 #include <stdarg.h>
 #include "BTool.h"
-#if defined(__APPLE__)
-#define COMMON_DIGEST_FOR_OPENSSL
-#include <CommonCrypto/CommonDigest.h>
-#else
-#include <openssl/md5.h>
-#endif
+#define NOT_LOAD_XML 1
 #include "WayData.h"
 
 class PacTran: public Amor {

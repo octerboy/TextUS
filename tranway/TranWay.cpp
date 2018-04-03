@@ -783,9 +783,23 @@ struct Condition {	//一个指令的匹配列表, 包括条件与结果的匹配
 };
 
 struct ComplexSubSerial;
-struct TranIns:public Condition, InsData  
+struct TranIns:public InsData  
 {
 	TranIns_Type type;
+	struct Condition condition;
+	void set_condition ( TiXmlElement *ele, struct PVar_Set *var_set, struct PVar_Set *loc_v) {
+		return condition.set_condition(ele, var_set,loc_v);
+	}
+	bool valid_condition (MK_Session *sess) {
+		return condition.valid_condition(sess);
+	}
+	bool valid_result (MK_Session *sess) {
+		return condition.valid_result(sess);
+	}
+	TranIns()
+	{
+		type = INS_None;
+	};
 	void hard_work_2 ( struct CmdSnd *aSnd, TiXmlElement *pac_ele, TiXmlElement *usr_ele, struct PVar_Set *g_vars, struct PVar_Set *me_vars)
 	{
 		struct PVar *vr_tmp, *vr2_tmp=0;
@@ -1005,17 +1019,16 @@ ALL_STILL:
 			type = INS_Respond;
 		else if ( strcasecmp(ins_tag, "Let") ==0 )
 			type = INS_LetVar;
-		else if ( strcasecmp(ins_tag, "Terminator") ==0 ) {
+		else if ( (p = pac_ele->Attribute("type") ) &&  strcasecmp(p, "SetReply") ==0 )
+		{
 			type = INS_SetReply;
-			goto DefaultPac;
-		} else 
-			goto DefaultPac;
+		}
 
-		goto LAST_CON;
-	DefaultPac:
+		if ( type !=INS_None && type != INS_SetReply ) 
+			goto LAST_CON;
 		aps.ordo = Notitia::Set_InsWay;
 		aps.indic = this;
-		my_obj->facio(&aps);	//由下一级设定所有发送域的数组
+		my_obj->aptus->facio(&aps);	//由下一级设定所有发送域的数组
 		for ( i = 0 ; i < snd_num; i++ )
 		{
 			if ( snd_lst[i].cmd_buf == 0 && pac_ele->FirstChildElement( snd_lst[i].tag)) //还未设定内容
