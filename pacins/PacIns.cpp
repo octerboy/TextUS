@@ -47,7 +47,7 @@ enum PAC_LOG { PAC_LOG_NONE = 0, PAC_LOG_STR =0x11, PAC_LOG_HEX =0x12, PAC_LOG_B
 enum PacIns_Type { INS_None = 0, INS_Normal=1,  INS_SetPeer=3, INS_GetPeer=4, INS_Get_CertNo=5, INS_Pro_DBFace=6, INS_Cmd_Ordo=7};
 enum ACT_DIR { FACIO=0, SPONTE=1 };
 
-void get_req_pac( PacketObj *req_pac, struct DyVarBase *snap, struct InsData *insd)
+void get_req_pac( PacketObj *req_pac, struct DyVarBase **psnap, struct InsData *insd)
 {
 	int i,j;
 	unsigned long t_len;
@@ -63,7 +63,7 @@ void get_req_pac( PacketObj *req_pac, struct DyVarBase *snap, struct InsData *in
 				if (  insd->snd_lst[i].dy_list[j].dy_pos < 0 ) 
 					t_len += insd->snd_lst[i].dy_list[j].len;
 				 else 
-					t_len += snap[insd->snd_lst[i].dy_list[j].dy_pos].c_len;
+					t_len += psnap[insd->snd_lst[i].dy_list[j].dy_pos]->c_len;
 			}
 		}
 	}
@@ -86,8 +86,8 @@ void get_req_pac( PacketObj *req_pac, struct DyVarBase *snap, struct InsData *in
 					t_len += insd->snd_lst[i].dy_list[j].len;
 				} else {
 					/* 动态内容*/
-					memcpy(&req_pac->buf.point[t_len], snap[insd->snd_lst[i].dy_list[j].dy_pos].val_p, snap[insd->snd_lst[i].dy_list[j].dy_pos].c_len);
-					t_len += snap[insd->snd_lst[i].dy_list[j].dy_pos].c_len;
+					memcpy(&req_pac->buf.point[t_len], psnap[insd->snd_lst[i].dy_list[j].dy_pos]->val_p, psnap[insd->snd_lst[i].dy_list[j].dy_pos]->c_len);
+					t_len += psnap[insd->snd_lst[i].dy_list[j].dy_pos]->c_len;
 				}
 			}
 		}
@@ -117,13 +117,31 @@ struct PacInsData {
 		pac_mode = PAC_NONE;
 		pac_cross = false;
 		pac_log = PAC_LOG_NONE;
+		dbface_name = 0;
+		dbface = 0;
+		ordo = Notitia::TEXTUS_RESERVED;
 	};
 
-	void set_def(TiXmlElement *def_ele, const char *log_str) 
+	void set_def(TiXmlElement *def_ele, struct InsData *insd) 
 	{
+		static int i=0;
 		const char *p;
 		char *q;
-		p = log_str;
+		if ( !insd->err_code ) 
+			insd->err_code = def_ele->Attribute("error");
+
+		if ( (p = def_ele->Attribute("counted")) && ( *p == 'y' || *p == 'Y') )
+			insd->counted = true;
+		else 
+			insd->counted = false;
+
+		if ((p = def_ele->Attribute("function")) && ( *p == 'y' || *p == 'Y') )	//这是函数扩展，出现回调
+			insd->isFunction = true;
+		else
+			insd->isFunction = false;
+
+		if ( !insd->log_str ) insd->log_str = def_ele->Attribute("log");
+		p = insd->log_str;
 		if ( p ) 
 		{
 			if ( strcasecmp( p, "str") ==0 )
@@ -179,17 +197,24 @@ struct PacInsData {
 	
 		subor=Amor::CAN_ALL; 
 		def_ele->QueryIntAttribute("subor", &subor);
+		if ( subor < Amor::CAN_ALL ) 
+			insd->isFunction = true;
 	
 		if ( (p = def_ele->Attribute("exchange")) )
 		{
+			size_t len;
 			q = (char*)strpbrk(p, ":" );
-			if (q) 
-				*q++ = '\0';
-			if (strcasecmp ( p, "first") == 0 ) 
+			if (q) {
+				len = q-p;
+				q++;
+			} else {
+				len = strlen(p);
+			}
+			if (strncasecmp ( p, "first", len) == 0 ) 
 				pac_mode = PAC_FIRST;
-			else if ( strcasecmp (p, "second") == 0 )
+			else if ( strncasecmp (p, "second", len) == 0 )
 				pac_mode = PAC_SECOND;
-			else if ( strcasecmp (p, "both") ==0 ) 
+			else if ( strncasecmp (p, "both", len) ==0 ) 
 				pac_mode = PAC_BOTH;
 	
 			if ( q ) {
@@ -285,7 +310,7 @@ private:
 	void ans_ins(bool should_spo);
 
 	void log_pac(PacketObj *pac,const char *prompt, enum PAC_LOG mode);
-	const char* pro_rply_pac(PacketObj *rply_pac, struct DyVarBase *snap, struct InsData *insd);
+	const char* pro_rply_pac(PacketObj *rply_pac, struct DyVarBase **psnap, struct InsData *insd);
 	#include "wlog.h"
 };
 
@@ -394,12 +419,12 @@ bool PacIns::facio( Amor::Pius *pius) {
 		break;
 
 	case Notitia::Set_InsWay:    /* 设置 */
-		WBUG("facio Set_InsWay, InsData %p", pius->indic);
+		WBUG("facio Set_InsWay, InsData %p, tag %s", pius->indic, ((struct InsData*)pius->indic)->ins_tag);
 		set_ins((struct InsData*)pius->indic);
 		break;
 
 	case Notitia::Pro_InsWay:    /* 处理 */
-		WBUG("facio Pro_InsWay");
+		WBUG("facio Pro_InsWay, tag %s", ((struct InsWay*)pius->indic)->dat->ins_tag);
 		cur_insway = (struct InsWay*)pius->indic;
 		pro_ins();
 		break;
@@ -607,6 +632,7 @@ void PacIns::set_ins (struct InsData *insd)
 
 	const char *tag;
 	struct PacInsData *paci;
+	bool isFunction;
 
 	if ( insd->ext_ins ) return;	//已经定义过了,  不理
 	def_ele = gCFG->pac_def_root->FirstChildElement(insd->ins_tag);	
@@ -616,13 +642,7 @@ void PacIns::set_ins (struct InsData *insd)
 	paci = (struct PacInsData *) new struct PacInsData;
 	insd->ext_ins = (void*)paci;
 
-	if ( !insd->err_code ) insd->err_code = def_ele->Attribute("error");
-	if ( (p = def_ele->Attribute("counted")) && ( *p == 'y' || *p == 'Y') )
-		insd->counted = true;
-	else 
-		insd->counted = false;
-	if ( !insd->log_str ) insd->log_str = def_ele->Attribute("log");
-	paci->set_def(def_ele, insd->log_str);
+	paci->set_def(def_ele,insd);
 	/* 先预置发送的每个域，设定域号*/
 	a_num = 0;
 	for (p_ele= def_ele->FirstChildElement(); p_ele; p_ele = p_ele->NextSiblingElement())
@@ -708,18 +728,20 @@ void PacIns::pro_ins ()
 	struct InsReply *rep;
 	paci = (struct PacInsData *)cur_insway->dat->ext_ins;
 	rep = (struct InsReply *)cur_insway->reply;
-
+	//if ( strcmp(cur_insway->dat->ins_tag, "InitPac") == 0 )
+	//	{int *a =0 ; *a = 0; };
+		
 	hi_req_p->reset();	//请求复位
 	paci->pac_cross_before(hi_req_p, hi_reply_p, rcv_pac, snd_pac);
 	loc_pro_pac.subor = paci->subor;
-	get_req_pac(hi_req_p, cur_insway->snap, cur_insway->dat);
+	get_req_pac(hi_req_p, cur_insway->psnap, cur_insway->dat);
 
 	switch ( paci->type) {
 	case INS_Normal:
 	case INS_Pro_DBFace:
 		if ( paci->pac_log & 0x10) 
 			log_pac(hi_req_p, paci->type == INS_Normal ? "INS_Normal" : "INS_Pro_DBFace", paci->pac_log); //本模块做
-		if (  paci->subor < 0 ) 	//仅仅是报文域赋值
+		if (  paci->subor < Amor::CAN_ALL ) 	//仅仅是报文域赋值
 		{
 			ans_ins(false);
 			goto END_PRO;
@@ -752,7 +774,7 @@ void PacIns::pro_ins ()
 			prodb_ps.subor = paci->subor;
 			aptus->facio(&prodb_ps);
 		}
-		ans_ins(cur_insway->dat->isFunction);
+		if(cur_insway->dat->isFunction) ans_ins(false);
 END_PRO:
 		break;
 
@@ -794,11 +816,13 @@ void PacIns::ans_ins (bool should_spo)
 	PacketObj *n_pac;
 	paci = (struct PacInsData *)cur_insway->dat->ext_ins;
 	rep = (struct InsReply *)cur_insway->reply;
+	rep->err_code = 0;
+	rep->err_str = 0;
 
 	n_pac = paci->pac_cross_after(hi_req_p, hi_reply_p, rcv_pac, snd_pac);
 	if ( paci->pac_log & 0x10) 
-		log_pac(n_pac,"ans_ins", paci->pac_log);
-	if ( cur_insway->dat->rcv_num > 0 && (rep->err_code = pro_rply_pac(n_pac, cur_insway->snap, cur_insway->dat))) 
+		log_pac(n_pac,"Reply", paci->pac_log);
+	if ( cur_insway->dat->rcv_num > 0 && (rep->err_code = pro_rply_pac(n_pac, cur_insway->psnap, cur_insway->dat))) 
 	{
 		rep->err_str = my_err_str;
 		if ( paci->pac_log & 0x20) 
@@ -814,7 +838,7 @@ void PacIns::ans_ins (bool should_spo)
 	}
 }
 /* 本指令处理响应报文，匹配必须的内容,出错时置出错代码变量 */
-const char* PacIns::pro_rply_pac(PacketObj *rply_pac, struct DyVarBase *snap, struct InsData *insd)
+const char* PacIns::pro_rply_pac(PacketObj *rply_pac, struct DyVarBase **psnap, struct InsData *insd)
 {
 	int ii;
 	unsigned char *fc;
@@ -850,7 +874,7 @@ const char* PacIns::pro_rply_pac(PacketObj *rply_pac, struct DyVarBase *snap, st
 				goto ErrRet;
 			}
 		}
-
+		//{int *a =0 ; *a = 0; };
 		if ( rply->dyna_pos > 0 && fc) 
 		{
 			if ( rlen >= (rply->start ) )	
@@ -858,7 +882,7 @@ const char* PacIns::pro_rply_pac(PacketObj *rply_pac, struct DyVarBase *snap, st
 				rlen -= (rply->start-1); //start是从1开始
 				if ( rply->length > 0 && (unsigned int)rply->length < rlen)
 					rlen = rply->length;
-				snap[rply->dyna_pos].input(&fc[rply->start-1], rlen);
+				psnap[rply->dyna_pos]->input(&fc[rply->start-1], rlen);
 			}
 		}
 	}

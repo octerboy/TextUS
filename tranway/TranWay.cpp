@@ -327,6 +327,7 @@ struct DyVar:public DyVarBase { /* 动态变量， 包括来自报文的 */
 
 struct MK_Session {		//记录一个事务过程中的各种临时数据
 	struct DyVar *snap;	//随时的变量, 包括
+	struct DyVarBase **psnap;	//指向snap
 	int snap_num;
 	bool willLast;		//最后一次试错. 通常，一个用户指令只尝试一次错, 此值为true。 有时有多次尝试, 此值先为false，最后一次为true.
 
@@ -372,6 +373,9 @@ struct MK_Session {		//记录一个事务过程中的各种临时数据
 
 		snap_num = m_snap_num;
 		snap = new struct DyVar[snap_num];
+		psnap = new struct DyVarBase*[snap_num];
+		for ( i = 0 ; i < snap_num; i++)
+			psnap[i] = &snap[i];
 		for ( i = 0 ; i < snap_num; i++)
 			snap[i].index = i;
 
@@ -1755,11 +1759,11 @@ void TranWay::set_global_vars()
 		def = &gCFG->person_defs.icp_def[i];
 		for ( j = 0 ; j < i ; j++ ) {	//往前寻找
 			def2 = &gCFG->person_defs.icp_def[j];
-			if ( def->k_root == def2->k_root ) 
+			if ( def->k_root == def2->k_root ) 	//可能是内部定义的, 而不是外部定义
 				break;
 			if ( def->k_name != 0 && def2->k_name != 0 ) 
 			{
-				if (strcmp(def->k_name, def2->k_name) == 0 ) 
+				if (strcmp(def->k_name, def2->k_name) == 0 ) 	//相同的map.xml文件
 					break;
 			}
 		}
@@ -1770,7 +1774,7 @@ void TranWay::set_global_vars()
 					TBuffer::pour(gCFG->var_bufs[num], def->person_vars.vars[k].nal);
 					num++;
 				}
-		} else { //找到以前的, 就复制过来
+		} else { //找到以前的, 就复制过来, 指针而已
 			for ( k = 0; k < def->person_vars.many; k++ )
 				if ( def->person_vars.vars[k].kind == VAR_Dynamic_Global ) 
 					def->person_vars.vars[k].con = def2->person_vars.vars[k].con;
@@ -1828,7 +1832,7 @@ bool TranWay::facio( Amor::Pius *pius) {
 		if ( err_global_str[0] != 0 ) {
 			WLOG(ERR,"%s", err_global_str);
 		}
-		cur_insway.snap = mess.snap;
+		cur_insway.psnap = mess.psnap;
 		cur_insway.snap_num = mess.snap_num;
 		cur_insway.reply = &cur_ins_reply;
 
@@ -1837,7 +1841,7 @@ bool TranWay::facio( Amor::Pius *pius) {
 	case Notitia::CLONE_ALL_READY:
 		WBUG("facio CLONE_ALL_READY" );
 		mess.init(gCFG->person_defs.max_snap_num);
-		cur_insway.snap = mess.snap;
+		cur_insway.psnap = mess.psnap;
 		cur_insway.snap_num = mess.snap_num;
 		cur_insway.reply = &cur_ins_reply;
 		break;

@@ -122,7 +122,7 @@ struct InsReply {	//Ans_InsWay的indic
 
 struct InsWay {		//Pro_InsWay的indic
 	struct InsData *dat;
-	struct DyVarBase *snap;     //随时的变量, 包括
+	struct DyVarBase **psnap;     //随时的变量, 包括
 	int snap_num;
 	struct InsReply *reply;
 };
