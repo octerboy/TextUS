@@ -129,7 +129,8 @@ struct PacInsData {
 		char *q;
 		if ( !insd->err_code ) 
 			insd->err_code = def_ele->Attribute("error");
-
+		if ( !insd->err_code ) 
+			insd->err_code = def_ele->GetDocument()->RootElement()->Attribute("error"); //取整个文档的根元素定义，如"unknown error"
 		if ( (p = def_ele->Attribute("counted")) && ( *p == 'y' || *p == 'Y') )
 			insd->counted = true;
 		else 

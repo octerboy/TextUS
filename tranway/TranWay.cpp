@@ -82,7 +82,7 @@ enum TRAN_STEP {Tran_Idle = 0, Tran_Working = 1, Tran_End=2};
 #define VARIABLE_TAG_NAME "Var"
 #define ME_VARIABLE_HEAD "me."
 
-enum TranIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Respond =8, INS_SetReply = 9, INS_LetVar=10, INS_Null=99};
+enum TranIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Respond =8, INS_LetVar=10, INS_Null=99};
 enum Var_Type {VAR_ErrCode=1, VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_CurOrder=4, VAR_CurCent=5, VAR_ErrStr=6, VAR_FlowID=7, VAR_Dynamic_Global = 8, VAR_Dynamic_Link = 9, VAR_Dynamic = 10, VAR_Me=12, VAR_Constant=98,  VAR_None=99};
 struct PVar {
 	Var_Type kind;
@@ -170,9 +170,8 @@ struct PVar {
 			nal.commit(c_len);
 			nal.point[0] = 0;	//保证null结尾
 		}
-		/* 变量无内容, 才认为这是特殊变量 */
 
-		if ( strcasecmp(nm, "$ink" ) == 0 ) //当前用户命令集指纹
+		if ( strcasecmp(nm, "$ink" ) == 0 ) //当前用户命令集脚印
 		{
 			dynamic_pos = Pos_FlowPrint;
 			kind = VAR_FlowPrint;
@@ -344,6 +343,7 @@ struct MK_Session {		//记录一个事务过程中的各种临时数据
 	inline MK_Session () {
 		snap=0;
 		snap_num = 0;
+		psnap = 0;
 	};
 
 	inline void  reset(bool soft=true) {
@@ -391,7 +391,9 @@ struct MK_Session {		//记录一个事务过程中的各种临时数据
 
 	~MK_Session () {
 		if ( snap ) delete[] snap;
+		if ( psnap ) delete[] psnap;
 		snap = 0;
+		psnap = 0;
 	};
 };
 
@@ -413,10 +415,7 @@ struct PVar_Set {	/* 变量集合*/
 		many = 0;
 	};
 	
-	bool is_var(const char *nm) {
-		if (nm  && strcasecmp(nm, VARIABLE_TAG_NAME) == 0 ) return true;
-		return false;
-	};
+#define IS_VAR(X) (X != 0 && strcasecmp(X, VARIABLE_TAG_NAME) == 0 ) 
 	
 	void defer_vars(TiXmlElement *map_root, TiXmlElement *icc_root=0) //分析一下变量定义
 	{
@@ -536,16 +535,11 @@ struct PVar_Set {	/* 变量集合*/
 		}
 
 		len = 0;
-		switch (vt->kind) {
-		case VAR_Constant:	//静态常数变量
+		if ( vt->kind ==  VAR_Constant ) {	//静态常数变量
 			len = vt->con->point - vt->con->base;
 			if ( buf && len > 0 ) memcpy(buf, vt->con->base, len);
-			break;
-
-		default:
+		} else 
 			len = 0;
-			break;
-		}
 		VARET:
 		if ( buf ) buf[len] = 0;	//结束NULL
 		return vt;
@@ -573,7 +567,6 @@ struct PVar_Set {	/* 变量集合*/
 			if ( rt && rt->kind < VAR_Constant )		//如果有非静态的, 这里需要中断, comp指向下一个
 				will_break = true;
 		}
-		//printf("+++++++++++++++ %s \n",tag);
 		if (command) command[ac_len] = 0;	//结束NULL
 		nxt = comp;	//指示下一个变量
 		return rt;
@@ -1023,12 +1016,8 @@ ALL_STILL:
 			type = INS_Respond;
 		else if ( strcasecmp(ins_tag, "Let") ==0 )
 			type = INS_LetVar;
-		else if ( (p = pac_ele->Attribute("type") ) &&  strcasecmp(p, "SetReply") ==0 )
-		{
-			type = INS_SetReply;
-		}
 
-		if ( type !=INS_None && type != INS_SetReply ) 
+		if ( type !=INS_None ) 
 			goto LAST_CON;
 		aps.ordo = Notitia::Set_InsWay;
 		aps.indic = this;
@@ -1435,7 +1424,7 @@ struct INS_Set {
 		TiXmlElement *sub_serial;
 		const char *nm = app_ele->Value();
 
-		if ( var_set->is_var(nm)) return 0;
+		if ( IS_VAR(nm)) return 0;
 
 		sub_serial = map_root->FirstChildElement(nm); //找到子系列		
 		return sub_serial;
@@ -1464,7 +1453,7 @@ struct INS_Set {
 					instructions[vmany].order = cor;
 					mor = cor;
 					vmany++;
-				} else if ( !var_set->is_var(com_nm)) { 
+				} else if ( IS_VAR(com_nm)) { 
 					TEXTUS_SNPRINTF(macro_nm, sizeof(macro_nm)-1, "%s"MACRO_SUFFIX, com_nm);
 					macro_ele= map_root->FirstChildElement(macro_nm); //map_root中找宏定义
 					if ( !macro_ele) continue;
@@ -1489,7 +1478,7 @@ struct INS_Set {
 			if ( (com_nm = m_usr_ele->Value()) ) {
 				if (yes_ins(m_usr_ele, map_root, var_set) )
 					refny++;				
-				else if ( !var_set->is_var(com_nm)) { 
+				else if ( IS_VAR(com_nm)) { 
 					TEXTUS_SNPRINTF(macro_nm, sizeof(macro_nm)-1, "%s"MACRO_SUFFIX, com_nm);
 					macro_ele= map_root->FirstChildElement(macro_nm); //map_root中找宏定义
 					if ( !macro_ele) continue;
@@ -1517,17 +1506,11 @@ struct INS_Set {
 
 		many = vmany; //最后再更新一次用户命令数
 		//look for last_tran_ins
-		for ( i = 0 ; i < many; i++) {
-			for ( j = 0; j < instructions[i].comp_num; j++ )
-			{
-				for ( k = 0 ; k < instructions[i].complex[j].tr_many; k++ )
-				{
-					last_tran_ins = &(instructions[i].complex[j].tran_inses[k]);
-					if ( last_tran_ins->type != INS_SetReply)
-						last_tran_ins = 0;
-				}
-			}
-		}
+		i = many-1;
+		j = instructions[i].comp_num-1;
+		k = instructions[i].complex[j].tr_many-1;
+		last_tran_ins = &(instructions[i].complex[j].tran_inses[k]);
+		if ( !last_tran_ins->isFunction) last_tran_ins = 0;
 	};
 };	
 
@@ -1555,7 +1538,6 @@ struct  Personal_Def	//个人化定义
 		memset(flow_md, 0, sizeof(flow_md));
 	};
 	inline ~Personal_Def () {};
-
 
 	void set_here(TiXmlElement *root)
 	{
@@ -1898,7 +1880,7 @@ bool TranWay::sponte( Amor::Pius *pius) {
 
 	case Notitia::DMD_END_SESSION:	//右节点关闭, 要处理
 		WBUG("sponte DMD_END_SESSION");
-		if ( mess.left_status == LT_Working && mess.right_status == RT_OUT)	//表明是制卡工作
+		if ( mess.left_status == LT_Working && mess.right_status == RT_OUT)	//表明是事务处理中
 		{
 			mess.iRet = ERROR_DEVICE_DOWN;
 			TEXTUS_SPRINTF(mess.err_str, "device down at subor=%d", pius->subor);
@@ -1926,16 +1908,20 @@ void TranWay::handle_tran(struct FlowStr *flp) {
 	case LT_Idle:
 		/* 这里就是一般的业务啦 */
 		mess.reset();	//会话复位
+		if ( !flp ) {	//对于未指定flow_id的， 取那个默认的
+			cur_def = &(gCFG->null_icp_def);
+			goto CUR_DEF_PRO;
+		}
 		if (flp->len >= sizeof(mess.flow_id) ) 
 			alen = sizeof(mess.flow_id)-1 ;
 		else
 			alen = flp->len;
 		memcpy(mess.flow_id, flp->flow_str, alen);
 		mess.flow_id[alen] = 0;
+		cur_def = gCFG->person_defs.look(mess.flow_id); //找一个相应的指令流定义
+	CUR_DEF_PRO:
 		mess.iRet = 0;	//假定一开始都是OK。
 		TEXTUS_STRCPY(mess.err_str, " ");
-
-		cur_def = gCFG->person_defs.look(mess.flow_id); //找一个相应的指令流定义
 		if ( !cur_def ) {
 			mess.iRet = ERROR_INS_DEF;	
 			cur_def = &(gCFG->null_icp_def);
@@ -1962,7 +1948,7 @@ void TranWay::handle_tran(struct FlowStr *flp) {
 			TEXTUS_SPRINTF(mess.err_str, "not defined flow_id: %s ", mess.flow_id );
 			mess.snap[Pos_ErrCode].input(mess.iRet);
 			mk_result(true);	//工作结束
-			goto HERE_END;
+			break;
 		}
 		/* 任务开始  */
 		mess.snap[Pos_TotalIns].input( cur_def->ins_all.ic_num);
@@ -1974,12 +1960,7 @@ void TranWay::handle_tran(struct FlowStr *flp) {
 		mess.left_status = LT_Working;
 		mess.right_status = RT_READY;	//指示终端准备开始工作,
 
-		if ( !cur_def->ins_all.instructions ) {
-			mk_result(true);
-			goto HERE_END;
-		}
-		mk_hand();
-HERE_END:
+	 	mk_hand( (cur_def->ins_all.instructions == 0));
 		break;
 
 	case LT_Working:	//不接受, 不响应即可
@@ -2024,12 +2005,6 @@ PACI_PRO:
 		return  -1;	//脚本所控制的错误, 软失败
 		break;
 
-	case INS_SetReply:
-		cur_insway.dat = trani;
-		aptus->facio(&loc_pro_ins);     //向右发出指令, 右节点不再sponte
-		command_wt.tran_step = Tran_End;
-		break;
-
 	case INS_Null:
 		command_wt.tran_step =Tran_End;
 		break;
@@ -2065,8 +2040,7 @@ PACI_PRO:
 				TEXTUS_SPRINTF(h_msg, "fault at order=%d pac_which=%d of %s (%s)", mess.pro_order, command_wt.pac_which, cur_def->flow_id,  cur_ins_reply.err_str);
 				memcpy(mess.err_str, h_msg, strlen(h_msg));
 				mess.err_str[strlen(h_msg)] = 0;
-				if ( cur_ins_reply.err_code) 
-					mess.snap[Pos_ErrCode].input(cur_ins_reply.err_code);
+				mess.snap[Pos_ErrCode].input(cur_ins_reply.err_code);
 				return -3;	//这是基本报文错误，非map所控制
 			}
 			break;
@@ -2145,10 +2119,7 @@ INS_PRO:
 			break;
 		}
 		command_wt.cur = 0;
-		if ( usr_com->comp_num == 1 )
-			mess.willLast = true;
-		else 
-			mess.willLast = false; //一个用户操作，包括几个复合指令的尝试，有一个成功，就算OK
+		mess.willLast = ( usr_com->comp_num == 1 ); //一个用户操作，包括几个复合指令的尝试，有一个成功，就算OK
 NEXT_PRI_TRY:
 		command_wt.sub_loop = usr_com->complex[command_wt.cur].loop_n; //软失败的重试次数
 LOOP_PRI_TRY:
@@ -2170,9 +2141,8 @@ LOOP_PRI_TRY:
 			{ //用户定义的Abort才试下一个
 				command_wt.cur++;
 				command_wt.step--;
-				if ( command_wt.cur == (usr_com->comp_num-1) ) //最后一条复合指令啦，如果出错就调用自定义的出错过程(响应报文设置一些数据，或者向终端发些指令)
-					mess.willLast = true;
-				vt =  mess.snap[Pos_ErrCode].def_var;
+				mess.willLast = ( command_wt.cur == (usr_com->comp_num-1) ); //最后一条复合指令啦，如果出错就调用自定义的出错过程(响应报文设置一些数据，或者向终端发些指令)
+				vt =  mess.snap[Pos_ErrCode].def_var;	//重试下一个之前, 结果码(错误码）置为初始值
 				if ( vt ) mess.snap[Pos_ErrCode].DyVarBase::input(vt->con->base, vt->con->point - vt->con->base, true);	
 				goto NEXT_PRI_TRY;		//试另一个
 			} else {		//最后一条处理失败，定义出错值
