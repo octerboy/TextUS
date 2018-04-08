@@ -480,6 +480,24 @@ bool PacIns::sponte( Amor::Pius *pius) {
 		WBUG("sponte MULTI_UNIPAC_END");
 		break;
 
+	case Notitia::ERR_UNIPAC_RESOLVE:
+		WBUG("sponte ERR_UNIPAC_RESOLVE");
+		TEXTUS_SPRINTF(my_err_str, "err_unipac_resolve");
+		goto ERR_UNIPAC;
+
+	case Notitia::ERR_UNIPAC_COMPOSE:
+		WBUG("sponte ERR_UNIPAC_COMPOSE");
+		TEXTUS_SPRINTF(my_err_str, "err_unipac_compose");
+		ERR_UNIPAC:
+		{
+			struct InsReply *rep = (struct InsReply *)cur_insway->reply;
+			rep->err_str = my_err_str;
+			rep->err_code = cur_insway->dat->err_code;
+			ans_ins_ps.indic = rep;
+			aptus->sponte(&ans_ins_ps);     //向左发出指令?, 前一指令未返回, 这里又重入?
+		}
+		break;
+
 	case Notitia::PRO_UNIPAC:
 		WBUG("sponte PRO_UNIPAC");
 		if ( cur_insway )

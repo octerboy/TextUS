@@ -32,6 +32,8 @@
 #define NOT_LOAD_XML 1
 #include "WayData.h"
 
+/* 左边状态, 空闲, 等着新请求, 交易进行中 */
+enum LEFT_STATUS { LT_Idle = 0, LT_Working = 3};
 class PacTran: public Amor {
 public:
 	void ignite(TiXmlElement *cfg);	
@@ -44,6 +46,7 @@ public:
 	~PacTran();
 
 private:
+	enum LEFT_STATUS left_status;	
 	struct G_CFG { 	//全局定义
 		int flowID_fld_no;	//流标识域, 业务代码域, 
 
@@ -84,6 +87,7 @@ PacTran::PacTran()
 	loc_pro_tran.ordo = Notitia::Pro_TranWay;
 	loc_pro_tran.indic = 0;
 	loc_pro_tran.subor = Amor::CAN_ALL;
+	left_status = LT_Idle;	
 }
 
 PacTran::~PacTran() 
@@ -130,13 +134,18 @@ bool PacTran::facio( Amor::Pius *pius)
 
 	case Notitia::PRO_UNIPAC:    /* 有来自控制台的请求 */
 		WBUG("facio PRO_UNIPAC");
-		fl.flow_str=rcv_pac->getfld(gCFG->flowID_fld_no, (unsigned long*)&fl.len);		//取得业务代码, 即流标识
-		if ( !fl.flow_str) 
+		if ( left_status ==  LT_Idle )
 		{
-			WBUG("business code field null");
-		} else {
-			loc_pro_tran.indic = &fl;
-			aptus->facio(&loc_pro_tran);
+			fl.flow_str=rcv_pac->getfld(gCFG->flowID_fld_no, (unsigned long*)&fl.len);		//取得业务代码, 即流标识
+			if ( !fl.flow_str) 
+			{
+				WBUG("business code field null");
+			} else {
+				loc_pro_tran.indic = &fl;
+				aptus->facio(&loc_pro_tran);
+			}
+		} else if ( left_status ==  LT_Working) { //不接受, 不响应即可
+			WLOG(WARNING,"still working!");
 		}
 		break;
 
@@ -146,6 +155,16 @@ bool PacTran::facio( Amor::Pius *pius)
 
 	case Notitia::CLONE_ALL_READY:
 		WBUG("facio CLONE_ALL_READY" );
+		break;
+
+	case Notitia::START_SESSION:
+		WBUG("facio START_SESSION" );
+		left_status = LT_Idle;	
+		break;
+
+	case Notitia::DMD_END_SESSION:
+		WBUG("facio DMD_END_SESSION" );
+		left_status = LT_Idle;	
 		break;
 
 	default:
@@ -163,6 +182,7 @@ bool PacTran::sponte( Amor::Pius *pius)
 	switch ( pius->ordo ) {
 	case Notitia::Ans_TranWay:
 		WBUG("sponte Ans_TranWay");
+		left_status = LT_Idle;	
 		aptus->sponte(&loc_pro_pac);
 		break;
 

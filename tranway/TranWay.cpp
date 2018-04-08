@@ -64,8 +64,6 @@ int squeeze(const char *p, unsigned char *q)	//把空格等挤掉, 只留下16进制字符(大
 #define ERROR_INS_DEF -133
 
 char err_global_str[128]={0};
-/* 左边状态, 空闲, 等着新请求, 交易进行中 */
-enum LEFT_STATUS { LT_Idle = 0, LT_Working = 3};
 /* 右边状态, 空闲, 发出报文等响应 */
 enum RIGHT_STATUS { RT_IDLE = 0, RT_OUT=7, RT_READY = 3};
 enum TRAN_STEP {Tran_Idle = 0, Tran_Working = 1, Tran_End=2};
@@ -334,11 +332,11 @@ struct MK_Session {		//记录一个事务过程中的各种临时数据
 	char flow_id[64];
 	int pro_order;		//当前处理的操作序号
 
-	LEFT_STATUS left_status;
 	RIGHT_STATUS right_status;
 	int right_subor;	//指示向右发出时的subor, 返回时核对。
 	int ins_which;	//已经工作在哪个命令, 即为定义中数组的下标值
 	int iRet;	//事务最终结果
+	bool has_sponted, has_facioed;
 
 	inline MK_Session () {
 		snap=0;
@@ -356,13 +354,13 @@ struct MK_Session {		//记录一个事务过程中的各种临时数据
 					snap[i].kind = VAR_None;
 			}
 		}
-		left_status = LT_Idle;
 		right_status = RT_IDLE;
-		right_subor = 0;
+		right_subor = Amor::CAN_ALL;
 		ins_which = -1;
 		err_str[0] = 0;	
 		flow_id[0] = 0;
 		willLast = true;
+		has_sponted =  has_facioed =  false;
 	};
 
 	inline void init(int m_snap_num) //这个m_snap_num来自各XML定义的最大动态变量数
@@ -1102,7 +1100,7 @@ LAST_CON:
 		{	
 			err_var = g_vars->look(err_code, me_vars);
 			if (err_var)
-				err_code = (const char*)&err_var->con->base;
+				err_code = (const char*)err_var->con->base;
 		}
 		set_condition ( pac_ele, g_vars, me_vars);
 	};
@@ -1405,12 +1403,10 @@ struct INS_Set {
 	struct User_Command *instructions;
 	int many;
 	int ic_num;
-	struct TranIns *last_tran_ins;
 	INS_Set () {
 		instructions= 0;
 		many = 0;
 		ic_num = 0;
-		last_tran_ins = 0;
 	};
 
 	~INS_Set () {
@@ -1446,21 +1442,19 @@ struct INS_Set {
 				if ( sub) {
 					m_usr_ele->QueryIntAttribute("order", &(cor)); 
 					if ( (cor = base_cor + cor ) <= mor ) continue; //order不合序,略过
-					//a_ic_num = instructions[vmany].set_sub(m_usr_ele, var_set, sub, pac_def_root, map_root, my_obj);
 					a_ic_num = instructions[vmany].set_sub(m_usr_ele, var_set, sub, map_root, my_obj);
 					if ( a_ic_num < 0 ) continue;
 					ic_num += a_ic_num;
 					instructions[vmany].order = cor;
 					mor = cor;
 					vmany++;
-				} else if ( IS_VAR(com_nm)) { 
+				} else if ( !(IS_VAR(com_nm))) { 
 					TEXTUS_SNPRINTF(macro_nm, sizeof(macro_nm)-1, "%s"MACRO_SUFFIX, com_nm);
 					macro_ele= map_root->FirstChildElement(macro_nm); //map_root中找宏定义
 					if ( !macro_ele) continue;
 					m_usr_ele->QueryIntAttribute("order", &(cor)); 
 					nbase = base_cor + cor;
 					if ( nbase <= mor ) continue;	//order不符合顺序的，略过
-					//ev_maro( macro_ele, var_set, map_root, pac_def_root, vmany, mor, nbase, my_obj);	//为了无限制嵌套宏定义
 					ev_maro( macro_ele, var_set, map_root, vmany, mor, nbase, my_obj);	//为了无限制嵌套宏定义
 				}
 			}
@@ -1478,7 +1472,7 @@ struct INS_Set {
 			if ( (com_nm = m_usr_ele->Value()) ) {
 				if (yes_ins(m_usr_ele, map_root, var_set) )
 					refny++;				
-				else if ( IS_VAR(com_nm)) { 
+				else if ( !(IS_VAR(com_nm))) { 
 					TEXTUS_SNPRINTF(macro_nm, sizeof(macro_nm)-1, "%s"MACRO_SUFFIX, com_nm);
 					macro_ele= map_root->FirstChildElement(macro_nm); //map_root中找宏定义
 					if ( !macro_ele) continue;
@@ -1505,12 +1499,6 @@ struct INS_Set {
 		ev_maro(root, var_set, map_root, vmany, mor, 0, my_obj);	//为了无限制嵌套宏定义
 
 		many = vmany; //最后再更新一次用户命令数
-		//look for last_tran_ins
-		i = many-1;
-		j = instructions[i].comp_num-1;
-		k = instructions[i].complex[j].tr_many-1;
-		last_tran_ins = &(instructions[i].complex[j].tran_inses[k]);
-		if ( !last_tran_ins->isFunction) last_tran_ins = 0;
 	};
 };	
 
@@ -1662,8 +1650,8 @@ public:
 
 private:
 	void h_fail(char tmp[], char desc[], int p_len, int q_len, const char *p, const char *q, const char *fun);
-	void mk_hand(bool right_down=false);	//还有右边状态处理
-	void mk_result(bool last=true);
+	void mk_hand();
+	void mk_result(bool fend=true);
 	void set_global_vars();
 
 	struct G_CFG { 	//全局定义
@@ -1703,7 +1691,7 @@ private:
 		long sub_loop;	//循环次数
 	} command_wt;
 
-	int sub_serial_pro(struct ComplexSubSerial *comp, bool &has_back,  struct TranIns *last_trani=0);
+	int sub_serial_pro(struct ComplexSubSerial *comp, bool &has_back);
 	#include "wlog.h"
 };
 
@@ -1773,7 +1761,6 @@ void TranWay::ignite(TiXmlElement *prop) {
 		gCFG->prop = prop;
 		has_config = true;
 	}
-
 	return;
 }
 
@@ -1817,7 +1804,6 @@ bool TranWay::facio( Amor::Pius *pius) {
 		cur_insway.psnap = mess.psnap;
 		cur_insway.snap_num = mess.snap_num;
 		cur_insway.reply = &cur_ins_reply;
-
 		break;
 
 	case Notitia::CLONE_ALL_READY:
@@ -1855,6 +1841,7 @@ bool TranWay::sponte( Amor::Pius *pius) {
 	switch ( pius->ordo ) {
 	case Notitia::Ans_InsWay:
 		WBUG("sponte Ans_InsWay");
+		mess.has_sponted = true;
 		if ( pius->indic)
 			memcpy(&cur_ins_reply, pius->indic, sizeof(struct InsReply));
 
@@ -1874,17 +1861,26 @@ bool TranWay::sponte( Amor::Pius *pius) {
 				break;
 			}
 			WLOG(WARNING, "mess error right_status=%s right_subor=%d pius->subor=%d", r_str, mess.right_subor, pius->subor);
-		} else 
-			mk_hand();
+		} else {
+			if ( mess.has_facioed ) mk_hand();
+		}
 		break;
 
 	case Notitia::DMD_END_SESSION:	//右节点关闭, 要处理
 		WBUG("sponte DMD_END_SESSION");
-		if ( mess.left_status == LT_Working && mess.right_status == RT_OUT)	//表明是事务处理中
+		mess.has_sponted = true;
+		if ( mess.right_status == RT_OUT)	//表明是事务处理中
 		{
+			struct User_Command *usr_com;
+			struct TranIns *trani;
 			mess.iRet = ERROR_DEVICE_DOWN;
 			TEXTUS_SPRINTF(mess.err_str, "device down at subor=%d", pius->subor);
-			mk_hand(true);
+			usr_com = &(cur_def->ins_all.instructions[mess.ins_which]);
+			trani = &(usr_com->complex[command_wt.cur].tran_inses[command_wt.pac_which]);
+			if ( trani->err_code) mess.snap[Pos_ErrCode].input(trani->err_code);
+			mess.snap[Pos_ErrStr].input(mess.err_str);
+			WLOG(WARNING, "Error %s:  %s", mess.snap[Pos_ErrCode].val_p, mess.err_str);
+			mk_result(true);		
 		}
 		break;
 
@@ -1904,84 +1900,68 @@ void TranWay::handle_tran(struct FlowStr *flp) {
 	struct PVar  *vt;
 	struct DyVar *dvr;
 
-	switch ( mess.left_status) {
-	case LT_Idle:
-		/* 这里就是一般的业务啦 */
-		mess.reset();	//会话复位
-		if ( !flp ) {	//对于未指定flow_id的， 取那个默认的
-			cur_def = &(gCFG->null_icp_def);
-			goto CUR_DEF_PRO;
-		}
-		if (flp->len >= sizeof(mess.flow_id) ) 
-			alen = sizeof(mess.flow_id)-1 ;
-		else
-			alen = flp->len;
-		memcpy(mess.flow_id, flp->flow_str, alen);
-		mess.flow_id[alen] = 0;
-		cur_def = gCFG->person_defs.look(mess.flow_id); //找一个相应的指令流定义
-	CUR_DEF_PRO:
-		mess.iRet = 0;	//假定一开始都是OK。
-		TEXTUS_STRCPY(mess.err_str, " ");
-		if ( !cur_def ) {
-			mess.iRet = ERROR_INS_DEF;	
-			cur_def = &(gCFG->null_icp_def);
-		}
-		/* 寻找变量集中所有动态的, 看看是否有start_pos和get_length的, 根据定义赋值到mess中 */
-		for ( i = 0 ; i <  cur_def->person_vars.many; i++) 
-		{
-			vt = &cur_def->person_vars.vars[i];
-			if ( vt->dynamic_pos >=0 ) {
-				dvr = &mess.snap[vt->dynamic_pos];
-				if (dvr->c_len > 0) continue; //如果动态量没有清空, 就不再赋新值.这个量跨flow, 直到Notitia:START_SESSION,END_SESSION
-				dvr->kind = vt->kind;
-				dvr->def_var = vt;
-				dvr->def_link = (vt->kind == VAR_Dynamic_Link);
-				if ( vt->kind == VAR_Dynamic_Global ) 
-					dvr->con = vt->con;	//全局
-				if ( vt->con->point > vt->con->base )	//先把定义的静态内容链接过来, 动态变量的默认值
-					dvr->DyVarBase::input(vt->con->base, vt->con->point - vt->con->base, true); //只是link, 即使全局量也不矛盾。
-			}
-		}
-		
-		//{int *a =0 ; *a = 0; };
-		if (mess.iRet == ERROR_INS_DEF) {
-			TEXTUS_SPRINTF(mess.err_str, "not defined flow_id: %s ", mess.flow_id );
-			mess.snap[Pos_ErrCode].input(mess.iRet);
-			mk_result(true);	//工作结束
-			break;
-		}
-		/* 任务开始  */
-		mess.snap[Pos_TotalIns].input( cur_def->ins_all.ic_num);
-		if ( cur_def->flow_md[0] )
-			mess.snap[Pos_FlowPrint].input( cur_def->flow_md);
-		mess.snap[Pos_FlowID].input(mess.flow_id);
-
-		mess.ins_which = 0;
-		mess.left_status = LT_Working;
-		mess.right_status = RT_READY;	//指示终端准备开始工作,
-
-	 	mk_hand( (cur_def->ins_all.instructions == 0));
-		break;
-
-	case LT_Working:	//不接受, 不响应即可
-		WLOG(WARNING,"still working!");
-		break;
-
-	default:
-		break;
+	/* 这里就是一般的业务啦 */
+	mess.reset();	//会话复位
+	if ( !flp ) {	//对于未指定flow_id的， 取那个默认的
+		cur_def = &(gCFG->null_icp_def);
+		goto CUR_DEF_PRO;
 	}
-	return;
+	if (flp->len >= sizeof(mess.flow_id) ) 
+		alen = sizeof(mess.flow_id)-1 ;
+	else
+		alen = flp->len;
+	memcpy(mess.flow_id, flp->flow_str, alen);
+	mess.flow_id[alen] = 0;
+	cur_def = gCFG->person_defs.look(mess.flow_id); //找一个相应的指令流定义
+CUR_DEF_PRO:
+	mess.iRet = 0;	//假定一开始都是OK。
+	TEXTUS_STRCPY(mess.err_str, " ");
+	if ( !cur_def ) {
+		mess.iRet = ERROR_INS_DEF;	
+		cur_def = &(gCFG->null_icp_def);
+	}
+	/* 寻找变量集中所有动态的, 看看是否有start_pos和get_length的, 根据定义赋值到mess中 */
+	for ( i = 0 ; i <  cur_def->person_vars.many; i++) 
+	{
+		vt = &cur_def->person_vars.vars[i];
+		if ( vt->dynamic_pos >=0 ) {
+			dvr = &mess.snap[vt->dynamic_pos];
+			if (dvr->c_len > 0) continue; //如果动态量没有清空, 就不再赋新值.这个量跨flow, 直到Notitia:START_SESSION,END_SESSION
+			dvr->kind = vt->kind;
+			dvr->def_var = vt;
+			dvr->def_link = (vt->kind == VAR_Dynamic_Link);
+			if ( vt->kind == VAR_Dynamic_Global ) 
+				dvr->con = vt->con;	//全局
+			if ( vt->con->point > vt->con->base )	//先把定义的静态内容链接过来, 动态变量的默认值
+				dvr->DyVarBase::input(vt->con->base, vt->con->point - vt->con->base, true); //只是link, 即使全局量也不矛盾。
+		}
+	}
+	
+	//{int *a =0 ; *a = 0; };
+	if (mess.iRet == ERROR_INS_DEF) {
+		TEXTUS_SPRINTF(mess.err_str, "not defined flow_id: %s ", mess.flow_id );
+		mess.snap[Pos_ErrCode].input(mess.iRet);
+		WLOG(WARNING, "Error %s:  %s", mess.snap[Pos_ErrCode].val_p, mess.err_str);
+		mess.snap[Pos_ErrStr].input(mess.err_str);
+		mk_result(true);	//工作结束
+		return;
+	}
+	/* 任务开始  */
+	mess.snap[Pos_TotalIns].input( cur_def->ins_all.ic_num);
+	if ( cur_def->flow_md[0] )
+		mess.snap[Pos_FlowPrint].input( cur_def->flow_md);
+	mess.snap[Pos_FlowID].input(mess.flow_id);
+
+	mess.ins_which = 0;
+	mess.right_status = RT_READY;	//指示终端准备开始工作,
+	mk_hand();
 }
 
 /* 子序列入口 */
-int TranWay::sub_serial_pro(struct ComplexSubSerial *comp, bool &is_function, struct TranIns *last_trani)
+int TranWay::sub_serial_pro(struct ComplexSubSerial *comp, bool &is_function)
 {
 	struct TranIns *trani;
 	char h_msg[1024];
-	if ( last_trani ) {
-		trani=last_trani;
-		goto PACI_PRO;
-	}
 SUB_INS_PRO:
 	trani = &(comp->tran_inses[command_wt.pac_which]);
 	if ( command_wt.tran_step == Tran_Idle )
@@ -1996,7 +1976,6 @@ SUB_INS_PRO:
 		}
 	}
 
-PACI_PRO:
 	is_function = false;
 	switch ( trani->type) {
 	case INS_Abort:
@@ -2041,6 +2020,8 @@ PACI_PRO:
 				memcpy(mess.err_str, h_msg, strlen(h_msg));
 				mess.err_str[strlen(h_msg)] = 0;
 				mess.snap[Pos_ErrCode].input(cur_ins_reply.err_code);
+				mess.snap[Pos_ErrStr].input(mess.err_str);
+				WLOG(WARNING, "Error %s:  %s", mess.snap[Pos_ErrCode].val_p, mess.err_str);
 				return -3;	//这是基本报文错误，非map所控制
 			}
 			break;
@@ -2057,6 +2038,8 @@ PACI_PRO:
 		mess.iRet = ERROR_RESULT;
 		TEXTUS_SPRINTF(mess.err_str, "result error at order=%d pac_which=%d of %s", mess.pro_order, command_wt.pac_which, cur_def->flow_id);
 		if ( trani->err_code) mess.snap[Pos_ErrCode].input(trani->err_code);
+		mess.snap[Pos_ErrStr].input(mess.err_str);
+		WLOG(WARNING, "Error %s:  %s", mess.snap[Pos_ErrCode].val_p, mess.err_str);
 		return -2;	//这是map所控制
 	} else {
 		command_wt.pac_which++;	//指向下一条报文处理
@@ -2069,7 +2052,7 @@ PACI_PRO:
 	return 0;
 }
 
-void TranWay::mk_hand(bool right_down)
+void TranWay::mk_hand()
 {
 	struct User_Command *usr_com;
 	struct TranIns *trani;
@@ -2086,22 +2069,14 @@ void TranWay::mk_hand(bool right_down)
 			mess.right_status = RT_READY ;		\
 			goto INS_PRO;					\
 		}
-
 #define NEXT_INS	\
 		mess.ins_which++;				\
 		if ( mess.ins_which < cur_def->ins_all.many)	\
 			goto INS_PRO;				\
 		else 						\
 			mk_result(false);		
-
 INS_PRO:
 	usr_com = &(cur_def->ins_all.instructions[mess.ins_which]);
-	if ( right_down ) {
-		trani = &(usr_com->complex[command_wt.cur].tran_inses[command_wt.pac_which]);
-		if ( trani->err_code) mess.snap[Pos_ErrCode].input(trani->err_code);
-		mk_result(true);		
-		return;
-	}
 	mess.pro_order = usr_com->order;	
 	if ( mess.snap[Pos_CurCent].def_var) 
 		mess.snap[Pos_CurCent].input((mess.ins_which*100)/cur_def->ins_all.many);
@@ -2144,21 +2119,28 @@ LOOP_PRI_TRY:
 				mess.willLast = ( command_wt.cur == (usr_com->comp_num-1) ); //最后一条复合指令啦，如果出错就调用自定义的出错过程(响应报文设置一些数据，或者向终端发些指令)
 				vt =  mess.snap[Pos_ErrCode].def_var;	//重试下一个之前, 结果码(错误码）置为初始值
 				if ( vt ) mess.snap[Pos_ErrCode].DyVarBase::input(vt->con->base, vt->con->point - vt->con->base, true);	
+				vt =  mess.snap[Pos_ErrStr].def_var;	//重试下一个之前, 结果提示置为初始值
+				if (vt)	mess.snap[Pos_ErrStr].DyVarBase::input(vt->con->base, vt->con->point - vt->con->base, true);
 				goto NEXT_PRI_TRY;		//试另一个
 			} else {		//最后一条处理失败，定义出错值
 				mess.iRet = ERROR_USER_ABORT;			
-				TEXTUS_SPRINTF(mess.err_str, "user abort at %d of %s", mess.pro_order, cur_def->flow_id);
+				WLOG(WARNING, "user abort at %d of %s", mess.pro_order, cur_def->flow_id);
 				ERR_TO_LAST_INS
 			}
 		} else if ( i_ret ==0  ) 
 		{	//应该是正进行中
 			mess.right_status = RT_OUT;
+			mess.has_sponted =  mess.has_facioed =  false;
 			if ( is_function ) {
 				aptus->facio(&loc_pro_ins);     
 				if ( mess.right_status == RT_OUT ) //向右发出指令, 右节点不再sponte. 正常情况下, right_status不变
 					goto INS_PRO;		//这里处理结果. 但若右节点dmd_end_session导致复位, 就不再处理
-			} else 
+			} else {
 				aptus->facio(&loc_pro_ins);     //向右发出指令,aptus.facio的处理放在最后,很重要!! 因为这个调用中可能收到右节点的sponte. 注意!!,一定要注意.
+				mess.has_facioed = true; 
+				if ( mess.has_sponted  && mess.right_status == RT_OUT)	//已经sponte, 这里处理。右接口不处理
+					goto INS_PRO;		//这里处理结果. 但若右节点dmd_end_session导致复位, 就不再处理
+			}
 		} else if ( i_ret > 0  ) {
 			mess.right_status = RT_READY;	//右端闲
 			WBUG("has completed %d, order %d", mess.ins_which, mess.pro_order);
@@ -2171,16 +2153,24 @@ LOOP_PRI_TRY:
 	}
 }
 
-void TranWay::mk_result(bool last_pac)
+void TranWay::mk_result(bool fend)
 {
 	bool has_back;
-	if ( mess.iRet != 0 ) {	
-		WLOG(WARNING, "Error %s:  %s", mess.snap[Pos_ErrCode].val_p, mess.err_str);
-		mess.snap[Pos_ErrStr].input(mess.err_str);
+	int ret;
+	if ( fend )	//这是为了对付中途中断的情况 
+	{
+		mess.ins_which = cur_def->ins_all.many-1;	//最后一个用户指令, 多重试几个, 只算第一个,取最后一条报文处理
+		mess.pro_order = cur_def->ins_all.instructions[mess.ins_which].order;
+		command_wt.pac_which = cur_def->ins_all.instructions[mess.ins_which].complex[0].tr_many-1;
+		command_wt.tran_step = Tran_Idle; //pac处理开始,
+		sub_serial_pro(&cur_def->ins_all.instructions[mess.ins_which].complex[0], has_back);
+		mess.right_status = RT_OUT;
+		aptus->facio(&loc_pro_ins);
+		ret = sub_serial_pro(&cur_def->ins_all.instructions[mess.ins_which].complex[0], has_back);
+		if ( ret <= 0  ) {
+			WLOG(EMERG, "bug! last_pac_pro should finished!");
+		}
 	}
-	if ( last_pac && cur_def->ins_all.last_tran_ins )	//这是为了对付中途中断的情况 
-		sub_serial_pro(0, has_back, cur_def->ins_all.last_tran_ins);
-	//{int *a=0; *a=0;}
 	aptus->sponte(&loc_ans_tran);    //制卡的结果回应给控制台
 	mess.reset();
 }
