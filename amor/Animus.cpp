@@ -1088,6 +1088,9 @@ unsigned long Notitia::get_ordo(const char *comm_str)
 	WHAT_ORDO(CMD_GET_VERSION , Y); \
 	WHAT_ORDO(CMD_ZERO_FILE , Y); \
 	WHAT_ORDO(CMD_CLOSE_FILE , Y); \
+	WHAT_ORDO(CMD_GET_SCHED, Y); \
+	WHAT_ORDO(CMD_PUT_PENDOR , Y); \
+	WHAT_ORDO(DMD_SCHED_RUN, Y); \
 	WHAT_ORDO(CMD_GET_PIUS , Y); \
 	WHAT_ORDO(DMD_CONTINUE_SELF , Y); \
 	WHAT_ORDO(DMD_STOP_NEXT , Y); \
@@ -1191,6 +1194,11 @@ unsigned long Notitia::get_ordo(const char *comm_str)
 	WHAT_ORDO(ERR_UNIPAC_RESOLVE , Y); \
 	WHAT_ORDO(ERR_UNIPAC_INFO, Y); \
 	WHAT_ORDO(MULTI_UNIPAC_END,Y); \
+	WHAT_ORDO(Set_InsWay,Y); \
+	WHAT_ORDO(Pro_InsWay,Y); \
+	WHAT_ORDO(Ans_InsWay,Y); \
+	WHAT_ORDO(Pro_TranWay,Y); \
+	WHAT_ORDO(Ans_TranWay,Y); \
 	WHAT_ORDO(CMD_SET_DBFACE , Y); \
 	WHAT_ORDO(CMD_SET_DBCONN , Y); \
 	WHAT_ORDO(CMD_DBFETCH , Y); \

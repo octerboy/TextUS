@@ -14,7 +14,73 @@
  */
 #define DEBUG
 
-const char *ld_lib_path = 0;
+static char ld_lib_path[2048] = {0};
+void env_sub(const char *path_source, char *path_dest)
+{
+	char *ps, *q,*qw, *qr;
+	const char *right;
+	char env_n[128], pt[2048];
+	char *env;
+	ps = (char*)path_source;
+	*pt = 0;
+	if ( path_dest ) *path_dest = 0;
+	if ( !path_source ) return;
+	while ( *ps )
+	{
+		q = 0;
+		right= 0;
+		env = 0;
+		q = strstr(ps, "$(");
+		qw = strstr(ps, "${");
+		if ( q && qw  )
+		{
+			if ( q > qw )
+				q = qw;
+		} else {	//若有一个为空
+			if ( !q )	//不管哪个为null, 结果一样 
+				q = qw;
+		}
+		if (!q)
+		{	//没有$( ${开头, 整结束了
+			TEXTUS_STRCAT(pt, ps);
+			break;
+		} else {	//有
+			TEXTUS_STRNCAT(pt, ps, q-ps);
+			q++;
+			if ( *q == '(' )
+				right =")";
+			else
+				right= "}";
+
+			q++;	//q跳过括号
+			qr = strpbrk(q, right);
+			if ( qr && ((size_t) (qr - q+1)) < sizeof(env_n) )
+			{
+				memcpy(env_n, q, qr-q);
+				env_n [qr-q] = 0;
+		#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+				char *env_o;
+				size_t env_l;
+				if (!_dupenv_s(&env_o, &env_l, env_n))
+				{
+					TEXTUS_STRCAT(pt, env_o);
+					free(env_o);
+				}
+		#else
+				env = getenv(env_n);
+				if (env )
+					TEXTUS_STRCAT(pt, env);
+		#endif
+				ps = (qr+1);	//不管有无环境变量, 都跳过了
+			} else {
+				//没有右括号
+				ps = q;
+			}
+		}
+	}
+	memcpy(path_dest, pt, strlen(pt));
+	path_dest[strlen(pt)] = 0;
+}
 char* fileIsOK (char *filename, char *matter, int row, int keyIndex) 
 {
   static char ctlstr[33];
@@ -222,7 +288,7 @@ int main (int argc, char *argv[] )
   root = doc.RootElement();
   row = root->Row();
   tag = root->Attribute("tag");
-  ld_lib_path = root->Attribute("path");
+	env_sub(root->Attribute("path"), ld_lib_path);
   if ( !tag ) 
   {
 	tag = new char [16];

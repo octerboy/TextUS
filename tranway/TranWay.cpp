@@ -336,7 +336,6 @@ struct MK_Session {		//记录一个事务过程中的各种临时数据
 	int right_subor;	//指示向右发出时的subor, 返回时核对。
 	int ins_which;	//已经工作在哪个命令, 即为定义中数组的下标值
 	int iRet;	//事务最终结果
-	bool has_sponted, has_facioed;
 
 	inline MK_Session () {
 		snap=0;
@@ -360,7 +359,6 @@ struct MK_Session {		//记录一个事务过程中的各种临时数据
 		err_str[0] = 0;	
 		flow_id[0] = 0;
 		willLast = true;
-		has_sponted =  has_facioed =  false;
 	};
 
 	inline void init(int m_snap_num) //这个m_snap_num来自各XML定义的最大动态变量数
@@ -1640,9 +1638,9 @@ struct PersonDef_Set {	//User_Command集合之集合
 class TranWay: public Amor {
 public:
 	void ignite(TiXmlElement *cfg);	
-	bool facio( Pius *);
+	bool facio( Amor::Pius *);
 	void handle_tran(struct FlowStr *fl);	//左边状态处理
-	bool sponte( Pius *);
+	bool sponte( Amor::Pius *);
 	Amor *clone();
 
 	TranWay();
@@ -1841,7 +1839,6 @@ bool TranWay::sponte( Amor::Pius *pius) {
 	switch ( pius->ordo ) {
 	case Notitia::Ans_InsWay:
 		WBUG("sponte Ans_InsWay");
-		mess.has_sponted = true;
 		if ( pius->indic)
 			memcpy(&cur_ins_reply, pius->indic, sizeof(struct InsReply));
 
@@ -1862,13 +1859,12 @@ bool TranWay::sponte( Amor::Pius *pius) {
 			}
 			WLOG(WARNING, "mess error right_status=%s right_subor=%d pius->subor=%d", r_str, mess.right_subor, pius->subor);
 		} else {
-			if ( mess.has_facioed ) mk_hand();
+			mk_hand();
 		}
 		break;
 
 	case Notitia::DMD_END_SESSION:	//右节点关闭, 要处理
 		WBUG("sponte DMD_END_SESSION");
-		mess.has_sponted = true;
 		if ( mess.right_status == RT_OUT)	//表明是事务处理中
 		{
 			struct User_Command *usr_com;
@@ -1980,6 +1976,9 @@ SUB_INS_PRO:
 	switch ( trani->type) {
 	case INS_Abort:
 		if (trani->err_code ) mess.snap[Pos_ErrCode].input(trani->err_code);
+		TEXTUS_SPRINTF(mess.err_str,  "user abort at %d of %s", mess.pro_order, cur_def->flow_id);
+		mess.snap[Pos_ErrStr].input(mess.err_str);
+		WLOG(WARNING, "Error %s:  %s", mess.snap[Pos_ErrCode].val_p, mess.err_str);
 		command_wt.tran_step = Tran_End;
 		return  -1;	//脚本所控制的错误, 软失败
 		break;
@@ -2124,22 +2123,17 @@ LOOP_PRI_TRY:
 				goto NEXT_PRI_TRY;		//试另一个
 			} else {		//最后一条处理失败，定义出错值
 				mess.iRet = ERROR_USER_ABORT;			
-				WLOG(WARNING, "user abort at %d of %s", mess.pro_order, cur_def->flow_id);
 				ERR_TO_LAST_INS
 			}
 		} else if ( i_ret ==0  ) 
 		{	//应该是正进行中
 			mess.right_status = RT_OUT;
-			mess.has_sponted =  mess.has_facioed =  false;
 			if ( is_function ) {
 				aptus->facio(&loc_pro_ins);     
 				if ( mess.right_status == RT_OUT ) //向右发出指令, 右节点不再sponte. 正常情况下, right_status不变
 					goto INS_PRO;		//这里处理结果. 但若右节点dmd_end_session导致复位, 就不再处理
 			} else {
 				aptus->facio(&loc_pro_ins);     //向右发出指令,aptus.facio的处理放在最后,很重要!! 因为这个调用中可能收到右节点的sponte. 注意!!,一定要注意.
-				mess.has_facioed = true; 
-				if ( mess.has_sponted  && mess.right_status == RT_OUT)	//已经sponte, 这里处理。右接口不处理
-					goto INS_PRO;		//这里处理结果. 但若右节点dmd_end_session导致复位, 就不再处理
 			}
 		} else if ( i_ret > 0  ) {
 			mess.right_status = RT_READY;	//右端闲

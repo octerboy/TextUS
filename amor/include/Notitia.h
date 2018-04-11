@@ -54,6 +54,9 @@ enum HERE_ORDO {
 	CMD_GET_VERSION	=30,	//取得版本信息		
 	CMD_ZERO_FILE	=31,
 	CMD_CLOSE_FILE	=32,
+	CMD_GET_SCHED	=33,	/* 取得调度者的指针 */
+	CMD_PUT_PENDOR	=34,	/* 向调度者设置 */
+	DMD_SCHED_RUN	=35,	/* 调度一个对象的运行 */
 	CMD_GET_PIUS		=41,	/* get pius from a keeper */
 	DMD_CONTINUE_SELF	=42,	//继续下本接力者
 	DMD_STOP_NEXT 		=43,	//停止下一个接力者
@@ -229,3 +232,4 @@ enum HERE_ORDO {
 	TEXTUS_AMOR_STORAGE void env_sub(const char *ps, char *pt);
 };
 #endif
+

@@ -115,6 +115,10 @@ private:
 	void run();
 	void sort();		//整理
 	bool shouldEnd;
+	struct Describo::Pendor *pendors;	//延后调用的数组；
+	int pendor_size;
+	int pendor_top;
+	void run_pendors();
 #include "wlog.h"
 };
 
@@ -150,6 +154,8 @@ void Sched::ignite(TiXmlElement *cfg)
 
 	timer_sec = timer_milli/1000;
 	timer_usec = (timer_milli % 1000) * 1000;
+	cfg->QueryIntAttribute("ponder", &(pendor_size));
+	pendors = new struct Describo::Pendor[pendor_size];
 }
 
 bool Sched::sponte( Amor::Pius *apius)
@@ -287,6 +293,28 @@ bool Sched::sponte( Amor::Pius *apius)
 		shouldEnd = true;
 		break;
 
+	case Notitia::CMD_GET_SCHED:	/* 取得本对象地址 */
+		WBUG("CMD_GET_SCHED this = %p", this);
+		apius->indic = this;
+		break;
+
+	case Notitia::CMD_PUT_PENDOR:	/* 设置需要调度的对象 */
+#define POR ((struct Describo::Pendor*)apius->indic)
+		WBUG("CMD_PUT_PENDOR pupa=%p, dir=%d, from=%d, pius=%p", POR->pupa, POR->dir, POR->from, POR->pius);
+		for ( i = 0 ; i < pendor_size; i++ )
+		{
+			if ( pendors[i].pupa == 0 )
+			{
+				pendors[i].pupa = POR->pupa;
+				pendors[i].dir = POR->dir;
+				pendors[i].from = POR->from;
+				pendors[i].pius = POR->pius;
+				if ( i > pendor_top ) pendor_top = i;
+				break;
+			}
+		}
+		break;
+
 	default:
 		return false;
 	}
@@ -384,12 +412,40 @@ Sched::Sched()
 	infor_size = 64;
 	timer_infor = new struct Timer_info [infor_size];
 	shouldEnd = false;
+	pendors = 0;
+	pendor_top = -1;
+	pendor_size = 16;
+}
+
+void Sched::run_pendors()
+{
+	Amor::Pius aps;
+	struct Describo::Pendor pen;
+	int i;
+	i = pendor_top ; 
+	for ( ; i > -1; i-- )
+	{
+		if ( pendors[i].pupa != 0 )
+		{
+			aps.ordo = Notitia::DMD_SCHED_RUN;
+			
+			aps.indic = &pen;
+			pen.pupa = pendors[i].pupa;
+			pen.dir = pendors[i].dir;
+			pen.from = pendors[i].from;
+			pen.pius = pendors[i].pius;
+			pendors[i].pupa = 0;
+			pendor_top = i-1;
+			WBUG("run pendor pupa=%p, dir=%d, from=%d, pius=%p", pen.pupa, pen.dir, pen.from, pen.pius);
+			pen.pupa->facio(&aps);
+		}
+	}
 }
 
 /* 这是唯一个不返回的函数  */
 void Sched:: run()
 {
-	bool should_click;
+bool should_click;
 	int nready;
 	fd_set rset;
 	fd_set wset;
@@ -399,6 +455,7 @@ void Sched:: run()
 	int busy = 0 ;	//忙计数, 一旦有空, 此数复位为0 
 
 LOOP:
+	if ( pendor_top > -1 ) run_pendors();
 	rset = rd_tors.rwSet;
 	wset = wr_tors.rwSet;
 	eset = ex_tors.rwSet;

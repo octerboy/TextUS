@@ -44,5 +44,17 @@ public:
 			pupa = 0;
 		};
 	};
+	struct Pendor{
+		Amor *pupa;	//被调用facio的对象
+		Amor::Pius *pius;
+		int dir;
+		int from;
+		inline Pendor() {
+			pius = 0;
+			pupa = 0;
+			dir = -1;
+			from = 0;
+		};
+	};
 };
 #endif
