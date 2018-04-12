@@ -279,6 +279,7 @@ private:
 	char my_err_str[1024];
 	struct InsWay *cur_insway;
 	void load_pac_def();
+	void log_ins ();
 	struct G_CFG { 	//全局定义
 		TiXmlDocument doc_pac_def;	//pacdef：报文定义
 		TiXmlElement *pac_def_root;
@@ -293,11 +294,10 @@ private:
 		};	
 	};
 
-	PacketObj hi_req, hi_reply; /* 向右传递的, 可能是对HMS, 或是对IC终端 */
-	PacketObj *hi_req_p, *hi_reply_p; /* 向右传递的, 可能是对HMS, 或是对IC终端 */
+	PacketObj hi_req, hi_reply; /* 向右传递的  */
+	PacketObj *hi_req_p, *hi_reply_p, *last_ans_pac; /* 向右传递的 */
 	PacketObj *hipa[3];
-	PacketObj *rcv_pac;	/* 来自左节点的PacketObj */
-	PacketObj *snd_pac;
+	PacketObj *rcv_pac, *snd_pac; //左节点的
 	Amor::Pius loc_pro_pac, prodb_ps, other_ps,ans_ins_ps;
 
 	struct G_CFG *gCFG;     /* 全局共享参数 */
@@ -428,6 +428,11 @@ bool PacIns::facio( Amor::Pius *pius) {
 		WBUG("facio Pro_InsWay, tag %s", ((struct InsWay*)pius->indic)->dat->ins_tag);
 		cur_insway = (struct InsWay*)pius->indic;
 		pro_ins();
+		break;
+
+	case Notitia::Log_InsWay:    /* 记录报文, 往往是在错误情况 */
+		WBUG("facio Log_InsWay");
+		log_ins();
 		break;
 
 	case Notitia::IGNITE_ALL_READY:
@@ -832,22 +837,21 @@ void PacIns::ans_ins (bool should_spo)
 {
 	struct PacInsData *paci;
 	struct InsReply *rep;
-	PacketObj *n_pac;
 	paci = (struct PacInsData *)cur_insway->dat->ext_ins;
 	rep = (struct InsReply *)cur_insway->reply;
 	rep->err_code = 0;
 	rep->err_str = 0;
 
-	n_pac = paci->pac_cross_after(hi_req_p, hi_reply_p, rcv_pac, snd_pac);
+	last_ans_pac = paci->pac_cross_after(hi_req_p, hi_reply_p, rcv_pac, snd_pac);
 	if ( paci->pac_log & 0x10) 
-		log_pac(n_pac,"Reply", paci->pac_log);
-	if ( cur_insway->dat->rcv_num > 0 && (rep->err_code = pro_rply_pac(n_pac, cur_insway->psnap, cur_insway->dat))) 
+		log_pac(last_ans_pac,"Reply", paci->pac_log);
+	if ( cur_insway->dat->rcv_num > 0 && (rep->err_code = pro_rply_pac(last_ans_pac, cur_insway->psnap, cur_insway->dat))) 
 	{
 		rep->err_str = my_err_str;
 		if ( paci->pac_log & 0x20) 
 		{
 			log_pac(hi_req_p, my_err_str, paci->pac_log);
-			log_pac(n_pac,"Reply", paci->pac_log);
+			log_pac(last_ans_pac,"Reply", paci->pac_log);
 		}
 	}
 	if (should_spo )
@@ -856,6 +860,13 @@ void PacIns::ans_ins (bool should_spo)
 		aptus->sponte(&ans_ins_ps);     //向左发出指令, 
 	}
 }
+
+void PacIns::log_ins ()
+{
+	log_pac(hi_req_p, "Request", PAC_LOG_BOTH);
+	log_pac(last_ans_pac,"Reply", PAC_LOG_BOTH);
+}
+
 /* 本指令处理响应报文，匹配必须的内容,出错时置出错代码变量 */
 const char* PacIns::pro_rply_pac(PacketObj *rply_pac, struct DyVarBase **psnap, struct InsData *insd)
 {

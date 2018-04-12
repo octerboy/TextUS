@@ -1199,6 +1199,7 @@ unsigned long Notitia::get_ordo(const char *comm_str)
 	WHAT_ORDO(Ans_InsWay,Y); \
 	WHAT_ORDO(Pro_TranWay,Y); \
 	WHAT_ORDO(Ans_TranWay,Y); \
+	WHAT_ORDO(Log_InsWay,Y); \
 	WHAT_ORDO(CMD_SET_DBFACE , Y); \
 	WHAT_ORDO(CMD_SET_DBCONN , Y); \
 	WHAT_ORDO(CMD_DBFETCH , Y); \

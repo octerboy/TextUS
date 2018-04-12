@@ -57,16 +57,11 @@ int squeeze(const char *p, unsigned char *q)	//把空格等挤掉, 只留下16进制字符(大
 	return i;
 };
 
-#define ERROR_DEVICE_DOWN -100
-#define ERROR_RECV_PAC -202
-#define ERROR_RESULT -210
-#define ERROR_USER_ABORT -203
-#define ERROR_INS_DEF -133
-
 char err_global_str[128]={0};
 /* 右边状态, 空闲, 发出报文等响应 */
 enum RIGHT_STATUS { RT_IDLE = 0, RT_OUT=7, RT_READY = 3};
 enum TRAN_STEP {Tran_Idle = 0, Tran_Working = 1, Tran_End=2};
+enum SUB_RET {Sub_Working = 0, Sub_OK = 1, Sub_Rcv_Pac_Fail=-2, Sub_Soft_Fail=-1, Sub_Valid_Fail = -3};
 
 /* 包括SysTime这样的变量，都由外部函数计算，所以这里只保留脚本指纹数据 */	
 #define Pos_ErrCode 1 
@@ -335,7 +330,6 @@ struct MK_Session {		//记录一个事务过程中的各种临时数据
 	RIGHT_STATUS right_status;
 	int right_subor;	//指示向右发出时的subor, 返回时核对。
 	int ins_which;	//已经工作在哪个命令, 即为定义中数组的下标值
-	int iRet;	//事务最终结果
 
 	inline MK_Session () {
 		snap=0;
@@ -1672,7 +1666,7 @@ private:
 		};
 	};
 
-	Amor::Pius loc_ans_tran, prodb_ps, other_ps, loc_pro_ins;
+	Amor::Pius loc_ans_tran, prodb_ps, other_ps, loc_pro_ins, log_ps;
 
 	struct MK_Session mess;	//记录一个过程中的各种临时数据
 	struct Personal_Def *cur_def;	//当前定义
@@ -1689,7 +1683,7 @@ private:
 		long sub_loop;	//循环次数
 	} command_wt;
 
-	int sub_serial_pro(struct ComplexSubSerial *comp, bool &has_back);
+	enum SUB_RET sub_serial_pro(struct ComplexSubSerial *comp, bool &has_back);
 	#include "wlog.h"
 };
 
@@ -1771,6 +1765,7 @@ TranWay::TranWay() {
 	loc_ans_tran.ordo = Notitia::Ans_TranWay;
 	loc_ans_tran.indic = 0;
 	loc_ans_tran.subor = Amor::CAN_ALL;
+	log_ps.ordo = Notitia::Log_InsWay;
 }
 
 TranWay::~TranWay() {
@@ -1869,7 +1864,6 @@ bool TranWay::sponte( Amor::Pius *pius) {
 		{
 			struct User_Command *usr_com;
 			struct TranIns *trani;
-			mess.iRet = ERROR_DEVICE_DOWN;
 			TEXTUS_SPRINTF(mess.err_str, "device down at subor=%d", pius->subor);
 			usr_com = &(cur_def->ins_all.instructions[mess.ins_which]);
 			trani = &(usr_com->complex[command_wt.cur].tran_inses[command_wt.pac_which]);
@@ -1895,6 +1889,7 @@ void TranWay::handle_tran(struct FlowStr *flp) {
 	size_t alen;
 	struct PVar  *vt;
 	struct DyVar *dvr;
+	bool no_def_fail = false;
 
 	/* 这里就是一般的业务啦 */
 	mess.reset();	//会话复位
@@ -1910,10 +1905,9 @@ void TranWay::handle_tran(struct FlowStr *flp) {
 	mess.flow_id[alen] = 0;
 	cur_def = gCFG->person_defs.look(mess.flow_id); //找一个相应的指令流定义
 CUR_DEF_PRO:
-	mess.iRet = 0;	//假定一开始都是OK。
 	TEXTUS_STRCPY(mess.err_str, " ");
 	if ( !cur_def ) {
-		mess.iRet = ERROR_INS_DEF;	
+		no_def_fail = true;	
 		cur_def = &(gCFG->null_icp_def);
 	}
 	/* 寻找变量集中所有动态的, 看看是否有start_pos和get_length的, 根据定义赋值到mess中 */
@@ -1934,9 +1928,9 @@ CUR_DEF_PRO:
 	}
 	
 	//{int *a =0 ; *a = 0; };
-	if (mess.iRet == ERROR_INS_DEF) {
+	if ( no_def_fail) {
 		TEXTUS_SPRINTF(mess.err_str, "not defined flow_id: %s ", mess.flow_id );
-		mess.snap[Pos_ErrCode].input(mess.iRet);
+		mess.snap[Pos_ErrCode].input("-99");
 		WLOG(WARNING, "Error %s:  %s", mess.snap[Pos_ErrCode].val_p, mess.err_str);
 		mess.snap[Pos_ErrStr].input(mess.err_str);
 		mk_result(true);	//工作结束
@@ -1954,10 +1948,9 @@ CUR_DEF_PRO:
 }
 
 /* 子序列入口 */
-int TranWay::sub_serial_pro(struct ComplexSubSerial *comp, bool &is_function)
+enum SUB_RET TranWay::sub_serial_pro(struct ComplexSubSerial *comp, bool &is_function)
 {
 	struct TranIns *trani;
-	char h_msg[1024];
 SUB_INS_PRO:
 	trani = &(comp->tran_inses[command_wt.pac_which]);
 	if ( command_wt.tran_step == Tran_Idle )
@@ -1966,7 +1959,7 @@ SUB_INS_PRO:
 		{
 			command_wt.pac_which++;	//指向下一条报文处理
 			if (  command_wt.pac_which == comp->tr_many )
-				return 1;	//整个已经完成
+				return Sub_OK;	//整个已经完成
 			 else
 				goto SUB_INS_PRO;
 		}
@@ -1980,7 +1973,7 @@ SUB_INS_PRO:
 		mess.snap[Pos_ErrStr].input(mess.err_str);
 		WLOG(WARNING, "Error %s:  %s", mess.snap[Pos_ErrCode].val_p, mess.err_str);
 		command_wt.tran_step = Tran_End;
-		return  -1;	//脚本所控制的错误, 软失败
+		return  Sub_Soft_Fail;	//脚本所控制的错误, 软失败
 		break;
 
 	case INS_Null:
@@ -2003,28 +1996,23 @@ SUB_INS_PRO:
 			cur_insway.dat = trani;
 			cur_ins_reply.err_code = 0;
 			is_function = trani->isFunction;
-			TEXTUS_SPRINTF(h_msg, "will(%s) order=%d which=%d", is_function ? "sync":"async", mess.pro_order, command_wt.pac_which);
-			WBUG("%s",h_msg);
+			WBUG("will(%s) order=%d which=%d", is_function ? "sync":"async", mess.pro_order, command_wt.pac_which);
 			command_wt.tran_step = Tran_Working;
 			mess.right_subor = trani->up_subor;
-			return 0; 	/* 正在进行 */
+			return Sub_Working; 	/* 正在进行 */
 			break;
 		case Tran_Working:
 			//if ( mess.pro_order == 49 &&  command_wt.pac_which == 1 ) {int *a=0; *a=0;}
 			command_wt.tran_step = Tran_End;
 			if ( cur_ins_reply.err_code) 
 			{
-				mess.iRet = ERROR_RECV_PAC;
-				TEXTUS_SPRINTF(h_msg, "fault at order=%d pac_which=%d of %s (%s)", mess.pro_order, command_wt.pac_which, cur_def->flow_id,  cur_ins_reply.err_str);
-				memcpy(mess.err_str, h_msg, strlen(h_msg));
-				mess.err_str[strlen(h_msg)] = 0;
+				TEXTUS_SPRINTF(mess.err_str, "fault at order=%d pac_which=%d of %s (%s)", mess.pro_order, command_wt.pac_which, cur_def->flow_id,  cur_ins_reply.err_str);
 				mess.snap[Pos_ErrCode].input(cur_ins_reply.err_code);
 				mess.snap[Pos_ErrStr].input(mess.err_str);
-				WLOG(WARNING, "Error %s:  %s", mess.snap[Pos_ErrCode].val_p, mess.err_str);
-				return -3;	//这是基本报文错误，非map所控制
+				WLOG(WARNING, "ERROR_RECV_PAC %s:  %s", mess.snap[Pos_ErrCode].val_p, mess.err_str);
+				return Sub_Rcv_Pac_Fail;	//这是基本报文错误，非map所控制
 			}
 			break;
-
 		default:
 			break;
 		}
@@ -2034,21 +2022,21 @@ SUB_INS_PRO:
 	assert( command_wt.tran_step == Tran_End );
 	if ( !trani->valid_result(&mess) )
 	{
-		mess.iRet = ERROR_RESULT;
 		TEXTUS_SPRINTF(mess.err_str, "result error at order=%d pac_which=%d of %s", mess.pro_order, command_wt.pac_which, cur_def->flow_id);
 		if ( trani->err_code) mess.snap[Pos_ErrCode].input(trani->err_code);
 		mess.snap[Pos_ErrStr].input(mess.err_str);
+		aptus->facio(&log_ps);     //向右发出指令,指示记录报文
 		WLOG(WARNING, "Error %s:  %s", mess.snap[Pos_ErrCode].val_p, mess.err_str);
-		return -2;	//这是map所控制
+		return Sub_Valid_Fail;	//这是map所控制
 	} else {
 		command_wt.pac_which++;	//指向下一条报文处理
 		command_wt.tran_step = Tran_Idle;
 		if (  command_wt.pac_which == comp->tr_many )
-			return 1;	//整个已经完成
+			return Sub_OK;	//整个已经完成
 		else
 			goto SUB_INS_PRO;
 	}
-	return 0;
+	return Sub_Working;
 }
 
 void TranWay::mk_hand()
@@ -2102,8 +2090,8 @@ LOOP_PRI_TRY:
 		command_wt.step++;	//指向下一步
 	case 1:
 		i_ret = sub_serial_pro( &(usr_com->complex[command_wt.cur]), is_function);
-		if ( i_ret == -1 ) 
-		{ //这是软失败
+		switch (i_ret ) {
+		case Sub_Soft_Fail: //这是软失败
 			command_wt.sub_loop--;
 			if ( command_wt.sub_loop != 0 ) 
 			{ //如果原为是0,则为负,几乎到不了0
@@ -2122,11 +2110,10 @@ LOOP_PRI_TRY:
 				if (vt)	mess.snap[Pos_ErrStr].DyVarBase::input(vt->con->base, vt->con->point - vt->con->base, true);
 				goto NEXT_PRI_TRY;		//试另一个
 			} else {		//最后一条处理失败，定义出错值
-				mess.iRet = ERROR_USER_ABORT;			
 				ERR_TO_LAST_INS
 			}
-		} else if ( i_ret ==0  ) 
-		{	//应该是正进行中
+			break;
+		case Sub_Working: //正进行中
 			mess.right_status = RT_OUT;
 			if ( is_function ) {
 				aptus->facio(&loc_pro_ins);     
@@ -2135,13 +2122,16 @@ LOOP_PRI_TRY:
 			} else {
 				aptus->facio(&loc_pro_ins);     //向右发出指令,aptus.facio的处理放在最后,很重要!! 因为这个调用中可能收到右节点的sponte. 注意!!,一定要注意.
 			}
-		} else if ( i_ret > 0  ) {
+			break;
+		case Sub_OK: //完成
 			mess.right_status = RT_READY;	//右端闲
 			WBUG("has completed %d, order %d", mess.ins_which, mess.pro_order);
 			NEXT_INS
-		} else if ( i_ret < 0 )  
-		{	//脚本控制或报文定义 的 错误
+			break;
+		case -2: //接收响应失败
+		case -3: //校验响应失败, 脚本控制或报文定义 的 错误
 			ERR_TO_LAST_INS
+			break;
 		}
 		break;
 	}

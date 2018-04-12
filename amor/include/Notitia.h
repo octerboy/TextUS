@@ -188,6 +188,7 @@ enum HERE_ORDO {
 	Ans_InsWay		=212,	//应答处理InsWay结构数据
 	Pro_TranWay		=213,	//要求处理TranWay
 	Ans_TranWay		=214,	//应答处理TranWay
+	Log_InsWay		=215,	//日志记录InsWay结构数据， 用于事务出现错误时的日志
 
 	CMD_SET_DBFACE	=300, 	/* set the DB data interface definition */
 	CMD_SET_DBCONN	=301, 	/* indic[0] points type (an integer): 0: SQL, 1: RPC, 2:FUNCTION
