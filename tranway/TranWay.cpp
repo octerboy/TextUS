@@ -59,7 +59,7 @@ int squeeze(const char *p, unsigned char *q)	//把空格等挤掉, 只留下16进制字符(大
 
 char err_global_str[128]={0};
 /* 右边状态, 空闲, 发出报文等响应 */
-enum RIGHT_STATUS { RT_IDLE = 0, RT_OUT=7, RT_READY = 3};
+enum RIGHT_STATUS { RT_IDLE = 0, RT_OUT=7};
 enum TRAN_STEP {Tran_Idle = 0, Tran_Working = 1, Tran_End=2};
 enum SUB_RET {Sub_Working = 0, Sub_OK = 1, Sub_Rcv_Pac_Fail=-2, Sub_Soft_Fail=-1, Sub_Valid_Fail = -3};
 
@@ -1683,7 +1683,7 @@ private:
 		long sub_loop;	//循环次数
 	} command_wt;
 
-	enum SUB_RET sub_serial_pro(struct ComplexSubSerial *comp, bool &has_back);
+	enum SUB_RET sub_serial_pro(struct ComplexSubSerial *comp);
 	#include "wlog.h"
 };
 
@@ -1783,7 +1783,6 @@ Amor* TranWay::clone() {
 
 bool TranWay::facio( Amor::Pius *pius) {
 	Amor::Pius tmp_pius;
-
 	switch ( pius->ordo ) {
 	case Notitia::IGNITE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY" );
@@ -1833,26 +1832,17 @@ bool TranWay::sponte( Amor::Pius *pius) {
 
 	switch ( pius->ordo ) {
 	case Notitia::Ans_InsWay:
-		WBUG("sponte Ans_InsWay");
-		if ( pius->indic)
-			memcpy(&cur_ins_reply, pius->indic, sizeof(struct InsReply));
+		WBUG("sponte Ans_InsWay indic=%p", pius->indic);
+		memcpy(&cur_ins_reply, pius->indic, sizeof(struct InsReply));
 
 		if ( mess.right_status != RT_OUT || mess.right_subor != pius->subor )	//表明是右端返回
 		{
-			const char *r_str="";
-			switch (mess.right_status)
+			if ( mess.right_status == RT_OUT )
 			{
-			case RT_OUT:
-				r_str = "RT_OUT";
-				break;
-			case RT_IDLE:
-				r_str = "RT_IDLE";
-				break;
-			case RT_READY:
-				r_str = "RT_READY";
-				break;
+				WLOG(WARNING, "mess error right_status=RT_OUT right_subor=%d pius->subor=%d", mess.right_subor, pius->subor);
+			} else {
+				WLOG(WARNING, "mess error right_status=RT_IDLE right_subor=%d pius->subor=%d", mess.right_subor, pius->subor);
 			}
-			WLOG(WARNING, "mess error right_status=%s right_subor=%d pius->subor=%d", r_str, mess.right_subor, pius->subor);
 		} else {
 			mk_hand();
 		}
@@ -1943,12 +1933,12 @@ CUR_DEF_PRO:
 	mess.snap[Pos_FlowID].input(mess.flow_id);
 
 	mess.ins_which = 0;
-	mess.right_status = RT_READY;	//指示终端准备开始工作,
+	command_wt.step=0; //指示终端准备开始工作
 	mk_hand();
 }
 
 /* 子序列入口 */
-enum SUB_RET TranWay::sub_serial_pro(struct ComplexSubSerial *comp, bool &is_function)
+enum SUB_RET TranWay::sub_serial_pro(struct ComplexSubSerial *comp)
 {
 	struct TranIns *trani;
 SUB_INS_PRO:
@@ -1965,7 +1955,6 @@ SUB_INS_PRO:
 		}
 	}
 
-	is_function = false;
 	switch ( trani->type) {
 	case INS_Abort:
 		if (trani->err_code ) mess.snap[Pos_ErrCode].input(trani->err_code);
@@ -1995,14 +1984,19 @@ SUB_INS_PRO:
 		case Tran_Idle:
 			cur_insway.dat = trani;
 			cur_ins_reply.err_code = 0;
-			is_function = trani->isFunction;
-			WBUG("will(%s) order=%d which=%d", is_function ? "sync":"async", mess.pro_order, command_wt.pac_which);
+			WBUG("will(%s) order=%d which=%d", trani->isFunction ? "sync":"async", mess.pro_order, command_wt.pac_which);
+			if ( trani->isFunction )
+			{
+				aptus->facio(&loc_pro_ins); //向右发出指令, 右节点不再sponte. 正常情况下, right_status不变
+				goto TRAN_END;
+			}
 			command_wt.tran_step = Tran_Working;
 			mess.right_subor = trani->up_subor;
 			return Sub_Working; 	/* 正在进行 */
 			break;
 		case Tran_Working:
 			//if ( mess.pro_order == 49 &&  command_wt.pac_which == 1 ) {int *a=0; *a=0;}
+			TRAN_END:
 			command_wt.tran_step = Tran_End;
 			if ( cur_ins_reply.err_code) 
 			{
@@ -2025,7 +2019,6 @@ SUB_INS_PRO:
 		TEXTUS_SPRINTF(mess.err_str, "result error at order=%d pac_which=%d of %s", mess.pro_order, command_wt.pac_which, cur_def->flow_id);
 		if ( trani->err_code) mess.snap[Pos_ErrCode].input(trani->err_code);
 		mess.snap[Pos_ErrStr].input(mess.err_str);
-		aptus->facio(&log_ps);     //向右发出指令,指示记录报文
 		WLOG(WARNING, "Error %s:  %s", mess.snap[Pos_ErrCode].val_p, mess.err_str);
 		return Sub_Valid_Fail;	//这是map所控制
 	} else {
@@ -2044,42 +2037,38 @@ void TranWay::mk_hand()
 	struct User_Command *usr_com;
 	struct TranIns *trani;
 	int i_ret;
-	bool is_function;
 	struct PVar  *vt;
 
 #define ERR_TO_LAST_INS	\
+		aptus->facio(&log_ps);     				\
 		if ( mess.ins_which == (cur_def->ins_all.many-1)) {	\
 			mk_result(true);				\
 			return;						\
 		} else {						\
 			mess.ins_which = cur_def->ins_all.many - 1;	\
-			mess.right_status = RT_READY ;		\
+			command_wt.step=0;				\
 			goto INS_PRO;					\
 		}
 #define NEXT_INS	\
 		mess.ins_which++;				\
+		command_wt.step=0;				\
 		if ( mess.ins_which < cur_def->ins_all.many)	\
 			goto INS_PRO;				\
 		else 						\
 			mk_result(false);		
 INS_PRO:
 	usr_com = &(cur_def->ins_all.instructions[mess.ins_which]);
-	mess.pro_order = usr_com->order;	
-	if ( mess.snap[Pos_CurCent].def_var) 
-		mess.snap[Pos_CurCent].input((mess.ins_which*100)/cur_def->ins_all.many);
-
-	if ( mess.right_status  ==  RT_READY )	{ //终端空闲,各类工作单元清空复位
-		command_wt.step=0;
-		command_wt.cur = 0;
-	}
 	//{int *a =0 ; *a = 0; };
 	switch ( command_wt.step) {
 	case 0:	//开始
 		if ( !usr_com->valid_condition(&mess) ) {
-			mess.right_status = RT_READY;
 			NEXT_INS
 			break;
 		}
+		mess.pro_order = usr_com->order;	
+		if ( mess.snap[Pos_CurCent].def_var) 
+			mess.snap[Pos_CurCent].input((mess.ins_which*100)/cur_def->ins_all.many);
+
 		command_wt.cur = 0;
 		mess.willLast = ( usr_com->comp_num == 1 ); //一个用户操作，包括几个复合指令的尝试，有一个成功，就算OK
 NEXT_PRI_TRY:
@@ -2089,7 +2078,7 @@ LOOP_PRI_TRY:
 		command_wt.tran_step = Tran_Idle;	//pac处理开始, 
 		command_wt.step++;	//指向下一步
 	case 1:
-		i_ret = sub_serial_pro( &(usr_com->complex[command_wt.cur]), is_function);
+		i_ret = sub_serial_pro( &(usr_com->complex[command_wt.cur]));
 		switch (i_ret ) {
 		case Sub_Soft_Fail: //这是软失败
 			command_wt.sub_loop--;
@@ -2113,24 +2102,21 @@ LOOP_PRI_TRY:
 				ERR_TO_LAST_INS
 			}
 			break;
-		case Sub_Working: //正进行中
-			mess.right_status = RT_OUT;
-			if ( is_function ) {
-				aptus->facio(&loc_pro_ins);     
-				if ( mess.right_status == RT_OUT ) //向右发出指令, 右节点不再sponte. 正常情况下, right_status不变
-					goto INS_PRO;		//这里处理结果. 但若右节点dmd_end_session导致复位, 就不再处理
-			} else {
-				aptus->facio(&loc_pro_ins);     //向右发出指令,aptus.facio的处理放在最后,很重要!! 因为这个调用中可能收到右节点的sponte. 注意!!,一定要注意.
-			}
-			break;
+
 		case Sub_OK: //完成
-			mess.right_status = RT_READY;	//右端闲
+			mess.right_status = RT_IDLE;	//右端闲
 			WBUG("has completed %d, order %d", mess.ins_which, mess.pro_order);
 			NEXT_INS
 			break;
-		case -2: //接收响应失败
-		case -3: //校验响应失败, 脚本控制或报文定义 的 错误
+
+		case Sub_Rcv_Pac_Fail: //接收响应失败
+		case Sub_Valid_Fail: //校验响应失败, 脚本控制或报文定义 的 错误
 			ERR_TO_LAST_INS
+			break;
+
+		case Sub_Working: //正进行中
+			mess.right_status = RT_OUT;
+			aptus->facio(&loc_pro_ins);     //向右发出指令,aptus.facio的处理放在最后,很重要!! 因为这个调用中可能收到右节点的sponte. 注意!!,一定要注意.
 			break;
 		}
 		break;
@@ -2139,7 +2125,6 @@ LOOP_PRI_TRY:
 
 void TranWay::mk_result(bool fend)
 {
-	bool has_back;
 	int ret;
 	if ( fend )	//这是为了对付中途中断的情况 
 	{
@@ -2147,10 +2132,9 @@ void TranWay::mk_result(bool fend)
 		mess.pro_order = cur_def->ins_all.instructions[mess.ins_which].order;
 		command_wt.pac_which = cur_def->ins_all.instructions[mess.ins_which].complex[0].tr_many-1;
 		command_wt.tran_step = Tran_Idle; //pac处理开始,
-		sub_serial_pro(&cur_def->ins_all.instructions[mess.ins_which].complex[0], has_back);
-		mess.right_status = RT_OUT;
+		sub_serial_pro(&cur_def->ins_all.instructions[mess.ins_which].complex[0]);
 		aptus->facio(&loc_pro_ins);
-		ret = sub_serial_pro(&cur_def->ins_all.instructions[mess.ins_which].complex[0], has_back);
+		ret = sub_serial_pro(&cur_def->ins_all.instructions[mess.ins_which].complex[0]);
 		if ( ret <= 0  ) {
 			WLOG(EMERG, "bug! last_pac_pro should finished!");
 		}
