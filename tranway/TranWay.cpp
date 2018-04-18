@@ -2132,8 +2132,6 @@ void TranWay::mk_result(bool fend)
 		mess.pro_order = cur_def->ins_all.instructions[mess.ins_which].order;
 		command_wt.pac_which = cur_def->ins_all.instructions[mess.ins_which].complex[0].tr_many-1;
 		command_wt.tran_step = Tran_Idle; //pac处理开始,
-		sub_serial_pro(&cur_def->ins_all.instructions[mess.ins_which].complex[0]);
-		aptus->facio(&loc_pro_ins);
 		ret = sub_serial_pro(&cur_def->ins_all.instructions[mess.ins_which].complex[0]);
 		if ( ret <= 0  ) {
 			WLOG(EMERG, "bug! last_pac_pro should finished!");
