@@ -659,6 +659,11 @@ void PacIns::set_ins (struct InsData *insd)
 	bool isFunction;
 
 	if ( insd->ext_ins ) return;	//已经定义过了,  不理
+	if ( !gCFG->pac_def_root ) 
+	{
+		WLOG(WARNING, "no packet definition root!");
+		return;
+	}
 	def_ele = gCFG->pac_def_root->FirstChildElement(insd->ins_tag);	
 	if ( !def_ele ) return; //在基础报文中没有定义, 不理
 
