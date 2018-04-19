@@ -1012,7 +1012,7 @@ ALL_STILL:
 		aps.ordo = Notitia::Set_InsWay;
 		aps.indic = this;
 		my_obj->aptus->facio(&aps);	//由下一级设定所有发送域的数组
-		if ( !this->ext_ins ) 
+		if ( !this->ext_ins && this->type == INS_None) 
 		{
 			TEXTUS_SPRINTF(err_global_str, "map element of %s  is not defined!", this->ins_tag);
 			return 0;
@@ -1216,7 +1216,7 @@ struct ComplexSubSerial {
 		return avar;
 	};
 
-	void ev_pro( TiXmlElement *sub, int &which, int &icc_num)	//为了无限制嵌套
+	bool ev_pro( TiXmlElement *sub, int &which, int &icc_num)	//为了无限制嵌套
 	{
 		TiXmlElement *pac_ele, *def_ele, *t_ele;
 		for ( pac_ele= sub->FirstChildElement(); pac_ele; pac_ele = pac_ele->NextSiblingElement())
@@ -1224,13 +1224,16 @@ struct ComplexSubSerial {
 			if ( !pac_ele->Value() ) continue;
 			if ((t_ele = map_root->FirstChildElement(pac_ele->Value())))//如果在map中有定义, 也就是一个嵌套(类似于宏)
 			{
-				ev_pro(t_ele, which, icc_num);
+				if ( !ev_pro(t_ele, which, icc_num) )
+					return false;
 			} else {
 				tran_inses[which].prepare(pac_ele, usr_ele, g_var_set, &sv_set);
 				icc_num += tran_inses[which].hard_work(pac_ele, usr_ele, g_var_set, &sv_set, my_obj);
+				if ( !tran_inses[which].ext_ins && !tran_inses[which].type) return false;
 				which++;
 			}
 		}
+		return true;
 	};
 
 	void ev_num( TiXmlElement *sub, int &many )	//为了无限制嵌套
@@ -1320,7 +1323,7 @@ struct ComplexSubSerial {
 		tran_inses = new struct TranIns[tr_many];
 
 		which = 0; icc_num = 0;
-		ev_pro ( sub_pro, which, icc_num);
+		if ( !ev_pro ( sub_pro, which, icc_num))  { tr_many = which; }
 		return icc_num;
 	};
 };
