@@ -1012,6 +1012,11 @@ ALL_STILL:
 		aps.ordo = Notitia::Set_InsWay;
 		aps.indic = this;
 		my_obj->aptus->facio(&aps);	//由下一级设定所有发送域的数组
+		if ( !this->ext_ins ) 
+		{
+			TEXTUS_SPRINTF(err_global_str, "map element of %s  is not defined!", this->ins_tag);
+			return 0;
+		}
 		for ( i = 0 ; i < snd_num; i++ )
 		{
 			if ( snd_lst[i].cmd_buf == 0 && pac_ele->FirstChildElement( snd_lst[i].tag)) //还未设定内容
