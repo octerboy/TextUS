@@ -1563,7 +1563,7 @@ struct  Personal_Def	//个人化定义
 		if ( !(c_root = per_ele->FirstChildElement("Flow")))
 		{
 			nm =  per_ele->Attribute("md5");
-			if ( (ic_nm = per_ele->Attribute("flow")))
+			if ( (ic_nm = per_ele->Attribute("file")))
 				load_xml(ic_nm, doc_c,  c_root, nm,err_global_str);
 			if ( nm)
 				squeeze(nm, (unsigned char*)&flow_md[0]);
@@ -1794,8 +1794,8 @@ bool TranWay::facio( Amor::Pius *pius) {
 	switch ( pius->ordo ) {
 	case Notitia::IGNITE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY" );
-		gCFG->person_defs.put_def(gCFG->prop, "bus", this);
-		gCFG->null_icp_def.put_def(gCFG->prop->FirstChildElement("bike"), gCFG->prop, this);
+		gCFG->person_defs.put_def(gCFG->prop, "flow", this);
+		gCFG->null_icp_def.put_def(gCFG->prop->FirstChildElement("default"), gCFG->prop, this);
 		set_global_vars();
 		mess.init(gCFG->person_defs.max_snap_num);
 		if ( err_global_str[0] != 0 ) {
