@@ -89,7 +89,9 @@ public:
 
 private:
 	char errMsg[256];
+	char id_str[16];
 	struct G_CFG {
+		unsigned long instance_id;
 		const char *filename;	//文件名, 当SPLIT不为0时, 这个文件名就成为一个格式符
 		OUT_FORM form;		/* 输出形式, 0: 标准, 直接输出; 1: 16进制, 并输出ASCII */
 		bool multi;		/* 多实例 */
@@ -105,6 +107,7 @@ private:
 		struct flock lock, unlock;
 #endif
 		inline G_CFG() {
+			instance_id = 0;;
 			split = SP_NONE;
 			filename = 0;
 			form = DIRECT_VIEW;
@@ -442,9 +445,13 @@ void Bu2File::output(TBuffer *tbuf, int direct )
 		memset(out_buf, 0, out_len);
 		memset(out_buf, ' ', ROW_SIZE);
 		if ( direct == FACIO )
-			memcpy(out_buf,	 "\nFACIO", 6);
-		else
-			memcpy(out_buf,	 "\nSPONTE", 7);
+		{
+			memcpy(out_buf,	 "\nFACIO-", 7);
+			memcpy(&out_buf[7], id_str, strlen(id_str));
+		} else {
+			memcpy(out_buf,	 "\nSPONTE-", 8);
+			memcpy(&out_buf[8], id_str, strlen(id_str));
+		}
 
 		out_buf[ROW_SIZE-1] = '\n';
 		w2Len = ROW_SIZE + bug_view(tbuf, &out_buf[ROW_SIZE] ) ;
@@ -564,6 +571,8 @@ Bu2File::Bu2File()
 	instance_id = 0;
 	out_len = 256;
 	out_buf = new char[out_len];
+	id_str[0] = '0';
+	id_str[1] = 0;
 }
 
 Bu2File::~Bu2File()
@@ -582,7 +591,9 @@ Amor* Bu2File::clone()
 	Bu2File *child;
 	child = new Bu2File();
 	child->gCFG = gCFG;
-	child->instance_id = instance_id+1;
+	gCFG->instance_id++;
+	child->instance_id = gCFG->instance_id;
+	TEXTUS_SPRINTF(child->id_str, "%d", child->instance_id);
 
 	return (Amor*)child;
 }
