@@ -194,7 +194,8 @@ public class JdbCli
 	void logout(){
 		isTalking = false;
      		try{   
-    			connection.close();
+			if ( connection != null )
+    				connection.close();
      		}catch(SQLException se){   
 			aptus.log_err(se.getMessage());
     			se.printStackTrace() ;   
@@ -666,9 +667,15 @@ public class JdbCli
 			aptus.sponte(dopac_ps);
     		} catch(SQLException se) { 
 			aptus.log_err(se.getMessage() + " error=" + se.getErrorCode() + " " + se.getSQLState());
+    			se.printStackTrace() ;   
 			snd_pac.input(face.errCode_field, se.getErrorCode());
 			snd_pac.input(face.errStr_field, se.toString()); 
-    			se.printStackTrace() ;   
+			try {
+				if ( connection.isClosed() )
+					isTalking = false;
+			} catch(SQLException me) {
+				isTalking = false;
+			}
 			aptus.sponte(dopac_ps);
 		}
 	}
@@ -688,8 +695,15 @@ public class JdbCli
 			aptus.sponte(dopac_ps);
     		} catch(SQLException se) { 
 			aptus.log_err(se.getMessage());
+    			se.printStackTrace() ;   
 			snd_pac.input(face.errCode_field, se.getErrorCode());
 			snd_pac.input(face.errStr_field, se.toString()); 
+			try {
+				if ( connection.isClosed() )
+					isTalking = false;
+			} catch(SQLException me) {
+				isTalking = false;
+			}
 			aptus.sponte(dopac_ps);
 		}
 	}
@@ -773,8 +787,15 @@ public class JdbCli
 				aptus.sponte(end_ps);
     		} catch(SQLException se) { 
 			aptus.log_err(se.getMessage());
+    			se.printStackTrace() ;   
 			snd_pac.input(face.errCode_field, se.getErrorCode());
 			snd_pac.input(face.errStr_field, se.toString()); 
+			try {
+				if ( connection.isClosed() )
+					isTalking = false;
+			} catch(SQLException me) {
+				isTalking = false;
+			}
 			aptus.sponte(dopac_ps);
 		}
 	}
@@ -804,8 +825,15 @@ public class JdbCli
 			//p_stmt.close();
     		} catch(SQLException se) { 
 			aptus.log_err(se.getMessage());
+    			se.printStackTrace() ;   
 			snd_pac.input(face.errCode_field, se.getErrorCode());
 			snd_pac.input(face.errStr_field, se.toString()); 
+			try {
+				if ( connection.isClosed() )
+					isTalking = false;
+			} catch(SQLException me) {
+				isTalking = false;
+			}
 			aptus.sponte(dopac_ps);
 		}
 		return ret;
