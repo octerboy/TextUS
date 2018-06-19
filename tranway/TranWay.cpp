@@ -1955,6 +1955,7 @@ SUB_INS_PRO:
 	{
 		if ( !trani->valid_condition(&mess) )		/* 不符合条件,就转下一条 */
 		{
+			WBUG("not valid_condition at order=%d pac_which=%d of %s", mess.pro_order, command_wt.pac_which, cur_def->flow_id);
 			command_wt.pac_which++;	//指向下一条报文处理
 			if (  command_wt.pac_which == comp->tr_many )
 				return Sub_OK;	//整个已经完成
@@ -1965,12 +1966,17 @@ SUB_INS_PRO:
 
 	switch ( trani->type) {
 	case INS_Abort:
-		if (trani->err_code ) mess.snap[Pos_ErrCode].input(trani->err_code);
-		TEXTUS_SPRINTF(mess.err_str,  "user abort at %d of %s", mess.pro_order, cur_def->flow_id);
-		mess.snap[Pos_ErrStr].input(mess.err_str);
-		WLOG(WARNING, "Error %s:  %s", mess.snap[Pos_ErrCode].val_p, mess.err_str);
-		command_wt.tran_step = Tran_End;
-		return  Sub_Soft_Fail;	//脚本所控制的错误, 软失败
+		if (trani->err_code ) { 
+			mess.snap[Pos_ErrCode].input(trani->err_code);
+			TEXTUS_SPRINTF(mess.err_str,  "user abort at %d of %s", mess.pro_order, cur_def->flow_id);
+			mess.snap[Pos_ErrStr].input(mess.err_str);
+			WLOG(WARNING, "Error %s:  %s", mess.snap[Pos_ErrCode].val_p, mess.err_str);
+			command_wt.tran_step = Tran_End;
+			return  Sub_Soft_Fail;	//脚本所控制的错误, 软失败
+		} else {
+			WBUG("user break at order=%d pac_which=%d of %s", mess.pro_order, command_wt.pac_which, cur_def->flow_id);
+			return Sub_OK;	//整个已经完成
+		}
 		break;
 
 	case INS_Null:
