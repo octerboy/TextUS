@@ -49,6 +49,7 @@ public:
 	
 	TEXTUS_ORDO concerned;	//关心的ordo
 	int cur_subor;	//当前所用子ordo
+	int default_subor;	//不匹配时子ordo
 
 	bool isPoineer;
 	inline bool canMatch();
@@ -62,6 +63,7 @@ Urlsw::Urlsw()
 	p_num = 0;
 	paths = 0;
 	url = (const char*) 0;
+	default_subor = Amor::CAN_ALL;
 
 	isPoineer = false;
 	concerned = Notitia::TEXTUS_RESERVED;
@@ -87,6 +89,7 @@ void Urlsw::ignite(TiXmlElement *cfg)
 	bool g_case;
 
 	concerned = Notitia::get_ordo(cfg->Attribute("ordo"));
+	cfg->QueryIntAttribute("default_subor", &default_subor);
 
 	g_field = cfg->Attribute("field");
 
@@ -151,6 +154,7 @@ Amor *Urlsw::clone()
 	child->p_num =  p_num;
 	child->paths =  paths;
 	child->concerned = concerned;
+	child->default_subor = default_subor;
 	
 	return  (Amor*)child;
 }
@@ -209,6 +213,12 @@ HANDLEPRO:
 		if ( will_do )
 			http_doing = true;
 	} else {
+		if ( default_subor != Amor::CAN_ALL)
+		{
+			pius->subor = cur_subor = default_subor;
+			if ( will_do )
+				http_doing = true;
+		}
 		http_doing = false;
 	}
 		break;
@@ -263,7 +273,6 @@ bool Urlsw::canMatch()
 			break;
 		}
 	}
-
 	return match;
 }
 /* 不再采用Attachment的方式了, 匹配后赋值subor */
