@@ -86,9 +86,13 @@ public:
 	};
 	struct Branch *branch_dex, *branch_lae, *branch_spo;
 	unsigned int  bran_num_dex, bran_num_lae, bran_num_spo;
+	int  unique_sub;	/* the sub only to this module */
+	Animus **unisub_branch;
+	int unisub_max;
 
 private:
 	void stipes(const char*);	/* set branch according to pius */
+	void stipes_unisub();		/* set branch according to pius */
 	void tolero(const char*);	/* load Amor module */
 	void emunio(const char*);	/* Load Aptus extension module */
 	inline void scratch(Aptus * dst);

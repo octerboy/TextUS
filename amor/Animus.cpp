@@ -289,6 +289,31 @@ void Animus::tolero(const char *ext_mod)
 	return ;
 }
 
+ /* get unique branches */
+void Animus::stipes_unisub()
+{
+	int j, k;
+	k = 0;
+	for ( j = 0; j < duco_num; j++ )	/* get max of unique_sub */
+	{
+		if ( ((Animus*)compactor[j])->unique_sub >= k )
+			k =  ((Animus*)compactor[j])->unique_sub;
+	}
+	if ( k >= 0 ) 
+	{
+		unisub_max = k+1;
+		unisub_branch = new Animus*[unisub_max];
+		memset(unisub_branch, 0, sizeof(Animus*)*unisub_max);
+	}
+	for ( j = 0; j < duco_num; j++ )
+	{
+		if ( ((Animus*)compactor[j])->unique_sub > Amor::CAN_ALL) 
+		{
+			unisub_branch[((Animus*)compactor[j])->unique_sub] = (Animus*)compactor[j];
+		}
+	}
+}
+
  /* get branches */
 void Animus::stipes(const char *bran_tag)
 {
@@ -345,6 +370,9 @@ void Animus::stipes(const char *bran_tag)
 			BRA_ORDO(branch_spo, i_spo)
 			branch_spo[i_spo].act = SET_BRA; 
 			i_spo++;
+		} else if ( strcasecmp(bran_ele->Value(), "dextra_me") == 0 )
+		{
+			bran_ele->QueryIntAttribute("sub", &unique_sub);
 		} else {
 			continue;
 		}
@@ -388,6 +416,7 @@ void Animus::ignite(TiXmlElement *cfg)
 		
 	for (l = 0 ; l < duco_num; l++)
 		compactor[l]->ignite(compactor[l]->carbo);
+	stipes_unisub();
 
 	/* cacu the really number of aptus */
 #define VALID_AP_TAG(X) \
@@ -408,7 +437,7 @@ void Animus::ignite(TiXmlElement *cfg)
 	}
 	
 	k= 0;	/* k is last the num of Aptus objects created really */
-	/* ????, ????????Aptus??tag 来?????? 也???????? ..... */
+	/* 好了, 下面根据Aptus的tag 来创建， 也不用排序 ..... */
 	for ( i = 0; i < num_extension; i++ )
 	{	/* i is index of Aptus extension??j is index of the instances available really */
 		char apTagExtern[2048];
@@ -545,6 +574,7 @@ Next:
 	COPY_BRA(branch_dex, bran_num_dex)
 	COPY_BRA(branch_spo, bran_num_spo)
 	COPY_BRA(branch_lae, bran_num_lae)
+	child->unique_sub = unique_sub;
 
 	if ( duco_num > 0 )
 		child->compactor = new Aptus* [duco_num];
@@ -559,6 +589,7 @@ Next:
 		}
 	}
 	child->duco_num	= j;	/* j is real number of compactor */
+	child->stipes_unisub();
 
 #define	NCO(X)	child->X = new Aptus* [num_real_ext];
 	if ( num_real_ext > 0 ) 
@@ -649,6 +680,9 @@ Animus::Animus()
 	bran_num_spo = 0;
 	bran_num_dex = 0;
 	ignite_info_ready = false;
+	unique_sub = Amor::CAN_ALL;
+	unisub_branch = 0;
+	unisub_max = -1;
 }
 
 void Animus::destroy_right()
@@ -683,9 +717,10 @@ Animus::~Animus()
 	if ( cons_spo ) 	delete []cons_spo;
 	if ( cons_lae ) 	delete []cons_lae;
 	if ( cons_dex ) 	delete []cons_dex;
-	if ( branch_dex )	delete (struct Branch *) branch_dex;
-	if ( branch_lae )	delete (struct Branch *) branch_lae;
-	if ( branch_spo )	delete (struct Branch *) branch_spo;
+	if ( branch_dex )	delete [] branch_dex;
+	if ( branch_lae )	delete [] branch_lae;
+	if ( branch_spo )	delete [] branch_spo;
+	if ( unisub_branch )	delete [] unisub_branch;
 }
 
 /* owner call this function */
@@ -800,7 +835,7 @@ inline bool Animus::facio_n(Amor::Pius *pius, unsigned int from)
 
 bool Animus::to_dextra(Amor::Pius *pius, unsigned int from)
 {
-	unsigned int i;
+	unsigned int i,j;
 	Aptus **tor;
 	if ( from < duco_num )
 	for (i= from,tor = &compactor[from], aptus = (Aptus *)0; i < duco_num; i++, tor++)
@@ -811,6 +846,11 @@ bool Animus::to_dextra(Amor::Pius *pius, unsigned int from)
 			aptus->facio(pius);	/* the control follow turned to the Aptus extension */
 			aptus = (Aptus *)0;
 			break;
+		}
+		if ( pius->subor > Amor::CAN_ALL )
+		{
+			if ( pius->subor < unisub_max && unisub_branch[pius->subor] != 0 ) 
+				return (unisub_branch[pius->subor]->dextra(pius,0));
 		}
 	}
 	return true;
