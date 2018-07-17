@@ -292,7 +292,7 @@ void Animus::tolero(const char *ext_mod)
 /* obtain unique branches */
 void Animus::stipes_unisub()
 {
-	int j, k;
+	unsigned int j; int k;
 	k = 0;
 	for ( j = 0; j < duco_num; j++ )	/* get max of unique_sub */
 	{
@@ -835,7 +835,7 @@ inline bool Animus::facio_n(Amor::Pius *pius, unsigned int from)
 
 bool Animus::to_dextra(Amor::Pius *pius, unsigned int from)
 {
-	unsigned int i,j;
+	unsigned int i;
 	Aptus **tor;
 	if ( from < duco_num )
 	for (i= from,tor = &compactor[from], aptus = (Aptus *)0; i < duco_num; i++, tor++)
