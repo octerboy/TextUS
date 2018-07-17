@@ -289,7 +289,7 @@ void Animus::tolero(const char *ext_mod)
 	return ;
 }
 
- /* get unique branches */
+/* obtain unique branches */
 void Animus::stipes_unisub()
 {
 	int j, k;
@@ -314,7 +314,7 @@ void Animus::stipes_unisub()
 	}
 }
 
- /* get branches */
+/* obtain branches */
 void Animus::stipes(const char *bran_tag)
 {
 	TiXmlElement *aps, *bran_ele;
@@ -841,16 +841,16 @@ bool Animus::to_dextra(Amor::Pius *pius, unsigned int from)
 	for (i= from,tor = &compactor[from], aptus = (Aptus *)0; i < duco_num; i++, tor++)
 	{
 		(*tor)->dextra(pius, 0);
+		if ( pius->subor > Amor::CAN_ALL )
+		{
+			if ( pius->subor < unisub_max && unisub_branch[pius->subor] != 0 ) 
+				return (unisub_branch[pius->subor]->dextra(pius,0));
+		}
 		if (aptus != (Aptus *)0 ) 
 		{
 			aptus->facio(pius);	/* the control follow turned to the Aptus extension */
 			aptus = (Aptus *)0;
 			break;
-		}
-		if ( pius->subor > Amor::CAN_ALL )
-		{
-			if ( pius->subor < unisub_max && unisub_branch[pius->subor] != 0 ) 
-				return (unisub_branch[pius->subor]->dextra(pius,0));
 		}
 	}
 	return true;
