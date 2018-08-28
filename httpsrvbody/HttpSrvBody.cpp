@@ -431,6 +431,14 @@ REAL_OUTPUT:		snd_buf->input((unsigned char*)res_cmd->valStr, len);
 		end();
 		break;
 		
+	case Notitia::Get_WS_MsgType:	
+		pius->indic = &(sock.frm.opcode);
+		break;
+		
+	case Notitia::Set_WS_MsgType:	
+		sock.opcode = *((char *)pius->indic);
+		break;
+		
 	default:
 		return false;
 	}
@@ -991,10 +999,12 @@ Pro_FRM_DATA:
 			{ 
 			case OPCODE_TEXT: 
 				/* 这里要做UTF8转换, 以后再做 */
+				WBUG("recv a frame of OPCODE_TEXT");
 				goto DELIVER;
 				break;
 	
 			case OPCODE_BINARY: 
+				WBUG("recv a frame of OPCODE_BINARY");
 				sock.stat_code = Sock_Status_OK; 
 		DELIVER:
 				rcv_buf->commit(-sock.pos);
@@ -1050,7 +1060,7 @@ Pro_FRM_DATA:
 		WBUG("will terminate websocket");
 		tmp_pius.ordo = Notitia::WebSock_End;
 		tmp_pius.indic = 0;
-		tmp_pius.subor = 0;
+		tmp_pius.subor = Amor::CAN_ALL;
 		aptus->facio(&tmp_pius);
 	}
 	if ( sock.framing ==  Sock_Framing_Start && (unsigned long)(rcv_buf->point - rcv_buf->base) > sock.should_len && sock.pos == 0 ) 

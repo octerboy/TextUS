@@ -800,7 +800,7 @@ JNIEXPORT void JNICALL Java_textor_jvmport_Amor_log (JNIEnv *env, jobject amor, 
 	msg = env->GetStringUTFChars(jmsg,0);
 	pius.ordo = (TEXTUS_ORDO)ordo;
 	pius.indic = (void*)msg;
-	pius.subor = 0;
+	pius.subor = Amor::CAN_ALL;
 	
 	if ( pius.ordo != Notitia::LOG_DEBUG )
 	{
@@ -1565,7 +1565,7 @@ static void getPiusIndic (JNIEnv *env,  Amor::Pius &pius, jobject ps, jobject am
 
 	pius.ordo = Notitia::TEXTUS_RESERVED;
 	pius.indic = 0;
-	pius.subor = 0;
+	pius.subor = Amor::CAN_ALL;
 	pius_cls = env->FindClass("textor/jvmport/Pius");
 	if ( jvmError(env) )
 		return;
@@ -1649,6 +1649,18 @@ static void getPiusIndic (JNIEnv *env,  Amor::Pius &pius, jobject ps, jobject am
 		pius.indic = getPointer(env, amor);
 		break;
 
+	case Notitia::Get_WS_MsgType:
+	case Notitia::Set_WS_MsgType:
+		/* ps.indic 是一个java.lang.integer, 转成unsigned char*, 并且还要加一个jvmport的指针 */
+	{
+		unsigned char *opcode = new unsigned char;
+		int mtype;
+		toInt(env, &mtype,  env->GetObjectField(ps, indic_fld));
+		*opcode = (unsigned char)mtype&0xFF ;
+		pius.indic = opcode;
+	}
+		break;
+
 	case Notitia::DMD_SET_ALARM:
 		/* ps.indic 是一个java.lang.integer, 转成int, 并且还要加一个jvmport的指针 */
 	{
@@ -1714,6 +1726,14 @@ static void freePiusIndic (Amor::Pius &pius)
 		int *click = (int*)indp[1];
 		delete click;
 		delete[] indp;
+	}
+		break;
+
+	case Notitia::Set_WS_MsgType:
+	case Notitia::Get_WS_MsgType:
+	{
+		unsigned char *op = (unsigned char*)pius.indic;
+		delete op;
 	}
 		break;
 
@@ -1902,6 +1922,29 @@ bool JvmPort::pius2Java (Pius *pius, jmethodID fs_mid)
 	}
 		break;
 
+	case Notitia::WebSock_Start:
+	{
+		jobject sockStr;
+		sockStr = jvmcfg->env->NewStringUTF((const char*)pius->indic);
+		jvmcfg->env->SetObjectField(ps_obj, indic_fld, sockStr);
+		if ( jvmcfg->env->CallBooleanMethod(owner_obj, fs_mid, ps_obj) ) fs_ret = true ; else fs_ret = false;
+		jvmcfg->env->DeleteLocalRef(sockStr);
+	}
+		break;
+
+	case Notitia::Get_WS_MsgType:
+	case Notitia::Set_WS_MsgType:
+		/* 这些要转一个java.lang.Integer */
+	{
+		jobject integer;
+
+		integer = getIntegerObj(jvmcfg->env,(int)(*((unsigned char*) (pius->indic))));
+		jvmcfg->env->SetObjectField(ps_obj, indic_fld, integer);
+		if (  jvmcfg->env->CallBooleanMethod(owner_obj, fs_mid, ps_obj) ) fs_ret = true ; else fs_ret = false;
+		jvmcfg->env->DeleteLocalRef(integer);
+	}
+		break;
+
 	case Notitia::TIMER:
 		/* 这些要转一个java.lang.Integer */
 	{
@@ -1910,6 +1953,7 @@ bool JvmPort::pius2Java (Pius *pius, jmethodID fs_mid)
 		integer = getIntegerObj(jvmcfg->env,*((int*) (pius->indic)));
 		jvmcfg->env->SetObjectField(ps_obj, indic_fld, integer);
 		if (  jvmcfg->env->CallBooleanMethod(owner_obj, fs_mid, ps_obj) ) fs_ret = true ; else fs_ret = false;
+		jvmcfg->env->DeleteLocalRef(integer);
 	}
 		break;
 
@@ -1964,6 +2008,7 @@ bool JvmPort::pius2Java (Pius *pius, jmethodID fs_mid)
 	case Notitia::ERR_FRAME_TIMEOUT:
 	case Notitia::ERR_FRAME_LENGTH:
 	case Notitia::START_SERVICE:
+	case Notitia::WebSock_End:
 		/* 这些本来就是不需要indic的 */
 		jvmcfg->env->SetObjectField(ps_obj, indic_fld, 0);
 		if ( jvmcfg->env->CallBooleanMethod(owner_obj, fs_mid, ps_obj) ) fs_ret = true ; else fs_ret = false;

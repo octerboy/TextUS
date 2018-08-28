@@ -137,8 +137,10 @@ enum HERE_ORDO {
 	SET_COOKIE 	=142,	/* 设置某个cookie */ 
 	GET_DOMAIN 	=143,	/* 获取domain */ 
 	HTTP_ASKING 	=144,	/* HTTP请求中, head已OK, 报文未完整 */
-	WebSock_Start	=145,	/* websocket握手完成 */
+	WebSock_Start	=145,	/* websocket握手完成, indic指向char *协议名称 */
 	WebSock_End	=146,	/* websocket结束 */
+	Get_WS_MsgType	=147,	/* 获取WebSock中的OPCODE, indic指向一个unsigned char */
+	Set_WS_MsgType	=148,	/* 设置WebSock中的OPCODE, indic指向一个unsigned char */
 
 	SET_TINY_XML 	=151,
 	PRO_TINY_XML	=152, 

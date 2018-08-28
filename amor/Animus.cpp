@@ -1200,6 +1200,8 @@ unsigned long Notitia::get_ordo(const char *comm_str)
 	WHAT_ORDO(HTTP_ASKING , Y); \
 	WHAT_ORDO(WebSock_Start , Y); \
 	WHAT_ORDO(WebSock_End , Y); \
+	WHAT_ORDO(Get_WS_MsgType, Y); \
+	WHAT_ORDO(Set_WS_MsgType, Y); \
 	WHAT_ORDO(SET_TINY_XML , Y); \
 	WHAT_ORDO(PRO_TINY_XML , Y); \
 	WHAT_ORDO(PRO_SOAP_HEAD , Y); \
