@@ -29,7 +29,8 @@
 #include <string.h>
 #include <assert.h>
 #include <stdarg.h>
-#include <python2.7/Python.h>
+#include <Python.h>
+//#include <python2.7/Python.h>
 //#include <python3.4m/Python.h>
 
 class PyPort :public Amor
@@ -66,6 +67,98 @@ private:
 #include "wlog.h"
 };
 
+typedef struct {
+	PyObject_HEAD
+	TEXTUS_ORDO ordo;
+	int subor;
+	PyObject *indic;
+} PyPiusObj;
+
+static void PyPius_dealloc(PyPiusObj* self)
+{
+//	printf("++++++ PyAmor_dealloc self=%p\n" ,self);
+
+	if ( self->indic)
+		Py_DECREF(self->indic);
+	Py_TYPE(self)->tp_free((PyObject*)self);
+}
+
+static PyObject *PyPius_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+	PyPiusObj *self;
+
+	self = (PyPiusObj *)type->tp_alloc(type, 0);
+	if (self != NULL) 
+	{
+		//printf("++++ self PyAmor_new %p\n", self);
+		self->indic = 0;
+		self->ordo = Notitia::TEXTUS_RESERVED;
+	}
+	return (PyObject *)self;
+}
+
+static int PyPius_init(PyPiusObj *self, PyObject *args, PyObject *kwds)
+{
+	if ( !self->indic )
+	{
+		//printf("++++++ PyAmor_init self %p, owner %p\n", self, self->owner);
+	}
+	return 0;
+}
+#include <structmember.h>
+static PyMemberDef PyPius_members[] = {
+	{(char*)"ordo", T_ULONG, offsetof(PyPiusObj, ordo), 0, (char*)"pius ordo" },
+	{(char*)"subor", T_INT, offsetof(PyPiusObj, subor), 0, (char*)"pius subor" },
+	{NULL}
+};
+
+static PyTypeObject PyPiusType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "textor.Pius",             /* tp_name */
+    sizeof(PyPiusObj),      /* tp_basicsize */
+    0,                         /* tp_itemsize */
+    (destructor)PyPius_dealloc, /* tp_dealloc */
+    0,                         /* tp_print */
+    0,                         /* tp_getattr */
+    0,                         /* tp_setattr */
+    0,                         /* tp_compare */
+    0,                         /* tp_repr */
+    0,                         /* tp_as_number */
+    0,                         /* tp_as_sequence */
+    0,                         /* tp_as_mapping */
+    0,                         /* tp_hash */
+    0,                         /* tp_call */
+    0,                         /* tp_str */
+    0,                         /* tp_getattro */
+    0,                         /* tp_setattro */
+    0,                         /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT |
+        Py_TPFLAGS_BASETYPE,   /* tp_flags */
+    "Pius objects for python",	/* tp_doc */
+    0,                         /* tp_traverse */
+    0,                         /* tp_clear */
+    0,                         /* tp_richcompare */
+    0,                         /* tp_weaklistoffset */
+    0,                         /* tp_iter */
+    0,                         /* tp_iternext */
+    0,				/* tp_methods */
+    PyPius_members,		/* tp_members */
+    0,                         /* tp_getset */
+    0,                         /* tp_base */
+    0,                         /* tp_dict */
+    0,                         /* tp_descr_get */
+    0,                         /* tp_descr_set */
+    0,                         /* tp_dictoffset */
+    (initproc)PyPius_init,	/* tp_init */
+    0,                         /* tp_alloc */
+    PyPius_new                 /* tp_new */
+};
+
+typedef struct {
+	PyObject_HEAD
+	PyPort *owner;
+} PyAmorObj;
+
 static PyObject *aptus_error;
 bool get_aps(Amor::Pius &aps, PyObject *args)
 {
@@ -74,16 +167,6 @@ bool get_aps(Amor::Pius &aps, PyObject *args)
 		return false;
 	return true;
 }
-
-typedef struct {
-	PyObject_HEAD
-	TBuffer *tb;
-} PyTBufferObj;
-
-typedef struct {
-	PyObject_HEAD
-	PyPort *owner;
-} PyAmorObj;
 
 static PyObject *python_facio(PyObject *self, PyObject *args)
 {
@@ -117,42 +200,6 @@ static PyMethodDef py_amor_methods[] = {
 	{NULL,NULL,0,NULL}
 };
 
-
-//#include "structmember.h"
-static void PyTBuffer_dealloc(PyTBufferObj* self)
-{
-	//printf("++++++ PyTBuffer_dealloc\n");
-	delete self->tb;
-	self->tb = 0;
-	Py_TYPE(self)->tp_free((PyObject*)self);
-}
-
-static PyObject *PyTBuffer_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
-{
-	PyTBufferObj *self;
-
-//	printf("++++++ PyTBuffer_new type=%p\n", type);
-	self = (PyTBufferObj *)type->tp_alloc(type, 0);
-	if (self != NULL) 
-	{
-		//printf("++++ self PyTBuffer_new %p\n", self);
-		//self->tb = new TBuffer(8192);
-		self->tb = 0;
-	}
-
-	return (PyObject *)self;
-}
-
-static int PyTBuffer_init(PyTBufferObj *self, PyObject *args, PyObject *kwds)
-{
-	if ( !self->tb )
-	{
-		self->tb = new TBuffer(8192);
-	//	printf("++++++ PyTBuffer_init self %p, tb %p\n", self, self->tb);
-	}
-	return 0;
-}
-
 static void PyAmor_dealloc(PyAmorObj* self)
 {
 //	printf("++++++ PyAmor_dealloc self=%p\n" ,self);
@@ -183,77 +230,98 @@ static int PyAmor_init(PyAmorObj *self, PyObject *args, PyObject *kwds)
 	return 0;
 }
 
-#ifdef TTT
-static PyMemberDef Noddy_members[] = {
-    {"first", T_OBJECT_EX, offsetof(Noddy, first), 0,
-    "first name"},
-    {"last", T_OBJECT_EX, offsetof(Noddy, last), 0,
-     "last name"},
-    {"number", T_INT, offsetof(Noddy, number), 0,
-     "noddy number"},
-    {NULL} 
+static PyTypeObject PyAmorType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "textor.Amor",             /* tp_name */
+    sizeof(PyAmorObj),      /* tp_basicsize */
+    0,                         /* tp_itemsize */
+    (destructor)PyAmor_dealloc, /* tp_dealloc */
+    0,                         /* tp_print */
+    0,                         /* tp_getattr */
+    0,                         /* tp_setattr */
+    0,                         /* tp_compare */
+    0,                         /* tp_repr */
+    0,                         /* tp_as_number */
+    0,                         /* tp_as_sequence */
+    0,                         /* tp_as_mapping */
+    0,                         /* tp_hash */
+    0,                         /* tp_call */
+    0,                         /* tp_str */
+    0,                         /* tp_getattro */
+    0,                         /* tp_setattro */
+    0,                         /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT |
+        Py_TPFLAGS_BASETYPE,   /* tp_flags */
+    "Amor objects for python",       /* tp_doc */
+    0,                         /* tp_traverse */
+    0,                         /* tp_clear */
+    0,                         /* tp_richcompare */
+    0,                         /* tp_weaklistoffset */
+    0,                         /* tp_iter */
+    0,                         /* tp_iternext */
+    py_amor_methods,		/* tp_methods */
+    0,				/* tp_members */
+    0,                         /* tp_getset */
+    0,                         /* tp_base */
+    0,                         /* tp_dict */
+    0,                         /* tp_descr_get */
+    0,                         /* tp_descr_set */
+    0,                         /* tp_dictoffset */
+    (initproc)PyAmor_init,	/* tp_init */
+    0,                         /* tp_alloc */
+    PyAmor_new                 /* tp_new */
 };
 
-static PyObject *
-Noddy_name(Noddy* self)
+typedef struct {
+	PyObject_HEAD
+	TBuffer *tb;
+	int ref;	/* 0: tb是自己的, 最后要释放;  1: tb是外来的, 不管 */
+} PyTBufferObj;
+
+static void PyTBuffer_dealloc(PyTBufferObj* self)
 {
-    static PyObject *format = NULL;
-    PyObject *args, *result;
-
-    if (format == NULL) {
-        format = PyString_FromString("%s %s");
-        if (format == NULL)
-            return NULL;
-    }
-
-    if (self->first == NULL) {
-        PyErr_SetString(PyExc_AttributeError, "first");
-        return NULL;
-    }
-
-    if (self->last == NULL) {
-        PyErr_SetString(PyExc_AttributeError, "last");
-        return NULL;
-    }
-
-    args = Py_BuildValue("OO", self->first, self->last);
-    if (args == NULL)
-        return NULL;
-
-    result = PyString_Format(format, args);
-    Py_DECREF(args);
-
-    return result;
+	//printf("++++++ PyTBuffer_dealloc\n");
+	if ( self->tb  && self->ref == 0 )
+	{
+		delete self->tb;
+		self->tb = 0;
+	}
+	Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
-static PyMethodDef Noddy_methods[] = {
-    {"name", (PyCFunction)Noddy_name, METH_NOARGS,
-     "Return the name, combining the first and last name"
-    },
-    {NULL} 
-};
-
-#ifndef PyMODINIT_FUNC	/* declarations for DLL import/export */
-#define PyMODINIT_FUNC void
-#endif
-PyMODINIT_FUNC
-initnoddy2(void)
+static PyObject *PyTBuffer_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    PyObject* m;
+	PyTBufferObj *self;
 
-    m = Py_InitModule3("noddy2", module_methods,
-                       "Example module that creates an extension type.");
+	//printf("++++++ PyTBuffer_new type=%p args %p kwds %p\n", type, args, kwds);
+	self = (PyTBufferObj *)type->tp_alloc(type, 0);
+	if (self != NULL) 
+	{
+		//printf("++++ self PyTBuffer_new %p\n", self);
+		//self->tb = new TBuffer(8192);
+		self->tb = 0;
+	}
 
-    if (m == NULL)
-        return;
-
-    if (PyType_Ready(&NoddyType) < 0)
-        return;
-
-    Py_INCREF(&NoddyType);
-    PyModule_AddObject(m, "Noddy", (PyObject *)&NoddyType);
+	return (PyObject *)self;
 }
-#endif
+
+static int PyTBuffer_init(PyTBufferObj *self, PyObject *args, PyObject *kwds)
+{
+	int j=-1;
+	if ( PyArg_ParseTuple (args, "i", &j) )
+	{
+		printf  (  " int j = %d\n", j);
+		if ( j  ==0 ) 
+			self->ref = 1;
+	}
+	if( j != 0 && !self->tb ) 
+	{
+		self->tb = new TBuffer( j > 0? j:8192);
+		self->ref = 0;
+	}
+	printf("+###++ PyTBuffer_init self=%p args %p kwds %p self tb=%p\n", self, args, kwds, self->tb);
+	return 0;
+}
 
 static PyObject *py_tb_input(PyObject *self, PyObject *args)
 {
@@ -280,7 +348,7 @@ static PyMethodDef pytb_methods[] = {
 
 static PyTypeObject PyTBufferType = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    "textus.TBuffer",             /* tp_name */
+    "textor.TBuffer",             /* tp_name */
     sizeof(PyTBufferObj),      /* tp_basicsize */
     0,                         /* tp_itemsize */
     (destructor)PyTBuffer_dealloc, /* tp_dealloc */
@@ -300,7 +368,7 @@ static PyTypeObject PyTBufferType = {
     0,                         /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT |
         Py_TPFLAGS_BASETYPE,   /* tp_flags */
-    "PyTBuffer objects",       /* tp_doc */
+    "TBuffer objects for python",       /* tp_doc */
     0,                         /* tp_traverse */
     0,                         /* tp_clear */
     0,                         /* tp_richcompare */
@@ -320,12 +388,61 @@ static PyTypeObject PyTBufferType = {
     PyTBuffer_new                 /* tp_new */
 };
 
-static PyTypeObject PyAmorType = {
+typedef struct {
+	PyObject_HEAD
+	PacketObj *pac;
+	int ref;	/* 0: tb是自己的, 最后要释放;  1: tb是外来的, 不管 */
+} PyPacketObj;
+
+static void PyPacket_dealloc(PyPacketObj* self)
+{
+	//printf("++++++ PyTBuffer_dealloc\n");
+	delete self->pac;
+	self->pac = 0;
+	Py_TYPE(self)->tp_free((PyObject*)self);
+}
+
+static PyObject *PyPacket_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+	PyPacketObj *self;
+
+//	printf("++++++ PyPacket_new type=%p\n", type);
+	self = (PyPacketObj *)type->tp_alloc(type, 0);
+	if (self != NULL) 
+	{
+		self->pac = 0;
+	}
+
+	return (PyObject *)self;
+}
+
+static int PyPacket_init(PyPacketObj *self, PyObject *args, PyObject *kwds)
+{
+	if ( !self->pac )
+	{
+		self->pac = new PacketObj();
+	}
+	return 0;
+}
+
+static PyObject *py_pac_set(PyObject *self, PyObject *args)
+{
+	char *str;
+	PyObject *o;
+	return Py_BuildValue("i", 1);
+}
+
+static PyMethodDef pypac_methods[] = {
+	{"set", py_pac_set, METH_VARARGS, "Packet set field"},
+	{NULL,NULL,0,NULL}
+};
+
+static PyTypeObject PyPacketType = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    "textus.Amor",             /* tp_name */
-    sizeof(PyAmorObj),      /* tp_basicsize */
+    "textor.Packet",             /* tp_name */
+    sizeof(PyPacketObj),      /* tp_basicsize */
     0,                         /* tp_itemsize */
-    (destructor)PyAmor_dealloc, /* tp_dealloc */
+    (destructor)PyPacket_dealloc, /* tp_dealloc */
     0,                         /* tp_print */
     0,                         /* tp_getattr */
     0,                         /* tp_setattr */
@@ -342,14 +459,14 @@ static PyTypeObject PyAmorType = {
     0,                         /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT |
         Py_TPFLAGS_BASETYPE,   /* tp_flags */
-    "PyAmor objects",       /* tp_doc */
+    "Packet objects for python",       /* tp_doc */
     0,                         /* tp_traverse */
     0,                         /* tp_clear */
     0,                         /* tp_richcompare */
     0,                         /* tp_weaklistoffset */
     0,                         /* tp_iter */
     0,                         /* tp_iternext */
-    py_amor_methods,		/* tp_methods */
+    pypac_methods,		/* tp_methods */
     0,				/* tp_members */
     0,                         /* tp_getset */
     0,                         /* tp_base */
@@ -357,9 +474,9 @@ static PyTypeObject PyAmorType = {
     0,                         /* tp_descr_get */
     0,                         /* tp_descr_set */
     0,                         /* tp_dictoffset */
-    (initproc)PyAmor_init,	/* tp_init */
+    (initproc)PyPacket_init,	/* tp_init */
     0,                         /* tp_alloc */
-    PyAmor_new                 /* tp_new */
+    PyPacket_new                 /* tp_new */
 };
 
 static PyMethodDef module_null_methods[] = {
@@ -404,6 +521,7 @@ bool PyPort::facio( Amor::Pius *pius)
 			WLOG(WARNING,"PyInstance_New of class (%s) failed", gCFG->pyClass_str);
 			break;
 		} else {
+			((PyAmorObj*) pInstance)->owner = this;
 			WBUG("PyInstance_New of class (%s) %p", gCFG->pyClass_str, pInstance);
 		}
 		break;
@@ -416,20 +534,25 @@ bool PyPort::facio( Amor::Pius *pius)
 			WLOG(WARNING,"Py_IsInitialized failed");
 			break;
     		}
-		if (PyType_Ready(&PyTBufferType) < 0) break;
+		if (PyType_Ready(&PyPiusType) < 0) break;
 		if (PyType_Ready(&PyAmorType) < 0) break;
+		if (PyType_Ready(&PyTBufferType) < 0) break;
+		if (PyType_Ready(&PyPacketType) < 0) break;
 
-		m = Py_InitModule("textus", module_null_methods);
+		m = Py_InitModule("textor", module_null_methods);
 		if ( !m ) {
-			WLOG(WARNING,"Py_InitModule textus failed");
+			WLOG(WARNING,"Py_InitModule of (textor) failed");
 			break;
 		} else {
-			WBUG("Py_InitModule textus ok!");
+			WBUG("Py_InitModule of (textor) ok!");
 		}
 
-		aptus_error = PyErr_NewException((char*)"textus.error", 0, 0);
+		aptus_error = PyErr_NewException((char*)"textor.error", 0, 0);
 		Py_INCREF(aptus_error);
 		PyModule_AddObject(m, "error", aptus_error);
+
+		Py_INCREF(&PyPiusType);
+		PyModule_AddObject(m, "Pius", (PyObject *)&PyPiusType);
 
 		Py_INCREF(&PyAmorType);
 		PyModule_AddObject(m, "Amor", (PyObject *)&PyAmorType);
@@ -455,12 +578,12 @@ bool PyPort::facio( Amor::Pius *pius)
 			run_ele = run_ele->NextSiblingElement(gCFG->run_tag);
 		}
 /*
-		ret = PyRun_SimpleString("import textus");
+		ret = PyRun_SimpleString("import textor");
 		if ( ret ) 
 		{
-			WLOG(WARNING,"python run %s return %d (failed!)", "import textus", ret);
+			WLOG(WARNING,"python run %s return %d (failed!)", "import textor", ret);
 		} else {
-			WBUG("import aptus ok!");
+			WBUG("import textor ok!");
 		}
 */
 
@@ -498,11 +621,11 @@ bool PyPort::facio( Amor::Pius *pius)
 		pInstance = PyObject_CallObject(gCFG->pClass, NULL);
 		if ( !pInstance) 
 		{
-			WLOG(WARNING,"PyInstance_New of class (%s) failed", gCFG->pyClass_str);
+			WLOG(WARNING,"PyObject_CallObject of class (%s) failed", gCFG->pyClass_str);
 			break;
 		} else {
 			((PyAmorObj*) pInstance)->owner = this;
-			WBUG("PyInstance_New of class (%s) %p", gCFG->pyClass_str, pInstance);
+			WBUG("PyObject_CallObject of class (%s) %p", gCFG->pyClass_str, pInstance);
 		}
 /*
 		printf("==== class %p\n", PyMethod_Class(mth));
@@ -607,6 +730,19 @@ bool PyPort::pius2py (Pius *pius, char *py_method)
 	switch ( pius->ordo )
 	{
 	case Notitia::SET_TBUF:
+		WBUG("facio SET_TBUF");
+	{
+		PyObject *t;
+		PyTBufferObj *a_tb = 0;
+		t = PyTuple_New(1);
+		PyTuple_SetItem(t, 0, PyInt_FromLong(1L));
+		//a_tb = (PyTBufferObj *)_PyObject_New(&PyTBufferType);
+		//a_tb = PyObject_New(PyTBufferObj, &PyTBufferType);
+		//a_tb = PyObject_NewVar(PyTBufferObj, &PyTBufferType, sizeof(PyTBufferObj));
+		a_tb =  (PyTBufferObj *)PyObject_CallObject((PyObject*)&PyTBufferType, t);
+		printf("!! a_tb %p, a_tb->tb %p ---t = %p---\n", a_tb, a_tb->tb, t);
+	}
+		break;
 	case Notitia::PRO_TBUF:
 	case Notitia::SET_UNIPAC:
 	case Notitia::SET_TINY_XML:
