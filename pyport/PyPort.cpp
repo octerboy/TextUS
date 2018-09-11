@@ -1149,8 +1149,37 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 	case Notitia::MAIN_PARA:
 		/*  *indic[0] = argc, *indic[1] = argv, 将此转为String[] */
 	{
-	}
+		void **ps = (void**)pius->indic;
+		int num = (*(int *)ps[0]);
+		char **argv = (char **)ps[1];
+		obj_list = PyList_New(0);
+		PyObject *num_obj;
+		if ( !obj_list ) 
+		{
+			WLOG(WARNING, "PyList_New return NULL when %s MAIN_PARA", meth_str);
+			goto PFAIL1;
+		}
+		num_obj = PyInt_FromLong((long)num);
+		if ( PyList_Append(obj_list, num_obj) == -1 ) 
+		{
+			goto QFAIL1;
+		}
+		for ( int i = 0; i < num ; i++ )
+		{
+			if ( PyList_Append(obj_list, PyString_FromString((const char*)argv[i])) == -1 )
+			{
+				WLOG(WARNING, "PyList_Append argv failed when %s MAIN_PARA", meth_str);
+				goto QFAIL1;
+			}
+		}
+		ps_obj->indic = obj_list;
+		ret_obj = PyObject_CallMethod(pInstance, py_method, (char*)"O", ps_obj);
+	QFAIL1:
+		Py_DECREF(num_obj);
+		Py_DECREF(obj_list);
+	PFAIL1:
 		break;
+	}
 
 	case Notitia::TIMER:
 		/* 这些要转一个PyInt_Type */
