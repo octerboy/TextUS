@@ -30,8 +30,6 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <Python.h>
-//#include <python2.7/Python.h>
-//#include <python3.4m/Python.h>
 
 class PyPort :public Amor
 {
@@ -44,6 +42,8 @@ public:
 	PyPort();
 	~PyPort();
 
+	bool get_aps(Amor::Pius &aps, PyObject *args);
+	void free_aps(Amor::Pius &aps);
 private:
 	PyObject *pInstance;
 	PyObject * fun_ignite, *fun_facio, *fun_sponte, *fun_clone;
@@ -61,7 +61,7 @@ private:
 	};
 	struct G_CFG *gCFG;
 	bool has_config;
-	bool pius2py (Pius *pius, char *method);
+	bool pius2py (Pius *pius, char *method ,const char *str);
 	bool facioPy( Amor::Pius *pius);
 	char fac_method[16], spo_method[16];
 #include "wlog.h"
@@ -74,10 +74,25 @@ typedef struct {
 	PyObject *indic;
 } PyPiusObj;
 
+typedef struct {
+	PyObject_HEAD
+	PyPort *owner;
+} PyAmorObj;
+
+typedef struct {
+	PyObject_HEAD
+	TBuffer *tb;
+	int ref;	/* 0: tb是自己的, 最后要释放;  1: tb是外来的, 不管 */
+} PyTBufferObj;
+
+typedef struct {
+	PyObject_HEAD
+	PacketObj *pac;
+	int ref;	/* 0: tb是自己的, 最后要释放;  1: tb是外来的, 不管 */
+} PyPacketObj;
+
 static void PyPius_dealloc(PyPiusObj* self)
 {
-//	printf("++++++ PyAmor_dealloc self=%p\n" ,self);
-
 	if ( self->indic)
 		Py_DECREF(self->indic);
 	Py_TYPE(self)->tp_free((PyObject*)self);
@@ -93,22 +108,28 @@ static PyObject *PyPius_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 		//printf("++++ self PyAmor_new %p\n", self);
 		self->indic = 0;
 		self->ordo = Notitia::TEXTUS_RESERVED;
+		self->subor = Amor::CAN_ALL;
 	}
 	return (PyObject *)self;
 }
 
 static int PyPius_init(PyPiusObj *self, PyObject *args, PyObject *kwds)
 {
-	if ( !self->indic )
+	int j=-1;
+	if ( PyArg_ParseTuple (args, "i", &j) )
 	{
-		//printf("++++++ PyAmor_init self %p, owner %p\n", self, self->owner);
+		if ( j  > 0 ) 
+		{
+			self->ordo = (TEXTUS_ORDO)j;
+		}
 	}
 	return 0;
 }
 #include <structmember.h>
 static PyMemberDef PyPius_members[] = {
-	{(char*)"ordo", T_ULONG, offsetof(PyPiusObj, ordo), 0, (char*)"pius ordo" },
-	{(char*)"subor", T_INT, offsetof(PyPiusObj, subor), 0, (char*)"pius subor" },
+	{(char*)"ordo", T_LONG, offsetof(PyPiusObj, ordo), 0, (char*)"pius ordo" },
+	{(char*)"subor", T_LONG, offsetof(PyPiusObj, subor), 0, (char*)"pius sub ordo" },
+	{(char*)"indic", T_OBJECT, offsetof(PyPiusObj, indic), 0, (char*)"pius indic" },
 	{NULL}
 };
 
@@ -154,19 +175,7 @@ static PyTypeObject PyPiusType = {
     PyPius_new                 /* tp_new */
 };
 
-typedef struct {
-	PyObject_HEAD
-	PyPort *owner;
-} PyAmorObj;
-
 static PyObject *aptus_error;
-bool get_aps(Amor::Pius &aps, PyObject *args)
-{
-	aps.indic = 0;
-	if (!PyArg_ParseTuple(args, "ki", &aps.ordo, &aps.subor)) 
-		return false;
-	return true;
-}
 
 static PyObject *python_facio(PyObject *self, PyObject *args)
 {
@@ -174,10 +183,13 @@ static PyObject *python_facio(PyObject *self, PyObject *args)
 	Amor::Pius aps;
 	PyPort *c_owner = ((PyAmorObj*)self)->owner;
 
-	ret = get_aps(aps, args);
+	if ( !c_owner ) 
+		return Py_BuildValue("i", 0);
+	ret = c_owner->get_aps(aps, args);
 	if (!ret ) return Py_BuildValue("i", 0);
 //	printf("facio PyPort %p  ordo=%lu subor=%d \n", c_owner, aps.ordo, aps.subor);
 	ret =  c_owner->aptus->facio(&aps);
+	c_owner->free_aps(aps);
 	return Py_BuildValue("i", ret ? 1:0);
 }
 
@@ -187,10 +199,13 @@ static PyObject *python_sponte(PyObject *self, PyObject *args)
 	Amor::Pius aps;
 	PyPort *c_owner = ((PyAmorObj*)self)->owner;
 
-	ret = get_aps(aps, args);
+	if ( !c_owner ) 
+		return Py_BuildValue("i", 0);
+	ret = c_owner->get_aps(aps, args);
 	if (!ret ) return Py_BuildValue("i", 0);
 //	printf("sponte PyPort %p  ordo=%lu subor=%d \n", c_owner, aps.ordo, aps.subor);
 	ret =  c_owner->aptus->sponte(&aps);
+	c_owner->free_aps(aps);
 	return Py_BuildValue("i", ret ? 1:0);
 }
 
@@ -202,7 +217,6 @@ static PyMethodDef py_amor_methods[] = {
 
 static void PyAmor_dealloc(PyAmorObj* self)
 {
-//	printf("++++++ PyAmor_dealloc self=%p\n" ,self);
 	self->owner = 0;
 	Py_TYPE(self)->tp_free((PyObject*)self);
 }
@@ -272,12 +286,6 @@ static PyTypeObject PyAmorType = {
     PyAmor_new                 /* tp_new */
 };
 
-typedef struct {
-	PyObject_HEAD
-	TBuffer *tb;
-	int ref;	/* 0: tb是自己的, 最后要释放;  1: tb是外来的, 不管 */
-} PyTBufferObj;
-
 static void PyTBuffer_dealloc(PyTBufferObj* self)
 {
 	//printf("++++++ PyTBuffer_dealloc\n");
@@ -297,8 +305,6 @@ static PyObject *PyTBuffer_new(PyTypeObject *type, PyObject *args, PyObject *kwd
 	self = (PyTBufferObj *)type->tp_alloc(type, 0);
 	if (self != NULL) 
 	{
-		//printf("++++ self PyTBuffer_new %p\n", self);
-		//self->tb = new TBuffer(8192);
 		self->tb = 0;
 	}
 
@@ -310,7 +316,6 @@ static int PyTBuffer_init(PyTBufferObj *self, PyObject *args, PyObject *kwds)
 	int j=-1;
 	if ( PyArg_ParseTuple (args, "i", &j) )
 	{
-		printf  (  " int j = %d\n", j);
 		if ( j  ==0 ) 
 			self->ref = 1;
 	}
@@ -319,30 +324,45 @@ static int PyTBuffer_init(PyTBufferObj *self, PyObject *args, PyObject *kwds)
 		self->tb = new TBuffer( j > 0? j:8192);
 		self->ref = 0;
 	}
-	printf("+###++ PyTBuffer_init self=%p args %p kwds %p self tb=%p\n", self, args, kwds, self->tb);
+//	printf("+###++ PyTBuffer_init self=%p args %p kwds %p self tb=%p\n", self, args, kwds, self->tb);
 	return 0;
 }
 
 static PyObject *py_tb_input(PyObject *self, PyObject *args)
 {
-	char *str;
 	PyObject *o;
-	//printf("--tbuffer ------self %p, tbuffer %p\n", self, ((PyTBufferObj*)self)->tb);
 	if (!PyArg_ParseTuple(args, "O", &o)) 
 	{
-		printf("!!!!valid Object\n");
 		return Py_BuildValue("i", 0);
 	} else {
-		printf("tbuff Object type %s\n", o->ob_type->tp_name);
+		if ( PyByteArray_Check(o) )
+		{
+			((PyTBufferObj*)self)->tb->input((unsigned char*)PyByteArray_AsString(o), PyByteArray_Size(o));
+		}  else if ( PyString_Check(o) )
+		{
+			((PyTBufferObj*)self)->tb->input((unsigned char*)PyString_AsString(o), PyString_Size(o));
+		}  else {
+			return Py_BuildValue("i", 0);
+		}
 	}
-	if (!PyArg_ParseTuple(args, "s", &str)) 
-		return Py_BuildValue("i", 0);
-	((PyTBufferObj*)self)->tb->input((unsigned char*)str, strlen(str));
 	return Py_BuildValue("i", 1);
+}
+
+static PyObject *py_tb_get(PyObject *self)
+{
+	return PyString_FromStringAndSize((const char*)(((PyTBufferObj*)self)->tb->base), ((PyTBufferObj*)self)->tb->point - ((PyTBufferObj*)self)->tb->base);
+}
+
+static PyObject *py_tb_getbytes(PyObject *self)
+{
+	return PyByteArray_FromStringAndSize((const char*)(((PyTBufferObj*)self)->tb->base), ((PyTBufferObj*)self)->tb->point - ((PyTBufferObj*)self)->tb->base);
 }
 
 static PyMethodDef pytb_methods[] = {
 	{"input", py_tb_input, METH_VARARGS, "PyTBuffer input ascii string"},
+	{"get", (PyCFunction)py_tb_get, METH_NOARGS, "PyTBuffer get ascii string"},
+	{"getstr", (PyCFunction)py_tb_get, METH_NOARGS, "PyTBuffer get ascii string"},
+	{"getbytes", (PyCFunction)py_tb_getbytes, METH_NOARGS, "PyTBuffer get bytes"},
 	{NULL,NULL,0,NULL}
 };
 
@@ -388,15 +408,8 @@ static PyTypeObject PyTBufferType = {
     PyTBuffer_new                 /* tp_new */
 };
 
-typedef struct {
-	PyObject_HEAD
-	PacketObj *pac;
-	int ref;	/* 0: tb是自己的, 最后要释放;  1: tb是外来的, 不管 */
-} PyPacketObj;
-
 static void PyPacket_dealloc(PyPacketObj* self)
 {
-	//printf("++++++ PyTBuffer_dealloc\n");
 	delete self->pac;
 	self->pac = 0;
 	Py_TYPE(self)->tp_free((PyObject*)self);
@@ -404,36 +417,127 @@ static void PyPacket_dealloc(PyPacketObj* self)
 
 static PyObject *PyPacket_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-	PyPacketObj *self;
-
-//	printf("++++++ PyPacket_new type=%p\n", type);
-	self = (PyPacketObj *)type->tp_alloc(type, 0);
+	PyPacketObj *self = (PyPacketObj *)type->tp_alloc(type, 0);
 	if (self != NULL) 
 	{
 		self->pac = 0;
+		self->ref = 0;
 	}
-
 	return (PyObject *)self;
 }
 
 static int PyPacket_init(PyPacketObj *self, PyObject *args, PyObject *kwds)
 {
-	if ( !self->pac )
+	int j=-1;
+	if ( PyArg_ParseTuple (args, "i", &j) )
+	{
+		if ( j  ==0 ) 
+			self->ref = 1;
+	}
+	if( j != 0 && !self->pac )
 	{
 		self->pac = new PacketObj();
+		self->ref = 0;
+		if ( j > 0 ) 
+		{
+			self->pac->produce(j);
+		}
 	}
 	return 0;
 }
 
 static PyObject *py_pac_set(PyObject *self, PyObject *args)
 {
-	char *str;
 	PyObject *o;
+	int fld;
+	if (!PyArg_ParseTuple(args, "iO", &fld, &o)) 
+	{
+		return Py_BuildValue("i", 0);
+	} else {
+		if ( PyByteArray_Check(o) )
+		{
+			((PyPacketObj*)self)->pac->input(fld, (unsigned char*)PyByteArray_AsString(o), PyByteArray_Size(o));
+		}  else if ( PyString_Check(o) )
+		{
+			((PyPacketObj*)self)->pac->input(fld, (unsigned char*)PyString_AsString(o), PyString_Size(o));
+		}  else {
+			return Py_BuildValue("i", 0);
+		}
+	}
 	return Py_BuildValue("i", 1);
+}
+
+static PyObject *py_pac_set_ajp(PyObject *self, PyObject *args)
+{
+	PyObject *on,*ov;
+	int fld;
+	const char* sc, *val;
+	unsigned short nlen, vlen;
+	if (!PyArg_ParseTuple(args, "iOO", &fld, &on, &ov)) 
+	{
+		return Py_BuildValue("i", 0);
+	} else {
+		if ( PyByteArray_Check(on) )
+		{
+			sc = (const char*)PyByteArray_AsString(on);
+			nlen = (unsigned short)PyByteArray_Size(on) & 0xFF;
+		}  else if ( PyString_Check(on) )
+		{
+			sc = (const char*)PyString_AsString(on);
+			nlen = (unsigned short)PyString_Size(on) & 0xFF;
+		}  else {
+			return Py_BuildValue("i", 0);
+		}
+
+		if ( PyByteArray_Check(ov) )
+		{
+			val = (const char*)PyByteArray_AsString(ov);
+			vlen = (unsigned short)PyByteArray_Size(ov) & 0xFF;
+		}  else if ( PyString_Check(ov) )
+		{
+			val = (const char*)PyString_AsString(ov);
+			vlen = (unsigned short)PyString_Size(ov) & 0xFF;
+		}  else {
+			return Py_BuildValue("i", 0);
+		}
+		((PyPacketObj*)self)->pac->inputAJP(fld, nlen, sc, vlen, val);
+	}
+	return Py_BuildValue("i", 1);
+}
+
+static PyObject *py_pac_get(PyObject *self, PyObject *args)
+{
+	int fld, len;
+	unsigned char*p = 0;
+	if (PyArg_ParseTuple(args, "i", &fld))
+	{
+		p = ((PyPacketObj*)self)->pac->getfld(fld, &len);
+		if ( p )
+			return PyString_FromStringAndSize((const char*)p, (Py_ssize_t)len);
+	}
+	return PyString_FromStringAndSize((const char*)p, (Py_ssize_t)0);
+}
+
+static PyObject *py_pac_getbytes(PyObject *self, PyObject *args)
+{
+	int fld, len;
+	unsigned char*p = 0;
+	if (PyArg_ParseTuple(args, "i", &fld))
+	{
+		unsigned char*p = 0; 
+		p  = ((PyPacketObj*)self)->pac->getfld(fld, &len);
+		if ( p )
+			return PyByteArray_FromStringAndSize((const char*)p, (Py_ssize_t)len);
+	}
+	return PyString_FromStringAndSize((const char*)p, (Py_ssize_t)0);
 }
 
 static PyMethodDef pypac_methods[] = {
 	{"set", py_pac_set, METH_VARARGS, "Packet set field"},
+	{"setajp", py_pac_set, METH_VARARGS, "Packet set AJP field"},
+	{"get", py_pac_get, METH_VARARGS, "Packet get field"},
+	{"getstr", py_pac_get, METH_VARARGS, "Packet get field"},
+	{"getbytes", py_pac_getbytes, METH_VARARGS, "Packet get field"},
 	{NULL,NULL,0,NULL}
 };
 
@@ -560,6 +664,9 @@ bool PyPort::facio( Amor::Pius *pius)
 		Py_INCREF(&PyTBufferType);
 		PyModule_AddObject(m, "TBuffer", (PyObject *)&PyTBufferType);
 
+		Py_INCREF(&PyPacketType);
+		PyModule_AddObject(m, "Packet", (PyObject *)&PyPacketType);
+
 		run_ele =  gCFG->run_simpleStr;
 		while ( run_ele ) 
 		{
@@ -627,28 +734,6 @@ bool PyPort::facio( Amor::Pius *pius)
 			((PyAmorObj*) pInstance)->owner = this;
 			WBUG("PyObject_CallObject of class (%s) %p", gCFG->pyClass_str, pInstance);
 		}
-/*
-		printf("==== class %p\n", PyMethod_Class(mth));
-		ret = PyObject_SetAttrString(pInstance, "aptus_facio", mth );
-		if ( ret ) 
-		{
-			WLOG(WARNING,"PyObject_SetAttrString(pInstance)  %s return %d (failed!)", "facio", ret);
-		} else {
-			WBUG("set aptus_facio(pInstance) method ok!");
-		}
-
-		m = Py_InitModule4("aptus", aptus_methods, NULL, pInstance, PYTHON_API_VERSION);
-		if ( !m ) {
-			WLOG(WARNING,"Py_InitModule aptus failed");
-			break;
-		} else {
-			WBUG("Py_InitModule aptus ok!");
-		}
-		aptus_error = PyErr_NewException((char*)"aptus.error", 0, 0);
-		Py_INCREF(aptus_error);
-		PyModule_AddObject(m, "error", aptus_error);
-		ret = PyRun_SimpleString("import aptus");
-*/
 		break;
 	default:
 		//WBUG("ordo = %d ========== %p\n", pius->ordo, pInstance);
@@ -692,59 +777,349 @@ PyPort::~PyPort()
 	}
 } 
 
-/*
-static struct PyModuleDef aptus_mod = {
-	PyModuleDef_HEAD_INIT;
-	"python_facio",
-	null,
-	-1
-};
-
-PyMODINIT_FUNC PyInit_aptus_facio(void)
-{
-	PyObject *m;
-	m = PyModule_Create(&fac_mod);
-	if ( !m ) return 0;
-}
-
-PyMODINIT_FUNC PyInit_aptus_sponte(void)
-{
-}
-*/
-
 bool PyPort::facioPy( Amor::Pius *pius)
 {
 	bool ret = false;
 	if ( pInstance )
 	{
-		ret = pius2py(pius, fac_method);
+		ret = pius2py(pius, fac_method, "facio");
 		//if( jvmError() ) return false;
 	}
 	return ret;
 }
 
-/* 从C++程序到Python脚本, 为python生成合适的对象, and facio or sponte */
-bool PyPort::pius2py (Pius *pius, char *py_method)
+void PyPort::free_aps(Amor::Pius &aps)
 {
+	/* 接下去要做 ps_obj.indic(Python)到pius.indic(C++)的工作 */
+	if ( !aps.indic ) return;
+	switch ( aps.ordo )
+	{
+	case Notitia::SET_TBUF:
+	case Notitia::SET_UNIPAC:
+		delete [](void**)aps.indic;
+		break;
+	case Notitia::PRO_TBUF:
+	case Notitia::SET_TINY_XML:
+		break;
+
+	case Notitia::ERR_SOAP_FAULT:
+	case Notitia::PRO_SOAP_HEAD:
+	case Notitia::PRO_SOAP_BODY:	
+		break;	
+
+	case Notitia::CMD_SET_DBFACE:	
+		/* 这个由DBPort发出, 不会有Java到C++的情况*/
+		break;	
+
+	case Notitia::DMD_SET_TIMER:
+		/* ps.indic 是一个java.lang.integer, 转成int, 并且还要加一个jvmport的指针 */
+		break;
+
+	case Notitia::Get_WS_MsgType:
+	case Notitia::Set_WS_MsgType:
+		/* ps.indic 是一个java.lang.integer, 转成unsigned char*, 并且还要加一个jvmport的指针 */
+		delete (unsigned char*)aps.indic;
+		break;
+
+	case Notitia::DMD_SET_ALARM:
+		/* ps.indic 是一个java.lang.integer, 转成int, 并且还要加一个jvmport的指针 */
+		delete (int*)(((void **)aps.indic)[1]);
+		delete [](void**)aps.indic;
+		break;
+
+	case Notitia::CMD_HTTP_GET:
+		/* indic 指向一个指针struct GetRequestCmd* */
+		break;
+	
+	case Notitia::CMD_HTTP_SET:
+		/* indic 指向一个指针struct SetResponseCmd* */
+		break;
+	default :
+		break;
+	}
+}
+
+/* 从Python脚本到C++程序, 为C++生成Pius, 调用的还需要调用 free_aps*/
+bool PyPort::get_aps(Amor::Pius &aps, PyObject *args)
+{
+	PyPiusObj *ps_obj;
+	PyTBufferObj *a_tb = 0, *b_tb=0;
+	PyPacketObj *a_pac = 0, *b_pac=0;
+
+	if (!PyArg_ParseTuple(args, "O", &ps_obj)) 
+		return false;
+	aps.ordo = ps_obj->ordo;
+	aps.subor = ps_obj->subor;
+	aps.indic = 0;
+	if (!ps_obj->indic )  {
+		WBUG("aps.indic is null"); 
+		return true;
+	}
+	/* 接下去要做 ps_obj.indic(Python)到pius.indic(C++)的工作 */
+	switch ( aps.ordo )
+	{
+	case Notitia::SET_TBUF:
+		WBUG("aps.indic get_aps SET_TBUF");
+		if ( !PyList_Check(ps_obj->indic) ) {
+			WLOG(WARNING,"aps.indic is not PyListObject!");
+			return false;
+		}
+		a_tb = (PyTBufferObj *)PyList_GetItem(ps_obj->indic, 0);
+		b_tb = (PyTBufferObj *)PyList_GetItem(ps_obj->indic, 1);
+		if ( !a_tb || !b_tb )
+		{
+			WLOG(WARNING,"aps.indic a_tb or b_tb is null when SET_TBUF");
+			break;
+		}
+		if ( !PyObject_IsInstance((PyObject*)a_tb, (PyObject*)&PyTBufferType)
+			 || !PyObject_IsInstance((PyObject*)b_tb, (PyObject*)&PyTBufferType) )
+		{
+			WLOG(WARNING,"aps.indic a_tb or b_tb is not of PyTBufferObj when SET_TBUF");
+			break;
+		}
+		//printf("a_tb.tb = %p, b_tb.tb=%p\n", a_tb->tb, b_tb->tb);
+		aps.indic = new void*[2];
+		((void**)(aps.indic))[0] = (void*)(a_tb->tb);
+		((void**)(aps.indic))[1] = (void*)(b_tb->tb);
+		break;
+
+	case Notitia::SET_UNIPAC:
+		WBUG("aps.indic get_aps	SET_UNIPAC");
+		if ( !PyList_Check(ps_obj->indic) ) {
+			WLOG(WARNING,"aps.indic is not PyListObject!");
+			return false;
+		}
+		a_pac = (PyPacketObj *)PyList_GetItem(ps_obj->indic, 0);
+		b_pac = (PyPacketObj *)PyList_GetItem(ps_obj->indic, 1);
+		if ( !a_pac || !b_pac )
+		{
+			WLOG(WARNING,"aps.indic a_pac or b_pac is null when SET_UNIPAC");
+			break;
+		}
+		if ( !PyObject_IsInstance((PyObject*)a_pac, (PyObject*)&PyPacketType)
+			 || !PyObject_IsInstance((PyObject*)b_pac, (PyObject*)&PyPacketType) )
+		{
+			WLOG(WARNING,"aps.indic a_pac or b_pac is not of PyPacketObj when SET_UNIPAC");
+			break;
+		}
+		printf("a_pac.pac = %p, b_pac.pac=%p\n", a_pac->pac, b_pac->pac);
+		aps.indic = new void*[2];
+		((void**)(aps.indic))[0] = (void*)(a_pac->pac);
+		((void**)(aps.indic))[1] = (void*)(b_pac->pac);
+		break;
+
+	case Notitia::Get_WS_MsgType:
+	case Notitia::Set_WS_MsgType:
+		/* ps.indic 是一个PyObject*, 转成unsigned char*, 并且还要加一个jvmport的指针 */
+	{
+		unsigned char *opcode = new unsigned char;
+		if ( !PyInt_Check(ps_obj->indic) ) {
+			WLOG(WARNING,"aps.indic is not of PyInt_Type! when Get/Set_WS_MsgType");
+			return false;
+		}
+		*opcode = (unsigned char)(PyInt_AS_LONG(ps_obj->indic)&0xFF);
+		aps.indic = opcode;
+	}
+		break;
+
+	case Notitia::DMD_SET_ALARM:
+		/* ps_obj.indic 是一个PyInt_Type, 转成int, 并且还要加一个this指针 */
+	{
+		void **indp = new void* [2];
+		int *click = new int;
+
+		if ( !PyInt_Check(ps_obj->indic) ) {
+			WLOG(WARNING,"aps.indic is not of PyInt_Type! when Get/Set_WS_MsgType");
+			return false;
+		}
+		*click = (int)(PyInt_AS_LONG(ps_obj->indic)&0xFFFFFFFF);
+		indp[0] = this;
+		indp[1] = click;
+		aps.indic = indp;
+	}
+		break;
+
+	case Notitia::DMD_SET_TIMER:
+		/* ps.indic  */
+		aps.indic = this;
+		break;
+
+#ifdef TTT
+	case Notitia::PRO_TBUF:
+	case Notitia::SET_TINY_XML:
+	{
+		jclass tbuf_cls;
+		jobject tbo1, tbo2;
+		jbyteArray fir, sec;
+		jfieldID port_fld;
+		jobjectArray indic;
+
+		indic = (jobjectArray) env->GetObjectField(ps, indic_fld);
+		if ( !indic ) break;
+
+		pius.indic = new void*[2];
+		if ( pius.ordo == Notitia::SET_UNIPAC )
+			tbuf_cls = env->FindClass("textor/jvmport/PacketData");
+		else if ( pius.ordo == Notitia::SET_TBUF ||  pius.ordo == Notitia::PRO_TBUF )
+			tbuf_cls = env->FindClass("textor/jvmport/TBuffer");
+		else
+			tbuf_cls = env->FindClass("textor/jvmport/TiXML");
+			
+		if ( jvmError(env)) break;
+		port_fld  = env->GetFieldID(tbuf_cls, "portPtr", "[B");
+		if ( jvmError(env)) break;
+
+		tbo1 = env->GetObjectArrayElement(indic, 0); 
+		tbo2 = env->GetObjectArrayElement(indic, 1); 
+
+		if ( !tbo1 || !tbo2 ) break;
+		fir = (jbyteArray) env->GetObjectField(tbo1, port_fld);
+		sec = (jbyteArray) env->GetObjectField(tbo2, port_fld);
+
+		ba2buf(env, fir, (unsigned char*)&(((void**)pius.indic)[0]), sizeof(void *));
+		ba2buf(env, sec, (unsigned char*)&(((void**)pius.indic)[1]), sizeof(void *));
+		env->DeleteLocalRef(tbo1);
+		env->DeleteLocalRef(tbo2);
+		env->DeleteLocalRef(tbuf_cls);
+		env->DeleteLocalRef(indic);
+		env->DeleteLocalRef(fir);
+		env->DeleteLocalRef(sec);
+		//printf("in jniamor %08x %08x \n", ((void**)pius.indic)[0], ((void**)pius.indic)[1]);
+	}
+		break;
+
+	case Notitia::ERR_SOAP_FAULT:
+	case Notitia::PRO_SOAP_HEAD:
+	case Notitia::PRO_SOAP_BODY:	
+		/* indic 指向一个指针TiXmlElement*, 将此转为org.w3c.dom.Document对象 */
+	{
+		TiXmlDocument *docp = new TiXmlDocument();
+		toDocument(env, docp, env->GetObjectField(ps, indic_fld));
+		pius.indic = docp->RootElement();	
+	}
+		break;	
+
+	case Notitia::CMD_SET_DBFACE:	
+		/* 这个由DBPort发出, 不会有Java到C++的情况*/
+		break;	
+
+	case Notitia::CMD_HTTP_GET:
+		/* indic 指向一个指针struct GetRequestCmd* */
+		break;
+	
+	case Notitia::CMD_HTTP_SET:
+		/* indic 指向一个指针struct SetResponseCmd* */
+		break;
+#endif
+
+	default :
+		break;
+	}
+//	env->DeleteLocalRef(pius_cls);
+	return true;
+}
+
+/* 从C++程序到Python脚本, 为python生成合适的对象, and facio or sponte */
+bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
+{
+	PyObject *t, *obj_list=0, *ret_obj=0;
+	PyTBufferObj *a_tb = 0, *b_tb=0;
+	PyPacketObj *a_pac= 0, *b_pac=0;
+	TBuffer **tmt=0;
+	PacketObj **tmp=0;
+	PyPiusObj *ps_obj =0;
+
+	ps_obj = (PyPiusObj *)PyObject_CallObject((PyObject*)&PyPiusType, NULL);
+	if ( !ps_obj ) 
+	{
+		WLOG(WARNING, "PyObject_CallObject(PyPiusType) failed when %s SET_TBUF", meth_str);
+		return false;
+	} 
+	ps_obj->ordo = pius->ordo;
+	ps_obj->subor = pius->subor;
+	ps_obj->indic = 0;
 	/* 下面根据ordo来生成 ps_obj中的indic, 对付各种TBuffer等 */
 	switch ( pius->ordo )
 	{
 	case Notitia::SET_TBUF:
-		WBUG("facio SET_TBUF");
-	{
-		PyObject *t;
-		PyTBufferObj *a_tb = 0;
+		WBUG("%s SET_TBUF", meth_str);
 		t = PyTuple_New(1);
 		PyTuple_SetItem(t, 0, PyInt_FromLong(1L));
-		//a_tb = (PyTBufferObj *)_PyObject_New(&PyTBufferType);
-		//a_tb = PyObject_New(PyTBufferObj, &PyTBufferType);
-		//a_tb = PyObject_NewVar(PyTBufferObj, &PyTBufferType, sizeof(PyTBufferObj));
 		a_tb =  (PyTBufferObj *)PyObject_CallObject((PyObject*)&PyTBufferType, t);
-		printf("!! a_tb %p, a_tb->tb %p ---t = %p---\n", a_tb, a_tb->tb, t);
-	}
+		b_tb =  (PyTBufferObj *)PyObject_CallObject((PyObject*)&PyTBufferType, t);
+		//printf("!! a_tb %p, b_tb %p ---t = %p---\n", a_tb, b_tb, t);
+		Py_DECREF(t);
+		if ( (tmt = (TBuffer **)(pius->indic)))
+		{
+			if ( *tmt) a_tb->tb = *tmt; 
+			else
+				WLOG(WARNING, "%s SET_TBUF first is null", meth_str);
+			tmt++;
+			if ( *tmt) b_tb->tb = *tmt;
+			else
+				WLOG(WARNING, "%s SET_TBUF second is null", meth_str);
+		} else 
+			WLOG(WARNING, "%s SET_TBUF null", meth_str);
+		obj_list = PyList_New(0);
+		if ( !obj_list ) 
+		{
+			WLOG(WARNING, "PyList_New return NULL when %s SET_TBUF", meth_str);
+			goto FAIL;
+		}
+		if ( PyList_Append(obj_list, (PyObject*)a_tb) == -1 || PyList_Append(obj_list, (PyObject*)b_tb) ==-1 )
+		{
+			WLOG(WARNING, "PyList_Append failed when %s SET_TBUF", meth_str);
+			goto NFAIL;
+		}
+		ps_obj->indic = obj_list;
+		ret_obj = PyObject_CallMethod(pInstance, py_method, (char*)"O", ps_obj);
+	NFAIL:
+		Py_DECREF(obj_list);
+	FAIL:
+		Py_DECREF(a_tb);
+		Py_DECREF(b_tb);
 		break;
-	case Notitia::PRO_TBUF:
+
 	case Notitia::SET_UNIPAC:
+		WBUG("%s SET_UNIPAC", meth_str);
+		t = PyTuple_New(1);
+		PyTuple_SetItem(t, 0, PyInt_FromLong(1L));
+		a_pac =  (PyPacketObj *)PyObject_CallObject((PyObject*)&PyPacketType, t);
+		b_pac =  (PyPacketObj *)PyObject_CallObject((PyObject*)&PyPacketType, t);
+		//printf("!! a_pac %p, b_pac %p ---t = %p---\n", a_pac, b_pac, t);
+		Py_DECREF(t);
+		if ( (tmp = (PacketObj **)(pius->indic)))
+		{
+			if ( *tmp) a_pac->pac = *tmp; 
+			else
+				WLOG(WARNING, "%s SET_UNIPAC first is null", meth_str);
+			tmp++;
+			if ( *tmp) b_pac->pac = *tmp;
+			else
+				WLOG(WARNING, "%s SET_UNIPAC second is null", meth_str);
+		} else 
+			WLOG(WARNING, "%s SET_UNIPAC null", meth_str);
+		obj_list = PyList_New(0);
+		if ( !obj_list ) 
+		{
+			WLOG(WARNING, "PyList_New return NULL when %s SET_UNIPAC", meth_str);
+			goto PFAIL;
+		}
+		if ( PyList_Append(obj_list, (PyObject*)a_pac) == -1 || PyList_Append(obj_list, (PyObject*)b_pac) ==-1 )
+		{
+			WLOG(WARNING, "PyList_Append failed when %s SET_UNIPAC", meth_str);
+			goto QFAIL;
+		}
+		ps_obj->indic = obj_list;
+		ret_obj = PyObject_CallMethod(pInstance, py_method, (char*)"O", ps_obj);
+	QFAIL:
+		Py_DECREF(obj_list);
+	PFAIL:
+		Py_DECREF(a_pac);
+		Py_DECREF(b_pac);
+		break;
+
+	case Notitia::PRO_TBUF:
 	case Notitia::SET_TINY_XML:
 	{
 	}
@@ -778,9 +1153,10 @@ bool PyPort::pius2py (Pius *pius, char *py_method)
 		break;
 
 	case Notitia::TIMER:
-		/* 这些要转一个java.lang.Integer */
-	{
-	}
+		/* 这些要转一个PyInt_Type */
+		ps_obj->indic = PyInt_FromLong((long)*((int*) (pius->indic)));
+		ret_obj = PyObject_CallMethod(pInstance, py_method, (char*)"O", ps_obj);
+		Py_DECREF(ps_obj->indic);
 		break;
 
 	case Notitia::DMD_SET_TIMER:
@@ -836,14 +1212,18 @@ bool PyPort::pius2py (Pius *pius, char *py_method)
 	case Notitia::START_SERVICE:
 	case Notitia::DMD_END_SERVICE:
 		/* 这些本来就是不需要indic的 */
-		PyObject_CallMethod(pInstance, py_method, (char*)"ki", pius->ordo, pius->subor);
 		break;
 
 	default :
 		break;
 	}
 
-	return true;
+	if ( ret_obj && PyObject_Compare(ret_obj, Py_True) == 0 )
+	{
+		WBUG("ret_obj is True");
+		return true;
+	} else
+		return false;
 }
 #include "hook.c"
 
