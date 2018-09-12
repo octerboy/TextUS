@@ -288,7 +288,6 @@ static PyTypeObject PyAmorType = {
 
 static void PyTBuffer_dealloc(PyTBufferObj* self)
 {
-	//printf("++++++ PyTBuffer_dealloc\n");
 	if ( self->tb  && self->ref == 0 )
 	{
 		delete self->tb;
@@ -410,8 +409,12 @@ static PyTypeObject PyTBufferType = {
 
 static void PyPacket_dealloc(PyPacketObj* self)
 {
-	delete self->pac;
-	self->pac = 0;
+//	printf("py packet dealloc ref = %d\n", self->ref);
+	if ( self->pac && self->ref == 0 )
+	{
+		delete self->pac;
+		self->pac = 0;
+	}
 	Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
@@ -783,7 +786,6 @@ bool PyPort::facioPy( Amor::Pius *pius)
 	if ( pInstance )
 	{
 		ret = pius2py(pius, fac_method, "facio");
-		//if( jvmError() ) return false;
 	}
 	return ret;
 }
@@ -1015,7 +1017,6 @@ bool PyPort::get_aps(Amor::Pius &aps, PyObject *args)
 	default :
 		break;
 	}
-//	env->DeleteLocalRef(pius_cls);
 	return true;
 }
 
@@ -1032,7 +1033,7 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 	ps_obj = (PyPiusObj *)PyObject_CallObject((PyObject*)&PyPiusType, NULL);
 	if ( !ps_obj ) 
 	{
-		WLOG(WARNING, "PyObject_CallObject(PyPiusType) failed when %s SET_TBUF", meth_str);
+		WLOG(WARNING, "PyObject_CallObject(PyPiusType) failed when %s ordo=%d", meth_str, pius->ordo);
 		return false;
 	} 
 	ps_obj->ordo = pius->ordo;
@@ -1044,7 +1045,7 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 	case Notitia::SET_TBUF:
 		WBUG("%s SET_TBUF", meth_str);
 		t = PyTuple_New(1);
-		PyTuple_SetItem(t, 0, PyInt_FromLong(1L));
+		PyTuple_SetItem(t, 0, PyInt_FromLong(0L));
 		a_tb =  (PyTBufferObj *)PyObject_CallObject((PyObject*)&PyTBufferType, t);
 		b_tb =  (PyTBufferObj *)PyObject_CallObject((PyObject*)&PyTBufferType, t);
 		//printf("!! a_tb %p, b_tb %p ---t = %p---\n", a_tb, b_tb, t);
@@ -1083,7 +1084,7 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 	case Notitia::SET_UNIPAC:
 		WBUG("%s SET_UNIPAC", meth_str);
 		t = PyTuple_New(1);
-		PyTuple_SetItem(t, 0, PyInt_FromLong(1L));
+		PyTuple_SetItem(t, 0, PyInt_FromLong(0L));
 		a_pac =  (PyPacketObj *)PyObject_CallObject((PyObject*)&PyPacketType, t);
 		b_pac =  (PyPacketObj *)PyObject_CallObject((PyObject*)&PyPacketType, t);
 		//printf("!! a_pac %p, b_pac %p ---t = %p---\n", a_pac, b_pac, t);
@@ -1148,6 +1149,7 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 
 	case Notitia::MAIN_PARA:
 		/*  *indic[0] = argc, *indic[1] = argv, 将此转为String[] */
+		WBUG("%s MAIN_PARA", meth_str);
 	{
 		void **ps = (void**)pius->indic;
 		int num = (*(int *)ps[0]);
@@ -1246,7 +1248,8 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 	default :
 		break;
 	}
-
+LAST:
+	Py_DECREF(ps_obj);
 	if ( ret_obj && PyObject_Compare(ret_obj, Py_True) == 0 )
 	{
 		WBUG("ret_obj is True");
