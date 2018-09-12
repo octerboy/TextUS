@@ -946,8 +946,30 @@ bool PyPort::get_aps(Amor::Pius &aps, PyObject *args)
 		aps.indic = this;
 		break;
 
-#ifdef TTT
 	case Notitia::PRO_TBUF:
+	case Notitia::PRO_UNIPAC:
+	case Notitia::DMD_STOP_NEXT:
+	case Notitia::CMD_INCR_REFS:
+	case Notitia::CMD_DECR_REFS:
+	case Notitia::JUST_START_THREAD:
+	case Notitia::FINAL_END_THREAD:
+	case Notitia::NEW_SESSION:
+	case Notitia::END_SERVICE:
+	case Notitia::CHANNEL_TIMEOUT:
+	case Notitia::CMD_CHANNEL_PAUSE:
+	case Notitia::CMD_CHANNEL_RESUME:
+	case Notitia::CHANNEL_NOT_ALIVE:
+	case Notitia::END_SESSION:
+	case Notitia::DMD_END_SESSION:
+	case Notitia::START_SESSION:
+	case Notitia::DMD_START_SESSION:
+	case Notitia::ERR_FRAME_TIMEOUT:
+	case Notitia::ERR_FRAME_LENGTH:
+	case Notitia::START_SERVICE:
+	case Notitia::DMD_END_SERVICE:
+		break;
+
+#ifdef TTT
 	case Notitia::SET_TINY_XML:
 	{
 		jclass tbuf_cls;
@@ -1015,6 +1037,7 @@ bool PyPort::get_aps(Amor::Pius &aps, PyObject *args)
 #endif
 
 	default :
+		return false;
 		break;
 	}
 	return true;
@@ -1121,6 +1144,9 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 		break;
 
 	case Notitia::PRO_TBUF:
+	case Notitia::PRO_UNIPAC:
+		ret_obj = PyObject_CallMethod(pInstance, py_method, (char*)"O", ps_obj);
+		break;
 	case Notitia::SET_TINY_XML:
 	{
 	}
@@ -1243,6 +1269,7 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 	case Notitia::START_SERVICE:
 	case Notitia::DMD_END_SERVICE:
 		/* 这些本来就是不需要indic的 */
+		ret_obj = PyObject_CallMethod(pInstance, py_method, (char*)"O", ps_obj);
 		break;
 
 	default :
