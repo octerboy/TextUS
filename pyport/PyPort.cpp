@@ -1145,8 +1145,10 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 
 	case Notitia::PRO_TBUF:
 	case Notitia::PRO_UNIPAC:
+		WBUG("%s PRO_TBUF/PRO_UNIPAC", meth_str);
 		ret_obj = PyObject_CallMethod(pInstance, py_method, (char*)"O", ps_obj);
 		break;
+
 	case Notitia::SET_TINY_XML:
 	{
 	}
@@ -1171,6 +1173,13 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 	
 	case Notitia::CMD_HTTP_SET:
 		/* indic 指向一个指针struct SetResponseCmd* */
+		break;
+
+	case Notitia::WebSock_Start:
+		WBUG("%s WebSock_Start", meth_str);
+		ps_obj->indic = PyString_FromString((const char*)pius->indic);
+		ret_obj = PyObject_CallMethod(pInstance, py_method, (char*)"O", ps_obj);
+		Py_DECREF(ps_obj->indic);
 		break;
 
 	case Notitia::MAIN_PARA:
