@@ -93,8 +93,6 @@ typedef struct {
 
 static void PyPius_dealloc(PyPiusObj* self)
 {
-	if ( self->indic)
-		Py_DECREF(self->indic);
 	Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
@@ -106,7 +104,7 @@ static PyObject *PyPius_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	if (self != NULL) 
 	{
 		//printf("++++ self PyAmor_new %p\n", self);
-		self->indic = 0;
+		self->indic = Py_None;
 		self->ordo = Notitia::TEXTUS_RESERVED;
 		self->subor = Amor::CAN_ALL;
 	}
@@ -128,8 +126,8 @@ static int PyPius_init(PyPiusObj *self, PyObject *args, PyObject *kwds)
 #include <structmember.h>
 static PyMemberDef PyPius_members[] = {
 	{(char*)"ordo", T_LONG, offsetof(PyPiusObj, ordo), 0, (char*)"pius ordo" },
-	{(char*)"subor", T_LONG, offsetof(PyPiusObj, subor), 0, (char*)"pius sub ordo" },
-	{(char*)"indic", T_OBJECT, offsetof(PyPiusObj, indic), 0, (char*)"pius indic" },
+	{(char*)"subor", T_INT, offsetof(PyPiusObj, subor), 0, (char*)"pius sub ordo" },
+	{(char*)"indic", T_OBJECT_EX, offsetof(PyPiusObj, indic), 0, (char*)"pius indic" },
 	{NULL}
 };
 
@@ -609,8 +607,7 @@ bool PyPort::facio( Amor::Pius *pius)
 	assert(pius);
 	const char *run_str;
 	TiXmlElement *run_ele;
-	PyObject *m_name = 0;
-	PyObject *m, *mth;
+	PyObject *m_name = 0, *m;
 	int ret;
 
 	switch ( pius->ordo )
@@ -704,6 +701,7 @@ bool PyPort::facio( Amor::Pius *pius)
 			break;
 		}
 		gCFG->pModule = PyImport_Import(m_name);      
+		Py_DECREF(m_name);
 		if ( !gCFG->pModule) 
 		{
 			WLOG(WARNING,"PyImport_Import module of (%s) failed", gCFG->pyMod_str);
@@ -1051,7 +1049,7 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 	PyPacketObj *a_pac= 0, *b_pac=0;
 	TBuffer **tmt=0;
 	PacketObj **tmp=0;
-	PyPiusObj *ps_obj =0;
+	PyPiusObj *ps_obj = 0;
 
 	ps_obj = (PyPiusObj *)PyObject_CallObject((PyObject*)&PyPiusType, NULL);
 	if ( !ps_obj ) 
@@ -1061,7 +1059,6 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 	} 
 	ps_obj->ordo = pius->ordo;
 	ps_obj->subor = pius->subor;
-	ps_obj->indic = 0;
 	/* 下面根据ordo来生成 ps_obj中的indic, 对付各种TBuffer等 */
 	switch ( pius->ordo )
 	{
@@ -1179,7 +1176,7 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 		WBUG("%s WebSock_Start", meth_str);
 		ps_obj->indic = PyString_FromString((const char*)pius->indic);
 		ret_obj = PyObject_CallMethod(pInstance, py_method, (char*)"O", ps_obj);
-		Py_DECREF(ps_obj->indic);
+		Py_DECREF(ps_obj->indic); 
 		break;
 
 	case Notitia::MAIN_PARA:
