@@ -207,9 +207,90 @@ static PyObject *python_sponte(PyObject *self, PyObject *args)
 	return Py_BuildValue("i", ret ? 1:0);
 }
 
+static PyObject *python_log(PyObject *self, PyObject *args, TEXTUS_ORDO lev)
+{
+	bool ret;
+	Amor::Pius aps;
+	const char *msg=0;
+	PyObject *logs;
+	PyPort *c_owner = ((PyAmorObj*)self)->owner;
+
+	if ( !c_owner ) 
+		return Py_BuildValue("i", 0);
+	
+	aps.ordo = lev;
+	aps.subor = Amor::CAN_ALL;
+	/* msg from args */	
+	if (!PyArg_ParseTuple(args, "O", &logs)) 
+	{
+		return Py_BuildValue("i", 0);
+	}
+	if ( PyString_Check(logs) )
+	{
+		msg = (const char*)PyString_AsString(logs);
+	}  else {
+		return Py_BuildValue("i", 0);
+	}
+//	printf("sponte PyPort %p  ordo=%lu subor=%d \n", c_owner, aps.ordo, aps.subor);
+	aps.indic = (void*)msg;
+	ret =  c_owner->aptus->sponte(&aps);
+	/* release msg */
+	return Py_BuildValue("i", 1);
+}
+
+static PyObject *python_log_bug(PyObject *self, PyObject *args)
+{
+#ifndef NDEBUG
+		return python_log(self, args, Notitia::LOG_DEBUG);
+#endif
+}
+
+static PyObject *python_log_info(PyObject *self, PyObject *args)
+{
+	return python_log(self, args, Notitia::LOG_INFO);
+}
+
+static PyObject *python_log_notice(PyObject *self, PyObject *args)
+{
+	return python_log(self, args, Notitia::LOG_NOTICE);
+}
+
+static PyObject *python_log_warn(PyObject *self, PyObject *args)
+{
+	return python_log(self, args, Notitia::LOG_WARNING);
+}
+
+static PyObject *python_log_err(PyObject *self, PyObject *args)
+{
+	return python_log(self, args, Notitia::LOG_ERR);
+}
+
+static PyObject *python_log_crit(PyObject *self, PyObject *args)
+{
+	return python_log(self, args, Notitia::LOG_CRIT);
+}
+
+static PyObject *python_log_alert(PyObject *self, PyObject *args)
+{
+	return python_log(self, args, Notitia::LOG_ALERT);
+}
+
+static PyObject *python_log_emerg(PyObject *self, PyObject *args)
+{
+	return python_log(self, args, Notitia::LOG_EMERG);
+}
+
 static PyMethodDef py_amor_methods[] = {
 	{"aptus_facio", python_facio, METH_VARARGS, "Execute facio command"},
 	{"aptus_sponte", python_sponte, METH_VARARGS, "Execute sponte command"},
+	{"aptus_log_bug", python_log_bug, METH_VARARGS, "Execute log bug command"},
+	{"aptus_log_info", python_log_info, METH_VARARGS, "Execute log infomation command"},
+	{"aptus_log_notice", python_log_notice, METH_VARARGS, "Execute log notice command"},
+	{"aptus_log_warn", python_log_warn, METH_VARARGS, "Execute log warning command"},
+	{"aptus_log_err", python_log_err, METH_VARARGS, "Execute log error command"},
+	{"aptus_log_crit", python_log_crit, METH_VARARGS, "Execute log critical command"},
+	{"aptus_log_alert", python_log_alert, METH_VARARGS, "Execute log alert command"},
+	{"aptus_log_emerg", python_log_emerg, METH_VARARGS, "Execute log emerg command"},
 	{NULL,NULL,0,NULL}
 };
 
