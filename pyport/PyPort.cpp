@@ -211,8 +211,10 @@ static PyObject *python_log(PyObject *self, PyObject *args, TEXTUS_ORDO lev)
 {
 	bool ret;
 	Amor::Pius aps;
-	const char *msg=0;
-	PyObject *logs;
+	char **msg_arr=0;
+	Py_ssize_t  args_num,i;
+	TBuffer buf;
+	
 	PyPort *c_owner = ((PyAmorObj*)self)->owner;
 
 	if ( !c_owner ) 
@@ -221,18 +223,17 @@ static PyObject *python_log(PyObject *self, PyObject *args, TEXTUS_ORDO lev)
 	aps.ordo = lev;
 	aps.subor = Amor::CAN_ALL;
 	/* msg from args */	
-	if (!PyArg_ParseTuple(args, "O", &logs)) 
+	args_num = PyTuple_Size(args);
+	msg_arr = new char* [args_num];
+	for ( i = 0 ; i < args_num; i++)
 	{
-		return Py_BuildValue("i", 0);
+		msg_arr[i] = (char*)PyString_AsString(PyObject_Str(PyTuple_GetItem(args, i)));
+		buf.input((unsigned char*)msg_arr[i], strlen(msg_arr[i]));
 	}
-	if ( PyString_Check(logs) )
-	{
-		msg = (const char*)PyString_AsString(logs);
-	}  else {
-		return Py_BuildValue("i", 0);
-	}
+	buf.input((unsigned char*)"\0",1);
+	delete [] (char*)msg_arr;
 //	printf("sponte PyPort %p  ordo=%lu subor=%d \n", c_owner, aps.ordo, aps.subor);
-	aps.indic = (void*)msg;
+	aps.indic = (void*)buf.base;
 	ret =  c_owner->aptus->sponte(&aps);
 	/* release msg */
 	return Py_BuildValue("i", 1);
