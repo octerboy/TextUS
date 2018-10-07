@@ -10,7 +10,7 @@ AMOROBJS=Ponder.o
 all:ponder.so
 
 Ponder.o:Ponder.cpp
-	${CC} ${CFLAGS} $(INCLUDE_DIR) -DNNDEBUG -DAMOR_CLS_TYPE=Ponder -o $@ $^
+	${CC} ${CFLAGS} $(INCLUDE_DIR) -DNDEBUG -DAMOR_CLS_TYPE=Ponder -o $@ $^
 
 ponder.so:$(AMOROBJS)
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase

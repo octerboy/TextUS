@@ -2,22 +2,20 @@
 DIRS= tinyxml amor baselib ajpfwd airline auxiliary \
 balance \
 dbport dummy formauth grate \
-holding \
-htmlsift httpagent httpauth httpcookie \
+holding htmlsift httpagent httpauth httpcookie \
 httpdigest httpdir httpfile httpform httpnourl \
 httpsrvbody httpsrvhead httpupfile httpurlsw httpxml \
-induco joint jvmport keep locker log2buff logdata \
+induco jdbcli joint jvmport keep locker log2buff logdata \
 monip montcp \
 nacframe nostra \
-oledbcsm \
-pacway pipe pmuto process ramify relay \
+oledbcsm oracli \
+pactran pacins pipe pmuto process pyport ramify relay \
 sched sequence signal slice sslcli sslsrv sslvcert \
 tbufchan tbufile \
 tcgi tcpcli tcpctrl tcpsrv \
-thread tix2pac toway trend tsoap \
+thread tix2pac toway tranway trend tsoap \
 unifom unipac version \
-jvmport jdbcli jsport \
-oracli \
+jsport \
 sysadm tpcap ttyop \
 nosuch
 

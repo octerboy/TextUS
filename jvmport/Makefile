@@ -22,6 +22,10 @@ jvmport.so: JvmPort.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase -L$(JDK_HOME)/jre/lib/server -ljvm
 	$(_POST_RPO_SUB)
 
+libjvmport.dylib: JvmPort.o 
+	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase -L$(JDK_HOME)/jre/lib/server -ljvm
+	$(_POST_RPO_SUB)
+
 $(PACDIR)/Amor.class:Amor.java
 	${JC} ${JCFLAGS} $^
 	mv Amor.class $(PACDIR)

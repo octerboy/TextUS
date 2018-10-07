@@ -593,7 +593,7 @@ Amor* Bu2File::clone()
 	child->gCFG = gCFG;
 	gCFG->instance_id++;
 	child->instance_id = gCFG->instance_id;
-	TEXTUS_SPRINTF(child->id_str, "%d", child->instance_id);
+	TEXTUS_SPRINTF(child->id_str, "%lu", child->instance_id);
 
 	return (Amor*)child;
 }

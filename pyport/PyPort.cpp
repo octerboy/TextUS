@@ -64,6 +64,7 @@ private:
 	bool pius2py (Pius *pius, char *method ,const char *str);
 	bool facioPy( Amor::Pius *pius);
 	char fac_method[16], spo_method[16];
+	void fetch_error();
 #include "wlog.h"
 };
 
@@ -787,6 +788,9 @@ bool PyPort::facio( Amor::Pius *pius)
 		if ( !gCFG->pModule) 
 		{
 			WLOG(WARNING,"PyImport_Import module of (%s) failed", gCFG->pyMod_str);
+			fetch_error();
+			//PyErr_Print();
+			//PyErr_Clear();
 			break;
 		}
 		gCFG->pClass = PyObject_GetAttrString(gCFG->pModule, gCFG->pyClass_str);  
@@ -1369,8 +1373,82 @@ LAST:
 	{
 		WBUG("ret_obj is True");
 		return true;
-	} else
+	} else {
+		if (PyErr_Occurred() ) 
+		{
+			fetch_error();
+			//PyErr_Print();
+			//PyErr_Clear();
+		}
 		return false;
+	}
+}
+
+void PyPort::fetch_error()
+{
+	PyObject *type =NULL, *value =NULL, *traceback =NULL;
+	PyErr_Fetch(&type, &value, &traceback);
+	char *str, *ptr;
+	TBuffer buf;
+	PyObject *pystr, *module_name, *pyth_module, *pyth_func;
+	if(type)
+	{
+		ptr = 0; str = 0;
+		str = PyExceptionClass_Name(type);
+		if ( str ) { 
+			ptr = strpbrk(str,".");
+			if ( ptr ) { 
+				ptr++;
+				buf.input((unsigned char*)ptr, strlen(ptr));
+			} else {
+				buf.input((unsigned char*)str, strlen(str));
+			}
+			buf.input((unsigned char*)": ", 2);
+		}
+	}
+
+	if(value)
+	{
+		PyObject *line = PyObject_Str(value);
+		if ( line ) {
+			str = PyString_AsString(PyObject_Str(value)); 
+			buf.input((unsigned char*)str, strlen(str));
+		}
+	}
+	if(!traceback) goto LAST;
+/*
+		for (PyTracebackObject *tb = (PyTracebackObject *)traceback; NULL!= tb; tb = tb->tb_next)
+		{
+			PyObject *line = PyUnicode_FromFormat(" File \"%U\", line %d, in %U\n",
+				tb->tb_frame->f_code->co_filename,
+				tb->tb_lineno,
+				tb->tb_frame->f_code->co_name);
+				//PyUnicode_1BYTE_DATA(line);
+		}
+*/
+	/* See if we can get a full traceback */
+	module_name = PyString_FromString("traceback");
+	pyth_module = PyImport_Import(module_name);
+	Py_DECREF(module_name);
+
+	if (pyth_module == NULL) goto LAST;
+
+	pyth_func = PyObject_GetAttrString(pyth_module, "format_exception");
+	if (pyth_func && PyCallable_Check(pyth_func)) 
+	{
+		PyObject *pyth_val;
+		pyth_val = PyObject_CallFunctionObjArgs(pyth_func, type, value, traceback, NULL);
+
+		pystr = PyObject_Str(pyth_val);
+		str = PyString_AsString(pystr);
+		buf.input((unsigned char*)"\t", 1);
+		buf.input((unsigned char*)str, strlen(str));
+		Py_DECREF(pyth_val);
+    	}
+LAST:
+	buf.input((unsigned char*)"\0", 1);
+	WLOG(ERR, (char*)buf.base);
+
 }
 #include "hook.c"
 
