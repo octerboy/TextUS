@@ -115,7 +115,7 @@ static PyObject *PyPius_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 static int PyPius_init(PyPiusObj *self, PyObject *args, PyObject *kwds)
 {
 	int j=-1;
-	if ( PyArg_ParseTuple (args, "i", &j) )
+	if ( PyArg_ParseTuple (args, "|i", &j) )
 	{
 		if ( j  > 0 ) 
 		{
@@ -394,7 +394,7 @@ static PyObject *PyTBuffer_new(PyTypeObject *type, PyObject *args, PyObject *kwd
 static int PyTBuffer_init(PyTBufferObj *self, PyObject *args, PyObject *kwds)
 {
 	int j=-1;
-	if ( PyArg_ParseTuple (args, "i", &j) )
+	if ( PyArg_ParseTuple (args, "|i", &j) )
 	{
 		if ( j  ==0 ) 
 			self->ref = 1;
@@ -513,7 +513,7 @@ static PyObject *PyPacket_new(PyTypeObject *type, PyObject *args, PyObject *kwds
 static int PyPacket_init(PyPacketObj *self, PyObject *args, PyObject *kwds)
 {
 	int j=-1;
-	if ( PyArg_ParseTuple (args, "i", &j) )
+	if ( PyArg_ParseTuple (args, "|i", &j) )
 	{
 		if ( j  ==0 ) 
 			self->ref = 1;
@@ -530,14 +530,46 @@ static int PyPacket_init(PyPacketObj *self, PyObject *args, PyObject *kwds)
 	return 0;
 }
 
+static PyObject *py_pac_set_ajp(PyObject *self, int fld, PyObject *on, PyObject *ov )
+{
+	const char* sc, *val;
+	unsigned short nlen, vlen;
+	if ( PyByteArray_Check(on) )
+	{
+		sc = (const char*)PyByteArray_AsString(on);
+		nlen = (unsigned short)PyByteArray_Size(on) & 0xFF;
+	}  else if ( PyString_Check(on) )
+	{
+		sc = (const char*)PyString_AsString(on);
+		nlen = (unsigned short)PyString_Size(on) & 0xFF;
+	}  else {
+		return Py_BuildValue("i", 0);
+	}
+
+	if ( PyByteArray_Check(ov) )
+	{
+		val = (const char*)PyByteArray_AsString(ov);
+		vlen = (unsigned short)PyByteArray_Size(ov) & 0xFF;
+	}  else if ( PyString_Check(ov) )
+	{
+		val = (const char*)PyString_AsString(ov);
+		vlen = (unsigned short)PyString_Size(ov) & 0xFF;
+	}  else {
+		return Py_BuildValue("i", 0);
+	}
+	((PyPacketObj*)self)->pac->inputAJP(fld, nlen, sc, vlen, val);
+	return Py_BuildValue("i", 1);
+}
+
 static PyObject *py_pac_set(PyObject *self, PyObject *args)
 {
-	PyObject *o;
+	PyObject *o=0, *v=0;
 	int fld;
-	if (!PyArg_ParseTuple(args, "iO", &fld, &o)) 
+	if (!PyArg_ParseTuple(args, "iO|O", &fld, &o, &v)) 
 	{
 		return Py_BuildValue("i", 0);
 	} else {
+		if ( v ) return py_pac_set_ajp(self, fld, o, v);	
 		if ( PyByteArray_Check(o) )
 		{
 			((PyPacketObj*)self)->pac->input(fld, (unsigned char*)PyByteArray_AsString(o), PyByteArray_Size(o));
@@ -547,44 +579,6 @@ static PyObject *py_pac_set(PyObject *self, PyObject *args)
 		}  else {
 			return Py_BuildValue("i", 0);
 		}
-	}
-	return Py_BuildValue("i", 1);
-}
-
-static PyObject *py_pac_set_ajp(PyObject *self, PyObject *args)
-{
-	PyObject *on,*ov;
-	int fld;
-	const char* sc, *val;
-	unsigned short nlen, vlen;
-	if (!PyArg_ParseTuple(args, "iOO", &fld, &on, &ov)) 
-	{
-		return Py_BuildValue("i", 0);
-	} else {
-		if ( PyByteArray_Check(on) )
-		{
-			sc = (const char*)PyByteArray_AsString(on);
-			nlen = (unsigned short)PyByteArray_Size(on) & 0xFF;
-		}  else if ( PyString_Check(on) )
-		{
-			sc = (const char*)PyString_AsString(on);
-			nlen = (unsigned short)PyString_Size(on) & 0xFF;
-		}  else {
-			return Py_BuildValue("i", 0);
-		}
-
-		if ( PyByteArray_Check(ov) )
-		{
-			val = (const char*)PyByteArray_AsString(ov);
-			vlen = (unsigned short)PyByteArray_Size(ov) & 0xFF;
-		}  else if ( PyString_Check(ov) )
-		{
-			val = (const char*)PyString_AsString(ov);
-			vlen = (unsigned short)PyString_Size(ov) & 0xFF;
-		}  else {
-			return Py_BuildValue("i", 0);
-		}
-		((PyPacketObj*)self)->pac->inputAJP(fld, nlen, sc, vlen, val);
 	}
 	return Py_BuildValue("i", 1);
 }
@@ -618,7 +612,6 @@ static PyObject *py_pac_getbytes(PyObject *self, PyObject *args)
 
 static PyMethodDef pypac_methods[] = {
 	{"set", py_pac_set, METH_VARARGS, "Packet set field"},
-	{"setajp", py_pac_set, METH_VARARGS, "Packet set AJP field"},
 	{"get", py_pac_get, METH_VARARGS, "Packet get field"},
 	{"getstr", py_pac_get, METH_VARARGS, "Packet get field"},
 	{"getbytes", py_pac_getbytes, METH_VARARGS, "Packet get field"},

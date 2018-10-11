@@ -89,6 +89,30 @@
 		return p;
 	};
 
+#if defined(__LP64__) || defined(_M_X64) || defined(__amd64__)
+#define M_SZ 8
+#define M_SZ_MASK 7
+#define NOT_M_SZ_MASK 0xfffffffffffffff8
+#else
+#define M_SZ 4
+#define M_SZ_MASK 3
+#define NOT_M_SZ_MASK 0xfffffffc
+#endif
+	inline unsigned char *alloc_align_buf(long len)
+	{
+		unsigned char *q;
+		size_t offset;
+		unsigned char *p = buf.point;
+		offset = ((size_t(p)) & (M_SZ_MASK) );
+		if ( offset != 0)
+		{
+			q = (unsigned char *) ((size_t(p+ M_SZ_MASK)) & NOT_M_SZ_MASK );
+			buf.commit(len + (M_SZ - offset));
+			p = q;
+		} 
+		return p;
+	};
+
 	inline void produce( int _maxium) {
 		if ( max < 0 && _maxium >=0 )
 		{
@@ -253,18 +277,18 @@
 		grant(nm_len+val_len+sizeof(struct ComplexType)+sizeof(struct AjpHeadAttrType));
 		if ( !f->other ) /* 从buf中取空间 */
 		{
-			complex = (struct ComplexType *)alloc_buf(sizeof(struct ComplexType));
+			complex = (struct ComplexType *)alloc_align_buf(sizeof(struct ComplexType));
 			f->other = complex ;
 			complex->type = AJP_HEAD_ATTR;
 
-			complex->value = alloc_buf(sizeof(struct AjpHeadAttrType));
+			complex->value = alloc_align_buf(sizeof(struct AjpHeadAttrType));
 			head = (struct AjpHeadAttrType *)complex->value; /* head 就是全新的了 */
 		} else {
 			complex = f->other;
 			head = (struct AjpHeadAttrType *)complex->value;
 			while ( head->next ) 
 				head = head->next; /* 找到最末一个head */
-			head->next = (struct AjpHeadAttrType *)buf.point;
+			head->next = (struct AjpHeadAttrType *)alloc_align_buf(0);
 			buf.commit(sizeof(struct AjpHeadAttrType));
 			head = head->next;		/* head 就是全新的了 */
 		}
@@ -312,9 +336,9 @@
 		head->string = inputAJP_string(val_len, val_str, &head->str_len);
 	}          
 
-	/* 对于?req_attribute 0x0A Name (the name of the attribut follows)*/
+	/* 对于?req_attribute 0x0A Name (the name of the attribut follows) */
 	inline void inputAJP( int no, unsigned short sc_name, unsigned short nm_len, const char *nm_str, unsigned short val_len, const char *val_str) 
-	{ 
+	{
 		struct AjpHeadAttrType *head;
 		if (  !nm_str || !val_str ) return;
 		head = alloc_ajp_head(no, nm_len, val_len);
@@ -323,7 +347,7 @@
 		head->sc_name = sc_name; 
 		head->name = inputAJP_string(nm_len, nm_str, &head->nm_len);
 		head->string = inputAJP_string(val_len, val_str, &head->str_len);
-	}          
+	}
 
 	inline void inputASN1( int no, char kind, int val_len, unsigned char *val_str) { 
 		struct Asn1Type *asn;
@@ -333,14 +357,14 @@
 		if (  !val_str ) return;
 		if ( no > max || no < 0) return ;
 		f = &fld[no];
-		grant(val_len+sizeof(struct ComplexType)+sizeof(struct Asn1Type));
+		grant(val_len+sizeof(struct ComplexType)+sizeof(struct Asn1Type)+sizeof(void*)*2);
 		if ( !f->other ) /* 从buf中取空间 */
 		{
-			complex = (struct ComplexType *)alloc_buf(sizeof(struct ComplexType));
+			complex = (struct ComplexType *)alloc_align_buf(sizeof(struct ComplexType));
 			f->other = complex ;
 			complex->type = ASN1;
 
-			complex->value = alloc_buf((sizeof(struct Asn1Type)));
+			complex->value = alloc_align_buf(sizeof(struct Asn1Type));
 			asn = (struct Asn1Type *)complex->value; /* asn 就是全新的了 */
 		} else {
 			complex = f->other;
