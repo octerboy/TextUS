@@ -42,7 +42,7 @@ public:
 	PyPort();
 	~PyPort();
 
-	bool get_aps(Amor::Pius &aps, PyObject *args);
+	bool get_aps(Amor::Pius &aps, PyObject *arg, const char *err_msg);
 	void free_aps(Amor::Pius &aps);
 private:
 	PyObject *pInstance;
@@ -115,13 +115,13 @@ static PyObject *PyPius_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 static int PyPius_init(PyPiusObj *self, PyObject *args, PyObject *kwds)
 {
 	int j=-1;
-	if ( PyArg_ParseTuple (args, "|i", &j) )
+	if ( PyArg_ParseTuple (args, "|i:textor.Pius.init", &j) )
 	{
 		if ( j  > 0 ) 
 		{
 			self->ordo = (TEXTUS_ORDO)j;
 		}
-	}
+	} else return -1;
 	return 0;
 }
 #include <structmember.h>
@@ -183,13 +183,17 @@ static PyObject *python_facio(PyObject *self, PyObject *args)
 	PyPort *c_owner = ((PyAmorObj*)self)->owner;
 
 	if ( !c_owner ) 
-		return Py_BuildValue("i", 0);
-	ret = c_owner->get_aps(aps, args);
-	if (!ret ) return Py_BuildValue("i", 0);
+	{
+		PyErr_SetString(aptus_error, "c_owner is null when textor.aptus_facio()");
+		return NULL;
+	}
+	ret = c_owner->get_aps(aps, args, "O:textor.aptus_facio");
+	if ( !ret ) return NULL;
 //	printf("facio PyPort %p  ordo=%lu subor=%d \n", c_owner, aps.ordo, aps.subor);
 	ret =  c_owner->aptus->facio(&aps);
 	c_owner->free_aps(aps);
-	return Py_BuildValue("i", ret ? 1:0);
+	return ret ? Py_True :Py_False;
+	//return Py_BuildValue("i", ret ? 1:0);
 }
 
 static PyObject *python_sponte(PyObject *self, PyObject *args)
@@ -199,13 +203,16 @@ static PyObject *python_sponte(PyObject *self, PyObject *args)
 	PyPort *c_owner = ((PyAmorObj*)self)->owner;
 
 	if ( !c_owner ) 
-		return Py_BuildValue("i", 0);
-	ret = c_owner->get_aps(aps, args);
-	if (!ret ) return Py_BuildValue("i", 0);
+	{
+		PyErr_SetString(aptus_error, "c_owner is null when textor.aptus_sponte()");
+		return NULL;
+	}
+	ret = c_owner->get_aps(aps, args, "O:textor.aptus_sponte");
+	if ( !ret ) return NULL;
 //	printf("sponte PyPort %p  ordo=%lu subor=%d \n", c_owner, aps.ordo, aps.subor);
 	ret =  c_owner->aptus->sponte(&aps);
 	c_owner->free_aps(aps);
-	return Py_BuildValue("i", ret ? 1:0);
+	return ret ? Py_True :Py_False;
 }
 
 static PyObject *python_log(PyObject *self, PyObject *args, TEXTUS_ORDO lev)
@@ -219,7 +226,10 @@ static PyObject *python_log(PyObject *self, PyObject *args, TEXTUS_ORDO lev)
 	PyPort *c_owner = ((PyAmorObj*)self)->owner;
 
 	if ( !c_owner ) 
-		return Py_BuildValue("i", 0);
+	{
+		PyErr_SetString(aptus_error, "c_owner is null when textor.aptus_log()");
+		return NULL;
+	}
 	
 	aps.ordo = lev;
 	aps.subor = Amor::CAN_ALL;
@@ -237,7 +247,7 @@ static PyObject *python_log(PyObject *self, PyObject *args, TEXTUS_ORDO lev)
 	aps.indic = (void*)buf.base;
 	ret =  c_owner->aptus->sponte(&aps);
 	/* release msg */
-	return Py_BuildValue("i", 1);
+	return Py_True;
 }
 
 static PyObject *python_log_bug(PyObject *self, PyObject *args)
@@ -379,7 +389,7 @@ static void PyTBuffer_dealloc(PyTBufferObj* self)
 
 static PyObject *PyTBuffer_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-	PyTBufferObj *self;
+	PyTBufferObj *self=NULL;
 
 	//printf("++++++ PyTBuffer_new type=%p args %p kwds %p\n", type, args, kwds);
 	self = (PyTBufferObj *)type->tp_alloc(type, 0);
@@ -394,26 +404,26 @@ static PyObject *PyTBuffer_new(PyTypeObject *type, PyObject *args, PyObject *kwd
 static int PyTBuffer_init(PyTBufferObj *self, PyObject *args, PyObject *kwds)
 {
 	int j=-1;
-	if ( PyArg_ParseTuple (args, "|i", &j) )
+	if ( PyArg_ParseTuple (args, "|i:textor.TBuffer.init", &j) )
 	{
 		if ( j  ==0 ) 
 			self->ref = 1;
-	}
+	} else return -1;
 	if( j != 0 && !self->tb ) 
 	{
 		self->tb = new TBuffer( j > 0? j:8192);
 		self->ref = 0;
 	}
-//	printf("+###++ PyTBuffer_init self=%p args %p kwds %p self tb=%p\n", self, args, kwds, self->tb);
+	//printf("+###++ PyTBuffer_init self=%p self tb=%p ref=%d\n", self, self->tb, self->ref);
 	return 0;
 }
 
 static PyObject *py_tb_input(PyObject *self, PyObject *args)
 {
 	PyObject *o;
-	if (!PyArg_ParseTuple(args, "O", &o)) 
+	if (!PyArg_ParseTuple(args, "O:textor.TBuffer.input", &o)) 
 	{
-		return Py_BuildValue("i", 0);
+		return  NULL;
 	} else {
 		if ( PyByteArray_Check(o) )
 		{
@@ -422,10 +432,11 @@ static PyObject *py_tb_input(PyObject *self, PyObject *args)
 		{
 			((PyTBufferObj*)self)->tb->input((unsigned char*)PyString_AsString(o), PyString_Size(o));
 		}  else {
-			return Py_BuildValue("i", 0);
+			PyErr_SetString(aptus_error, "not supported data type when textor.TBuffer.input()");
+			return NULL;
 		}
 	}
-	return Py_BuildValue("i", 1);
+	return Py_BuildValue("i", 0);
 }
 
 static PyObject *py_tb_get(PyObject *self)
@@ -490,9 +501,9 @@ static PyTypeObject PyTBufferType = {
 
 static void PyPacket_dealloc(PyPacketObj* self)
 {
-//	printf("py packet dealloc ref = %d\n", self->ref);
 	if ( self->pac && self->ref == 0 )
 	{
+		//printf("PyPacket dealloc %p ref = %d\n", self->pac, self->ref);
 		delete self->pac;
 		self->pac = 0;
 	}
@@ -513,11 +524,11 @@ static PyObject *PyPacket_new(PyTypeObject *type, PyObject *args, PyObject *kwds
 static int PyPacket_init(PyPacketObj *self, PyObject *args, PyObject *kwds)
 {
 	int j=-1;
-	if ( PyArg_ParseTuple (args, "|i", &j) )
+	if ( PyArg_ParseTuple (args, "|i:textor.Packet.init", &j) )
 	{
 		if ( j  ==0 ) 
 			self->ref = 1;
-	}
+	} else return -1;
 	if( j != 0 && !self->pac )
 	{
 		self->pac = new PacketObj();
@@ -543,7 +554,8 @@ static PyObject *py_pac_set_ajp(PyObject *self, int fld, PyObject *on, PyObject 
 		sc = (const char*)PyString_AsString(on);
 		nlen = (unsigned short)PyString_Size(on) & 0xFF;
 	}  else {
-		return Py_BuildValue("i", 0);
+		PyErr_SetString(aptus_error, "not supported data type of the 2nd parameter when textor.Packet.set()");
+		return NULL;
 	}
 
 	if ( PyByteArray_Check(ov) )
@@ -555,19 +567,20 @@ static PyObject *py_pac_set_ajp(PyObject *self, int fld, PyObject *on, PyObject 
 		val = (const char*)PyString_AsString(ov);
 		vlen = (unsigned short)PyString_Size(ov) & 0xFF;
 	}  else {
-		return Py_BuildValue("i", 0);
+		PyErr_SetString(aptus_error, "not supported data type of the 3rd parameter when textor.Packet.set()");
+		return NULL;
 	}
 	((PyPacketObj*)self)->pac->inputAJP(fld, nlen, sc, vlen, val);
-	return Py_BuildValue("i", 1);
+	return Py_BuildValue("i", 0);
 }
 
 static PyObject *py_pac_set(PyObject *self, PyObject *args)
 {
 	PyObject *o=0, *v=0;
 	int fld;
-	if (!PyArg_ParseTuple(args, "iO|O", &fld, &o, &v)) 
+	if (!PyArg_ParseTuple(args, "iO|O:textor.Packet.set ", &fld, &o, &v)) 
 	{
-		return Py_BuildValue("i", 0);
+		return NULL;
 	} else {
 		if ( v ) return py_pac_set_ajp(self, fld, o, v);	
 		if ( PyByteArray_Check(o) )
@@ -577,10 +590,11 @@ static PyObject *py_pac_set(PyObject *self, PyObject *args)
 		{
 			((PyPacketObj*)self)->pac->input(fld, (unsigned char*)PyString_AsString(o), PyString_Size(o));
 		}  else {
-			return Py_BuildValue("i", 0);
+			PyErr_SetString(aptus_error, "not supported data type when textor.Packet.set()");
+			return NULL;
 		}
 	}
-	return Py_BuildValue("i", 1);
+	return Py_BuildValue("i", 0);
 }
 
 static PyObject *py_pac_get(PyObject *self, PyObject *args)
@@ -592,7 +606,11 @@ static PyObject *py_pac_get(PyObject *self, PyObject *args)
 		p = ((PyPacketObj*)self)->pac->getfld(fld, &len);
 		if ( p )
 			return PyString_FromStringAndSize((const char*)p, (Py_ssize_t)len);
-	}
+		else {
+			PyErr_SetString(aptus_error, "no such field when textor.Packet.get()");
+			return NULL;
+		}
+	} else return NULL;
 	return PyString_FromStringAndSize((const char*)p, (Py_ssize_t)0);
 }
 
@@ -606,7 +624,11 @@ static PyObject *py_pac_getbytes(PyObject *self, PyObject *args)
 		p  = ((PyPacketObj*)self)->pac->getfld(fld, &len);
 		if ( p )
 			return PyByteArray_FromStringAndSize((const char*)p, (Py_ssize_t)len);
-	}
+		else {
+			PyErr_SetString(aptus_error, "no such field when textor.Packet.get()");
+			return NULL;
+		}
+	} else return NULL;
 	return PyString_FromStringAndSize((const char*)p, (Py_ssize_t)0);
 }
 
@@ -661,7 +683,7 @@ static PyTypeObject PyPacketType = {
 };
 
 static PyMethodDef module_null_methods[] = {
-    {NULL}  /* Sentinel */
+    {NULL}  
 };
 
 void PyPort::ignite(TiXmlElement *cfg) 
@@ -727,7 +749,7 @@ bool PyPort::facio( Amor::Pius *pius)
 			WBUG("Py_InitModule of (textor) ok!");
 		}
 
-		aptus_error = PyErr_NewException((char*)"textor.error", 0, 0);
+		aptus_error = PyErr_NewException((char*)"textor.TextorError", 0, 0);
 		Py_INCREF(aptus_error);
 		PyModule_AddObject(m, "error", aptus_error);
 
@@ -919,13 +941,13 @@ void PyPort::free_aps(Amor::Pius &aps)
 }
 
 /* 从Python脚本到C++程序, 为C++生成Pius, 调用的还需要调用 free_aps*/
-bool PyPort::get_aps(Amor::Pius &aps, PyObject *args)
+bool PyPort::get_aps(Amor::Pius &aps, PyObject *args, const char *err_msg)
 {
 	PyPiusObj *ps_obj;
 	PyTBufferObj *a_tb = 0, *b_tb=0;
 	PyPacketObj *a_pac = 0, *b_pac=0;
 
-	if (!PyArg_ParseTuple(args, "O", &ps_obj)) 
+	if (!PyArg_ParseTuple(args, err_msg, &ps_obj)) 
 		return false;
 	aps.ordo = ps_obj->ordo;
 	aps.subor = ps_obj->subor;
@@ -940,7 +962,7 @@ bool PyPort::get_aps(Amor::Pius &aps, PyObject *args)
 	case Notitia::SET_TBUF:
 		WBUG("aps.indic get_aps SET_TBUF");
 		if ( !PyList_Check(ps_obj->indic) ) {
-			WLOG(WARNING,"aps.indic is not PyListObject!");
+			PyErr_SetString(aptus_error, "Pius.indic is not PyListObject!");
 			return false;
 		}
 		a_tb = (PyTBufferObj *)PyList_GetItem(ps_obj->indic, 0);
@@ -963,9 +985,9 @@ bool PyPort::get_aps(Amor::Pius &aps, PyObject *args)
 		break;
 
 	case Notitia::SET_UNIPAC:
-		WBUG("aps.indic get_aps	SET_UNIPAC");
+		WBUG("aps.indic get_aps SET_UNIPAC");
 		if ( !PyList_Check(ps_obj->indic) ) {
-			WLOG(WARNING,"aps.indic is not PyListObject!");
+			PyErr_SetString(aptus_error, "Pius.indic is not PyListObject!");
 			return false;
 		}
 		a_pac = (PyPacketObj *)PyList_GetItem(ps_obj->indic, 0);
@@ -981,7 +1003,7 @@ bool PyPort::get_aps(Amor::Pius &aps, PyObject *args)
 			WLOG(WARNING,"aps.indic a_pac or b_pac is not of PyPacketObj when SET_UNIPAC");
 			break;
 		}
-		printf("a_pac.pac = %p, b_pac.pac=%p\n", a_pac->pac, b_pac->pac);
+//		printf("a_pac.pac = %p, b_pac.pac=%p\n", a_pac->pac, b_pac->pac);
 		aps.indic = new void*[2];
 		((void**)(aps.indic))[0] = (void*)(a_pac->pac);
 		((void**)(aps.indic))[1] = (void*)(b_pac->pac);
@@ -1114,7 +1136,6 @@ bool PyPort::get_aps(Amor::Pius &aps, PyObject *args)
 #endif
 
 	default :
-		return false;
 		break;
 	}
 	return true;
@@ -1364,7 +1385,6 @@ LAST:
 	Py_DECREF(ps_obj);
 	if ( ret_obj && PyObject_Compare(ret_obj, Py_True) == 0 )
 	{
-		WBUG("ret_obj is True");
 		return true;
 	} else {
 		if (PyErr_Occurred() ) 
