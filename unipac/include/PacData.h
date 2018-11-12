@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2018 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -100,10 +100,10 @@
 #endif
 	inline unsigned char *alloc_align_buf(long len)
 	{
-		unsigned char *q;
+		unsigned char *q,*p;
 		size_t offset;
-		unsigned char *p = buf.point;
-		offset = ((size_t(p)) & (M_SZ_MASK) );
+		offset = reinterpret_cast<size_t>(p) & (M_SZ_MASK) ;
+		p = buf.point;
 		if ( offset != 0)
 		{
 			q = (unsigned char *) ((size_t(p+ M_SZ_MASK)) & NOT_M_SZ_MASK );

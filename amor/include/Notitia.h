@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2007 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2027 by Ju Haibo (octerboy@21cn.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -57,6 +57,11 @@ enum HERE_ORDO {
 	CMD_GET_SCHED	=33,	/* 取得调度者的指针 */
 	CMD_PUT_PENDOR	=34,	/* 向调度者设置 */
 	DMD_SCHED_RUN	=35,	/* 调度一个对象的运行 */
+
+	SET_EVENT_HD 	=37, 	//set event handle, indic is the pointer of a object of Devent::Eventor
+	CLR_EVENT_HD 	=38,	//clear event handle
+	PRO_EVENT_HD	=39,	//pro event
+
 	CMD_GET_PIUS		=41,	/* get pius from a keeper */
 	DMD_CONTINUE_SELF	=42,	//继续下本接力者
 	DMD_STOP_NEXT 		=43,	//停止下一个接力者

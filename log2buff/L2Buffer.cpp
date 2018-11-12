@@ -88,7 +88,7 @@ private:
 #ifdef DEBUG
 #undef DEBUG
 #endif
-	enum LogLevel {EMERG=0, ALERT=1, CRIT=2, ERR=3, WARNING=4, NOTICE=5, INFO=6, DEBUG=7};
+	enum LogLevel {L_EMERG=0, L_ALERT=1, L_CRIT=2, L_ERR=3, L_WARNING=4, L_NOTICE=5, L_INFO=6, L_DEBUG=7};
 	
 };
 
@@ -120,21 +120,21 @@ void L2Buffer::ignite(TiXmlElement *prop)
 		if (comm_str) 
 		{	/* 扫描要记的日志 */
 #define SETLOG(X) if ( strcasecmp ( comm_str, #X ) == 0 ) \
-				gCFG->levelActive[X] = true;
+						gCFG->levelActive[L_##X] = true;
 
 			SETLOG(ERR);	SETLOG(DEBUG);	SETLOG(WARNING);
 			SETLOG(CRIT);	SETLOG(EMERG);	SETLOG(ALERT);
 			SETLOG(INFO);	SETLOG(NOTICE); 
 			if ( strcmp(comm_str, "all") == 0 ) 
 			{
-				gCFG->levelActive[ERR] 		= true;
-				gCFG->levelActive[DEBUG] 	= true;
-				gCFG->levelActive[WARNING] 	= true;
-				gCFG->levelActive[CRIT] 	= true;
-				gCFG->levelActive[EMERG] 	= true;
-				gCFG->levelActive[ALERT] 	= true;
-				gCFG->levelActive[INFO] 	= true;
-				gCFG->levelActive[NOTICE]	= true;
+				gCFG->levelActive[L_ERR] 		= true;
+				gCFG->levelActive[L_DEBUG] 	= true;
+				gCFG->levelActive[L_WARNING] 	= true;
+				gCFG->levelActive[L_CRIT] 	= true;
+				gCFG->levelActive[L_EMERG] 	= true;
+				gCFG->levelActive[L_ALERT] 	= true;
+				gCFG->levelActive[L_INFO] 	= true;
+				gCFG->levelActive[L_NOTICE]	= true;
 			}
 			
 		}
@@ -176,7 +176,7 @@ bool L2Buffer::facio( Amor::Pius *pius)
 
 	case Notitia::FAC_LOG_EMERG :
 #define ISLOG(X)	\
-		if ( !gCFG->levelActive[X] )	\
+	if ( !gCFG->levelActive[L_##X] )	\
 			break;			\
 		else				\
 			goto NOWLOG;

@@ -276,7 +276,7 @@ bool Bu2File::facio( Amor::Pius *pius)
 		break;
 
 	case Notitia::CMD_CLOSE_FILE:	/* close file */
-		WBUG("facio CMD_CLOSE_FILE" )
+		WBUG("facio CMD_CLOSE_FILE" );
 		if ( gCFG->fileD >= 0 )
 		{
 			MY_CLOSE
@@ -285,7 +285,7 @@ bool Bu2File::facio( Amor::Pius *pius)
 		break;
 
 	case Notitia::CMD_ZERO_FILE:	/* ÇåÁã */
-		WBUG("facio CMD_ZERO_FILE" )
+		WBUG("facio CMD_ZERO_FILE" );
 		if ( gCFG->fileD >= 0 )
 		{
 			MY_CLOSE

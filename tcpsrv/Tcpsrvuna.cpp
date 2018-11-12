@@ -17,6 +17,11 @@
 #define TEXTUS_MODTIME  "$Date$"
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
+#if defined (_WIN32 )
+#include <winsock2.h>
+#include "Devent.h"
+//#include <ws2tcpip.h>
+#endif
 
 #include "BTool.h"
 #include <assert.h>
@@ -30,6 +35,7 @@
 #include "Tcpsrv.h"
 #include "Notitia.h"
 #include "Describo.h"
+
 #include "Amor.h"
 #include "textus_string.h"
 #include <stdarg.h>
@@ -53,9 +59,15 @@ private:
 	struct G_CFG {
 		bool on_start ;
 		bool lonely;
+#if defined (_WIN32 )
+		bool useEvent;
+#endif
 		inline G_CFG() {
 			on_start = true;
 			lonely = false;
+#if defined (_WIN32 )
+			useEvent=false;
+#endif
 		};
 	};
 	struct G_CFG *gCFG;
@@ -64,6 +76,10 @@ private:
 	char errMsg[1024];
 	
 	Describo::Criptor my_tor; /* 保存套接字, 各子实例不同 */
+#if defined (_WIN32 )
+	Devent::Eventor win_tor; /* 保存事件句柄, 各子实例不同 */
+	Amor::Pius local_evt_pius;
+#endif
 
 	Tcpsrv *tcpsrv;
 	Tcpsrvuna *last_child;	/* 最近一次连接的子实例 */
@@ -74,8 +90,8 @@ private:
 	TINLNE void end_service();	/* 关闭侦听套接字 */
 	TINLNE void end(bool down=true);		/* 关闭连接 或 只释放套接字 */
 
-	TINLNE void child_pro(Amor::Pius *);
-	TINLNE void parent_pro(Amor::Pius *);
+	TINLNE void child_pro(TEXTUS_ORDO, Amor::Pius *);
+	TINLNE void parent_pro(TEXTUS_ORDO, Amor::Pius *);
 	TINLNE void child_transmit();
 	TINLNE void deliver(Notitia::HERE_ORDO aordo);
 #include "wlog.h"
@@ -98,6 +114,11 @@ void Tcpsrvuna::ignite(TiXmlElement *cfg)
 
 	if ( (comm_str = cfg->Attribute("lonely") ) && strcmp(comm_str, "yes") ==0 )
 		gCFG->lonely = true; /* 在建立一个连接后, 即关闭 */
+
+#if defined (_WIN32 )
+	if ( (comm_str = cfg->Attribute("use_event") ) && strcmp(comm_str, "yes") ==0 )
+		gCFG->useEvent = true; /* 使用事件模式, 需要wsch模块 */
+#endif
 
 	/* 开始对Tcpsrv类的变量进行赋值 */
 	tcpsrv->srvport = 0;
@@ -126,27 +147,49 @@ void Tcpsrvuna::ignite(TiXmlElement *cfg)
 bool Tcpsrvuna::facio( Amor::Pius *pius)
 {
 	assert(pius);
+#if defined (_WIN32 )
+	WSANETWORKEVENTS  nevt;
+#endif
 	
 	switch(pius->ordo)
 	{
 	case Notitia::FD_PRORD:
 		WBUG("facio FD_PRORD");
 		if (isListener)		
-			parent_pro(pius); /* 既然由侦听实例, 必是建立新连接 */
+			parent_pro(pius->ordo, pius); /* 既然由侦听实例, 必是建立新连接 */
 		else 
-		 	child_pro(pius); /* 子实例, 应当是读 */		
+		 	child_pro(pius->ordo, pius); /* 子实例, 应当是读 */		
 		break;
 
+#if defined (_WIN32 )
+	case Notitia::PRO_EVENT_HD:
+		WBUG("facio PRO_EVENT_HD");
+		if (isListener)		
+		{
+			WSAEnumNetworkEvents(tcpsrv->listenfd, win_tor.event, &nevt);
+			if(nevt.lNetworkEvents & FD_ACCEPT) {
+				parent_pro(Notitia::FD_PRORD, pius); /* 既然由侦听实例, 必是建立新连接 */
+			}
+		} else {
+			WSAEnumNetworkEvents(tcpsrv->connfd, win_tor.event, &nevt);
+			if(nevt.lNetworkEvents & FD_READ) {
+		 		child_pro(Notitia::FD_PRORD, pius); /* 子实例, 应当是读 */		
+			} else if(nevt.lNetworkEvents & FD_WRITE ) {
+		 		child_pro(Notitia::FD_PROWR, pius); /* 子实例, 应当是写 */		
+			}
+		}
+		break;
+#endif
 	case Notitia::CMD_NEW_SERVICE:
 		WBUG("facio CMD_NEW_SERVICE");
 		if (isPioneer)			/* 须从父实例派生出侦听实例 */
-			parent_pro(pius); /* new tcp service  */
+			parent_pro(pius->ordo, pius); /* new tcp service  */
 		break;
 
 	case Notitia::FD_PROWR:
 		WBUG("facio FD_PROWR");	
 		if (!isListener)	 /* 子实例, 应当是写 */
-			child_pro(pius);
+			child_pro(pius->ordo, pius);
 		break;
 		
 	case Notitia::IGNITE_ALL_READY:
@@ -233,6 +276,11 @@ bool Tcpsrvuna::sponte( Amor::Pius *pius)
 
 Tcpsrvuna::Tcpsrvuna()
 {
+#if defined (_WIN32 )
+	win_tor.pupa = this;
+	local_evt_pius.ordo = Notitia::TEXTUS_RESERVED;	/* 未定, 可有Notitia::PRO_EVENT_HD等多种可能 */
+	local_evt_pius.indic = &win_tor;
+#endif
 	my_tor.pupa = this;
 	local_pius.ordo = Notitia::TEXTUS_RESERVED;	/* 未定, 可有Notitia::FD_CLRWR等多种可能 */
 	local_pius.indic = &my_tor;
@@ -269,29 +317,57 @@ TINLNE void Tcpsrvuna::parent_begin()
 		SLOG(EMERG)
 		return ;
 	}
-	my_tor.scanfd = tcpsrv->listenfd;
-	local_pius.ordo = Notitia::FD_SETRD;
-	aptus->sponte(&local_pius);	//向Sched, 以设置rdSet.
+#if defined (_WIN32 )
+	if (gCFG->useEvent)
+	{
+		WSAEVENT event = WSACreateEvent();
+    		WSAEventSelect(tcpsrv->listenfd,event,FD_ACCEPT|FD_CLOSE);
+
+		win_tor.event = event;
+		local_evt_pius.ordo = Notitia::SET_EVENT_HD;
+		aptus->sponte(&local_evt_pius);	//向WSch, 以设置SET_EVENT_HD
+	} else {
+#endif
+		my_tor.scanfd = tcpsrv->listenfd;
+		local_pius.ordo = Notitia::FD_SETRD;
+		aptus->sponte(&local_pius);	//向Sched, 以设置rdSet.
+#if defined (_WIN32 )
+	}
+#endif
 	deliver(Notitia::START_SERVICE); //向接力者发出通知, 本对象开始服务
 	return ;
 }
 
 TINLNE void Tcpsrvuna::child_begin()
 {	
-	my_tor.scanfd = tcpsrv->connfd;
-	local_pius.ordo = Notitia::FD_SETRD;
-	aptus->sponte(&local_pius);	//向Sched, 以设置rdSet.
+#if defined (_WIN32 )
+	if (gCFG->useEvent)
+	{
+		WSAEVENT event = WSACreateEvent();
+    		WSAEventSelect(tcpsrv->listenfd,event, FD_READ|FD_CLOSE|FD_WRITE);
+
+		win_tor.event = event;
+		local_evt_pius.ordo = Notitia::SET_EVENT_HD;
+		aptus->sponte(&local_evt_pius);	//向WSch, 以设置FD_READ|FD_CLOSE|FD_WRITE
+	} else {
+#endif
+		my_tor.scanfd = tcpsrv->connfd;
+		local_pius.ordo = Notitia::FD_SETRD;
+		aptus->sponte(&local_pius);	//向Sched, 以设置rdSet.
+#if defined (_WIN32 )
+	}
+#endif
 	tcpsrv->rcv_buf->reset();	//TCP接收(发送)缓冲区清空
 	tcpsrv->snd_buf->reset();
 	deliver(Notitia::START_SESSION); //向接力者发出通知, 本对象开始会话
 	return;
 }
 
-TINLNE void Tcpsrvuna::parent_pro(Amor::Pius *pius)
+TINLNE void Tcpsrvuna::parent_pro(TEXTUS_ORDO mordo, Amor::Pius *pius)
 {
 	TiXmlElement *cfg;
 	Amor::Pius tmp_p;
-	switch (pius->ordo)
+	switch (mordo)
 	{
 	case Notitia::CMD_NEW_SERVICE:
 		cfg = (TiXmlElement *)(pius->indic);
@@ -379,11 +455,11 @@ TINLNE void Tcpsrvuna::parent_pro(Amor::Pius *pius)
 	return ;
 }
 
-TINLNE void Tcpsrvuna::child_pro(Amor::Pius *pius)
+TINLNE void Tcpsrvuna::child_pro(TEXTUS_ORDO mordo, Amor::Pius *pius)
 {	/* 子实例,接收和发送数据 */
 	int len;	//看看读写成功与否
 
-	switch ( pius->ordo )
+	switch ( mordo )
 	{
 	case Notitia::FD_PRORD: //读数据,  不失败并有数据才向接力者传递
 		len = tcpsrv->recito();
