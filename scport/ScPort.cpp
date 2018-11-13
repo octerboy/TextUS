@@ -137,11 +137,11 @@ int ScPort::Pro_Open(char uid[17])
 	exists = Pro_Present();
 	if ( exists == 1 )
 	{
-		sprintf(m_error_buf, "无卡"); 
+		TEXTUS_STRCPY(m_error_buf, "无卡"); 
 		return -100;
 	} if ( exists == -1 )  //函数故障
 	{
-		sprintf(m_error_buf, "读写器操作错误."); 
+		TEXTUS_STRCPY(m_error_buf, "读写器操作错误."); 
 		goto END;
 	}
 
@@ -346,12 +346,12 @@ int ScPort::Sam_Reset(char atr[64])
 	SCardGetAttrib(hCardHandle, SCARD_ATTR_ATR_STRING, (BYTE*)&resp[0], &dwATRBufferLen);
 	byte2hex((unsigned char*)&resp[0], dwATRBufferLen, tmp);
 	tmp[2*dwATRBufferLen] = 0;
-	strcpy(atr, tmp);
+	TEXTUS_STRCPY(atr, tmp);
 	WLOG(INFO, "SamReset atr= %s, %s", tmp, t == t0 ? "T0":"T1");
 	ret = 0;
 END:
 	if ( ret)
-		sprintf(m_error_buf, "SAM复位失败"); 
+		TEXTUS_STRCPY(m_error_buf, "SAM复位失败"); 
 	return ret;	
 }
 
@@ -381,7 +381,7 @@ int ScPort::CardCommand (const char* command, char* response, int *sw, bool sel_
 		exists = Pro_Present();
 		if ( exists == 1 )
 		{
-			sprintf(m_error_buf, "无卡"); 
+			TEXTUS_STRCPY(m_error_buf, "无卡"); 
 			return -100;
 		} if ( exists == -1 )  //函数故障
 			goto END;
@@ -411,7 +411,7 @@ JA:
 	if ( SCARD_S_SUCCESS != lReturn )
 	{
 		WLOG(ERR, "SCardTransmit(%s)(hSC=%p, hCard=%p) ret %08X", command, gCFG->hSC, hCardHandle, lReturn);
-		sprintf(m_error_buf, "读卡器指令错误");
+		TEXTUS_STRCPY(m_error_buf,  "读卡器指令错误");
 		if ( lReturn == ERROR_INVALID_FUNCTION )
 		{
 			slen = strlen(command)/2;
@@ -425,7 +425,7 @@ JA:
 			goto END;
 	} else if ( recvlen < 2 )  {
 		WLOG(ERR, "SCardTransmit(%s), recvlen=%d", command,  recvlen);
-		sprintf(m_error_buf, "IC卡接收数据错误");
+		TEXTUS_STRCPY(m_error_buf, "IC卡接收数据错误");
 		goto END;
 	} else {
 		if (recvblock[recvlen-2] == 0x61 ) 			
@@ -630,7 +630,7 @@ COMM:
 		{
 			card_ok = false;
 		} else {
-			WLOG(INFO, "%s req(%s) res(%s) sw(%04x)", which==0?"SamCom":"ProCom", comm, reply, *psw);
+			WBUG("%s req(%s) res(%s) sw(%04x)", which==0?"SamCom":"ProCom", comm, reply, *psw);
 		}
 		break;
 
