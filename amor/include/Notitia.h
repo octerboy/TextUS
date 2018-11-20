@@ -205,19 +205,18 @@ enum HERE_ORDO {
 	CMD_DB_CANCEL	=304, 	/* cancel DB command */
 	PRO_DBFACE	=305, 	/* pro a dbface, indic=face. 这样, 对于DBPort, 可以不用PRO_UNIPAC, 不要reference field */
 
-	IC_DEV_INIT_BACK=309, 	/* IC设备打开响应, indic指向bool类型, true成功, false失败 */
-	IC_DEV_INIT	=310, 	/* IC设备打开, indic指向数组, 第1个int*返回(0表示OK), 第2个错误描述指针, 第3个为输入参数(可为空指针) */
-	IC_DEV_QUIT	=311, 	/* IC设备关闭, indic指向数组, 第1个int*返回(0表示OK), 第2个错误描述指针 */
-	IC_OPEN_PRO	=312, 	/* 打开卡片, indic指向数组, 第1个int*返回(0表示OK), 第2个错误描述指针, 第3个为int *slot(空指针为默认), 第4个指向char *uid(输出) 
+	IC_DEV_INIT_BACK	=309, 	/* IC设备打开响应, indic指向bool类型, true成功, false失败 */
+	IC_DEV_INIT		=310, 	/* IC设备打开, indic指向数组, 第1个int*返回(0表示OK), 第2个错误描述指针, 第3个为输入参数(可为空指针) */
+	IC_DEV_QUIT		=311, 	/* IC设备关闭, indic指向数组, 第1个int*返回(0表示OK), 第2个错误描述指针 */
+	IC_OPEN_PRO		=312, 	/* 打开卡片, indic指向数组, 第1个int*返回(0表示OK), 第2个错误描述指针, 第3个为int *slot(空指针为默认), 第4个指向char *uid(输出) 
 				第四个为错误描述指针 */
-	IC_CLOSE_PRO	=313, 	/* */
-	IC_PRO_COMMAND	=314, 	/* 用户卡指令, indic指向数组, 第1个int*返回(0表示OK), 第2个错误描述指针, 第3个为int *slot(空指针为默认), 第4个指向char *req(指令), 
-				第5个指向char *res(输出), 第6个指向int *sw(输出) */
-	IC_SAM_COMMAND	=315, 	/* SAM卡指令, 同上*/
-	IC_RESET_SAM	=316, 	/* 复位PSAM, indic指向数组, 第1个int*返回(0表示OK), 第2个错误描述指针, 第3个为int *slot(空指针为默认), 第4个指向char *ATR(输出) */
-	IC_PRO_PRESENT	=317, 	/* IC卡是否在(包括非接), 第1个int*返回(如有卡则加1, 否则不加), 第2个错误描述指针, 第3个为int *slot(空指针为默认) */
-	ICC_Authenticate=318,
-	ICC_Read_Sector	=319,
+	IC_CLOSE_PRO		=313, 	/* */
+	IC_PRO_COMMAND		=314, 	/* 用户卡指令, indic指向数组, 第1个int*返回(0表示OK), 第2个错误描述指针, 第3个为int *slot(空指针为默认), 第4个指向char *req(指令), 第5个指向char *res(输出), 第6个指向int *sw(输出) */
+	IC_SAM_COMMAND		=315, 	/* SAM卡指令, 同上*/
+	IC_RESET_SAM		=316, 	/* 复位PSAM, indic指向数组, 第1个int*返回(0表示OK), 第2个错误描述指针, 第3个为int *slot(空指针为默认), 第4个指向char *ATR(输出) */
+	IC_PRO_PRESENT		=317, 	/* IC卡是否在(包括非接), 第1个int*返回(如有卡则加1, 否则不加), 第2个错误描述指针, 第3个为int *slot(空指针为默认) */
+	ICC_Authenticate	=318,
+	ICC_Read_Sector		=319,
 	ICC_Write_Sector	=320, 
 	ICC_Reader_Version	=321,
 	ICC_Led_Display		=322,
@@ -227,8 +226,8 @@ enum HERE_ORDO {
 	ICC_Get_CPC_RFID	=326,
 	ICC_Get_Flag_RFID	=327,
 	ICC_Get_Power_RFID	=328,
-	ICC_Set433_Mode_RFID=329,
-	ICC_Get433_Mode_RFID=330,
+	ICC_Set433_Mode_RFID	=329,
+	ICC_Get433_Mode_RFID	=330,
 	ICC_CARD_open		=331,	/* 与IC_OPEN_PRO 不同，这里完全保留unireader的参数*/
 	URead_ReLoad_Dll	=332,	/* 指示重载unireader.dll */
 	URead_UnLoad_Dll	=333,	/* 指示卸载unireader.dll */

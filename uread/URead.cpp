@@ -245,7 +245,7 @@ int URead::Pro_Open(char uid[17])
 */
 		WBUG("ProOpen uid %s ,rst_info %s , card_place %d ,ctype %s", uid, rst_info, card_place, ctype);
 	} else {
-		sprintf(m_error_buf, "%s() 返回 %0X", "CARD_open" , ret);
+		TEXTUS_SNPRINTF(m_error_buf, 128, "%s() 返回 %0X", "CARD_open" , ret);
 	}
 	return ret;	
 }
@@ -290,7 +290,7 @@ int URead::Sam_Reset(char atr[64])
 		memcpy(atr, resp, len);
 		atr[len]=0;
 	} else {
-		sprintf(m_error_buf, "%s(face %d) 返回 %d %s", "Sam_Reset" ,sam_face,  ret,  get_info? get_info(ret): " ");
+		TEXTUS_SNPRINTF(m_error_buf, 256, "%s(face %d) 返回 %d %s", "Sam_Reset" ,sam_face,  ret,  get_info? get_info(ret): " ");
 		WLOG(ERR,"%s", m_error_buf);
 	}
 	return ret;	
@@ -321,15 +321,15 @@ int URead::CardCommand (char* command, char* response, int which, int *sw)
 	if ( slen > 510) slen = 510;
 	if (ret!=0) 
 	{
-		sprintf(tmpstr, "%08X",ret);
-		sprintf(m_error_buf, "%s(\"%s\")\n返回 %s", fun_str, command, tmpstr);
+		TEXTUS_SPRINTF(tmpstr, "%08X",ret);
+		TEXTUS_SNPRINTF(m_error_buf, 128, "%s(\"%s\")\n返回 %s", fun_str, command, tmpstr);
 		*sw = 0;
 	} else if ( slen < 4) {
-		sprintf(m_error_buf, "%s(\"%s\")\n返回长度 %d", fun_str, command, slen);
+		TEXTUS_SNPRINTF(m_error_buf, 128, "%s(\"%s\")\n返回长度 %d", fun_str, command, slen);
 		*sw = 0;
 		ret = -100;
 	} else {
-		sscanf(&response[slen-4], "%4X", sw);
+		TEXTUS_SSCANF(&response[slen-4], "%4X", sw);
 		response[slen-4] = 0;
 		ret = 0;
 	}
@@ -347,7 +347,7 @@ int URead::dev_close(void)
 	ret = close_dev(hdev);
 	if ( ret != 0 ) 
 	{
-		sprintf(m_error_buf, "设备函数错误, READER_close返回 %d", ret);
+		TEXTUS_SNPRINTF(m_error_buf, 128, "设备函数错误, READER_close返回 %d", ret);
 		WLOG(ERR, "%s", m_error_buf);
 	}
 
@@ -362,14 +362,14 @@ int URead::dev_init(void)
 	int ret;
 	if ( !open_dev || !close_dev || !sam_reset || !card_open || !card_close || !pro_command ||!sam_command )
 	{
-		sprintf(m_error_buf, "动态库错误:无函数");
+		TEXTUS_SNPRINTF(m_error_buf, 128, "动态库错误:无函数");
 		ret = -1;
 		WLOG(ERR, "%s", m_error_buf);
 		goto END;
 	}
 	if ( must_detect && !pro_detect )
 	{
-		sprintf(m_error_buf, "动态库错误:无探卡函数");
+		TEXTUS_SNPRINTF(m_error_buf, 128, "动态库错误:无探卡函数");
 		ret = -1;
 		WLOG(ERR, "%s", m_error_buf);
 		goto END;
@@ -387,7 +387,7 @@ int URead::dev_init(void)
 		WBUG("READER_open ret handle %d", hdev);
 		ret = 0;
 	} else {
-		sprintf(m_error_buf, "设备打开错误, READER_open返回 %08x", hdev);
+		TEXTUS_SNPRINTF(m_error_buf, 128, "设备打开错误, READER_open返回 %08x", hdev);
 		WLOG(ERR, "%s", m_error_buf);
 		ret = -1;
 		hdev = 0;
