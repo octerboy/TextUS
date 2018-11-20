@@ -522,6 +522,8 @@ int ScPort::dev_init(void)
 	if (!gCFG->found ) {
 		WLOG(ERR, "Can not find %s", gCFG->rd_name);
 		goto END;
+	} else {
+		WLOG(INFO, "find %s", gCFG->rd_name);
 	}
 	dev_ok = true;
 	return 0;
