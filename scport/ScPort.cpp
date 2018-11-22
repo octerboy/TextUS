@@ -191,6 +191,7 @@ Again:
 		memcpy(&uid[0], &resp[(gCFG->uid_offset)*2], (gCFG->uid_length)*2);
 		uid[(gCFG->uid_length)*2] = '\0';
 		WLOG(INFO, "Open Card ret %d,  uid= %s, sw=%04x, %s", ret, uid, sw, t == t0 ? "T0":"T1");
+		if ( ret ==0 && sw != 0x9000 )  ret = -1;
 	} else {
 		ret = 0;
 	}
