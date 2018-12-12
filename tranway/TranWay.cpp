@@ -1968,7 +1968,7 @@ SUB_INS_PRO:
 	case INS_Abort:
 		if (trani->err_code ) { 
 			mess.snap[Pos_ErrCode].input(trani->err_code);
-			TEXTUS_SPRINTF(mess.err_str,  "user abort at %d of %s", mess.pro_order, cur_def->flow_id);
+			TEXTUS_SPRINTF(mess.err_str,  "user abort(%d) at %d of %s",  cur_def->ins_all.instructions[mess.ins_which].complex[command_wt.cur].loop_n - command_wt.sub_loop, mess.pro_order, cur_def->flow_id);
 			mess.snap[Pos_ErrStr].input(mess.err_str);
 			WLOG(WARNING, "Error %s:  %s", mess.snap[Pos_ErrCode].val_p, mess.err_str);
 			command_wt.tran_step = Tran_End;
@@ -2014,7 +2014,10 @@ SUB_INS_PRO:
 			command_wt.tran_step = Tran_End;
 			if ( cur_ins_reply.err_code) 
 			{
-				TEXTUS_SPRINTF(mess.err_str, "fault at order=%d pac_which=%d of %s (%s)", mess.pro_order, command_wt.pac_which, cur_def->flow_id,  cur_ins_reply.err_str);
+				int count = cur_def->ins_all.instructions[mess.ins_which].complex[command_wt.cur].loop_n - command_wt.sub_loop ;
+				char tmp[32];
+				TEXTUS_SPRINTF(tmp, "(%d)", count);
+				TEXTUS_SPRINTF(mess.err_str, "fault%s at order=%d pac_which=%d of %s (%s)", count > 0 ? tmp:"", mess.pro_order, command_wt.pac_which, cur_def->flow_id,  cur_ins_reply.err_str);
 				mess.snap[Pos_ErrCode].input(cur_ins_reply.err_code);
 				mess.snap[Pos_ErrStr].input(mess.err_str);
 				WLOG(WARNING, "ERROR_RECV_PAC %s:  %s", mess.snap[Pos_ErrCode].val_p, mess.err_str);
@@ -2030,7 +2033,10 @@ SUB_INS_PRO:
 	assert( command_wt.tran_step == Tran_End );
 	if ( !trani->valid_result(&mess) )
 	{
-		TEXTUS_SPRINTF(mess.err_str, "result error at order=%d pac_which=%d of %s", mess.pro_order, command_wt.pac_which, cur_def->flow_id);
+		int count = cur_def->ins_all.instructions[mess.ins_which].complex[command_wt.cur].loop_n - command_wt.sub_loop ;
+		char tmp[32];
+		TEXTUS_SPRINTF(tmp, "(%d)", count);
+		TEXTUS_SPRINTF(mess.err_str, "result%s error at order=%d pac_which=%d of %s", count > 0 ? tmp:"", mess.pro_order, command_wt.pac_which, cur_def->flow_id);
 		if ( trani->err_code) mess.snap[Pos_ErrCode].input(trani->err_code);
 		mess.snap[Pos_ErrStr].input(mess.err_str);
 		WLOG(WARNING, "Error %s:  %s", mess.snap[Pos_ErrCode].val_p, mess.err_str);
@@ -2098,7 +2104,7 @@ LOOP_PRI_TRY:
 			command_wt.sub_loop--;
 			if ( command_wt.sub_loop != 0 ) 
 			{ //如果原为是0,则为负,几乎到不了0
-				command_wt.sub_loop--;
+				//command_wt.sub_loop--;
 				command_wt.step--;
 				goto LOOP_PRI_TRY;
 			}

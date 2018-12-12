@@ -110,6 +110,10 @@ enum HERE_ORDO {
 	ERR_FRAME_LENGTH	=104, 
 	ERR_FRAME_TIMEOUT 	=105,
 	
+	SET_EPOLL 	=107, 	//set epoll(IOCP, kqueue, epoll, evport), indic is the pointer of a object of DPoll::Pollor
+	CLR_EPOLL 	=108,	//clear epoll
+	PRO_EPOLL	=109,	//pro epoll
+
 	FD_SETRD 	=110, 	//ึรฟษถมร่ส๖ท๛, 
 	FD_SETWR 	=111,	//ึรฟษะดร่ส๖ท๛, 
 	FD_SETEX 	=112,	//ึรา์ณฃร่ส๖ท๛, 
