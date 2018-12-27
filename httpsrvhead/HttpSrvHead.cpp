@@ -46,7 +46,7 @@ private:
 	bool session;
 	bool channel_isAlive;
 	int head_time_out;	/* 接收head的超时秒数 */
-	void *arr[3];
+	void *tarr[3];
 	Amor::Pius alarm_pius;	/* 设置超时 */
 	bool hasTimer;	/* 已设定时否? */
 	Amor::Pius clr_timer_pius;	/* 清超时 */
@@ -268,6 +268,12 @@ END:
 		WLOG(WARNING, "http head time out");
 		end(true);
 		break;
+
+	case Notitia::TIMER_HANDLE:
+		WBUG("facio TIMER_HANDLE");
+		clr_timer_pius.indic = pius->indic;
+		break;
+
 	default:
 		return false;
 	}
@@ -462,6 +468,7 @@ bool HttpSrvHead::sponte( Amor::Pius *pius)
 		WBUG("sponte CMD_SET_HTTP_HEAD");
 		res_head_buf = (TBuffer *)pius->indic;
 		break;
+
 	default:
 		return false;
 	}
@@ -481,13 +488,13 @@ HttpSrvHead::HttpSrvHead():req_head_dup(512), res_entity(8192),
 	memset(server_name, 0, sizeof(server_name));
 
 	clr_timer_pius.ordo = Notitia::DMD_CLR_TIMER;
-	alarm_pius.indic = this;
+	clr_timer_pius.indic = this;
 
 	alarm_pius.ordo = Notitia::DMD_SET_ALARM;
-	alarm_pius.indic = &arr[0];
-	arr[0] = this;
-	arr[1] = &head_time_out;
-	arr[2] = 0;
+	alarm_pius.indic = &tarr[0];
+	tarr[0] = this;
+	tarr[1] = &head_time_out;
+	tarr[2] = 0;
 	head_time_out = 32000;
 	hasTimer = false;
 

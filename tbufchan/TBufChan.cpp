@@ -47,6 +47,8 @@ public:
 	enum DATA_MODE { COPY, MOVE, STILL, CLEAR };
 
 private:
+	Amor::Pius clr_timer_pius, alarm_pius;  /* 清超时, 设超时 */
+	void *arr[3];
 	TBuffer *rcv_buf;
 	TBuffer *snd_buf;
 
@@ -177,7 +179,7 @@ bool TBufChan::facio( Amor::Pius *pius)
 			{
 				demanding = true;			/* 置标志 */
 				if( gCFG->expired > 0 )			/* 如果设了超时 */
-					deliver(Notitia::DMD_SET_ALARM);
+					aptus->sponte(&alarm_pius);
 				aptus->facio(&dmd_start);
 			}
 		}
@@ -262,7 +264,7 @@ bool TBufChan::facio( Amor::Pius *pius)
 			{
 				demanding = true;			/* 置标志 */
 				if( gCFG->expired > 0 )			/* 如果设了超时 */
-					deliver(Notitia::DMD_SET_ALARM);
+					aptus->sponte(&alarm_pius);
 				aptus->facio(&dmd_start);	/* 要求开始 */
 			}
 		}
@@ -298,9 +300,14 @@ bool TBufChan::facio( Amor::Pius *pius)
 		{
 			WLOG(WARNING, "channel time out");
 			right_reset();	/* 右边节点的数据与状态全部复位 */
-			deliver(Notitia::DMD_CLR_TIMER);	/* 清除定时 */
+			aptus->sponte(&clr_timer_pius); /* 清除定时 */
 			aptus->sponte(&(gCFG->chn_timeout));	/* 向左通知 */
 		}
+		break;
+
+	case Notitia::TIMER_HANDLE:
+		WBUG("facio TIMER_HANDLE");
+		clr_timer_pius.indic = pius->indic;
 		break;
 
 	case Notitia::IGNITE_ALL_READY:	
@@ -310,6 +317,9 @@ bool TBufChan::facio( Amor::Pius *pius)
 	case Notitia::CLONE_ALL_READY:
 		WBUG("facio CLONE(IGNITE)_ALL_READY" );			
 ALL_READY:
+		arr[0] = this;
+		arr[1] = &(gCFG->expired);
+		arr[2] = 0;
 		deliver(Notitia::SET_TBUF);
 		break;
 
@@ -355,7 +365,7 @@ bool TBufChan::sponte( Amor::Pius *pius)
 		if ( demanding )
 		{
 			if ( gCFG->expired > 0 )
-				deliver(Notitia::DMD_CLR_TIMER);
+				aptus->sponte(&clr_timer_pius); /* 清除定时 */
 		} 
 		
 		right_reset();	//在这里，alive, demanding%都false了
@@ -373,7 +383,7 @@ bool TBufChan::sponte( Amor::Pius *pius)
 		WBUG("sponte DMD_END_SESSION");
 		if ( demanding && gCFG->expired > 0 )
 		{
-			deliver(Notitia::DMD_CLR_TIMER);
+			aptus->sponte(&clr_timer_pius); /* 清除定时 */
 			//aptus->sponte(&(gCFG->chn_timeout));	/* 向左通知通道超时?, 不必吧, 因为END_SESSION会通知处理 */
 		}
 		right_reset();
@@ -405,6 +415,11 @@ TBufChan::TBufChan():right_rcv(8192), right_snd(8192)
 	gCFG = 0;
 	has_config = false ;
 	has_buffered_num = 0;
+	clr_timer_pius.ordo = Notitia::DMD_CLR_TIMER;
+	clr_timer_pius.indic = this;
+
+	alarm_pius.ordo = Notitia::DMD_SET_ALARM;
+	alarm_pius.indic = &arr[0];
 }
 
 TBufChan::~TBufChan() 
@@ -436,28 +451,12 @@ TINLINE void TBufChan::right_reset()
 TINLINE void TBufChan::deliver(Notitia::HERE_ORDO aordo)
 {
 	Amor::Pius tmp_pius;
-	void *arr[3];
 	TBuffer *tb[3];
 	tmp_pius.ordo = aordo;
 	tmp_pius.indic = 0;
 	
 	switch (aordo)
 	{
-	case Notitia::DMD_CLR_TIMER:
-		WBUG("deliver(sponte) DMD_CLR_TIMER");
-		tmp_pius.indic = (void*) this;
-		aptus->sponte(&tmp_pius);
-		goto END ;
-
-	case Notitia::DMD_SET_ALARM:
-		WBUG("deliver(sponte) DMD_SET_ALARM");
-		tmp_pius.indic = &arr[0];
-		arr[0] = this;
-		arr[1] = &(gCFG->expired);
-		arr[2] = 0;
-		aptus->sponte(&tmp_pius);
-		goto END;
-
 	case Notitia::SET_TBUF:
 		WBUG("deliver SET_TBUF");
 		tb[0] = &right_snd;
@@ -471,7 +470,6 @@ TINLINE void TBufChan::deliver(Notitia::HERE_ORDO aordo)
 		break;
 	}
 	aptus->facio(&tmp_pius);
-END:
 	return ;
 }
 

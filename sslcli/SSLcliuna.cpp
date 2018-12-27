@@ -37,8 +37,9 @@ public:
 	SSLcliuna();
 	~SSLcliuna();
 private:
+	Amor::Pius clr_timer_pius, alarm_pius;	/* 清超时, 设超时 */
+	void *arr[3];
 	char *errMsg;
-
 	SSLcli *sslcli;
 	TINLINE void deliver(Notitia::HERE_ORDO aordo);
 	TINLINE void end();
@@ -66,7 +67,6 @@ private:
 	};
 	struct G_CFG *gCFG;	/* Shared for all objects in this node */
 	bool has_config;
-
 #include "wlog.h"
 };
 
@@ -141,7 +141,7 @@ bool SSLcliuna::facio( Amor::Pius *pius)
 				aptus->facio(&dmd_start);	/* 要求开始 */
 				demanding = true;			/* 置标志 */
 				if( gCFG->expired > 0 )			/* 如果设了超时 */
-					deliver(Notitia::DMD_SET_ALARM);
+					aptus->sponte(&alarm_pius);
 			}
 			break;
 		}
@@ -169,15 +169,23 @@ bool SSLcliuna::facio( Amor::Pius *pius)
 		if ( demanding)
 		{
 			WLOG(WARNING, "channel time out");
-			deliver(Notitia::DMD_CLR_TIMER);	/* 清除定时 */
+			aptus->sponte(&clr_timer_pius);	/* 清除定时 */
 			aptus->sponte(&(gCFG->chn_timeout));	/* 向左通知 */
 			demanding = false;
 		}
 		break;
 
+	case Notitia::TIMER_HANDLE:
+		WBUG("facio TIMER_HANDLE");
+		clr_timer_pius.indic = pius->indic;
+		break;
+
 	case Notitia::IGNITE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY");
 		assert(has_config);
+		arr[0] = this;
+		arr[1] = &(gCFG->expired);
+		arr[2] = 0;
 		/* 向下一级传递sslcli->bio_out_buf和sslcli->bio_in_buf的地址 */
 		deliver(Notitia::SET_TBUF);
 		if (!sslcli->initio())
@@ -189,6 +197,9 @@ bool SSLcliuna::facio( Amor::Pius *pius)
 	case Notitia::CLONE_ALL_READY:
 		WBUG("facio CLONE_ALL_READY");
 		deliver(Notitia::SET_TBUF);
+		arr[0] = this;
+		arr[1] = &(gCFG->expired);
+		arr[2] = 0;
 		break;
 
 	case Notitia::DMD_END_SESSION:	
@@ -239,6 +250,12 @@ bool SSLcliuna::sponte( Amor::Pius *pius)
 
 	case Notitia::DMD_END_SESSION:	/* 底层会话关闭了 */
 		WBUG("sponte DMD_END_SESSION");
+		if ( demanding )
+		{
+			demanding = false;
+			if( gCFG->expired > 0 )			/* 如果设了超时 */
+				aptus->sponte(&clr_timer_pius);	/* 清除定时 */
+		}
 		end();
 		alive = false;
 		break;
@@ -247,7 +264,11 @@ bool SSLcliuna::sponte( Amor::Pius *pius)
 		WBUG("sponte START_SESSION");
 		alive = true;
 		if ( demanding )
+		{
 			demanding = false;
+			if( gCFG->expired > 0 )			/* 如果设了超时 */
+				aptus->sponte(&clr_timer_pius);	/* 清除定时 */
+		}
 		letgo();	 //即使没有明文数据,也建立SSL连接
 		break;
 
@@ -265,6 +286,7 @@ Amor* SSLcliuna::clone()
 {
 	SSLcliuna *child = new SSLcliuna();
 	sslcli->herit(child->sslcli); //继承父实例创造的SSL环境.
+	child->gCFG = gCFG;
 	return (Amor*)child;
 }
 
@@ -284,6 +306,11 @@ SSLcliuna::SSLcliuna()
 
 	has_config = false;
 	gCFG = 0;
+	clr_timer_pius.ordo = Notitia::DMD_CLR_TIMER;
+	clr_timer_pius.indic = this;
+
+	alarm_pius.ordo = Notitia::DMD_SET_ALARM;
+	alarm_pius.indic = &arr[0];
 }
 
 SSLcliuna::~SSLcliuna()
@@ -354,7 +381,6 @@ TINLINE void SSLcliuna::errpro()
 TINLINE void SSLcliuna::deliver(Notitia::HERE_ORDO aordo)
 {
 	Amor::Pius tmp_pius;
-	void *arr[3];
 	TBuffer *tb[3];
 	tmp_pius.ordo = aordo;
 	tmp_pius.indic = 0;
@@ -366,21 +392,6 @@ TINLINE void SSLcliuna::deliver(Notitia::HERE_ORDO aordo)
 		tmp_pius.indic = 0;
 		aptus->sponte(&tmp_pius);
 		goto END ;
-
-	case Notitia::DMD_CLR_TIMER:
-		WBUG("deliver(sponte) DMD_CLR_TIMER");
-		tmp_pius.indic = (void*) this;
-		aptus->sponte(&tmp_pius);
-		goto END ;
-
-	case Notitia::DMD_SET_ALARM:
-		WBUG("deliver(sponte) DMD_SET_ALARM");
-		tmp_pius.indic = &arr[0];
-		arr[0] = this;
-		arr[1] = &(gCFG->expired);
-		arr[2] = 0;
-		aptus->sponte(&tmp_pius);
-		goto END;
 
 	case Notitia::SET_TBUF:
 		WBUG("deliver SET_TBUF");

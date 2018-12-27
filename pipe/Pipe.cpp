@@ -195,6 +195,8 @@ private:
 	TEXTUS_ORDO concern_ans[16];	/* 响应的ordo, 设定为16个, 最后一个为-1 */
 	Amor::Pius chn_timeout;
 	Amor::Pius dmd_start;
+	Amor::Pius clr_timer_pius, alarm_pius;	/* 清超时, 设超时 */
+	void *arr[3];
 
 	Queue que;
 	struct G_CFG
@@ -259,6 +261,12 @@ Pipe::Pipe()
 
 	dmd_start.indic = 0;
 	dmd_start.ordo = Notitia::DMD_START_SESSION;
+
+	clr_timer_pius.ordo = Notitia::DMD_CLR_TIMER;
+	clr_timer_pius.indic = this;
+
+	alarm_pius.ordo = Notitia::DMD_SET_ALARM;
+	alarm_pius.indic = &arr[0];
 }
 
 Pipe::~Pipe()
@@ -302,6 +310,20 @@ bool Pipe::facio( Amor::Pius *pius)
 	assert(pius);
 	switch (pius->ordo )
 	{
+	case Notitia::IGNITE_ALL_READY:
+		WBUG("facio IGNITE_ALL_READY");
+		arr[0] = this;
+		arr[1] = &(gcfg->expired);
+		arr[2] = 0;
+		break;
+
+	case Notitia::CLONE_ALL_READY:
+		WBUG("facio CLONE_ALL_READY");
+		arr[0] = this;
+		arr[1] = &(gcfg->expired);
+		arr[2] = 0;
+		break;
+
 	case  Notitia::SET_WEIGHT_POINTER:	/* indic指向一个指针数组, 第一个为Amor *obj, 第二个为pius*/
 		WBUG(" Notitia::SET_WEIGHT_POINTER");
 		weight = (int*)(pius->indic);
@@ -318,7 +340,6 @@ bool Pipe::facio( Amor::Pius *pius)
 			}
 		}
 		break;
-
 
 	case Notitia::DMD_START_SESSION:	
 		WBUG("facio DMD_START_SESSION alive=%d", alive);
@@ -359,7 +380,6 @@ bool Pipe::facio( Amor::Pius *pius)
 		} else {
 			worker_begin_trans();
 		}
-
 		break;
 
 	case Notitia::TIMER:	/* 连接超时 */
@@ -367,9 +387,14 @@ bool Pipe::facio( Amor::Pius *pius)
 		if ( demanding)
 		{
 			WLOG(WARNING, "channel time out");
-			deliver(Notitia::DMD_CLR_TIMER);/* 清除定时 */
+			aptus->sponte(&clr_timer_pius);	/* 清除定时 */
 			aptus->sponte(&chn_timeout);	/* 向左通知 */
 		}
+		break;
+
+	case Notitia::TIMER_HANDLE:
+		WBUG("facio TIMER_HANDLE");
+		clr_timer_pius.indic = pius->indic;
 		break;
 
 	case Notitia::CMD_END_TRANS:	/* indic指向Amor *obj */
@@ -471,7 +496,7 @@ void Pipe::demand_pro()
 	{
 		demanding = true;			/* 置标志 */
 		if( gcfg->expired > 0 )			/* 如果设了超时 */
-			deliver(Notitia::DMD_SET_ALARM);
+			aptus->sponte(&alarm_pius);
 		aptus->facio(&dmd_start);
 	}
 }
@@ -488,7 +513,7 @@ bool Pipe::sponte( Amor::Pius *pius)
 		if ( demanding )
 		{
 			if ( gcfg->expired > 0 )
-				deliver(Notitia::DMD_CLR_TIMER);
+				aptus->sponte(&clr_timer_pius);	/* 清除定时 */
 		} 
 		alive = true;
 		demanding = false;
@@ -501,7 +526,7 @@ bool Pipe::sponte( Amor::Pius *pius)
 
 		if ( demanding && gcfg->expired > 0 )
 		{
-			deliver(Notitia::DMD_CLR_TIMER);
+			aptus->sponte(&clr_timer_pius);	/* 清除定时 */
 		}
 
 		for ( ne = que.remove(); ne; ne=que.remove())
@@ -539,27 +564,11 @@ bool Pipe::sponte( Amor::Pius *pius)
 inline void Pipe::deliver(Notitia::HERE_ORDO aordo)
 {
 	Amor::Pius tmp_pius;
-	void *arr[3];
 	tmp_pius.ordo = aordo;
 	tmp_pius.indic = 0;
 	
 	switch (aordo)
 	{
-	case Notitia::DMD_CLR_TIMER:
-		WBUG("deliver(sponte) DMD_CLR_TIMER");
-		tmp_pius.indic = (void*) this;
-		aptus->sponte(&tmp_pius);
-		goto END ;
-
-	case Notitia::DMD_SET_ALARM:
-		WBUG("deliver(sponte) DMD_SET_ALARM");
-		tmp_pius.indic = &arr[0];
-		arr[0] = this;
-		arr[1] = &(gcfg->expired);
-		arr[2] = 0;
-		aptus->sponte(&tmp_pius);
-		goto END;
-
 	case Notitia::DMD_END_SESSION:
 		WBUG("deliver DMD_END_SESSION");
 		tmp_pius.indic = 0;
@@ -570,7 +579,6 @@ inline void Pipe::deliver(Notitia::HERE_ORDO aordo)
 		break;
 	}
 	aptus->facio(&tmp_pius);
-END:
 	return ;
 }
 

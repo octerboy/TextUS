@@ -101,6 +101,10 @@ public class Pius {
 	public static final long GET_TBUF 		=103;
 	public static final long ERR_FRAME_LENGTH	=104; 
 	public static final long ERR_FRAME_TIMEOUT 	=105;
+	public static final long SET_EPOLL 	=106;
+	public static final long CLR_EPOLL 	=107;
+	public static final long PRO_EPOLL 	=108;
+	public static final long ERR_EPOLL 	=109;
 	
 	public static final long FD_SETRD 	=110;	//置可读描述符, 
 	public static final long FD_SETWR 	=111;	//置可写描述符, 
@@ -116,6 +120,7 @@ public class Pius {
 	public static final long DMD_SET_TIMER 	=121;	/* 要求定时通知时间片 */
 	public static final long DMD_CLR_TIMER 	=122;	/* 清除时间通知 */
 	public static final long DMD_SET_ALARM 	=123;	/* 设置一个定时 */
+	public static final long TIMER_HANDLE 	=124;	/* 设置一个定时句柄 */
 
 	public static final long PRO_HTTP_HEAD	=130;	/* 处理http报文头 */
 	public static final long CMD_HTTP_GET 	=131;	/* 取http请求中的数据 */

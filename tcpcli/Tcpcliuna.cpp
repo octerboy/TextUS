@@ -42,6 +42,7 @@ public:
 	~Tcpcliuna();
 
 private:
+	Amor::Pius clr_timer_pius, alarm_pius;	/* 清超时, 设超时 */
 	Amor::Pius local_pius;
 	Amor::Pius info_pius;
 	Describo::Criptor mytor; //保存套接字, 各实例不同
@@ -182,6 +183,11 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 		}
 		break;
 
+	case Notitia::TIMER_HANDLE:
+		WBUG("facio TIMER_HANDLE");
+		clr_timer_pius.indic = pius->indic;
+		break;
+
 	case Notitia::IGNITE_ALL_READY:
 	case Notitia::CLONE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY/CLONE_ALL_READY");
@@ -285,11 +291,16 @@ Tcpcliuna::Tcpcliuna()
 
 	gCFG = 0;
 	has_config = false;
+	clr_timer_pius.ordo = Notitia::DMD_CLR_TIMER;
+	clr_timer_pius.indic = this;
+
+	alarm_pius.ordo = Notitia::DMD_SET_TIMER;
+	alarm_pius.indic = this;
 }
 
 Tcpcliuna::~Tcpcliuna()
 {	
-	deliver(Notitia::DMD_CLR_TIMER);
+	aptus->sponte(&clr_timer_pius); /* 清除定时 */
 	delete tcpcli;
 	if (has_config )
 		delete gCFG;
@@ -334,7 +345,7 @@ TINLINE void Tcpcliuna::establish_done()
 	/* TCP接收(发送)缓冲区清空 */
 	//if ( tcpcli->rcv_buf) tcpcli->rcv_buf->reset();	
 	//if ( tcpcli->snd_buf) tcpcli->snd_buf->reset();
-	deliver(Notitia::DMD_CLR_TIMER);
+	aptus->sponte(&clr_timer_pius); /* 清除定时 */
 	WLOG(INFO, "estabish %s:%d ok!", tcpcli->server_ip, tcpcli->server_port);
 	deliver(Notitia::START_SESSION); //向接力者发出通知, 本对象开始
 }
@@ -384,10 +395,10 @@ TINLINE void Tcpcliuna::end(bool outer)
 	if (outer )
 	{
 		last_failed_time = 0;	/* 最近关闭时间清零, 不再重连服务端 */
-		deliver(Notitia::DMD_CLR_TIMER);
+		aptus->sponte(&clr_timer_pius); /* 清除定时 */
 	} else {
 		time(&last_failed_time);	/* 记录最近关闭时间, 这将使得重连服务端 */
-		deliver(Notitia::DMD_SET_TIMER);
+		aptus->sponte(&alarm_pius);
 	}
 
 	deliver(Notitia::END_SESSION);/* 向左、右传递本类的会话关闭信号 */
@@ -436,12 +447,6 @@ TINLINE void Tcpcliuna::deliver(Notitia::HERE_ORDO aordo)
 	case Notitia::START_SESSION:
 		WBUG("deliver START_SESSION");
 		aptus->facio(&tmp_pius);
-		break;
-
-	case Notitia::DMD_SET_TIMER:
-	case Notitia::DMD_CLR_TIMER:
-		WBUG("deliver DMD_SET(CLR)_TIMER(%d)", aordo);
-		tmp_pius.indic = this;
 		break;
 
 	case Notitia::FD_CLRRD:

@@ -46,6 +46,7 @@ public:
 	bool get_aps(Amor::Pius &aps, PyObject *arg, const char *err_msg);
 	void free_aps(Amor::Pius &aps);
 private:
+	Amor::Pius clr_timer_pius;  //timer handle
 	PyObject *pInstance;
 	PyObject * fun_ignite, *fun_facio, *fun_sponte, *fun_clone;
 	struct G_CFG {
@@ -711,6 +712,11 @@ bool PyPort::facio( Amor::Pius *pius)
 
 	switch ( pius->ordo )
 	{
+	case Notitia::TIMER_HANDLE:
+		WBUG("facio TIMER_HANDLE");
+		clr_timer_pius.indic = pius->indic;
+		break;
+
 	case Notitia::CLONE_ALL_READY:
 		WBUG("facio CLONE_ALL_READY");
 		if ( !gCFG->pClass ) 
@@ -825,6 +831,10 @@ bool PyPort::facio( Amor::Pius *pius)
 		ADD_NOTI(GET_TBUF)
 		ADD_NOTI(ERR_FRAME_LENGTH)
 		ADD_NOTI(ERR_FRAME_TIMEOUT)
+		ADD_NOTI(SET_EPOLL)
+		ADD_NOTI(CLR_EPOLL)
+		ADD_NOTI(PRO_EPOLL)
+		ADD_NOTI(ERR_EPOLL)
 		ADD_NOTI(FD_SETRD)
 		ADD_NOTI(FD_SETWR)
 		ADD_NOTI(FD_SETEX)
@@ -838,6 +848,7 @@ bool PyPort::facio( Amor::Pius *pius)
 		ADD_NOTI(DMD_SET_TIMER)
 		ADD_NOTI(DMD_CLR_TIMER)
 		ADD_NOTI(DMD_SET_ALARM)
+		ADD_NOTI(TIMER_HANDLE)
 		ADD_NOTI(PRO_HTTP_HEAD)
 		ADD_NOTI(CMD_HTTP_GET)
 		ADD_NOTI(CMD_HTTP_SET)
@@ -1044,6 +1055,8 @@ PyPort::PyPort()
 	memset(spo_method, 0, sizeof(spo_method));
 	memcpy(fac_method, "facio", 5);
 	memcpy(spo_method, "sponte", 6);
+	clr_timer_pius.ordo = Notitia::DMD_CLR_TIMER;
+	clr_timer_pius.indic = this;
 }
 
 PyPort::~PyPort() 
@@ -1220,6 +1233,11 @@ bool PyPort::get_aps(Amor::Pius &aps, PyObject *args, const char *err_msg)
 	case Notitia::DMD_SET_TIMER:
 		/* ps.indic  */
 		aps.indic = this;
+		break;
+
+	case Notitia::DMD_CLR_TIMER:
+		/* ps.indic 指向 timer_handle */
+		aps.indic = clr_timer_pius.indic;
 		break;
 
 	case Notitia::PRO_TBUF:
@@ -1493,10 +1511,12 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 	}
 
 	case Notitia::TIMER:
-		/* 这些要转一个PyInt_Type */
+		/* 这些要转一个PyInt_Type, 这个不需要了 */
+		/*
 		ps_obj->indic = PyInt_FromLong((long)*((int*) (pius->indic)));
 		ret_obj = PyObject_CallMethod(pInstance, py_method, (char*)"O", ps_obj);
 		Py_DECREF(ps_obj->indic);
+		*/
 		break;
 
 	case Notitia::DMD_SET_TIMER:

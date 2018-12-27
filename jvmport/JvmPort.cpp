@@ -105,6 +105,8 @@ public:
 
 	JvmPort();
 	~JvmPort();
+
+	Amor::Pius clr_timer_pius;  //timer handle
 #define BUF_Z 128
 	struct VerList {
 		char cls_name[BUF_Z];
@@ -538,6 +540,11 @@ bool JvmPort::facio( Amor::Pius *pius)
 		WBUG("facio CMD_SET_DBFACE");
 		break;
 */
+	case Notitia::TIMER_HANDLE:
+		WBUG("facio TIMER_HANDLE");
+		clr_timer_pius.indic = pius->indic;
+		break;
+
 	default:
 		WBUG("facio %ld in JvmPort", pius->ordo);
 		return facioJava(pius);
@@ -574,7 +581,7 @@ bool JvmPort::facioJava( Amor::Pius *pius)
 	return ret;
 }
 
-bool JvmPort:: neo(jobject parent, JvmPort *me, jobject &own_obj, jobject &apt_obj)
+bool JvmPort::neo(jobject parent, JvmPort *me, jobject &own_obj, jobject &apt_obj)
 {
 	jfieldID apt_fld, ptr_fld;
 	jbyteArray  selfPtr;
@@ -616,6 +623,8 @@ JvmPort::JvmPort()
 	gCFG = 0;
 	has_config = false;
 	owner_obj = aptus_obj = 0;
+	clr_timer_pius.ordo = Notitia::DMD_CLR_TIMER;
+	clr_timer_pius.indic = this;
 }
 
 JvmPort::~JvmPort() 
@@ -1645,8 +1654,13 @@ static void getPiusIndic (JNIEnv *env,  Amor::Pius &pius, jobject ps, jobject am
 		break;	
 
 	case Notitia::DMD_SET_TIMER:
-		/* ps.indic 是一个java.lang.integer, 转成int, 并且还要加一个jvmport的指针 */
+		/* ps.indic 指向 jvmport的指针 */
 		pius.indic = getPointer(env, amor);
+		break;
+
+	case Notitia::DMD_CLR_TIMER:
+		/* ps.indic 指向 timer_handle */
+		pius.indic = ((JvmPort*)getPointer(env, amor))->clr_timer_pius.indic;
 		break;
 
 	case Notitia::Get_WS_MsgType:
@@ -1945,18 +1959,6 @@ bool JvmPort::pius2Java (Pius *pius, jmethodID fs_mid)
 	}
 		break;
 
-	case Notitia::TIMER:
-		/* 这些要转一个java.lang.Integer */
-	{
-		jobject integer;
-
-		integer = getIntegerObj(jvmcfg->env,*((int*) (pius->indic)));
-		jvmcfg->env->SetObjectField(ps_obj, indic_fld, integer);
-		if (  jvmcfg->env->CallBooleanMethod(owner_obj, fs_mid, ps_obj) ) fs_ret = true ; else fs_ret = false;
-		jvmcfg->env->DeleteLocalRef(integer);
-	}
-		break;
-
 	case Notitia::DMD_SET_TIMER:
 		/* indic指向this, 通知给Java的, 有Java程序进行时间片管理吗? 没有, 所以暂不实现. */
 		break;
@@ -2008,6 +2010,8 @@ bool JvmPort::pius2Java (Pius *pius, jmethodID fs_mid)
 	case Notitia::ERR_FRAME_TIMEOUT:
 	case Notitia::ERR_FRAME_LENGTH:
 	case Notitia::START_SERVICE:
+	case Notitia::TIMER:
+		/* 这些要转一个java.lang.Integer, 发现这indic指向的时间值并没有用到，这里就不转了 */
 	case Notitia::WebSock_End:
 		/* 这些本来就是不需要indic的 */
 		jvmcfg->env->SetObjectField(ps_obj, indic_fld, 0);

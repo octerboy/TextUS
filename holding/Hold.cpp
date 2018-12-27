@@ -39,6 +39,7 @@ public:
 	~Hold();
 
 private:
+	Amor::Pius timer_ps;
 	enum Sess_Status { IDLE = 0, INVALID =1, VALID = 2 };
 	struct Sess {
 		char name[VAL_MAX];	/* 所在域 */
@@ -193,6 +194,8 @@ Hold::Hold()
 {
 	has_config = false;	/* 开始认为自己不拥有全局参数表 */
 	gCFG = 0;
+	timer_ps.ordo = Notitia::DMD_SET_TIMER;
+	timer_ps.indic = this;
 }
 
 Hold::~Hold() 
@@ -214,7 +217,7 @@ bool Hold::facio( Amor::Pius *pius)
 	int i;
 	char cienm[VAL_MAX+10];
 	char *name = 0, *val =0 , *domain = 0;
-	Amor::Pius new_hold, auth_hold, has_hold, clr_hold, timer, ck, dm;
+	Amor::Pius new_hold, auth_hold, has_hold, clr_hold, ck, dm;
 	time_t now;
 	void *info[3];
 	assert(pius);
@@ -223,8 +226,6 @@ bool Hold::facio( Amor::Pius *pius)
 	auth_hold.ordo = Notitia::AUTH_HOLDING;
 	has_hold.ordo = Notitia::HAS_HOLDING;
 	clr_hold.ordo = Notitia::CLEARED_HOLDING;
-	timer.ordo = Notitia::DMD_SET_TIMER;
-	timer.indic = this;
 	ck.ordo = Notitia::GET_COOKIE;
 	ck.indic = &info;
 	dm.ordo =Notitia::GET_DOMAIN;
@@ -310,14 +311,18 @@ bool Hold::facio( Amor::Pius *pius)
 		}
 		break;
 
+	case Notitia::TIMER_HANDLE:
+		WBUG("facio TIMER_HANDLE");
+		break;
+
 	case Notitia::IGNITE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY");
-		aptus->sponte(&timer);
+		aptus->sponte(&timer_ps);
 		break;
 
 	case Notitia::CLONE_ALL_READY:
 		WBUG("facio CLONE_ALL_READY");
-		aptus->sponte(&timer);
+		aptus->sponte(&timer_ps);
 		break;
 
 	default:

@@ -41,6 +41,7 @@ public:
 
 private:
 	Amor::Pius local_p;
+	Amor::Pius clr_timer_pius, alarm_pius;	/* 清超时, 设超时 */
 	TBuffer *ask_tb, *res_tb;	//上一级的请求区, 可能是原始或是帧分析区
 	TBuffer *ask_pa, *res_pa;		//下一级的数据缓冲区, 可能是帧分析区或是原始数据区
 	TBuffer r1st, r2nd;		//下一级的数据缓冲区, 可能是帧分析区或是原始数据区
@@ -189,6 +190,11 @@ bool NacFrame::facio( Amor::Pius *pius)
 		}
 		break;
 
+	case Notitia::TIMER_HANDLE:
+		WBUG("facio TIMER_HANDLE");
+		clr_timer_pius.indic = pius->indic;
+		break;
+
 	default:
 		return false;
 	}
@@ -270,11 +276,16 @@ NacFrame::NacFrame()
 
 	ask_pa = &r1st;
 	res_pa = &r2nd;
+	clr_timer_pius.ordo = Notitia::DMD_CLR_TIMER;
+	clr_timer_pius.indic = this;
+
+	alarm_pius.ordo = Notitia::DMD_SET_TIMER;
+	alarm_pius.indic = this;
 }
 
 NacFrame::~NacFrame()
 {
-	deliver(Notitia::DMD_CLR_TIMER);
+	aptus->sponte(&clr_timer_pius);
 	if ( has_config && gCFG )
 		delete gCFG;
 }
@@ -289,14 +300,6 @@ INLINE void NacFrame::deliver(Notitia::HERE_ORDO aordo, bool _inver)
 	tmp_pius.indic = 0;
 	switch ( aordo)
 	{
-	case Notitia::DMD_SET_TIMER:
-	case Notitia::DMD_CLR_TIMER:
-		WBUG("deliver(sponte) DMD_SET_TIMER/DMD_CLR_TIMER (%d)",aordo);
-		tmp_pius.indic = (void*) this;
-		aptus->sponte(&tmp_pius);
-		return ;
-		break;
-
 	case Notitia::SET_TBUF:
 		WBUG("deliver SET_TBUF");
 		pn[0] = &r1st;
@@ -372,7 +375,7 @@ INLINE bool NacFrame::analyze(TBuffer *raw, TBuffer *plain)
 		{	//这第一次开始, 计一下开始时间
 			time(&when_frame_start);
 			isFraming = true;
-			deliver(Notitia::DMD_SET_TIMER);
+			aptus->sponte(&alarm_pius);
 		}
 		return false;		//不够头长度
 	}

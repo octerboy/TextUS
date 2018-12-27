@@ -110,9 +110,10 @@ enum HERE_ORDO {
 	ERR_FRAME_LENGTH	=104, 
 	ERR_FRAME_TIMEOUT 	=105,
 	
-	SET_EPOLL 	=107, 	//set epoll(IOCP, kqueue, epoll, evport), indic is the pointer of a object of DPoll::Pollor
-	CLR_EPOLL 	=108,	//clear epoll
-	PRO_EPOLL	=109,	//pro epoll
+	SET_EPOLL 	=106, 	//set epoll(IOCP, kqueue, epoll, evport), indic is the pointer of a object of DPoll::Pollor
+	CLR_EPOLL 	=107,	//clear epoll
+	PRO_EPOLL	=108,	//pro epoll
+	ERR_EPOLL	=109,	//process epoll when abnormal
 
 	FD_SETRD 	=110, 	//置可读描述符, 
 	FD_SETWR 	=111,	//置可写描述符, 
@@ -128,6 +129,7 @@ enum HERE_ORDO {
 	DMD_SET_TIMER 	=121,	/* 要求定时通知时间片 */
 	DMD_CLR_TIMER 	=122,	/* 清除时间通知 */
 	DMD_SET_ALARM 	=123,	/* 设置一个定时 */
+	TIMER_HANDLE 	=124,	/* 要求定时的对象，获得定时的句柄，指向一个指针。由sched类指明，否则默认this */
 
 	PRO_HTTP_HEAD	=130,	/* 处理http报文头 */
 	CMD_HTTP_GET 	=131,	/* 取http请求中的数据 */

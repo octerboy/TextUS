@@ -1170,6 +1170,10 @@ unsigned long Notitia::get_ordo(const char *comm_str)
 	WHAT_ORDO(GET_TBUF , Y); \
 	WHAT_ORDO(ERR_FRAME_LENGTH , Y); \
 	WHAT_ORDO(ERR_FRAME_TIMEOUT , Y); \
+	WHAT_ORDO(SET_EPOLL, Y); \
+	WHAT_ORDO(CLR_EPOLL, Y); \
+	WHAT_ORDO(PRO_EPOLL, Y); \
+	WHAT_ORDO(ERR_EPOLL, Y); \
 	WHAT_ORDO(FD_SETRD , Y); \
 	WHAT_ORDO(FD_SETWR , Y); \
 	WHAT_ORDO(FD_SETEX , Y); \
@@ -1183,6 +1187,7 @@ unsigned long Notitia::get_ordo(const char *comm_str)
 	WHAT_ORDO(DMD_SET_TIMER , Y); \
 	WHAT_ORDO(DMD_CLR_TIMER , Y); \
 	WHAT_ORDO(DMD_SET_ALARM , Y); \
+	WHAT_ORDO(TIMER_HANDLE, Y); \
 	WHAT_ORDO(PRO_HTTP_HEAD , Y); \
 	WHAT_ORDO(CMD_HTTP_GET , Y); \
 	WHAT_ORDO(CMD_HTTP_SET , Y); \

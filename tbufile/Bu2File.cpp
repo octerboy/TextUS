@@ -88,6 +88,8 @@ public:
 	enum SPLIT { SP_NONE = 0 ,  SP_DATE =1};
 
 private:
+	Amor::Pius alarm_pius;  /* 设超时 */
+	void *arr[3];
 	char errMsg[256];
 	char id_str[16];
 	struct G_CFG {
@@ -148,7 +150,6 @@ private:
 	bool has_config;
 	bool alarmed;
 
-	TINLINE void deliver(Notitia::HERE_ORDO aordo);
 	TINLINE void output(TBuffer *, int direct);
 	TINLINE int bug_view(TBuffer *, char*);
 
@@ -233,6 +234,20 @@ bool Bu2File::facio( Amor::Pius *pius)
 
 	switch(pius->ordo )
 	{
+	case Notitia::IGNITE_ALL_READY:
+		WBUG("facio IGNITE_ALL_READY");
+		arr[0] = this;
+		arr[1] = &(gCFG->interval);
+		arr[2] = 0;
+		break;
+
+	case Notitia::CLONE_ALL_READY:
+		WBUG("facio CLONE_ALL_READY");
+		arr[0] = this;
+		arr[1] = &(gCFG->interval);
+		arr[2] = 0;
+		break;
+
 	case Notitia::SET_TBUF:	/* 取得输入TBuffer地址 */
 		WBUG("facio SET_TBUF");
 
@@ -269,7 +284,7 @@ bool Bu2File::facio( Amor::Pius *pius)
 			{
 				MY_CLOSE
 				gCFG->fileD = -1;
-				deliver(Notitia::DMD_SET_ALARM);
+				aptus->sponte(&alarm_pius);
 			}
 		}
 
@@ -545,7 +560,7 @@ void Bu2File::output(TBuffer *tbuf, int direct )
 	if ( !alarmed && gCFG->interval > 0 ) 
 	{
 		alarmed = true;
-		deliver(Notitia::DMD_SET_ALARM); /* 设定时 */ 
+		aptus->sponte(&alarm_pius);
 	}
 
 	if ( gCFG->toClear && wLen > 0)
@@ -573,6 +588,8 @@ Bu2File::Bu2File()
 	out_buf = new char[out_len];
 	id_str[0] = '0';
 	id_str[1] = 0;
+	alarm_pius.ordo = Notitia::DMD_SET_ALARM;
+	alarm_pius.indic = &arr[0];
 }
 
 Bu2File::~Bu2File()
@@ -596,32 +613,6 @@ Amor* Bu2File::clone()
 	TEXTUS_SPRINTF(child->id_str, "%lu", child->instance_id);
 
 	return (Amor*)child;
-}
-
-/* 向接力者提交 */
-TINLINE void Bu2File::deliver(Notitia::HERE_ORDO aordo)
-{
-	Amor::Pius tmp_pius;
-	void *arr[3];
-
-	tmp_pius.ordo = aordo;
-	tmp_pius.indic = 0x0;
-	switch (aordo )
-	{
-	case Notitia::DMD_SET_ALARM:
-		WBUG("deliver(sponte) DMD_SET_ALARM");
-		tmp_pius.indic = &arr[0];
-		arr[0] = this;
-		arr[1] = &gCFG->interval;
-		arr[2] = 0;
-		break;
-
-	default:
-		WBUG("deliver Notitia::%d", aordo);
-		break;
-	}
-
-	aptus->sponte(&tmp_pius);
 }
 
 #define AMOR_CLS_TYPE Bu2File
