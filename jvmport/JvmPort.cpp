@@ -1678,12 +1678,20 @@ static void getPiusIndic (JNIEnv *env,  Amor::Pius &pius, jobject ps, jobject am
 	case Notitia::DMD_SET_ALARM:
 		/* ps.indic 是一个java.lang.integer, 转成int, 并且还要加一个jvmport的指针 */
 	{
-		void **indp = new void* [2];
-		int *click = new int;
+		jobjectArray indic;
+		jobject clk1, clk2;
+		void **indp = new void* [3];
+		int *click = new int[2];
 
 		indp[0] = getPointer(env, amor);
-		indp[1] = click;
-		toInt(env, click,  env->GetObjectField(ps, indic_fld));
+		indp[1] = &click[0];
+		indp[2] = &click[1];
+		indic = (jobjectArray) env->GetObjectField(ps, indic_fld);
+		clk1 = env->GetObjectArrayElement(indic, 0); 
+		clk2 = env->GetObjectArrayElement(indic, 1); 
+
+		toInt(env, &click[1],  clk1);
+		toInt(env, &click[2],  clk2);
 		pius.indic = indp;
 	}
 		break;
@@ -1738,7 +1746,7 @@ static void freePiusIndic (Amor::Pius &pius)
 	{
 		void **indp = (void**)pius.indic;
 		int *click = (int*)indp[1];
-		delete click;
+		delete[] click;
 		delete[] indp;
 	}
 		break;

@@ -1114,7 +1114,7 @@ void PyPort::free_aps(Amor::Pius &aps)
 
 	case Notitia::DMD_SET_ALARM:
 		/* ps.indic 是一个java.lang.integer, 转成int, 并且还要加一个jvmport的指针 */
-		delete (int*)(((void **)aps.indic)[1]);
+		delete[] (int*)(((void **)aps.indic)[1]);
 		delete [](void**)aps.indic;
 		break;
 
@@ -1216,16 +1216,25 @@ bool PyPort::get_aps(Amor::Pius &aps, PyObject *args, const char *err_msg)
 	case Notitia::DMD_SET_ALARM:
 		/* ps_obj.indic 是一个PyInt_Type, 转成int, 并且还要加一个this指针 */
 	{
-		void **indp = new void* [2];
-		int *click = new int;
-
-		if ( !PyInt_Check(ps_obj->indic) ) {
-			WLOG(WARNING,"aps.indic is not of PyInt_Type! when Get/Set_WS_MsgType");
+		void **indp = new void* [3];
+		int *click = new int[2];
+		PyObject *c1, *c2;
+		if ( !PyList_Check(ps_obj->indic) ) {
+			PyErr_SetString(aptus_error, "Pius.indic is not PyListObject!");
 			return false;
 		}
-		*click = (int)(PyInt_AS_LONG(ps_obj->indic)&0xFFFFFFFF);
+		c1 = PyList_GetItem(ps_obj->indic, 0);
+		c2 = PyList_GetItem(ps_obj->indic, 1);
+
+		if ( !PyInt_Check(c1)  || !PyInt_Check(c2) ) {
+			WLOG(WARNING,"aps.indic is not of PyInt_Type! when DMD_SET_ALARM");
+			return false;
+		}
+		click[0] = (int)(PyInt_AS_LONG(c1)&0xFFFFFFFF);
+		click[1] = (int)(PyInt_AS_LONG(c2)&0xFFFFFFFF);
 		indp[0] = this;
-		indp[1] = click;
+		indp[1] = &click[0];
+		indp[2] = &click[1];
 		aps.indic = indp;
 	}
 		break;

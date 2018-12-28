@@ -238,14 +238,14 @@ bool Bu2File::facio( Amor::Pius *pius)
 		WBUG("facio IGNITE_ALL_READY");
 		arr[0] = this;
 		arr[1] = &(gCFG->interval);
-		arr[2] = 0;
+		arr[2] = &(gCFG->interval);
 		break;
 
 	case Notitia::CLONE_ALL_READY:
 		WBUG("facio CLONE_ALL_READY");
 		arr[0] = this;
 		arr[1] = &(gCFG->interval);
-		arr[2] = 0;
+		arr[2] = &(gCFG->interval);
 		break;
 
 	case Notitia::SET_TBUF:	/* 取得输入TBuffer地址 */
@@ -284,7 +284,7 @@ bool Bu2File::facio( Amor::Pius *pius)
 			{
 				MY_CLOSE
 				gCFG->fileD = -1;
-				aptus->sponte(&alarm_pius);
+				//aptus->sponte(&alarm_pius);
 			}
 		}
 

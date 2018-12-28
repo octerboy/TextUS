@@ -195,7 +195,7 @@ void TPoll::ignite(TiXmlElement *cfg)
 bool TPoll::sponte( Amor::Pius *apius)
 {
 	int i, tmp_type = 0;
-	unsigned interval =0;
+	unsigned interval =0, interval2;
 	Amor *ask_pu = (Amor *) 0;
 	void **p;
 
@@ -267,12 +267,17 @@ bool TPoll::sponte( Amor::Pius *apius)
 		ask_pu = (Amor*) (*p);
 		p++;
 		interval = *((int *)(*p));
+		p++;
+		if ( *p )
+			interval2 = *((int *)(*p));
+		else
+			interval2 = 0;
 		WBUG("%p sponte DMD_SET_ALARM, interval: %d", ask_pu, interval);
 		aor = get_timor();
 		if ( !aor ) break;
 #if defined (_WIN32)
 		if (!CreateTimerQueueTimer( &hTimer, timer_queue, (WAITORTIMERCALLBACK)timer_routine, 
-						aor, interval, 0, WT_EXECUTEINTIMERTHREAD))
+						aor, interval, interval2, WT_EXECUTEINTIMERTHREAD))
 		{
 			put_timor(aor);
 			ERROR_PRO("CreateTimerQueueTimer (DMD_SET_ALARM) failed ");
