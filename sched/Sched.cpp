@@ -241,7 +241,11 @@ bool Sched::sponte( Amor::Pius *apius)
 			ask_pu = (Amor*) (*p);
 			p++;
 			interval = *((int *)(*p));
-			tmp_type = 1;
+			p++;
+			if ( *p ) 
+				tmp_type = 3;	//repeat
+			else
+				tmp_type = 1;
 			WBUG("%p sponte DMD_SET_ALARM, interval: %d", ask_pu, interval);
 			break;
 
@@ -545,6 +549,7 @@ void Sched::sort()
 	int i;
 	Amor::Pius timer_pius;
 	struct timeb now;
+	long passed ;
 
 	ftime(&now);
 	timer_pius.ordo = Notitia::TIMER;
@@ -554,19 +559,20 @@ void Sched::sort()
 	{
 		if ( timer_infor[i].pupa == (Amor*) 0 ) break;
 		WBUG("TIMER[%d] %p, status %d, since %ld, interval %d", i, timer_infor[i].pupa, timer_infor[i].status, timer_infor[i].since.time, (unsigned int)(timer_infor[i].interval) );
-		if ( timer_infor[i].status == 0 )
+		switch ( timer_infor[i].status )
 		{
+		case 0:
 			timer_infor[i].pupa->facio(&timer_pius);
-		} else if ( timer_infor[i].status == 1 ) /* 超时才通知 */
-		{
-			long passed = 0;
+			break;
+		case 1:
+		case 3:
 			passed = (long) (now.time - timer_infor[i].since.time)*1000
 				+ (now.millitm - timer_infor[i].since.millitm);
-
 			if ( passed >= (long) timer_infor[i].interval )
 			{
-				timer_infor[i].status = 2; /* 超时仅作一次通知 */
 				timer_infor[i].pupa->facio(&timer_pius);
+				if ( timer_infor[i].status == 1)
+					timer_infor[i].status = 2; /* 超时仅作一次通知 */
 			}
 		}
 	}

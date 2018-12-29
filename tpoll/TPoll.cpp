@@ -37,6 +37,17 @@
 	#include <sys/select.h>
 	#endif
 #endif
+#if defined(__linux__)
+#endif	//for linux
+
+#if defined(__sun)
+#include <port.h>
+#include <signal.h>
+#endif	//for sun
+
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
+#endif	//for bsd
+
 #include <sys/timeb.h>
 #include <time.h>
 #include <errno.h>
@@ -73,6 +84,12 @@ public:
 #if defined (_WIN32)
 	HANDLE iocp_port,timer_queue;
 #endif
+#if defined(__sun)
+	int ev_port;
+	port_notify_t		pnotif;
+	struct sigevent		sigev;
+	timespec_t		timeout;
+#endif	//for sun
 
 private:
 	char errMsg[2048];
@@ -85,6 +102,7 @@ private:
 	int timer_milli; /* 定时器毫秒数 */
 	int timer_usec;	/* 轮询间隔微秒数 */
 	int timer_sec;	/* 轮询间隔秒数 */
+	int timer_nsec;	/* 轮询间隔纳秒数 */
 
 	void run();
 	bool shouldEnd;
@@ -98,12 +116,13 @@ private:
 #if defined (_WIN32)
 		HANDLE timer_hnd;
 #endif
+#if defined(__sun)
+		timer_t timerid;
+#endif	//for sun
+
 		inline Timor() {
 			pupa = 0;
 			type = DPoll::NotUsed ;
-#if defined(_WIN32)
-			timer_hnd = INVALID_HANDLE_VALUE;
-#endif
 		}
 	};
 	struct Timor *tpool;/* 要求给予定时信号的数组 */
@@ -187,9 +206,26 @@ void TPoll::ignite(TiXmlElement *cfg)
 		return ;
 	}
 #endif 
+#if defined(__sun)
+	ev_port = port_create();
+	if ( ev_port < 0 ) 
+	{
+		ERROR_PRO("port_create failed for a new port");
+		return ;
+	}
+#endif	//for sun
+
 	infor_size = 128;
 	cfg->QueryIntAttribute("timer_num", &infor_size);
 	timor_init();	//初始化
+
+	timer_sec = timer_milli/1000;
+	timer_usec = (timer_milli % 1000) * 1000;
+	timer_nsec = (timer_milli % 1000) * 1000000;
+	pnotif.portnfy_port = ev_port;
+	pnotif.portnfy_user = (void *)0;
+	sigev.sigev_notify = SIGEV_PORT;
+	sigev.sigev_value.sival_ptr = &pnotif;
 }
 
 bool TPoll::sponte( Amor::Pius *apius)
@@ -204,6 +240,10 @@ bool TPoll::sponte( Amor::Pius *apius)
 	HANDLE hPort = NULL;
 	HANDLE hTimer = NULL;
 	HANDLE port_hnd = NULL;
+#endif
+#if defined(__sun)
+	int events;
+	itimerspec_t	itimeout;
 #endif
 	struct Timor *aor;
 	assert(apius);
@@ -223,6 +263,25 @@ bool TPoll::sponte( Amor::Pius *apius)
 			port_hnd = (HANDLE)ppo->hnd.sock;
 			break;
 #endif
+		case DPoll::Writable:
+#if defined(__sun)
+		if ( !port_associate(ev_port, PORT_SOURCE_FD, ppo->fd, POLLOUT, ppo) )
+		{
+			ERROR_PRO("port_associate(POLLOUT) failed");
+			WLOG(WARNING, errMsg);
+		}
+		
+#endif
+			break;
+		case DPoll::Readable:
+#if defined(__sun)
+		if ( !port_associate(ev_port, PORT_SOURCE_FD, ppo->fd, POLLIN, ppo) )
+		{
+			ERROR_PRO("port_associate(POLLIN) failed");
+			WLOG(WARNING, errMsg);
+		}
+#endif
+			break;
 		default:
 			break;
 		}
@@ -245,21 +304,46 @@ bool TPoll::sponte( Amor::Pius *apius)
 	case Notitia::DMD_SET_TIMER :	/* 置时间片通知对象 */
 		WBUG("%p sponte DMD_SET_TIMER",  apius->indic);
 		aor = get_timor();
+#if defined(__sun)
+		/* Setup the port notification structure */
+		pnotif.portnfy_user = (void *)aor;
+		/* Create a timer using the realtime clock */
+		if (!timer_create(CLOCK_REALTIME, &sigev, &aor->timerid))
+		{
+			ERROR_PRO("timer_create failed");
+			WLOG(WARNING, errMsg);
+			goto END_TIMER_PRO;
+		}
+		itimeout.it_value.tv_sec = timer_sec;
+		itimeout.it_value.tv_nsec = timer_nsec;
+		itimeout.it_interval.tv_sec = timer_sec;
+		itimeout.it_interval.tv_nsec = timer_nsec;
+
+		if (!timer_settime(&aor->timerid, 0, &itimeout, NULL)}
+		{
+			ERROR_PRO("timer_settime");
+			WLOG(WARNING, errMsg);
+			goto END_TIMER_PRO;
+		}
+
+#endif
 #if defined (_WIN32)
-		if (!CreateTimerQueueTimer( &hTimer, timer_queue, (WAITORTIMERCALLBACK)timer_routine, 
+		if (!CreateTimerQueueTimer( &aor->timer_hnd, timer_queue, (WAITORTIMERCALLBACK)timer_routine, 
 						aor, timer_milli, timer_milli, WT_EXECUTEINTIMERTHREAD))
 		{
-			put_timor(aor);
 			ERROR_PRO("CreateTimerQueueTimer (SET_TIMER) failed");
 			WLOG(WARNING, errMsg);
-		} else {
-			tm_hd_ps.indic = aor;
-			aor->timer_hnd = hTimer;
-			aor->pupa = ask_pu;
-			aor->type = DPoll::Timer;
-			aor->pupa->facio(&tm_hd_ps);
-		}
+			goto END_TIMER_PRO;
+		} 
 #endif
+		tm_hd_ps.indic = aor;
+		aor->pupa = ask_pu;
+		aor->type = DPoll::Timer;
+		aor->pupa->facio(&tm_hd_ps);
+		break;
+
+END_TIMER_PRO:
+			put_timor(aor);//发生错误而回收
 		break;
 
 	case Notitia::DMD_SET_ALARM :	/* 置超时通知对象 */
@@ -275,20 +359,49 @@ bool TPoll::sponte( Amor::Pius *apius)
 		WBUG("%p sponte DMD_SET_ALARM, interval: %d", ask_pu, interval);
 		aor = get_timor();
 		if ( !aor ) break;
-#if defined (_WIN32)
-		if (!CreateTimerQueueTimer( &hTimer, timer_queue, (WAITORTIMERCALLBACK)timer_routine, 
-						aor, interval, interval2, WT_EXECUTEINTIMERTHREAD))
+#if defined(__sun)
+		/* Setup the port notification structure */
+		pnotif.portnfy_user = (void *)aor;
+		/* Create a timer using the realtime clock */
+		if (!timer_create(CLOCK_REALTIME, &sigev, &aor->timerid))
 		{
-			put_timor(aor);
-			ERROR_PRO("CreateTimerQueueTimer (DMD_SET_ALARM) failed ");
+			ERROR_PRO("timer_create failed");
 			WLOG(WARNING, errMsg);
-		} else {
-			aor->timer_hnd = hTimer;
-			aor->pupa = ask_pu;
-			aor->type = DPoll::Alarm;
-			aor->pupa->facio(&tm_hd_ps);
+			goto END_ALARM_PRO;
+		}
+		itimeout.it_value.tv_sec = interval/1000;
+		itimeout.it_value.tv_nsec = (interval%1000)*1000;
+		itimeout.it_interval.tv_sec = interval2/1000;
+		itimeout.it_interval.tv_nsec = (interval2%1000)*1000;
+
+		if (!timer_settime(&aor->timerid, 0, &itimeout, NULL)}
+		{
+			ERROR_PRO("timer_settime");
+			WLOG(WARNING, errMsg);
+			goto END_ALARM_PRO;
 		}
 #endif
+
+#if defined (_WIN32)
+		if (!CreateTimerQueueTimer( &aor->timer_hnd, timer_queue, (WAITORTIMERCALLBACK)timer_routine, 
+						aor, interval, interval2, WT_EXECUTEINTIMERTHREAD))
+		{
+			ERROR_PRO("CreateTimerQueueTimer (DMD_SET_ALARM) failed ");
+			WLOG(WARNING, errMsg);
+			goto END_ALARM_PRO;
+		}
+#endif
+		tm_hd_ps.indic = aor;
+		aor->pupa = ask_pu;
+		if ( interval2 > 0 ) 
+			aor->type = DPoll::Timer;
+		else
+			aor->type = DPoll::Alarm;
+		aor->pupa->facio(&tm_hd_ps);
+		break;
+
+END_ALARM_PRO:
+			put_timor(aor); //发生错误而回收
 		break;
 
 	case Notitia::DMD_CLR_TIMER :	/* 清定时通知对象 */
@@ -439,8 +552,23 @@ void TPoll:: run()
 	struct Timor *tor=0;
 	struct DPoll::Pollor *ppo=0; 
 	Amor *pupa;
+#if defined(__sun)
+	int events;
+	port_event_t		pev;
+#endif
+
 LOOP:
 	if ( pendor_top > -1 ) run_pendors();
+#if defined(__sun)
+	nready = port_get(port, &pev, 0);
+	if ( nready != 0 ) 
+	{
+		ERROR_PRO("GetQueuedCompletionStatus");
+		WLOG(ERR,errMsg);
+		goto LOOP;
+	}
+#endif
+
 #if defined(_WIN32)
 	BOOL success;
 	DWORD dwNoOfBytes = 0;  
@@ -452,7 +580,7 @@ LOOP:
 			&dwNoOfBytes,  // Bytes transferred  
 			(PULONG_PTR)&aor,  
 			&pov,          // OVERLAPPED structure  
-			timer_milli       // Notification time-out interval  
+			INFINITE       // for ever
                     );  
 	if ( aor== NULL)  
 	{   // An unrecoverable error occurred in the completion port. Wait for the next notification. 
@@ -475,9 +603,6 @@ LOOP:
 	case DPoll::Alarm:
 		tor = (struct Timor *)aor;
 		pupa = tor->pupa;
-#if defined (_WIN32)
-		tor->timer_hnd = NULL;
-#endif
 		tor->type = DPoll::NotUsed;
 		tor->pupa = 0;
 		put_timor(tor);
@@ -508,5 +633,5 @@ LOOP:
 
 	if ( !shouldEnd) goto LOOP;
 }
-
 #include "hook.c"
+
