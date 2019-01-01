@@ -565,15 +565,24 @@ void Sched::sort()
 			timer_infor[i].pupa->facio(&timer_pius);
 			break;
 		case 1:
+			passed = (long) (now.time - timer_infor[i].since.time)*1000
+				+ (now.millitm - timer_infor[i].since.millitm);
+			if ( passed >= (long) timer_infor[i].interval )
+			{
+				timer_infor[i].pupa->facio(&timer_pius);
+				timer_infor[i].status = 2; /* 超时仅作一次通知 */
+			}
+			break;
 		case 3:
 			passed = (long) (now.time - timer_infor[i].since.time)*1000
 				+ (now.millitm - timer_infor[i].since.millitm);
 			if ( passed >= (long) timer_infor[i].interval )
 			{
 				timer_infor[i].pupa->facio(&timer_pius);
-				if ( timer_infor[i].status == 1)
-					timer_infor[i].status = 2; /* 超时仅作一次通知 */
 			}
+			break;
+		default:
+			break;
 		}
 	}
 }
