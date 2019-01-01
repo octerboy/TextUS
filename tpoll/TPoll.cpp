@@ -250,6 +250,19 @@ bool TPoll::sponte( Amor::Pius *apius)
 
 	switch ( apius->ordo )
 	{
+	case Notitia::CLR_EPOLL :	/* clear epoll  */
+		ppo = (DPoll::Pollor *)apius->indic;	
+		assert(ppo);
+		WBUG("%p %s", ppo->pupa, "sponte CLR_EPOLL");
+#if defined(__sun)
+		if ( !port_associate(ev_port, PORT_SOURCE_FD, ppo->fd, POLLOUT, ppo) )
+		{
+			ERROR_PRO("port_associate(POLLOUT) failed");
+			WLOG(WARNING, errMsg);
+		}
+		
+#endif
+		break;
 	case Notitia::SET_EPOLL :	/* IOCP,epoll  */
 		ppo = (DPoll::Pollor *)apius->indic;	
 		assert(ppo);
