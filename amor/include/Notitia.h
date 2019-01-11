@@ -58,10 +58,6 @@ enum HERE_ORDO {
 	CMD_PUT_PENDOR	=34,	/* 向调度者设置 */
 	DMD_SCHED_RUN	=35,	/* 调度一个对象的运行 */
 
-	SET_EVENT_HD 	=37, 	//set event handle, indic is the pointer of a object of Devent::Eventor
-	CLR_EVENT_HD 	=38,	//clear event handle
-	PRO_EVENT_HD	=39,	//pro event
-
 	CMD_GET_PIUS		=41,	/* get pius from a keeper */
 	DMD_CONTINUE_SELF	=42,	//继续下本接力者
 	DMD_STOP_NEXT 		=43,	//停止下一个接力者
@@ -110,11 +106,6 @@ enum HERE_ORDO {
 	ERR_FRAME_LENGTH	=104, 
 	ERR_FRAME_TIMEOUT 	=105,
 	
-	SET_EPOLL 	=106, 	//set epoll(IOCP, kqueue, epoll, evport), indic is the pointer of a object of DPoll::Pollor
-	CLR_EPOLL 	=107,	//clear epoll
-	PRO_EPOLL	=108,	//pro epoll
-	ERR_EPOLL	=109,	//process epoll when abnormal
-
 	FD_SETRD 	=110, 	//置可读描述符, 
 	FD_SETWR 	=111,	//置可写描述符, 
 	FD_SETEX 	=112,	//置异常描述符, 
@@ -130,6 +121,10 @@ enum HERE_ORDO {
 	DMD_CLR_TIMER 	=122,	/* 清除时间通知 */
 	DMD_SET_ALARM 	=123,	/* 设置一个定时 */
 	TIMER_HANDLE 	=124,	/* 要求定时的对象，获得定时的句柄，指向一个指针。由sched类指明，否则默认this */
+
+	SET_EVENT_HD 	=125, 	//set event handle, indic is the pointer of a object of Devent::Eventor
+	CLR_EVENT_HD 	=126,	//clear event handle
+	PRO_EVENT_HD	=127,	//pro event
 
 	PRO_HTTP_HEAD	=130,	/* 处理http报文头 */
 	CMD_HTTP_GET 	=131,	/* 取http请求中的数据 */
@@ -181,6 +176,13 @@ enum HERE_ORDO {
 	CMD_FORK	=180,	/* cmd to fork a new process */
 	FORKED_PARENT	=181,	/* in  the  parent's thread  of execution, indic point to pid of child */
 	FORKED_CHILD	=182,	/* in the child's thread of execution, indic = 0 */
+
+	SET_EPOLL 	=184, 	//set epoll(IOCP, kqueue, epoll, evport), indic is the pointer of a object of DPoll::Pollor
+	CLR_EPOLL 	=185,	//clear epoll
+	PRO_EPOLL	=186,	//pro epoll
+	WR_EPOLL	=187,	//process epoll when writable
+	RD_EPOLL	=188,	//process epoll when readable
+	ERR_EPOLL	=189,	//process epoll when abnormal
 
 	NEW_HOLDING	=190,	/* new session */
 	AUTH_HOLDING	=191,	/* auth this session */

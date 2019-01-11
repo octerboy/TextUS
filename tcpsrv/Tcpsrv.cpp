@@ -84,10 +84,15 @@ Tcpsrv::Tcpsrv()
 	wr_blocked = false; 	//刚开始, 最近一次写当然不阻塞
 
 	/* 下面两行仅用于子实例 */
-	rcv_buf = new TBuffer(8192);
-	snd_buf = new TBuffer(8192);
+	rcv_buf = new TBuffer(RCV_FRAME_SIZE);
+	snd_buf = new TBuffer(RCV_FRAME_SIZE);
 	errMsg = (char*) 0;
 	errstr_len = 0;
+	use_epoll = false;
+#if defined (_WIN32)
+	memset(&rcv_ovp, 0, sizeof(OVERLAPPED));
+	memset(&snd_ovp, 0, sizeof(OVERLAPPED));
+#endif
 }
 
 Tcpsrv::~Tcpsrv()
@@ -146,9 +151,12 @@ bool Tcpsrv::servio( bool block)
 		   	servaddr.sin_addr.s_addr = me. s_addr;
 		   }
 	} 	
-
-	/* 建立套接字 */
+/* 建立套接字 */
+#if defined(_WIN32)
+	if ((listenfd = WSASocket(AF_INET,SOCK_STREAM, IPPROTO_TCP, NULL,0,WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET )
+#else
 	if ((listenfd = socket (AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET )
+#endif 
 	{
 		ERROR_PRO("create socket")
 		return false;
@@ -191,6 +199,63 @@ bool Tcpsrv::servio( bool block)
 
 	return true;
 }
+
+#if defined(_WIN32)
+int Tcpsrv::accept_ex()
+{
+	LPFN_ACCEPTEX lpfnAcceptEx = NULL;
+	GUID GuidAcceptEx = WSAID_ACCEPTEX;
+	int iResult = 0;
+	DWORD dwBytes;
+	BOOL bRetVal = FALSE;
+
+	iResult = WSAIoctl(listenfd, SIO_GET_EXTENSION_FUNCTION_POINTER,  &GuidAcceptEx, sizeof (GuidAcceptEx),  
+						&lpfnAcceptEx, sizeof (lpfnAcceptEx), &dwBytes, NULL, NULL);
+	if (iResult == SOCKET_ERROR) {
+		ERROR_PRO("WSAIoctl");
+		goto MY_ERROR;
+	}
+
+	// Create an accepting socket
+	connfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (connfd == INVALID_SOCKET) {
+		ERROR_PRO("Create accept socket")
+		goto MY_ERROR;
+	}
+
+	// Empty our overlapped structure and accept connections.
+	memset(&rcv_ovp, 0, sizeof(OVERLAPPED));
+	bRetVal = lpfnAcceptEx(listenfd, connfd, accept_buf, 0, /* 0 means AcceptEx completes  without waiting for any data*/
+					sizeof (sockaddr_in) + 16, sizeof (sockaddr_in) + 16, &dwBytes, &rcv_ovp);
+	if (bRetVal == FALSE) { 
+		if (  ERROR_IO_PENDING  == WSAGetLastError() ) {
+			return 0;
+		} else {
+			ERROR_PRO("lpfnAcceptEx")
+			//closesocket(listenfd);
+			release();
+			return -1;
+		}
+	}
+	return 1;
+
+MY_ERROR:
+	endListen();
+	//WSACleanup();
+	return -1;
+}
+
+bool Tcpsrv::post_accept_ex()
+{
+	int iResult = 0;
+	iResult =  setsockopt( connfd, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT, (char *)&listenfd, sizeof(listenfd) );	
+	if ( iResult == 0 ) 
+		return true;
+	
+	ERROR_PRO("setsockopt SO_UPDATE_ACCEPT_CONTEXT")
+	return false;
+}
+#endif
 
 /* 接受一个TCP连接 */
 bool Tcpsrv::accipio( bool block )
@@ -283,9 +348,38 @@ int Tcpsrv::recito()
 {	
 	long len;
 
-	rcv_buf->grant(8192);	//保证有足够空间
+	rcv_buf->grant(RCV_FRAME_SIZE);	//保证有足够空间
+
+#if defined(_WIN32)
+	if ( use_epoll ) 
+	{
+		int rc;
+		wsa_rcv.buf = (char *)rcv_buf->point;
+		wsa_rcv.len = RCV_FRAME_SIZE;
+		flag = 0;
+		rc = WSARecv(connfd, &wsa_rcv, 1, &rb, &flag, &rcv_ovp, NULL);
+		if ( rc == 0 )
+		{
+			len = rb;
+			if ( len == 0 ) {
+				if ( errMsg ) 
+					TEXTUS_SNPRINTF(errMsg, errstr_len, "recv 0, disconnected");
+				return -1;
+			}
+			goto LAST_COMMIT;
+		} else {
+			if ( WSA_IO_PENDING == WSAGetLastError() ) {
+				return 0;
+			} else {
+				ERROR_PRO ("WSARecv");
+				return -2;
+			}
+		}
+	}
+#endif
+
 ReadAgain:
-	if( (len = recv(connfd, (char *)rcv_buf->point, 8192, MSG_NOSIGNAL)) == 0) /* (char*) for WIN32 */
+	if( (len = recv(connfd, (char *)rcv_buf->point, RCV_FRAME_SIZE, MSG_NOSIGNAL)) == 0) /* (char*) for WIN32 */
 	{	//对方关闭套接字
 		if ( errMsg ) 
 			TEXTUS_SNPRINTF(errMsg, errstr_len, "recv 0, disconnected");
@@ -310,7 +404,10 @@ ReadAgain:
 			ERROR_PRO("recv socket")
 			return -2;
 		}
-	} 
+	}
+#if defined(_WIN32)
+LAST_COMMIT:
+#endif
 	rcv_buf->commit(len);	/* 指针向后移 */
 	return len;
 }
@@ -320,6 +417,29 @@ int Tcpsrv::transmitto()
 {
 	long len;
 	long snd_len = snd_buf->point - snd_buf->base;	//发送长度
+#if defined(_WIN32)
+	if ( use_epoll ) 
+	{
+		int rc;
+		wsa_snd.buf = (char *)snd_buf->point;
+		wsa_snd.len = snd_len;
+		rc = WSASend(connfd, &wsa_snd, 1, &rb, 0, &snd_ovp, NULL);
+
+		if ( rc == 0 )
+		{
+			len = rb;
+			goto LAST_SND_COMMIT;
+		} else {
+			if ( WSA_IO_PENDING == WSAGetLastError() ) {
+				len = wsa_snd.len;
+				goto LAST_SND_COMMIT;
+			} else {
+				ERROR_PRO ("WSASend");
+				return -1;
+			}
+		}
+	}
+#endif
 
 SendAgain:
 	len = send(connfd, (char *)snd_buf->base, snd_len, MSG_NOSIGNAL); /* (char*) for WIN32 */
@@ -349,7 +469,9 @@ SendAgain:
 			return -1;
 		}
 	}
-
+#if defined(_WIN32)
+LAST_SND_COMMIT:
+#endif
 	snd_buf->commit(-len);	//提交所读出的数据
 	if (snd_len > len )
 	{	
@@ -434,5 +556,11 @@ void Tcpsrv::herit(Tcpsrv *child)
 	memcpy (child->srvip, srvip, sizeof(srvip));
 	child->srvport = srvport;
 	child->connfd = connfd;
+	child->use_epoll = use_epoll;
 	return ;
+}
+
+void Tcpsrv::get_error_string(const char *msg)
+{
+	ERROR_PRO(msg);
 }

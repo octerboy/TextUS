@@ -16,22 +16,36 @@
 #ifndef DPOLL__H
 #define DPOLL__H
 #include "Amor.h"
+
+#if defined(__linux__)
+#include <sys/epoll.h>
+#endif
+
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
+#include <sys/event.h>
+#endif	//for bsd
+
+#if defined(__sun)
+#include <port.h>
+#include <signal.h>
+#include <poll.h>
+#endif	//for sun
+
 class DPoll
 {
 public:
 	enum Poll_Type {
 		NotUsed =  -1,
-		Readable =  0,
-		Writable  = 3,
 		Alarm = 7,
 		Timer = 8,
-		WinFile = 0x11,
-		WinSock = 0x12
+		Aio = 0x10,
+		File = 0x11,
+		Sock = 0x12
 	};
 
 	struct PollorBase{
 		Amor *pupa;	//被调用facio的对象
-		Poll_Type type;	//0: whether Readable, 3: whether Writable, 7:alarm, 8:timer , 0x11: windows file, 0x12: windows socket
+		Poll_Type type;	//7:alarm, 8:timer , 0x10: Aio, 0x11: aio file, 0x12: socket
 	};
 
 	struct Pollor : PollorBase {
@@ -42,8 +56,19 @@ public:
 			HANDLE file;
 			SOCKET sock;
 		} hnd;
-#else
+#endif
+#if defined(__linux__)
+		struct epoll_event ev;
+		int op;
 		int fd;		//描述符
+#endif
+
+#if defined(__sun)
+		short   events;
+		int fd;		//描述符
+#endif
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
+		struct kevent events[2];
 #endif
 		inline Pollor() {
 			pupa = 0;
@@ -53,8 +78,6 @@ public:
 			overlap = 0;
 			hnd.sock = INVALID_SOCKET;
 			hnd.file = INVALID_HANDLE_VALUE;
-#else
-			fd = -1;
 #endif
 		};
 	};
