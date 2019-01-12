@@ -17,8 +17,16 @@
 
 #ifndef TCPSRV__H
 #define TCPSRV__H
-#include "TBuffer.h"
 
+#if defined (_WIN32 )
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <mswsock.h>
+
+#endif
+
+#include "TBuffer.h"
+#define RCV_FRAME_SIZE 8192
 class Tcpsrv {
 public:
 	Tcpsrv();
@@ -31,6 +39,7 @@ public:
 
 	int listenfd;	//侦听
 	int connfd; 	//-1表示本实例空闲, 每个子实例不同,负责侦听的实例保存最近一次的连接
+	bool use_epoll; //是否使用tpoll类
 
 	bool servio(bool block = false);	/* 设定侦听套接字, 如果成功,则:
 				 listenfd有值。*/
@@ -42,6 +51,15 @@ public:
 				   3、client_port有值
 				   4、client_mac有值
 				*/
+#if defined (_WIN32 )
+	int accept_ex();
+	bool post_accept_ex();
+	OVERLAPPED rcv_ovp, snd_ovp;
+	char accept_buf[128];
+	WSABUF wsa_snd, wsa_rcv;
+	DWORD rb, flag;
+#endif
+
 
 	int recito();		//接收数据, 返回-1或0时建议关闭套接字 
 	int transmitto();	/* 发送数据, 返回
@@ -62,6 +80,7 @@ public:
 	//以下几行每个实例不同, 用于子实例, 父实例不用
 	TBuffer *rcv_buf;
 	TBuffer *snd_buf;
+	void get_error_string(const char *msg);
 
 private:
 	bool wr_blocked;	//1: 最近一次写阻塞, 0: 最近一次写没有阻塞
