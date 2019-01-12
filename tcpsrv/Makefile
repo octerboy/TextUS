@@ -4,7 +4,7 @@
 #	B01:created by octerboy 2005/06/10
 
 include ../Rules.basemod
-INCLUDE_DIR += -I../sched/include -I../baselib/include -I../logdata/include
+INCLUDE_DIR += -I../sched/include -I../baselib/include -I../logdata/include -I../tpoll/include
 all:tcpsrv.so
 
 Tcpsrv.o:Tcpsrv.cpp
