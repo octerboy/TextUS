@@ -49,9 +49,8 @@ public:
 	};
 
 	struct Pollor : PollorBase {
+		TEXTUS_ORDO ordo;
 #if defined(_WIN32)
-		long num_of_trans;	 //对于IOCP, 则为NumberOfBytesTransferred
-		void *overlap;	//对于IOCP, 则为LPOVERLAPPED
 		union {
 			HANDLE file;
 			SOCKET sock;
@@ -74,8 +73,6 @@ public:
 			pupa = 0;
 			type = NotUsed ;
 #if defined(_WIN32)
-			num_of_trans = 0;
-			overlap = 0;
 			hnd.sock = INVALID_SOCKET;
 			hnd.file = INVALID_HANDLE_VALUE;
 #endif

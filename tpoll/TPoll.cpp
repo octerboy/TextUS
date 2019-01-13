@@ -79,13 +79,14 @@ public:
 
 #if defined(__linux__)
 	int epfd;
+	struct itimerspec	itimeout;
 #endif	//for linux
 
 #if defined(__sun)
 	int ev_port;
 	port_notify_t		pnotif;
 	struct sigevent		sigev;
-	timespec_t		timeout;
+	timespec_t		itimeout;
 #endif	//for sun
 
 private:
@@ -112,16 +113,28 @@ private:
 	bool init_ok;
 
 	struct Timor : DPoll::PollorBase {
-#if defined (_WIN32)
-		HANDLE timer_hnd;
+#if defined(__linux__)
+		int fd;
+		struct epoll_event ev;
+#endif	//for linux
+
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
+		struct kevent events[1];
 #endif
+
 #if defined(__sun)
 		timer_t timerid;
 #endif	//for sun
-
+#if defined (_WIN32)
+		HANDLE timer_hnd;
+#endif
 		inline Timor() {
 			pupa = 0;
 			type = DPoll::NotUsed ;
+#if defined(__linux__)
+			ev.data.ptr=this;
+			ev.events = EPOLLIN;
+#endif
 		}
 	};
 	struct Timor *tpool;/* 要求给予定时信号的数组 */
@@ -136,8 +149,12 @@ private:
 			timer_infor = new struct Timor* [infor_size];
 			tpool = new struct Timor [infor_size];
 			stack_top = infor_size;
-			for ( i = 0 ; i < stack_top; i++)
+			for ( i = 0 ; i < stack_top; i++) {
 				timer_infor[i] = &tpool[i];
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
+				EV_SET(&(tpool[i].events[0]), i, EVFILT_TIMER, EV_ADD, 0, 0,timer_infor[i]);
+#endif
+			}
 			stack_top = infor_size;
 		}
 	}
@@ -152,8 +169,12 @@ private:
 			timer_infor = new struct Timor* [infor_size*2];	/* 分配2倍的空间 */
 			tpool = new struct Timor [infor_size];
 			stack_top = infor_size;
-			for ( i = 0 ; i < stack_top; i++)
+			for ( i = 0 ; i < stack_top; i++) {
 				timer_infor[i] = &tpool[i];
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
+				 EV_SET(&(tpool[i].events[0]), i+infor_size, EVFILT_TIMER, EV_ADD, 0, 0,timer_infor[i]);
+#endif
+			}
 			infor_size = infor_size*2;	/* 尺寸值加倍 */
 		}
 		return timer_infor[stack_top];
@@ -191,6 +212,12 @@ void TPoll::ignite(TiXmlElement *cfg)
 	pendors = new struct Describo::Pendor[pendor_size];
 
 	cfg->QueryIntAttribute("maxevents", &max_evs);
+	infor_size = 128;
+	cfg->QueryIntAttribute("timer_num", &infor_size);
+
+	timer_sec = timer_milli/1000;
+	timer_usec = (timer_milli % 1000) * 1000;
+	timer_nsec = (timer_milli % 1000) * 1000000;
 #if defined (_WIN32)
 	iocp_port = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, number_threads); 
 	if (iocp_port == NULL)  
@@ -216,6 +243,10 @@ void TPoll::ignite(TiXmlElement *cfg)
 	pnotif.portnfy_user = (void *)0;
 	sigev.sigev_notify = SIGEV_PORT;
 	sigev.sigev_value.sival_ptr = &pnotif;
+	itimeout.it_value.tv_sec = timer_sec;
+	itimeout.it_value.tv_nsec = timer_nsec;
+	itimeout.it_interval.tv_sec = timer_sec;
+	itimeout.it_interval.tv_nsec = timer_nsec;
 #endif	//for sun
 
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
@@ -234,15 +265,13 @@ void TPoll::ignite(TiXmlElement *cfg)
 		ERROR_PRO("epoll_create1(EPOLL_CLOEXEC) failed for an new descriptor");
 		return ;
 	}
+	itimeout.it_value.tv_sec = timer_sec;
+	itimeout.it_value.tv_nsec = timer_nsec;
+	itimeout.it_interval.tv_sec = timer_sec;
+	itimeout.it_interval.tv_nsec = timer_nsec;
 #endif	//for linux
 
-	infor_size = 128;
-	cfg->QueryIntAttribute("timer_num", &infor_size);
 	timor_init();	//初始化
-
-	timer_sec = timer_milli/1000;
-	timer_usec = (timer_milli % 1000) * 1000;
-	timer_nsec = (timer_milli % 1000) * 1000000;
 	init_ok = true;
 }
 
@@ -260,9 +289,11 @@ bool TPoll::sponte( Amor::Pius *apius)
 	HANDLE port_hnd = NULL;
 #endif
 #if defined(__sun)
-	int events;
-	itimerspec_t	itimeout;
 	int ret;
+	timespec_t tmp_timeout;
+#endif
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
+	uint16_t flg1,flg2;	
 #endif
 	struct Timor *aor;
 	assert(apius);
@@ -289,11 +320,17 @@ bool TPoll::sponte( Amor::Pius *apius)
 		}
 #endif	//for linux
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
-		if ( -1 == kevent(kq, &ppo->events[0], 1, NULL, 0, NULL) ) 
+		flg1 = ppo->events[0].flags ;
+		flg2 = ppo->events[1].flags ;
+		ppo->events[0].flags = EV_DELETE;
+		ppo->events[1].flags = EV_DELETE;
+		if ( -1 == kevent(kq, &ppo->events[0], 2, NULL, 0, NULL) ) 
 		{
 			ERROR_PRO("kevent(CLR_EPOLL) failed");
 			WLOG(WARNING, errMsg);
 		}
+		ppo->events[0].flags = flg1;
+		ppo->events[1].flags = flg2;
 #endif	//for bsd
 
 		break;
@@ -365,6 +402,43 @@ bool TPoll::sponte( Amor::Pius *apius)
 	case Notitia::DMD_SET_TIMER :	/* 置时间片通知对象 */
 		WBUG("%p sponte DMD_SET_TIMER",  apius->indic);
 		aor = get_timor();
+		aor->pupa = (Amor*) (apius->indic);
+		aor->type = DPoll::Timer;
+		tm_hd_ps.indic = aor;
+
+#if defined(__linux__)
+		aor->fd = timerfd_create(CLOCK_REALTIME, TFD_CLOEXEC);
+		if( aor->fd == -1)
+		{
+			ERROR_PRO("timerfd_create failed");
+			WLOG(WARNING, errMsg);
+			goto END_TIMER_PRO;
+		}
+		if (timerfd_settime(fd, 0, &itimeout, NULL) == -1) 
+		{
+			ERROR_PRO("timerfd_settime failed");
+			WLOG(WARNING, errMsg);
+			close(aor->fd);
+			goto END_TIMER_PRO;
+		}
+		if( !epoll_ctl(epfd, EPOLL_CTL_ADD, aor->fd, &aor->ev) )
+		{
+			ERROR_PRO("epoll_ctl(SET_TIMER) failed");
+			WLOG(WARNING, errMsg);
+		}
+#endif	//for linux
+
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
+		aor->events[0].data = timer_milli ;
+		aor->events[0].flags = EV_ADD ;
+		if( kevent(kq, &(aor->events[0]), 1, NULL, 0, NULL) == - 1 )
+		{
+			ERROR_PRO("kevent(DMD_SET_TIMER) failed");
+			WLOG(WARNING, errMsg);
+			goto END_TIMER_PRO;
+		}		
+#endif	//for bsd
+
 #if defined(__sun)
 		/* Setup the port notification structure */
 		pnotif.portnfy_user = (void *)aor;
@@ -375,10 +449,6 @@ bool TPoll::sponte( Amor::Pius *apius)
 			WLOG(WARNING, errMsg);
 			goto END_TIMER_PRO;
 		}
-		itimeout.it_value.tv_sec = timer_sec;
-		itimeout.it_value.tv_nsec = timer_nsec;
-		itimeout.it_interval.tv_sec = timer_sec;
-		itimeout.it_interval.tv_nsec = timer_nsec;
 
 		if (!timer_settime(aor->timerid, 0, &itimeout, NULL))
 		{
@@ -397,9 +467,6 @@ bool TPoll::sponte( Amor::Pius *apius)
 			goto END_TIMER_PRO;
 		} 
 #endif
-		tm_hd_ps.indic = aor;
-		aor->pupa = ask_pu;
-		aor->type = DPoll::Timer;
 		aor->pupa->facio(&tm_hd_ps);
 		break;
 
@@ -420,22 +487,62 @@ END_TIMER_PRO:
 		WBUG("%p sponte DMD_SET_ALARM, interval: %d", ask_pu, interval);
 		aor = get_timor();
 		if ( !aor ) break;
+#if defined(__linux__)
+		aor->fd = timerfd_create(CLOCK_REALTIME, TFD_CLOEXEC);
+		if( aor->fd == -1)
+		{
+			ERROR_PRO("timerfd_create failed");
+			WLOG(WARNING, errMsg);
+			goto END_TIMER_PRO;
+		}
+		tmp_timeout.it_value.tv_sec = interval/1000;
+		tmp_timeout.it_value.tv_nsec = (interval%1000)*1000;
+		tmp_timeout.it_interval.tv_sec = interval2/1000;
+		tmp_timeout.it_interval.tv_nsec = (interval2%1000)*1000;
+		if (timerfd_settime(fd, 0, &tmp_timeout, NULL) == -1) 
+		{
+			ERROR_PRO("timerfd_settime failed");
+			WLOG(WARNING, errMsg);
+			close(aor->fd);
+			goto END_TIMER_PRO;
+		}
+		if( !epoll_ctl(epfd, EPOLL_CTL_ADD, aor->fd, &aor->ev) )
+		{
+			ERROR_PRO("epoll_ctl(SET_ALARM) failed");
+			WLOG(WARNING, errMsg);
+		}
+#endif	//for linux
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
+		aor->events[0].data = interval;
+		if ( interval2 > 0 ){ 
+			aor->events[0].flags = EV_ADD ;
+		} else {
+			aor->events[0].flags = EV_ADD | EV_ONESHOT ;
+		}
+		if( kevent(kq, &(aor->events[0]), 1, NULL, 0, NULL) == - 1 )
+		{
+			ERROR_PRO("kevent(DMD_SET_ALARM) failed");
+			WLOG(WARNING, errMsg);
+			goto END_ALARM_PRO;
+		}		
+#endif
+
 #if defined(__sun)
 		/* Setup the port notification structure */
 		pnotif.portnfy_user = (void *)aor;
 		/* Create a timer using the realtime clock */
-		if (!timer_create(CLOCK_REALTIME, &sigev, &aor->timerid))
+		if (timer_create(CLOCK_REALTIME, &sigev, &aor->timerid)!=0)
 		{
 			ERROR_PRO("timer_create failed");
 			WLOG(WARNING, errMsg);
 			goto END_ALARM_PRO;
 		}
-		itimeout.it_value.tv_sec = interval/1000;
-		itimeout.it_value.tv_nsec = (interval%1000)*1000;
-		itimeout.it_interval.tv_sec = interval2/1000;
-		itimeout.it_interval.tv_nsec = (interval2%1000)*1000;
+		tmp_timeout.it_value.tv_sec = interval/1000;
+		tmp_timeout.it_value.tv_nsec = (interval%1000)*1000;
+		tmp_timeout.it_interval.tv_sec = interval2/1000;
+		tmp_timeout.it_interval.tv_nsec = (interval2%1000)*1000;
 
-		if (!timer_settime(aor->timerid, 0, &itimeout, NULL) )
+		if (timer_settime(aor->timerid, 0, &tmp_timeout, NULL) = !0 )
 		{
 			ERROR_PRO("timer_settime");
 			WLOG(WARNING, errMsg);
@@ -469,10 +576,35 @@ END_ALARM_PRO:
 		WBUG("%p sponte DMD_CLR_TIMER", apius->indic);
 		aor = (struct Timor *)tm_hd_ps.indic;
 		if ( !aor ) break;
+#if defined(__linux__)
+		if ( -1 == close(aor->fd) )
+		{
+			ERROR_PRO("close(DMD_CLR_TIMER) failed");
+			WLOG(WARNING, errMsg);
+		}
+#endif
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
+		aor->events[0].flags = EV_DELETE ;
+		if( kevent(kq, &(aor->events[0]), 1, NULL, 0, NULL) == - 1 )
+		{
+			ERROR_PRO("kevent(DMD_CLR_TIMER) failed");
+			WLOG(WARNING, errMsg);
+		}		
+#endif
+
+#if defined(__sun)
+		/* delete the timer */
+		if (timer_delete(aor->timerid)!=0)
+		{
+			ERROR_PRO("timer_delete(DMD_CLR_TIMER) failed");
+			WLOG(WARNING, errMsg);
+		}
+#endif
+
 #if defined (_WIN32)
 		if ( !DeleteTimerQueueTimer(timer_queue, aor->timer_hnd, INVALID_HANDLE_VALUE) )
 		{
-			ERROR_PRO("CreateTimerQueueTimer (DMD_SET_ALARM) failed ");
+			ERROR_PRO("CreateTimerQueueTimer(DMD_CLR_TIMER) failed ");
 			WLOG(WARNING, errMsg);
 		}
 #endif
@@ -623,32 +755,37 @@ void TPoll::run_pendors()
 void TPoll:: run()
 {
 	Amor *pupa;
-#if defined(__sun)
-#define AKEY pev[geti].portev_user
-	uint_t nget, geti;
-	int ret;
-	port_event_t *pev =new port_event_t[max_evs]  ;
-	if ( ev_port == -1) return;
-#endif
+#if defined(__linux__)
+#define A_GET pev[geti]
+#define AKEY A_GET.data.ptr
+	int nget, geti;
+	struct epoll_event *pev=new struct epoll_event[max_evs];
+	uint32_t     a_events;
+	if ( epfd == -1) return;
+#endif	//for linux
 
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
-#define AKEY kev[geti].udata
+#define A_GET kev[geti]
+#define AKEY A_GET.udata
 	int nget, geti;
 	struct kevent *kev=new struct kevent[max_evs];
 	int ret;
 	if ( kq == -1) return;
 #endif	//for bsd
 
-#if defined(__linux__)
-#define AKEY pev[geti].data.ptr
-	int nget, geti;
-	struct epoll_event *pev=new struct epoll_event[max_evs];
-	if ( epfd == -1) return;
-#endif	//for linux
-
+#if defined(__sun)
+#define A_GET pev[geti]
+#define AKEY A_GET.portev_user
+	uint_t nget, geti;
+	int ret;
+	int a_events;
+	port_event_t *pev =new port_event_t[max_evs]  ;
+	if ( ev_port == -1) return;
+#endif
 
 #if defined(_WIN32XX)
-#define AKEY pov[geti].lpCompletionKey
+#define A_GET pov[geti]
+#define AKEY A_GET.lpCompletionKey
 	BOOL success;
 	ULONG nget, geti;
 	OVERLAPPED_ENTRY *pov = new OVERLAPPED_ENTRY[max_evs];
@@ -656,15 +793,16 @@ void TPoll:: run()
 #endif
 
 #if defined(_WIN32)
-#define AKEY CompletionKey
-	ULONG_PTR CompletionKey;
+#define A_GET a_en
+#define AKEY A_GET.lpCompletionKey
 	BOOL success;
-	DWORD dwNoOfBytes = 0;  
 	ULONG nget, geti;
-	OVERLAPPED* pov = NULL; 
+	OVERLAPPED_ENTRY a_en;
+	poll_ps.indic = &A_GET;
 	if (!iocp_port) return;
 #endif
 
+	poll_ps.indic = 0;
 LOOP:
 	if ( pendor_top > -1 ) run_pendors();
 
@@ -727,9 +865,9 @@ LOOP:
 
 #if defined(_WIN32)
 	success = GetQueuedCompletionStatus(iocp_port,         // Completion port handle  
-			&dwNoOfBytes,  // Bytes transferred  
-			&CompletionKey,  
-			&pov,          // OVERLAPPED structure  
+			&(a_en.dwNumberOfBytesTransferred),  // Bytes transferred  
+			&(a_en.lpCompletionKey),  
+			&(a_en.lpOverlapped),          // OVERLAPPED structure  
 			INFINITE       // for ever
                     );  
 	if ( CompletionKey== NULL)  
@@ -738,7 +876,7 @@ LOOP:
 		if(nError == ERROR_ABANDONED_WAIT_0)	//fd closed
 		{
 			ERROR_PRO("GetQueuedCompletionStatus");
-			WLOG(INFO,errMsg);
+			WLOG(IwwdNFO,errMsg);
 		} else if(nError != WAIT_TIMEOUT)	//TIME OUT
 		{
 			ERROR_PRO("GetQueuedCompletionStatus");
@@ -761,6 +899,30 @@ LOOP:
 			pupa = TOR->pupa ;
 			TOR->type = DPoll::NotUsed;
 			TOR->pupa = 0;
+#if defined(__linux__)
+			if ( -1 == close(TOR->fd) )
+			{
+				ERROR_PRO("close(DPoll:Alarm) failed");
+				WLOG(WARNING, errMsg);
+			}
+#endif
+
+#if defined(__sun)
+			/* delete the timer */
+			if (timer_delete(TOR->timerid)!=0)
+			{
+				ERROR_PRO("timer_delete(DPoll:Alarm) failed");
+				WLOG(WARNING, errMsg);
+			}
+#endif
+
+#if defined (_WIN32)
+			if ( !DeleteTimerQueueTimer(timer_queue, TOR->timer_hnd, INVALID_HANDLE_VALUE) )
+			{
+				ERROR_PRO("CreateTimerQueueTimer(DPoll:Alarm) failed ");
+				WLOG(WARNING, errMsg);
+			}
+#endif
 			put_timor(TOR);
 			tm_hd_ps.indic = 0;
 			pupa->facio(&tm_hd_ps);		//clear timer_handle 
@@ -778,41 +940,92 @@ LOOP:
 			break;
 
 		case DPoll::Sock:
-#if defined(__sun)
-			switch (pev[geti].portev_events ) 
-			{
-			case POLLIN:
-			case POLLRDNORM:
-				poll_ps.ordo = Notitia::RD_EPOLL;
-				break;
-
-			case POLLOUT:
-			//case POLLWRNORM:
+#if  defined(__sun)
+			if (A_GET.portev_events & (POLLIN | POLLRDNORM )) {
+				poll_ps.ordo = PPO->ordo;
+				PPO->pupa->facio(&poll_ps);
+			} else if (A_GET.portev_events & POLLOUT ) {
 				poll_ps.ordo = Notitia::WR_EPOLL;
+				PPO->pupa->facio(&poll_ps);
+			} else if (A_GET.portev_events & POLLHUP) {
+				poll_ps.ordo = Notitia::EOF_EPOLL;
+				PPO->pupa->facio(&poll_ps);
+			} else 	if (A_GET.portev_events & (POLLERR |POLLNVAL )) {
+				poll_ps.ordo = Notitia::ERR_EPOLL;
+				poll_ps.indic = errMsg;
+				TEXTUS_SPRINTF(errMsg, "port_get(POLLERR)");
+				PPO->pupa->facio(&poll_ps);
+				poll_ps.indic = 0;
+			} else {
+				WLOG(WARNING, "unknown events %08X", a_events);
+			}
+#endif	//for sun
+
+#if  defined(__linux__)
+			if (A_GET.events & EPOLLIN ) {
+				poll_ps.ordo = PPO->ordo;
+				PPO->pupa->facio(&poll_ps);
+			} else if (A_GET.events & EPOLLOUT) {
+				poll_ps.ordo = Notitia::WR_EPOLL;
+				PPO->pupa->facio(&poll_ps);
+			} else if (A_GET.events & EPOLLRDHUP) {
+				poll_ps.ordo = Notitia::EOF_EPOLL;
+				PPO->pupa->facio(&poll_ps);
+			} else if (A_GET.events & EPOLLHUP ) {
+				poll_ps.ordo = Notitia::ERR_EPOLL;
+				poll_ps.indic = errMsg;
+				TEXTUS_SPRINTF(errMsg, "epoll_wait(EPOLLHUP)");
+				PPO->pupa->facio(&poll_ps);
+				poll_ps.indic = 0;
+			} else if (A_GET.events & (EPOLLERR)) {
+				poll_ps.ordo = Notitia::ERR_EPOLL;
+				poll_ps.indic = errMsg;
+			 	TEXTUS_SPRINTF(errMsg, "epoll_wait(EPOLLERR)");
+				PPO->pupa->facio(&poll_ps);
+				poll_ps.indic = 0;
+			} else {
+				WLOG(WARNING, "unknown events %08X", A_GET.events);
+			}
+#endif	//for linux
+
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
+			switch (A_GET.filter ) 
+			{
+			case EVFILT_READ:
+				poll_ps.ordo = PPO->ordo;
+				PPO->pupa->facio(&poll_ps);
 				break;
 
-			case POLLNVAL:
-				WBUG("pupa %p port_get POLLNVAL", PPO->pupa);
-			case POLLHUP:
-				WBUG("pupa %p port_get POLLHUP", PPO->pupa);
-			case POLLERR:
-				poll_ps.ordo = Notitia::ERR_EPOLL;
+			case EVFILT_WRITE:
+				poll_ps.ordo = Notitia::WR_EPOLL;
+				PPO->pupa->facio(&poll_ps);
+				break;
+			default:
+				if (A_GET.flags & EV_EOF) {
+					poll_ps.ordo = Notitia::EOF_EPOLL;
+					PPO->pupa->facio(&poll_ps);
+				} else if (A_GET.flags & EV_ERROR) {
+					poll_ps.ordo = Notitia::ERR_EPOLL;
+					poll_ps.indic = errMsg;
+			 		TEXTUS_SPRINTF(errMsg, "kevent(EV_ERROR)");
+					PPO->pupa->facio(&poll_ps);
+					poll_ps.indic = 0;
+				} else {
+					WLOG(WARNING, "unknown events %08 or flag %08X", A_GET.filter, A_GET.flags);
+				}
 				break;
 			}
-#endif
+#endif	//for bsd
+
 #if defined (_WIN32XX)
-			PPO->overlap = pov[geti].lpOverlapped;
-			PPO->num_of_trans = pov[geti].dwNumberOfBytesTransferred;
-			poll_ps.ordo = PPO->num_of_trans < 0 ? Notitia::PRO_EPOLL : Notitia::ERR_EPOLL;
-			//poll_ps.ordo = Notitia::PRO_EPOLL;
+			poll_ps.ordo = pov[geti].dwNumberOfBytesTransferred< 0 ? Notitia::PRO_EPOLL : Notitia::ERR_EPOLL;
+			poll_ps.indic = &A_GET;
+			PPO->pupa->facio(&poll_ps);
 #endif
 #if defined (_WIN32)
-			PPO->overlap = pov;
-			PPO->num_of_trans = dwNoOfBytes;
 			poll_ps.ordo = success ? Notitia::PRO_EPOLL : Notitia::ERR_EPOLL;
-#endif
-			poll_ps.indic = PPO;
 			PPO->pupa->facio(&poll_ps);
+#endif
 			break;
 		default:
 			break;
