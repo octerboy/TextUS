@@ -1010,7 +1010,7 @@ LOOP:
 				} else if (A_GET.flags & EV_ERROR) {
 					poll_ps.ordo = Notitia::ERR_EPOLL;
 					poll_ps.indic = errMsg;
-			 		TEXTUS_SPRINTF(errMsg, "kevent(EV_ERROR)");
+					TEXTUS_SNPRINTF(errMsg, errstr_len, "kevent(EV_ERROR) system error(0x%08lX): %s.", A_GET.data, strerror(A_GET.data));
 					PPO->pupa->facio(&poll_ps);
 					poll_ps.indic = 0;
 				} else {
