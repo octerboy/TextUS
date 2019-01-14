@@ -139,17 +139,6 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 {
 	TiXmlElement *cfg;
 	Amor::Pius tmp_p;
-#if  defined(__linux__)
-	struct epoll_event *aget;
-#endif	//for linux
-
-#if  defined(__sun)
-	port_event_t *aget;
-#endif	//for sun
-
-#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
-	struct kevent *aget;
-#endif	//for bsd
 
 #if defined (_WIN32 )	
 	OVERLAPPED_ENTRY *aget;
@@ -210,7 +199,7 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 		WBUG("facio PRO_EPOLL");
 #if defined (_WIN32 )	
 		aget = (OVERLAPPED_ENTRY *)pius->indic;
-		if ( aget->lpOverlapped == tcpsrv->rcv_ovp )
+		if ( aget->lpOverlapped == &(tcpsrv->rcv_ovp) )
 		{	//已读数据,  不失败并有数据才向接力者传递
 			if ( aget->dwNumberOfBytesTransferred ==0 ) 
 			{
@@ -219,7 +208,7 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 			} else {
 				child_rcv_pro( aget->dwNumberOfBytesTransferred , "child_pro PRO_EPOLL recv bytes");
 			}
-		} else if ( aget->lpOverlapped == tcpsrv->snd_ovp ) {
+		} else if ( aget->lpOverlapped == &(tcpsrv->snd_ovp) ) {
 			//写数据完成
 			if ( tcpsrv->snd_buf->point > tcpsrv->snd_buf->base )	//继续写
 				child_transmit_ep();
@@ -452,7 +441,7 @@ TINLNE void Tcpsrvuna::parent_begin()
 	{
 		tcpsrv->use_epoll = false;
 	} else {	//try for epoll
-		pollor.ordo = Notitia::ACCEPT_EPOLL;
+		pollor.pro_ps.ordo = Notitia::ACCEPT_EPOLL;
 #if defined (_WIN32 )	
 		pollor.hnd.sock = tcpsrv->listenfd;
 #endif
@@ -548,7 +537,7 @@ TINLNE void Tcpsrvuna::child_begin()
 {	
 	if (tcpsrv->use_epoll)
 	{
-		pollor.ordo = Notitia::PRO_EPOLL;
+		pollor.pro_ps.ordo = Notitia::RD_EPOLL;
 #if defined (_WIN32 )	
 		pollor.hnd.sock = tcpsrv->connfd;
 #endif

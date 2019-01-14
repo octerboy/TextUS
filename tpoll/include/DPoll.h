@@ -49,7 +49,7 @@ public:
 	};
 
 	struct Pollor : PollorBase {
-		TEXTUS_ORDO ordo;
+		Amor::Pius pro_ps;
 #if defined(_WIN32)
 		union {
 			HANDLE file;
@@ -72,6 +72,7 @@ public:
 		inline Pollor() {
 			pupa = 0;
 			type = NotUsed ;
+			pro_ps.indic = 0;
 #if defined(_WIN32)
 			hnd.sock = INVALID_SOCKET;
 			hnd.file = INVALID_HANDLE_VALUE;

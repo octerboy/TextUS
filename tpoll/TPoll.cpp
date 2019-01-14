@@ -37,6 +37,9 @@
 	#include <sys/select.h>
 	#endif
 #endif
+#if defined(__linux__)
+#include <sys/timerfd.h>
+#endif
 #include <sys/timeb.h>
 #include <time.h>
 #include <errno.h>
@@ -86,7 +89,7 @@ public:
 	int ev_port;
 	port_notify_t		pnotif;
 	struct sigevent		sigev;
-	timespec_t		itimeout;
+	struct itimerspec	itimeout;
 #endif	//for sun
 
 private:
@@ -290,11 +293,15 @@ bool TPoll::sponte( Amor::Pius *apius)
 #endif
 #if defined(__sun)
 	int ret;
-	timespec_t tmp_timeout;
+	struct itimerspec tmp_timeout;
 #endif
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
 	uint16_t flg1,flg2;	
 #endif
+#if defined(__linux__)
+	struct itimerspec tmp_timeout;
+#endif	//for linux
+
 	struct Timor *aor;
 	assert(apius);
 
@@ -414,7 +421,7 @@ bool TPoll::sponte( Amor::Pius *apius)
 			WLOG(WARNING, errMsg);
 			goto END_TIMER_PRO;
 		}
-		if (timerfd_settime(fd, 0, &itimeout, NULL) == -1) 
+		if (timerfd_settime(aor->fd, 0, &itimeout, NULL) == -1) 
 		{
 			ERROR_PRO("timerfd_settime failed");
 			WLOG(WARNING, errMsg);
@@ -493,18 +500,18 @@ END_TIMER_PRO:
 		{
 			ERROR_PRO("timerfd_create failed");
 			WLOG(WARNING, errMsg);
-			goto END_TIMER_PRO;
+			goto END_ALARM_PRO;
 		}
 		tmp_timeout.it_value.tv_sec = interval/1000;
 		tmp_timeout.it_value.tv_nsec = (interval%1000)*1000;
 		tmp_timeout.it_interval.tv_sec = interval2/1000;
 		tmp_timeout.it_interval.tv_nsec = (interval2%1000)*1000;
-		if (timerfd_settime(fd, 0, &tmp_timeout, NULL) == -1) 
+		if (timerfd_settime(aor->fd, 0, &tmp_timeout, NULL) == -1) 
 		{
 			ERROR_PRO("timerfd_settime failed");
 			WLOG(WARNING, errMsg);
 			close(aor->fd);
-			goto END_TIMER_PRO;
+			goto END_ALARM_PRO;
 		}
 		if( !epoll_ctl(epfd, EPOLL_CTL_ADD, aor->fd, &aor->ev) )
 		{
@@ -531,7 +538,7 @@ END_TIMER_PRO:
 		/* Setup the port notification structure */
 		pnotif.portnfy_user = (void *)aor;
 		/* Create a timer using the realtime clock */
-		if (timer_create(CLOCK_REALTIME, &sigev, &aor->timerid)!=0)
+		if (timer_create(CLOCK_REALTIME, &sigev, &(aor->timerid))!=0)
 		{
 			ERROR_PRO("timer_create failed");
 			WLOG(WARNING, errMsg);
@@ -542,7 +549,7 @@ END_TIMER_PRO:
 		tmp_timeout.it_interval.tv_sec = interval2/1000;
 		tmp_timeout.it_interval.tv_nsec = (interval2%1000)*1000;
 
-		if (timer_settime(aor->timerid, 0, &tmp_timeout, NULL) = !0 )
+		if (timer_settime (aor->timerid, 0, &tmp_timeout, NULL) != 0 )
 		{
 			ERROR_PRO("timer_settime");
 			WLOG(WARNING, errMsg);
@@ -760,7 +767,6 @@ void TPoll:: run()
 #define AKEY A_GET.data.ptr
 	int nget, geti;
 	struct epoll_event *pev=new struct epoll_event[max_evs];
-	uint32_t     a_events;
 	if ( epfd == -1) return;
 #endif	//for linux
 
@@ -778,7 +784,6 @@ void TPoll:: run()
 #define AKEY A_GET.portev_user
 	uint_t nget, geti;
 	int ret;
-	int a_events;
 	port_event_t *pev =new port_event_t[max_evs]  ;
 	if ( ev_port == -1) return;
 #endif
@@ -864,19 +869,20 @@ LOOP:
 #endif
 
 #if defined(_WIN32)
+	memset(&A_GET, 0, sizeof(A_GET));
 	success = GetQueuedCompletionStatus(iocp_port,         // Completion port handle  
-			&(a_en.dwNumberOfBytesTransferred),  // Bytes transferred  
-			&(a_en.lpCompletionKey),  
-			&(a_en.lpOverlapped),          // OVERLAPPED structure  
+			&(A_GET.dwNumberOfBytesTransferred),  // Bytes transferred  
+			&(A_GET.lpCompletionKey),  
+			&(A_GET.lpOverlapped),          // OVERLAPPED structure  
 			INFINITE       // for ever
                     );  
-	if ( CompletionKey== NULL)  
+	if ( A_GET.lpCompletionKey == NULL)  
 	{   // An unrecoverable error occurred in the completion port. Wait for the next notification. 
 		DWORD nError = GetLastError();
 		if(nError == ERROR_ABANDONED_WAIT_0)	//fd closed
 		{
 			ERROR_PRO("GetQueuedCompletionStatus");
-			WLOG(IwwdNFO,errMsg);
+			WLOG(INFO,errMsg);
 		} else if(nError != WAIT_TIMEOUT)	//TIME OUT
 		{
 			ERROR_PRO("GetQueuedCompletionStatus");
@@ -942,8 +948,7 @@ LOOP:
 		case DPoll::Sock:
 #if  defined(__sun)
 			if (A_GET.portev_events & (POLLIN | POLLRDNORM )) {
-				poll_ps.ordo = PPO->ordo;
-				PPO->pupa->facio(&poll_ps);
+				PPO->pupa->facio(&(PPO->pro_ps));
 			} else if (A_GET.portev_events & POLLOUT ) {
 				poll_ps.ordo = Notitia::WR_EPOLL;
 				PPO->pupa->facio(&poll_ps);
@@ -957,14 +962,13 @@ LOOP:
 				PPO->pupa->facio(&poll_ps);
 				poll_ps.indic = 0;
 			} else {
-				WLOG(WARNING, "unknown events %08X", a_events);
+				WLOG(WARNING, "unknown events %08X", A_GET.portev_events);
 			}
 #endif	//for sun
 
 #if  defined(__linux__)
 			if (A_GET.events & EPOLLIN ) {
-				poll_ps.ordo = PPO->ordo;
-				PPO->pupa->facio(&poll_ps);
+				PPO->pupa->facio(&(PPO->pro_ps));
 			} else if (A_GET.events & EPOLLOUT) {
 				poll_ps.ordo = Notitia::WR_EPOLL;
 				PPO->pupa->facio(&poll_ps);
@@ -992,8 +996,7 @@ LOOP:
 			switch (A_GET.filter ) 
 			{
 			case EVFILT_READ:
-				poll_ps.ordo = PPO->ordo;
-				PPO->pupa->facio(&poll_ps);
+				PPO->pupa->facio(&(PPO->pro_ps));
 				break;
 
 			case EVFILT_WRITE:
