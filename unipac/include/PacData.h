@@ -102,8 +102,8 @@
 	{
 		unsigned char *q,*p;
 		size_t offset;
-		offset = reinterpret_cast<size_t>(p) & (M_SZ_MASK) ;
 		p = buf.point;
+		offset = reinterpret_cast<size_t>(p) & (M_SZ_MASK) ;
 		if ( offset != 0)
 		{
 			q = (unsigned char *) ((size_t(p+ M_SZ_MASK)) & NOT_M_SZ_MASK );
