@@ -39,6 +39,15 @@
 #ifndef TINLNE
 #define TINLNE inline
 #endif
+#if defined( _MSC_VER ) && (_MSC_VER < 1400 )
+typedef unsigned int* ULONG_PTR;
+typedef struct _OVERLAPPED_ENTRY {
+	ULONG_PTR lpCompletionKey;
+	LPOVERLAPPED lpOverlapped;
+	ULONG_PTR Internal;
+	DWORD dwNumberOfBytesTransferred;
+} OVERLAPPED_ENTRY, *LPOVERLAPPED_ENTRY;
+#endif	//for WIN32
 
 class Tcpsrvuna: public Amor
 {
@@ -89,7 +98,6 @@ private:
 	inline void do_accept_ex();
 #endif	//for WIN32
 	inline void do_recv_ex();
-	//DPoll::Pollor *ppo; 
 #include "wlog.h"
 };
 
@@ -185,14 +193,8 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 
 	case Notitia::ERR_EPOLL:
 		WBUG("facio ERR_EPOLL");
-#if defined (_WIN32 )	
-		tcpsrv->get_error_string("GetIOCP");
-		SLOG(WARNING)
-#else
 		WLOG(WARNING, (char*)pius->indic);	
-#endif	//for WIN32
-
-		end();	//对于WINDOWS, 直接关闭就可.
+		end();	//直接关闭就可.
 		break;
 
 	case Notitia::PRO_EPOLL:
@@ -436,8 +438,9 @@ TINLNE void Tcpsrvuna::parent_begin()
 	my_tor.scanfd = tcpsrv->listenfd;
 	local_pius.ordo = Notitia::FD_SETRD;
 	local_pius.indic = &my_tor;
+	my_tor.rd_index = -1;
 	aptus->sponte(&local_pius);	//向Sched, 以设置rdSet.
-	if ( my_tor.rd_index < 0 ) 
+	if ( my_tor.rd_index >= 0 ) 
 	{
 		tcpsrv->use_epoll = false;
 	} else {	//try for epoll

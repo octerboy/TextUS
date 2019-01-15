@@ -341,6 +341,9 @@ bool TPoll::sponte( Amor::Pius *apius)
 #endif	//for bsd
 
 		break;
+	case Notitia::AIO_EPOLL :	/*  AIO transaction */
+		break;
+
 	case Notitia::SET_EPOLL :	/* IOCP,epoll  */
 		ppo = (DPoll::Pollor *)apius->indic;	
 		assert(ppo);
@@ -355,16 +358,7 @@ bool TPoll::sponte( Amor::Pius *apius)
 #endif	//for linux
 
 #if defined(__sun)
-		switch (ppo->type ) {
-		case DPoll::File:	/*  AIO transaction */
-
-			break;
-		case DPoll::Sock:
-			ret = port_associate(ev_port, PORT_SOURCE_FD, ppo->fd, ppo->events, ppo);
-			break;
-		default:
-			break;
-		}
+		ret = port_associate(ev_port, PORT_SOURCE_FD, ppo->fd, ppo->events, ppo);
 		if( !ret);
 		{
 			ERROR_PRO("port_associate failed");
@@ -1026,7 +1020,14 @@ LOOP:
 			PPO->pupa->facio(&poll_ps);
 #endif
 #if defined (_WIN32)
-			poll_ps.ordo = success ? Notitia::PRO_EPOLL : Notitia::ERR_EPOLL;
+			if ( success ) {
+				poll_ps.ordo = Notitia::PRO_EPOLL;
+				poll_ps.indic = &A_GET;
+			} else {
+				poll_ps.ordo = Notitia::ERR_EPOLL;
+				ERROR_PRO("GetIOCP");
+				poll_ps.indic = errMsg;
+			}
 			PPO->pupa->facio(&poll_ps);
 #endif
 			break;

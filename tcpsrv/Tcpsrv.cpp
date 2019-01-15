@@ -559,8 +559,3 @@ void Tcpsrv::herit(Tcpsrv *child)
 	child->use_epoll = use_epoll;
 	return ;
 }
-
-void Tcpsrv::get_error_string(const char *msg)
-{
-	ERROR_PRO(msg);
-}

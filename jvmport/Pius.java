@@ -68,6 +68,11 @@ public class Pius {
 	public static final long JUST_START_THREAD	=51;	/* start a new thread or resume one suspended JUST NOW */
 	public static final long FINAL_END_THREAD	=52;	/* the thread will end finally */
 
+	public static final long SET_EVENT_HD	=53;
+	public static final long CLR_EVENT_HD	=54;
+	public static final long PRO_EVENT_HD	=55;
+	public static final long ERR_EVENT_HD	=56;
+
 	public static final long LOG_VAR_EMERG	=60;
 	public static final long LOG_VAR_ALERT	=61;
 	public static final long LOG_VAR_CRIT	=62;
@@ -76,6 +81,18 @@ public class Pius {
 	public static final long LOG_VAR_NOTICE	=65;
 	public static final long LOG_VAR_INFO	=66;
 	public static final long LOG_VAR_DEBUG	=67;
+
+	public static final long POST_EPOLL	=69;
+	public static final long SIGNAL_EPOLL	=70;
+	public static final long AIO_EPOLL	=71;
+	public static final long ACCEPT_EPOLL	=72;
+	public static final long SET_EPOLL 	=73;
+	public static final long CLR_EPOLL 	=74;
+	public static final long PRO_EPOLL 	=75;
+	public static final long WR_EPOLL 	=76;
+	public static final long RD_EPOLL 	=77;
+	public static final long EOF_EPOLL 	=78;
+	public static final long ERR_EPOLL 	=79;
 
 	public static final long NEW_SESSION 	=80;	/* listener info when a new session */
 	public static final long END_SERVICE 	=81;	/* */
@@ -101,10 +118,6 @@ public class Pius {
 	public static final long GET_TBUF 		=103;
 	public static final long ERR_FRAME_LENGTH	=104; 
 	public static final long ERR_FRAME_TIMEOUT 	=105;
-	public static final long SET_EPOLL 	=106;
-	public static final long CLR_EPOLL 	=107;
-	public static final long PRO_EPOLL 	=108;
-	public static final long ERR_EPOLL 	=109;
 	
 	public static final long FD_SETRD 	=110;	//÷√ø…∂¡√Ë ˆ∑˚, 
 	public static final long FD_SETWR 	=111;	//÷√ø…–¥√Ë ˆ∑˚, 

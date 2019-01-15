@@ -48,6 +48,29 @@ public:
 		Poll_Type type;	//7:alarm, 8:timer , 0x10: Aio, 0x11: aio file, 0x12: socket
 	};
 
+	struct PollorAio : PollorBase {
+		Amor::Pius pro_ps;
+#if defined(_WIN32)
+		HANDLE file_hnd;
+#endif
+
+#if defined(__linux__)
+#endif
+
+#if defined(__sun)
+#endif
+
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
+#endif
+		inline PollorAio() {
+			pupa = 0;
+			type = NotUsed ;
+			pro_ps.indic = 0;
+#if defined(_WIN32)
+			file_hnd = INVALID_HANDLE_VALUE;
+#endif
+		};
+	};
 	struct Pollor : PollorBase {
 		Amor::Pius pro_ps;
 #if defined(_WIN32)

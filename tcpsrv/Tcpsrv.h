@@ -80,7 +80,6 @@ public:
 	//以下几行每个实例不同, 用于子实例, 父实例不用
 	TBuffer *rcv_buf;
 	TBuffer *snd_buf;
-	void get_error_string(const char *msg);
 
 private:
 	bool wr_blocked;	//1: 最近一次写阻塞, 0: 最近一次写没有阻塞

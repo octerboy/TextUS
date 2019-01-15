@@ -72,6 +72,11 @@ enum HERE_ORDO {
 	JUST_START_THREAD	=51,	/* start a new thread or resume one suspended JUST NOW */
 	FINAL_END_THREAD	=52,	/* the thread will end finally */
 
+	SET_EVENT_HD 	=53, 	//set event handle, indic is the pointer of a object of Devent::Eventor
+	CLR_EVENT_HD 	=54,	//clear event handle
+	PRO_EVENT_HD	=55,	//pro event
+	ERR_EVENT_HD	=56,	//error event
+
 	LOG_VAR_EMERG	=60,
 	LOG_VAR_ALERT	=61,
 	LOG_VAR_CRIT	=62,
@@ -81,11 +86,10 @@ enum HERE_ORDO {
 	LOG_VAR_INFO	=66,
 	LOG_VAR_DEBUG	=67,
 
-	SET_EVENT_HD 	=69, 	//set event handle, indic is the pointer of a object of Devent::Eventor
-	CLR_EVENT_HD 	=70,	//clear event handle
-	PRO_EVENT_HD	=71,	//pro event
-
-	ACCEPT_EPOLL	=72,	//process epoll when parent
+	POST_EPOLL	=69,	//set aio for epoll
+	SIGNAL_EPOLL=70,	//set aio for epoll
+	AIO_EPOLL	=71,	//set aio for epoll
+	ACCEPT_EPOLL=72,	//process epoll when parent
 	SET_EPOLL 	=73, 	//set epoll(IOCP, kqueue, epoll, evport), indic is the pointer of a object of DPoll::Pollor
 	CLR_EPOLL 	=74,	//clear epoll
 	PRO_EPOLL	=75,	//pro epoll
