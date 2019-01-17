@@ -23,26 +23,6 @@
 #include "textus_string.h"
 #include <assert.h>
 #include <stdlib.h>
-#if !defined (_WIN32)
-#include <errno.h>
-#include <netdb.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <string.h>
- #if !defined(__linux__) && !defined(_AIX)
- #include <strings.h>
- #endif
-#else
-#include <windows.h>
-#endif 
-#include <stdio.h>
-#ifndef MSG_NOSIGNAL
-#define MSG_NOSIGNAL 0
-#endif
-
 #if defined(_WIN32)
 #define CLOSE closesocket
 #define EWOULDBLOCK WSAEWOULDBLOCK
@@ -89,30 +69,51 @@ Tcpcli::Tcpcli()
 	snd_buf = 0;
 	errstr_len = 0;
 	errMsg = 0;
+#if defined (_WIN32)
+	memset(&rcv_ovp, 0, sizeof(OVERLAPPED));
+	memset(&snd_ovp, 0, sizeof(OVERLAPPED));
+#endif
 }
 
 Tcpcli::~Tcpcli() { }
 
-/* 开始连接, 如果成功, 则connfd>=0 */
-bool Tcpcli::annecto( bool block)
+#if defined (_WIN32)
+bool Tcpcli::sock_start()
 {
-	struct sockaddr_in servaddr;
-
-	int n;
-#if defined (_WIN32)
 	WSADATA wsaData;
-#endif
-	if ( connfd >= 0)	/* 已经连接或是正在连接, 则不再发起连接 */
-		return true;
-
-#if defined (_WIN32)
+	GUID GuidConnectEx = WSAID_CONNECTEX;
+	DWORD dwBytes = 0;
+	int fd;
 	int iResult = WSAStartup(MAKEWORD(2,2), &wsaData);
 	if (iResult != NO_ERROR)
 	{
 		ERROR_PRO("Error at WSAStartup()");
 		return false;
 	}
+	
+	lpfnConnectEx = NULL;
+
+	if ((fd = WSASocket(AF_INET,SOCK_STREAM, IPPROTO_TCP, NULL,0,WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET )
+	{
+		ERROR_PRO("WSASocket")
+		return false;
+	}
+	iResult = WSAIoctl(fd, SIO_GET_EXTENSION_FUNCTION_POINTER,  &GuidConnectEx, sizeof (GuidConnectEx),  
+						&lpfnConnectEx, sizeof (lpfnConnectEx), &dwBytes, NULL, NULL);
+	if (iResult == SOCKET_ERROR) {
+		ERROR_PRO("WSAIoctl");
+		return false;
+	}
+
+	return true;
+}
 #endif
+
+bool Tcpcli::clio( bool block)
+{
+	if ( connfd >= 0)	/* 已经连接或是正在连接, 则不再发起连接 */
+		return true;
+
 	err_lev = -1;
 
 	/* 初始化套接口的地址结构 */
@@ -155,8 +156,12 @@ bool Tcpcli::annecto( bool block)
 		return false;
 	}
 
-	/* 建立套接字 */
+/* 建立套接字 */
+#if defined(_WIN32)
+	if ((connfd = WSASocket(AF_INET,SOCK_STREAM, IPPROTO_TCP, NULL,0,WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET )
+#else
 	if ((connfd = socket (AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET )
+#endif 
 	{
 		ERROR_PRO("create socket")
 		err_lev = 3;
@@ -187,7 +192,13 @@ bool Tcpcli::annecto( bool block)
 		}
 #endif
 	}
-	
+	return true;
+}
+
+/* 开始连接, 如果成功, 则connfd>=0 */
+bool Tcpcli::annecto()
+{
+	int n;
 	n = connect (connfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
 	if ( n == SOCKET_ERROR) 
 	{	//通常, 对于非阻塞方式, 这里的返回是EINPROGRESS
@@ -217,6 +228,32 @@ bool Tcpcli::annecto( bool block)
 
 	return true;
 }
+
+#if defined (_WIN32)
+bool Tcpcli::annecto_ex()
+{
+	DWORD dwBytes =0 ;
+	BOOL bRetVal = FALSE;
+
+	// Empty our overlapped structure and accept connections.
+	memset(&rcv_ovp, 0, sizeof(OVERLAPPED));
+
+	bRetVal = lpfnConnectEx(connfd,  (struct sockaddr *)&servaddr, sizeof(servaddr), 
+				(PVOID)snd_buf->point, snd_buf->point - snd_buf->base, &dwBytes, &rcv_ovp);
+	if (bRetVal == FALSE) { 
+		if (  ERROR_IO_PENDING  == WSAGetLastError() ) {
+			return true;
+		} else {
+			ERROR_PRO("lpfnConnectEx")
+			this->end(false);
+			return false;
+		}
+	}
+	if ( dwBytes > 0 )
+		snd_buf->commit(-dwBytes);	//提交所读出的数据
+	return true;
+}
+#endif
 
 /* 一个TCP连接完成, nonblock方式下用 */
 bool Tcpcli::annecto_done()
@@ -271,120 +308,10 @@ void Tcpcli::end(bool down)
 	}
 
 #if defined (_WIN32)
-	WSACleanup();
+	//WSACleanup();
 #endif
 	return ;
 }
-
-/* 接收发生错误时, 建议关闭这个套接字 */
-bool Tcpcli::recito()
-{	
-	long len;
-	err_lev = -1;	
-	if ( rcv_buf)
-		rcv_buf->grant(8192);	//保证有足够空间
-ReadAgain:
-	if ( rcv_buf )
-		len = recv(connfd, (char*)rcv_buf->point, 8192, MSG_NOSIGNAL);
-	else {
-		char an_buf[8192];
-		memset(an_buf, 0, sizeof(an_buf));
-		len = recv(connfd, an_buf, 8192, MSG_NOSIGNAL);
-	}
-	
-	if( len == 0 )
-	{	//对方关闭套接字
-		if ( errMsg ) TEXTUS_STRCPY(errMsg, "recv 0, disconnected");
-		err_lev = 6;
-		return false;
-	} else if ( len ==SOCKET_ERROR )
-	{ 
-#if defined (_WIN32 )
-		int error = GetLastError();
-#else
-		int error = errno;
-#endif 
-		if (error == EINTR)
-		{	 //有信号而已,再试
-			goto ReadAgain;
-		} else if ( error == EAGAIN || error ==  EWOULDBLOCK )
-		{	//还在进行中, 回去再等.
-			ERROR_PRO("recv encounter EWOULDBLOCK");
-			err_lev = 5;
-			return true;
-		} else {	/* 的确有错误 */
-			ERROR_PRO("recv");
-			err_lev = 5;
-			return false;
-		}
-	} 
-
-	if ( rcv_buf)
-		rcv_buf->commit(len);	/* 指针向后移 */
-	return true;
-}
-
-/* 发送有错误时, 返回-1, 建议关闭这个套接字 */
-int Tcpcli::transmitto()
-{
-	long len;
-	if ( connfd < 0 || isConnecting || !snd_buf ) 
-		return 0;
-	long snd_len = snd_buf->point - snd_buf->base;	//发送长度
-	err_lev = -1;	
-
-SendAgain:
-	len = send(connfd, (char *)snd_buf->base, snd_len, MSG_NOSIGNAL); /* (char *) for WIN32 */
-	if( len < 0)
-	{ 
-#if defined (_WIN32 )
-		int error = GetLastError();
-#else
-		int error = errno;
-#endif 
-		if (error == EINTR)	
-		{	//有信号而已,再试
-			goto SendAgain;
-		} else if ( error ==EWOULDBLOCK || error == EAGAIN)
-		{	//回去再试, 用select, 要设wrSet
-			ERROR_PRO("send encounter EWOULDBLOCK");
-			err_lev = 5;
-			if ( wr_blocked ) 	//最近一次阻塞
-				return 3;
-			else
-			{	//刚发生的阻塞
-				wr_blocked = true;
-				return 1;
-			}
-		} else {
-			ERROR_PRO("send");
-			err_lev = 3;
-			return -1;
-		}
-	}
-
-	snd_buf->commit(-len);	//提交所读出的数据
-	if (snd_len > len )
-	{	
-		if ( wr_blocked ) 	//最近一次还是阻塞
-			return 3;
-		else
-		{	//刚发生的阻塞
-			wr_blocked = true;
-			return 1; //回去再试, 用select, 要设wrSet
-		}
-	} else {	//不发生阻塞了
-		if ( wr_blocked ) 	//最近一次阻塞
-		{
-			wr_blocked = false;
-			return 2; //发送完成, 不用再设wrSet啦
-		} else
-		{	//一直没有阻塞
-			return 0; //发送完成
-		}
-	}
-}
-
 void Tcpcli::setPort(const char *port_str)
 {
 	int port;
@@ -407,4 +334,158 @@ void Tcpcli::herit(Tcpcli *child)
 	child->server_port = server_port;
 	return ;
 }
+
+/* 接收发生错误时, 建议关闭这个套接字 */
+int Tcpcli::recito(bool use_epoll)
+{	
+	long len;
+
+	rcv_buf->grant(RCV_FRAME_SIZE);	//保证有足够空间
+
+#if defined(_WIN32)
+	if ( use_epoll ) 
+	{
+		int rc;
+		wsa_rcv.buf = (char *)rcv_buf->point;
+		wsa_rcv.len = RCV_FRAME_SIZE;
+		flag = 0;
+		rc = WSARecv(connfd, &wsa_rcv, 1, &rb, &flag, &rcv_ovp, NULL);
+		if ( rc == 0 )
+		{
+			len = rb;
+			if ( len == 0 ) {
+				if ( errMsg ) 
+					TEXTUS_SNPRINTF(errMsg, errstr_len, "recv 0, disconnected");
+				return -1;
+			}
+			goto LAST_COMMIT;
+		} else {
+			if ( WSA_IO_PENDING == WSAGetLastError() ) {
+				return 0;
+			} else {
+				ERROR_PRO ("WSARecv");
+				return -2;
+			}
+		}
+	}
+#endif
+
+ReadAgain:
+	if( (len = recv(connfd, (char *)rcv_buf->point, RCV_FRAME_SIZE, MSG_NOSIGNAL)) == 0) /* (char*) for WIN32 */
+	{	//对方关闭套接字
+		if ( errMsg ) 
+			TEXTUS_SNPRINTF(errMsg, errstr_len, "recv 0, disconnected");
+		return -1;
+	} else if ( len == SOCKET_ERROR )
+	{ 
+#if defined (_WIN32 )
+		DWORD error;	
+		error = GetLastError();
+#else
+		int error = errno;
+#endif 
+		if (error == EINTR)
+		{	 //有信号而已,再试
+			goto ReadAgain;
+		} else if ( error == EAGAIN || error == EWOULDBLOCK )
+		{	//还在进行中, 回去再等.
+			ERROR_PRO("recving encounter EAGAIN")
+			return 0;
+		} else	
+		{	//的确有错误
+			ERROR_PRO("recv socket")
+			return -2;
+		}
+	}
+#if defined(_WIN32)
+LAST_COMMIT:
+#endif
+	rcv_buf->commit(len);	/* 指针向后移 */
+	return len;
+}
+
+/* 发送有错误时, 返回-1, 建议关闭这个套接字 */
+int Tcpcli::transmitto(bool use_epoll)
+{
+	long len;
+	long snd_len = snd_buf->point - snd_buf->base;	//发送长度
+#if defined(_WIN32)
+	if ( use_epoll ) 
+	{
+		int rc;
+		wsa_snd.buf = (char *)snd_buf->point;
+		wsa_snd.len = snd_len;
+		rc = WSASend(connfd, &wsa_snd, 1, &rb, 0, &snd_ovp, NULL);
+
+		if ( rc == 0 )
+		{
+			len = rb;
+			goto LAST_SND_COMMIT;
+		} else {
+			if ( WSA_IO_PENDING == WSAGetLastError() ) {
+				len = wsa_snd.len;
+				goto LAST_SND_COMMIT;
+			} else {
+				ERROR_PRO ("WSASend");
+				return -1;
+			}
+		}
+	}
+#endif
+
+SendAgain:
+	len = send(connfd, (char *)snd_buf->base, snd_len, MSG_NOSIGNAL); /* (char*) for WIN32 */
+	if( len == SOCKET_ERROR )
+	{ 
+#if defined (_WIN32 )
+		DWORD error;	
+		error = GetLastError();
+#else
+		int error = errno;
+#endif 
+		if (error == EINTR)	
+		{	//有信号而已,再试
+			goto SendAgain;
+		} else if (error ==EWOULDBLOCK || error == EAGAIN)
+		{	//回去再试, 用select, 要设wrSet
+			ERROR_PRO("sending encounter EAGAIN")
+			if ( wr_blocked ) 	//最近一次阻塞
+			{
+				return 3;
+			} else {	//刚发生的阻塞
+				wr_blocked = true;
+				return 1;
+			}
+		} else {
+			ERROR_PRO("send")
+			return -1;
+		}
+	}
+#if defined(_WIN32)
+LAST_SND_COMMIT:
+#endif
+	snd_buf->commit(-len);	//提交所读出的数据
+	if (snd_len > len )
+	{	
+		TEXTUS_SNPRINTF(errMsg, errstr_len, "sending not completed.");
+		if ( wr_blocked ) 	//最近一次还是阻塞
+		{
+			return 3;
+		} else {	//刚发生的阻塞
+			wr_blocked = true;
+			return 1; //回去再试, 用select, 要设wrSet
+		}
+	} else 
+	{	//不发生阻塞了
+		if ( wr_blocked ) 	//最近一次阻塞
+		{
+			wr_blocked = false;
+			return 2; //发送完成, 不用再设wrSet啦
+		} else
+		{	//一直没有阻塞
+			return 0; //发送完成
+		}
+	}
+}
+
 

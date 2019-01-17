@@ -88,7 +88,6 @@ Tcpsrv::Tcpsrv()
 	snd_buf = new TBuffer(RCV_FRAME_SIZE);
 	errMsg = (char*) 0;
 	errstr_len = 0;
-	use_epoll = false;
 #if defined (_WIN32)
 	memset(&rcv_ovp, 0, sizeof(OVERLAPPED));
 	memset(&snd_ovp, 0, sizeof(OVERLAPPED));
@@ -101,20 +100,44 @@ Tcpsrv::~Tcpsrv()
 	delete snd_buf;
 }
 
-/* 开始服务, 创建侦听端口, 如果成功, 则listenfd>0 */
-bool Tcpsrv::servio( bool block)
-{
-	struct sockaddr_in servaddr;
-	const int on = 1;
 #if defined (_WIN32)
+bool Tcpsrv::sock_start()
+{
 	WSADATA wsaData;
+	GUID GuidAcceptEx = WSAID_ACCEPTEX;
+	DWORD dwBytes;
+	BOOL bRetVal = FALSE;
+	int fd;
 	int iResult = WSAStartup(MAKEWORD(2,2), &wsaData);
 	if (iResult != NO_ERROR)
 	{
 		ERROR_PRO("Error at WSAStartup()");
 		return false;
 	}
+	lpfnAcceptEx = NULL;
+
+	if ((fd = WSASocket(AF_INET,SOCK_STREAM, IPPROTO_TCP, NULL,0,WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET )
+	{
+		ERROR_PRO("create socket")
+		return false;
+	}
+	iResult = WSAIoctl(fd, SIO_GET_EXTENSION_FUNCTION_POINTER,  &GuidAcceptEx, sizeof (GuidAcceptEx),  
+						&lpfnAcceptEx, sizeof (lpfnAcceptEx), &dwBytes, NULL, NULL);
+	if (iResult == SOCKET_ERROR) {
+		ERROR_PRO("WSAIoctl");
+		return false;
+	}
+
+	return true;
+}
 #endif
+
+/* 开始服务, 创建侦听端口, 如果成功, 则listenfd>0 */
+bool Tcpsrv::servio( bool block)
+{
+	struct sockaddr_in servaddr;
+	const int on = 1;
+
 	/* 初始化套接口的地址结构 */
 	memset(&servaddr, 0, sizeof(servaddr));
 	servaddr.sin_family = AF_INET;
@@ -203,18 +226,8 @@ bool Tcpsrv::servio( bool block)
 #if defined(_WIN32)
 int Tcpsrv::accept_ex()
 {
-	LPFN_ACCEPTEX lpfnAcceptEx = NULL;
-	GUID GuidAcceptEx = WSAID_ACCEPTEX;
-	int iResult = 0;
 	DWORD dwBytes;
 	BOOL bRetVal = FALSE;
-
-	iResult = WSAIoctl(listenfd, SIO_GET_EXTENSION_FUNCTION_POINTER,  &GuidAcceptEx, sizeof (GuidAcceptEx),  
-						&lpfnAcceptEx, sizeof (lpfnAcceptEx), &dwBytes, NULL, NULL);
-	if (iResult == SOCKET_ERROR) {
-		ERROR_PRO("WSAIoctl");
-		goto MY_ERROR;
-	}
 
 	// Create an accepting socket
 	connfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -344,7 +357,7 @@ void Tcpsrv::endListen()
 }
 
 /* 接收发生错误时, 建议关闭这个套接字 */
-int Tcpsrv::recito()
+int Tcpsrv::recito( bool use_epoll)
 {	
 	long len;
 
@@ -413,7 +426,7 @@ LAST_COMMIT:
 }
 
 /* 发送有错误时, 返回-1, 建议关闭这个套接字 */
-int Tcpsrv::transmitto()
+int Tcpsrv::transmitto(bool use_epoll)
 {
 	long len;
 	long snd_len = snd_buf->point - snd_buf->base;	//发送长度
@@ -556,6 +569,5 @@ void Tcpsrv::herit(Tcpsrv *child)
 	memcpy (child->srvip, srvip, sizeof(srvip));
 	child->srvport = srvport;
 	child->connfd = connfd;
-	child->use_epoll = use_epoll;
 	return ;
 }

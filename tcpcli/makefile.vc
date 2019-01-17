@@ -13,7 +13,7 @@ Tcpcli.obj: Tcpcli.cpp
 	$(CC) $(CFLAGS) -DDEBUG Tcpcli.cpp
 
 Tcpcliuna.obj: Tcpcliuna.cpp
-	$(CC) $(CFLAGS) -I..\sched\include $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Tcpcliuna Tcpcliuna.cpp
+	$(CC) $(CFLAGS) -I..\sched\include -I..\tpoll\include -DNNDEBUG -DAMOR_CLS_TYPE=Tcpcliuna Tcpcliuna.cpp
 
 tcpcli.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

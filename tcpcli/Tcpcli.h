@@ -10,7 +10,30 @@
 
 #ifndef TCPCLI__H
 #define TCPCLI__H
+#if !defined (_WIN32)
+#include <errno.h>
+#include <netdb.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <string.h>
+ #if !defined(__linux__) && !defined(_AIX)
+ #include <strings.h>
+ #endif
+#else
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <mswsock.h>
+//#include <windows.h>
+#endif 
 #include "TBuffer.h"
+#include <stdio.h>
+#ifndef MSG_NOSIGNAL
+#define MSG_NOSIGNAL 0
+#endif
+#define RCV_FRAME_SIZE 8192
 class Tcpcli {
 public:
 	Tcpcli();
@@ -21,12 +44,12 @@ public:
 
 	int connfd; 	//-1表示本实例空闲, 每个子实例不同
 
-	bool annecto(bool block = false); /* 发起一个连接 */
+	bool annecto(); /* 发起一个连接 */
 	bool annecto_done(); /* 处理未完成的一个连接 */
 	bool isConnecting;	//true:连接中, false:已经连接完成或未开始连接
 
-	bool recito();		//接收数据, 返回false时建议关闭套接字 
-	int transmitto();	/* 发送数据, 返回
+	int recito(bool up=false);		//接收数据, 返回false时建议关闭套接字 
+	int transmitto(bool up=false);	/* 发送数据, 返回
 				   0:  发送OK, 也不要设wrSet了.
 				   1:  没发完, 要设wrSet
 				   -1: 有错误, 建议关闭套接字, 但自己不关,
@@ -44,7 +67,17 @@ public:
 	char *errMsg;
 	int err_lev;
 	int errstr_len;
+	struct sockaddr_in servaddr;
+	bool clio( bool block); /* 准备connfd */
 
+#if defined (_WIN32 )
+	bool sock_start();
+	bool annecto_ex(); /* 发起一个连接 */
+	OVERLAPPED rcv_ovp, snd_ovp;
+	WSABUF wsa_snd, wsa_rcv;
+	DWORD rb, flag;
+	LPFN_CONNECTEX lpfnConnectEx;
+#endif
 private:
 	bool wr_blocked;	//1: 最近一次写阻塞, 0: 最近一次写没有阻塞
 };

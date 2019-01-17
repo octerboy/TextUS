@@ -65,9 +65,11 @@ private:
 		bool on_start ;
 		bool lonely;
 		int back_log;
+		bool use_epoll;
 		inline G_CFG() {
 			on_start = true;
 			back_log = 100;
+			use_epoll = false;
 		};
 	};
 	struct G_CFG *gCFG;
@@ -299,6 +301,21 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 		
 	case Notitia::IGNITE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY");		
+		tmp_p.ordo = Notitia::POST_EPOLL;
+		tmp_p.indic = 0;
+		
+#if defined (_WIN32)
+		if ( !tcpsrv->sock_start() ) 
+		{
+			SLOG(EMERG);
+		}
+#endif
+		aptus->sponte(&tmp_p);	//向tpoll, 取得TPOLL
+		if ( tmp_p.indic )
+			gCFG->use_epoll = true;
+		else
+			gCFG->use_epoll = false;
+
 		if ( isPioneer && gCFG->on_start)
 			parent_begin();		/* 开始服务 */
 		break;
@@ -323,7 +340,7 @@ bool Tcpsrvuna::sponte( Amor::Pius *pius)
 	case Notitia::PRO_TBUF :	//处理一帧数据而已
 		WBUG("sponte PRO_TBUF");	
 		assert(!isListener);	//侦听实例不干这事儿.
-		if ( tcpsrv->use_epoll)
+		if ( gCFG->use_epoll)
 		{
 			child_transmit_ep();
 		} else {
@@ -435,15 +452,12 @@ TINLNE void Tcpsrvuna::parent_begin()
 		SLOG(EMERG)
 		return ;
 	}
-	my_tor.scanfd = tcpsrv->listenfd;
-	local_pius.ordo = Notitia::FD_SETRD;
-	local_pius.indic = &my_tor;
-	my_tor.rd_index = -1;
-	aptus->sponte(&local_pius);	//向Sched, 以设置rdSet.
-	if ( my_tor.rd_index >= 0 ) 
-	{
-		tcpsrv->use_epoll = false;
-	} else {	//try for epoll
+	if ( !gCFG->use_epoll ) {
+		my_tor.scanfd = tcpsrv->listenfd;
+		local_pius.ordo = Notitia::FD_SETRD;
+		local_pius.indic = &my_tor;
+		aptus->sponte(&local_pius);	//向Sched, 以设置rdSet.
+	} else {
 		pollor.pro_ps.ordo = Notitia::ACCEPT_EPOLL;
 #if defined (_WIN32 )	
 		pollor.hnd.sock = tcpsrv->listenfd;
@@ -464,9 +478,7 @@ TINLNE void Tcpsrvuna::parent_begin()
 		EV_SET(&(pollor.events[0]), tcpsrv->listenfd, EVFILT_READ, EV_ADD | EV_ONESHOT, 0, 0, &pollor);
 		EV_SET(&(pollor.events[1]), tcpsrv->listenfd, EVFILT_WRITE, EV_ADD | EV_DISABLE, 0, 0, &pollor);
 #endif	//for bsd
-
 		aptus->sponte(&epl_set_ps);	//向tpoll
-		tcpsrv->use_epoll = true;
 
 #if  defined(__linux__)
 		pollor.op = EPOLL_CTL_MOD; //以后操作就是修改了。
@@ -526,7 +538,7 @@ inline void Tcpsrvuna::do_accept_ex()
 inline void Tcpsrvuna::do_recv_ex()
 {
 	int len;
-	while ( (len = tcpsrv->recito()) != 0 ) 
+	while ( (len = tcpsrv->recito(gCFG->use_epoll)) != 0 ) 
 	{	//==0即为Pending
 		child_rcv_pro(len, "child_pro recv bytes");
 #if !defined (_WIN32 )	
@@ -538,7 +550,7 @@ inline void Tcpsrvuna::do_recv_ex()
 
 TINLNE void Tcpsrvuna::child_begin()
 {	
-	if (tcpsrv->use_epoll)
+	if (gCFG->use_epoll)
 	{
 		pollor.pro_ps.ordo = Notitia::RD_EPOLL;
 #if defined (_WIN32 )	
@@ -624,7 +636,7 @@ inline void Tcpsrvuna::new_conn_pro()
 
 TINLNE void Tcpsrvuna::child_transmit_ep()
 {
-	switch ( tcpsrv->transmitto() )
+	switch ( tcpsrv->transmitto(true) )
 	{
 	case 0: //没有阻塞, 不变
 		break;
@@ -710,7 +722,7 @@ TINLNE void Tcpsrvuna::end_service()
 
 	if ( tcpsrv->listenfd <= 0 ) 
 		return;
-	if (!tcpsrv->use_epoll)
+	if (!gCFG->use_epoll)
 	{
 		my_tor.scanfd = tcpsrv->listenfd;
 		local_pius.ordo = Notitia::FD_CLRRD;
@@ -743,7 +755,7 @@ TINLNE void Tcpsrvuna::end(bool down)
 	if ( tcpsrv->connfd == -1 ) 	/* 已经关闭或未开始 */
 		return;
 
-	if (!tcpsrv->use_epoll)
+	if (!gCFG->use_epoll)
 	{
 		local_pius.ordo = Notitia::FD_CLRRD;
 		aptus->sponte(&local_pius);	//向Sched, 以清rdSet.

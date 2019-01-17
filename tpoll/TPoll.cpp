@@ -303,6 +303,7 @@ bool TPoll::sponte( Amor::Pius *apius)
 #endif	//for linux
 
 	struct Timor *aor;
+	struct DPoll::PollorBase *baspo=0;
 	assert(apius);
 
 	switch ( apius->ordo )
@@ -342,6 +343,16 @@ bool TPoll::sponte( Amor::Pius *apius)
 
 		break;
 	case Notitia::AIO_EPOLL :	/*  AIO transaction */
+		break;
+
+	case Notitia::POST_EPOLL :	/* user post  */
+		baspo = (DPoll::PollorBase *)apius->indic;	
+		WBUG("%p %s", baspo, "sponte POST_EPOLL");
+		if ( !baspo)
+		{
+			apius->indic = this;
+			break;
+		}
 		break;
 
 	case Notitia::SET_EPOLL :	/* IOCP,epoll  */
@@ -1015,13 +1026,13 @@ LOOP:
 #endif	//for bsd
 
 #if defined (_WIN32XX)
-			poll_ps.ordo = pov[geti].dwNumberOfBytesTransferred< 0 ? Notitia::PRO_EPOLL : Notitia::ERR_EPOLL;
+			poll_ps.ordo = pov[geti].dwNumberOfBytesTransferred< 0 ? Notitia::ERR_EPOLL : PPO->pro_ps.ordo;
 			poll_ps.indic = &A_GET;
 			PPO->pupa->facio(&poll_ps);
 #endif
 #if defined (_WIN32)
 			if ( success ) {
-				poll_ps.ordo = Notitia::PRO_EPOLL;
+				poll_ps.ordo = PPO->pro_ps.ordo;
 				poll_ps.indic = &A_GET;
 			} else {
 				poll_ps.ordo = Notitia::ERR_EPOLL;

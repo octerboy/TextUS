@@ -17,18 +17,28 @@
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
+#include "Tcpcli.h"
+#include "DPoll.h"
 #include "Amor.h"
 #include "Notitia.h"
 #include "textus_string.h"
 #include <time.h>
-#include "Tcpcli.h"
-#include "Notitia.h"
 #include "Describo.h"
 #include <stdarg.h>
 
 #ifndef TINLINE
 #define TINLINE inline
 #endif 
+
+#if defined( _MSC_VER ) && (_MSC_VER < 1400 )
+typedef unsigned int* ULONG_PTR;
+typedef struct _OVERLAPPED_ENTRY {
+	ULONG_PTR lpCompletionKey;
+	LPOVERLAPPED lpOverlapped;
+	ULONG_PTR Internal;
+	DWORD dwNumberOfBytesTransferred;
+} OVERLAPPED_ENTRY, *LPOVERLAPPED_ENTRY;
+#endif	//for WIN32
 
 class Tcpcliuna: public Amor
 {
@@ -46,7 +56,8 @@ private:
 	Amor::Pius local_pius;
 	Amor::Pius info_pius;
 	Describo::Criptor mytor; //保存套接字, 各实例不同
-	time_t last_failed_time;	//最近一次的失败时间,秒
+	DPoll::Pollor pollor; /* 保存事件句柄, 各子实例不同 */
+	Amor::Pius epl_set_ps, epl_clr_ps, pro_tbuf_ps;
 
 	Tcpcli *tcpcli;
 	char errMsg[2048];
@@ -55,22 +66,29 @@ private:
 	struct G_CFG {
 		bool block_mode;	//是否为阻塞, 默认为非阻塞
 		bool on_start;
+		bool on_start_poineer;
 		int try_interval;	//连接失败后，下一次再发起连接的时间间隔(秒)
+		bool use_epoll;
 		inline G_CFG() {
 			block_mode = false;
 			on_start =  true;
 			try_interval = 0;
+			on_start_poineer = true;
 		};
 	};
 	struct G_CFG *gCFG;
+	void *arr[3];
 
 	TINLINE void transmit();
+	TINLINE void transmit_ep();
 	TINLINE void establish_done();
 	TINLINE void establish();
 	TINLINE void deliver(Notitia::HERE_ORDO aordo);
 	TINLINE void end(bool outer=false);
 	TINLINE void release();
 	TINLINE void errpro();
+	TINLINE void rcv_pro(long len, const char *msg, bool outer=false);
+	inline void do_recv_ex();
 
 #include "wlog.h"
 };
@@ -106,6 +124,9 @@ void Tcpcliuna::ignite(TiXmlElement *cfg)
 	if ( (on_start_str = cfg->Attribute("start") ) && strcasecmp(on_start_str, "no") ==0 )
 		gCFG->on_start = false;	/* 并非一开始就启动 */
 
+	if ( (on_start_str = cfg->Attribute("start_poineer") ) && strcasecmp(on_start_str, "no") ==0 )
+		gCFG->on_start_poineer = false;	/* 并非一开始就启动 */
+
 	if( (try_str = cfg->Attribute("try")) && atoi(try_str) > 0 )
 		gCFG->try_interval = atoi(try_str);
 
@@ -118,6 +139,11 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 	const char *ip_str;
 	TiXmlElement *cfg;
 	TBuffer **tb;
+	Amor::Pius tmp_p;
+#if defined (_WIN32 )	
+	OVERLAPPED_ENTRY *aget;
+#endif	//for WIN32
+
 	assert(pius);
 	switch (pius->ordo)
 	{
@@ -128,9 +154,28 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 			info_pius.ordo = Notitia::CHANNEL_NOT_ALIVE;
 			info_pius.indic = 0;
 			aptus->sponte(&info_pius);
+		} else if ( gCFG->use_epoll)
+		{
+			transmit_ep();
 		} else {
 			transmit();
 		}
+		break;
+
+	case Notitia::ACCEPT_EPOLL:
+		WBUG("facio ACCEPT_EPOLL");
+#if defined (_WIN32 )	
+		aget = (OVERLAPPED_ENTRY *)pius->indic;
+		/* 已经建立连接 */
+		if ( aget->lpOverlapped == (void*)&(tcpcli->rcv_ovp) )
+		{
+			establish_done();
+		} else {
+			WLOG(ALERT, "parent_pro: not my overlap");
+		}
+#else
+		establish_done();
+#endif
 		break;
 
 	case Notitia::FD_PRORD:
@@ -139,14 +184,57 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 		if ( tcpcli->isConnecting) //试图完成连接
 			establish_done();
 		else {
-			int ret = tcpcli->recito();
-			if ( ret && tcpcli->rcv_buf && tcpcli->rcv_buf->point > tcpcli->rcv_buf->base)
-				deliver(Notitia::PRO_TBUF);
-			else {
-				errpro();
-				if ( !ret ) end(true);	//失败即关闭, 不自动重连
-			}
+			rcv_pro(tcpcli->recito(), "FD_PROFD recv bytes", true); /* 子实例, 应当是读 */
 		}
+		break;
+
+	case Notitia::ERR_EPOLL:
+		WBUG("facio ERR_EPOLL");
+		WLOG(WARNING, (char*)pius->indic);	
+		end(true);	//直接关闭就可.
+		break;
+
+	case Notitia::PRO_EPOLL:
+		WBUG("facio PRO_EPOLL");
+#if defined (_WIN32 )	
+		aget = (OVERLAPPED_ENTRY *)pius->indic;
+		if ( aget->lpOverlapped == &(tcpcli->rcv_ovp) )
+		{	//已读数据,  不失败并有数据才向接力者传递
+			if ( aget->dwNumberOfBytesTransferred ==0 ) 
+			{
+				WLOG(INFO, "IOCP recv 0 disconnected");
+				end();
+			} else {
+				rcv_pro( aget->dwNumberOfBytesTransferred , "PRO_EPOLL recv bytes", true);
+			}
+		} else if ( aget->lpOverlapped == &(tcpcli->snd_ovp) ) {
+			//写数据完成
+			if ( tcpcli->snd_buf->point > tcpcli->snd_buf->base )	//继续写
+				transmit_ep();
+		} else {
+			WLOG(ALERT, "not my overlap");
+			break;
+		}
+		do_recv_ex();
+#endif
+		break;
+
+	case Notitia::RD_EPOLL:
+		WBUG("facio RD_EPOLL");
+		do_recv_ex();
+		/* action flags and filter for event remain unchanged */
+		aptus->sponte(&epl_set_ps);	//向tpoll,  再一次注册
+		break;
+
+	case Notitia::WR_EPOLL:
+		WBUG("facio WR_EPOLL");
+		transmit_ep();
+		break;
+
+	case Notitia::EOF_EPOLL:
+		WBUG("facio EOF_EPOLL");
+		WLOG(INFO, "peer disconnected.");
+		end();
 		break;
 
 	case Notitia::FD_PROWR:
@@ -175,9 +263,8 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 		break;
 
 	case Notitia::TIMER:
-		WBUG("facio TIMER, last %ld", last_failed_time);
-		if ( gCFG->try_interval > 0 && tcpcli->connfd == -1 &&  last_failed_time &&
-			*((time_t *)(pius->indic)) - last_failed_time >= gCFG->try_interval )
+		WBUG("facio TIMER");
+		if ( tcpcli->connfd == -1 )
 		{	//最近发生一次连接, 而且连接失败, 间隔时间到达设定值
 			establish();		//开始建立连接
 		}
@@ -189,8 +276,36 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 		break;
 
 	case Notitia::IGNITE_ALL_READY:
+		WBUG("facio IGNITE_ALL_READY");
+		arr[0] = this;
+		arr[1] = &(gCFG->try_interval);
+		arr[2] = &(gCFG->try_interval);
+#if defined (_WIN32)
+		if ( !tcpcli->sock_start() ) 
+		{
+			SLOG(EMERG);
+		}
+#endif
+		tmp_p.ordo = Notitia::POST_EPOLL;
+		tmp_p.indic = 0;
+		
+		aptus->sponte(&tmp_p);	//向tpoll, 取得TPOLL
+		if ( tmp_p.indic )
+			gCFG->use_epoll = true;
+		else
+			gCFG->use_epoll = false;
+
+
+		if ( gCFG->on_start_poineer )
+			establish();		//开始建立连接
+
+		break;
+
 	case Notitia::CLONE_ALL_READY:
-		WBUG("facio IGNITE_ALL_READY/CLONE_ALL_READY");
+		WBUG("facio CLONE_ALL_READY");
+		arr[0] = this;
+		arr[1] = &(gCFG->try_interval);
+		arr[2] = &(gCFG->try_interval);
 		if ( gCFG->on_start )
 			establish();		//开始建立连接
 
@@ -243,12 +358,20 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 
 	case Notitia::CMD_CHANNEL_PAUSE :
 		WBUG("facio CMD_CHANNEL_PAUSE");
-		deliver(Notitia::FD_CLRRD);
+		if ( gCFG->use_epoll)
+		{
+		} else {
+			deliver(Notitia::FD_CLRRD);
+		}
 		break;
 
 	case Notitia::CMD_CHANNEL_RESUME :
 		WBUG("sponte CMD_CHANNEL_RESUME");
-		deliver(Notitia::FD_SETRD);
+		if ( gCFG->use_epoll)
+		{
+		} else {
+			deliver(Notitia::FD_SETRD);
+		}
 		break;
 
 	default:
@@ -279,11 +402,19 @@ bool Tcpcliuna::sponte( Amor::Pius *pius)
 
 Tcpcliuna::Tcpcliuna()
 {
+	pollor.pupa = this;
+	pollor.type = DPoll::Sock;
+	epl_set_ps.ordo = Notitia::SET_EPOLL;
+	epl_set_ps.indic = &pollor;
+	epl_clr_ps.ordo = Notitia::CLR_EPOLL;
+	epl_clr_ps.indic = &pollor;
+	pro_tbuf_ps.ordo = Notitia::PRO_TBUF;
+	pro_tbuf_ps.indic = 0;
+
 	mytor.pupa = this;
 	local_pius.ordo = Notitia::TEXTUS_RESERVED;
 	local_pius.indic = &mytor;
 
-	last_failed_time = 0;
 	tcpcli = new Tcpcli();
 	tcpcli->errMsg = &errMsg[0];
 	tcpcli->errstr_len = 2048;
@@ -294,8 +425,12 @@ Tcpcliuna::Tcpcliuna()
 	clr_timer_pius.ordo = Notitia::DMD_CLR_TIMER;
 	clr_timer_pius.indic = this;
 
-	alarm_pius.ordo = Notitia::DMD_SET_TIMER;
-	alarm_pius.indic = this;
+	alarm_pius.ordo = Notitia::DMD_SET_ALARM;
+	alarm_pius.indic = &arr[0];
+#if  defined(__linux__)
+	pollor.ev.data.ptr = &pollor;
+#endif	//for linux
+
 }
 
 Tcpcliuna::~Tcpcliuna()
@@ -309,23 +444,83 @@ Tcpcliuna::~Tcpcliuna()
 TINLINE void Tcpcliuna::establish()
 {
 	WLOG(INFO, "estabish to %s:%d  .....", tcpcli->server_ip, tcpcli->server_port);
-	if (!tcpcli->annecto(gCFG->block_mode))
+
+	if ( gCFG->use_epoll ) 
 	{
-		errpro();
-		return ;
-	}
+		if (!tcpcli->clio(false))
+		{
+			errpro();
+			return ;
+		}
+		pollor.pro_ps.ordo = Notitia::ACCEPT_EPOLL;
+#if defined (_WIN32 )	
+		pollor.hnd.sock = tcpcli->connfd;
+		aptus->sponte(&epl_set_ps);	//向tpoll
+		if ( tcpcli->annecto_ex() )
+		{
+			if ( tcpcli->isConnecting) return;
+			establish_done();
+			do_recv_ex();
+		} else {
+			errpro();
+		}
+#else	//other unix like
 
-	if ( tcpcli->isConnecting) 
-	{	//正连接中,则向schedule登记
-		mytor.scanfd = tcpcli->connfd;
-		deliver(Notitia::FD_SETWR);
-		deliver(Notitia::FD_SETRD);
+		if ( tcpcli->annecto() )
+		{
+			if ( !tcpcli->isConnecting)
+				establish_done();
+		} else {
+			errpro();
+		}
+#if  defined(__linux__)
+		pollor.fd = tcpcli->connfd;
+		pollor.ev.events = EPOLLIN | EPOLLET |EPOLLONESHOT | EPOLLRDHUP ;
+		if ( tcpcli->isConnecting)
+			pollor.ev.events |= EPOLLOUT;
+		pollor.op = EPOLL_CTL_ADD;
+#endif	//for linux
 
-#if defined(_WIN32)
-		deliver(Notitia::FD_SETEX);
+#if  defined(__sun)
+		pollor.fd = tcpcli->connfd;
+		pollor.events = POLLIN;
+		if ( tcpcli->isConnecting)
+			pollor.events |= POLLOUT;
+#endif	//for sun
+
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
+		EV_SET(&(pollor.events[0]), tcpcli->connfd, EVFILT_READ, EV_ADD | EV_ONESHOT, 0, 0, &pollor);
+		if ( tcpcli->isConnecting)
+			EV_SET(&(pollor.events[1]), tcpcli->connfd, EVFILT_WRITE, EV_ADD , 0, 0, &pollor);
+		else
+			EV_SET(&(pollor.events[1]), tcpcli->connfd, EVFILT_WRITE, EV_ADD | EV_DISABLE, 0, 0, &pollor);
+#endif	//for bsd
+
+		aptus->sponte(&epl_set_ps);	//向tpoll
+
+#if  defined(__linux__)
+		pollor.op = EPOLL_CTL_MOD; //以后操作就是修改了。
+#endif	//for linux
+
+#endif	//end for WIN32
+	} else {	//select model
+		if ( tcpcli->clio(gCFG->block_mode) && tcpcli->annecto() )
+		{
+			if ( tcpcli->isConnecting) 
+			{	//正连接中,则向schedule登记
+				mytor.scanfd = tcpcli->connfd;
+				deliver(Notitia::FD_SETRD);
+				deliver(Notitia::FD_CLRWR);
+#if defined (_WIN32 )	
+				deliver(Notitia::FD_CLREX);
 #endif
-	} else /* 连接完成 */
-		establish_done();
+			} else  { /* 连接完成 */
+				establish_done();
+			}
+		} else {
+			errpro();
+		}
+	}
 }
 
 TINLINE void Tcpcliuna::establish_done()
@@ -337,10 +532,33 @@ TINLINE void Tcpcliuna::establish_done()
 		return ;
 	}
 
-	mytor.scanfd = tcpcli->connfd;
-	deliver(Notitia::FD_SETRD);
-	deliver(Notitia::FD_CLRWR);
-	deliver(Notitia::FD_CLREX);
+	if ( gCFG->use_epoll ) 
+	{
+		pollor.pro_ps.ordo = Notitia::RD_EPOLL;
+#if defined (_WIN32 )	
+		/* 主动去接收, 如果一开始有数据, 则先接收; 另外实现IOCP投递 */
+		do_recv_ex();
+#else //other unix like 
+#if  defined(__linux__)
+		pollor.ev.events &= ~EPOLLOUT;
+#endif	//for linux
+
+#if  defined(__sun)
+		pollor.events &= ~POLLOUT;
+#endif	//for sun
+
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
+		pollor.events[1].flags = EV_ADD | EV_DISABLE;
+#endif	//for bsd
+
+		aptus->sponte(&epl_set_ps);	//向tpoll
+#endif	//for WIN32
+	} else {
+		mytor.scanfd = tcpcli->connfd;
+		deliver(Notitia::FD_SETRD);
+		deliver(Notitia::FD_CLRWR);
+		deliver(Notitia::FD_CLREX);
+	}
 
 	/* TCP接收(发送)缓冲区清空 */
 	//if ( tcpcli->rcv_buf) tcpcli->rcv_buf->reset();	
@@ -383,22 +601,73 @@ TINLINE void Tcpcliuna::transmit()
 	return ;
 }
 
+inline void Tcpcliuna::transmit_ep()
+{
+	switch ( tcpcli->transmitto() )
+	{
+	case 0: //没有阻塞, 不变
+		break;
+	
+	case 2: //原有阻塞, 没有阻塞了, 清一下
+#if  defined(__linux__)
+		pollor.ev.events &= ~EPOLLOUT;	//等下一次设置POLLIN时不再设
+#endif	//for linux
+
+#if  defined(__sun)
+		pollor.events &= ~POLLOUT;	//等下一次设置POLLIN时不再设
+#endif	//for sun
+
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
+		pollor.events[1].flags = EV_ADD | EV_DISABLE;	//等下一次设置时不再设
+#endif	//for bsd
+		break;
+		
+	case 1:	//新写阻塞, 需要设一下了
+		SLOG(INFO)
+	case 3:	//还是写阻塞, 再设
+#if  defined(__linux__)
+		pollor.ev.events |= EPOLLOUT;
+#endif	//for linux
+
+#if  defined(__sun)
+		pollor.events |= POLLOUT;
+#endif	//for sun
+
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
+		pollor.events[1].flags = EV_ADD | EV_ONESHOT;
+#endif	//for bsd
+
+		aptus->sponte(&epl_set_ps);	//向tpoll, 以设置kqueue等
+		break;
+	
+	case -1://有严重错误, 关闭
+		SLOG(WARNING)
+		end();
+		break;
+
+	default:
+		break;
+	}
+}
+
 TINLINE void Tcpcliuna::end(bool outer)
 {
 	WBUG("end().....");
 	if ( tcpcli->connfd == -1 ) return;	/* 不重复关闭 */
-	deliver(Notitia::FD_CLRWR);
-	deliver(Notitia::FD_CLREX);
-	deliver(Notitia::FD_CLRRD);
+	if ( gCFG->use_epoll ) 
+	{
+	} else {
+		deliver(Notitia::FD_CLRWR);
+		deliver(Notitia::FD_CLREX);
+		deliver(Notitia::FD_CLRRD);
+	}
 	
 	tcpcli->end();		//Tcpcli也关闭
 	if (outer )
 	{
-		last_failed_time = 0;	/* 最近关闭时间清零, 不再重连服务端 */
-		aptus->sponte(&clr_timer_pius); /* 清除定时 */
+		aptus->sponte(&clr_timer_pius); /* 清除定时, 不再重连服务端 */
 	} else {
-		time(&last_failed_time);	/* 记录最近关闭时间, 这将使得重连服务端 */
-		aptus->sponte(&alarm_pius);
+		aptus->sponte(&alarm_pius); /* 这将使得重连服务端 */
 	}
 
 	deliver(Notitia::END_SESSION);/* 向左、右传递本类的会话关闭信号 */
@@ -494,4 +763,34 @@ TINLINE void Tcpcliuna::errpro()
 	}
 }
 
+inline void Tcpcliuna::rcv_pro(long len, const char *msg, bool outer)
+{
+	if ( len > 0 ) 
+	{
+		WBUG("%s %ld", msg, len);
+		aptus->sponte(&pro_tbuf_ps);
+	} else {
+		if ( len == 0 || len == -1)	/* 记日志 */
+		{
+			SLOG(INFO)
+		} else
+		{
+			SLOG(NOTICE)
+		}
+		if ( len < 0 )  end(outer);	//失败即关闭
+	}
+}
+
+inline void Tcpcliuna::do_recv_ex()
+{
+	int len;
+	while ( (len = tcpcli->recito()) != 0 ) 
+	{	//==0即为Pending
+		rcv_pro(len, "rcv_pro recv bytes");
+#if !defined (_WIN32 )	
+		if ( len < RCV_FRAME_SIZE ) 
+			break;	//len 不足8192时, 或有错误即终止
+#endif
+	}
+}
 #include "hook.c"

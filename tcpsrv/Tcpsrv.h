@@ -39,7 +39,6 @@ public:
 
 	int listenfd;	//侦听
 	int connfd; 	//-1表示本实例空闲, 每个子实例不同,负责侦听的实例保存最近一次的连接
-	bool use_epoll; //是否使用tpoll类
 
 	bool servio(bool block = false);	/* 设定侦听套接字, 如果成功,则:
 				 listenfd有值。*/
@@ -58,11 +57,13 @@ public:
 	char accept_buf[128];
 	WSABUF wsa_snd, wsa_rcv;
 	DWORD rb, flag;
+	bool sock_start();
+	LPFN_ACCEPTEX lpfnAcceptEx ;
 #endif
 
 
-	int recito();		//接收数据, 返回-1或0时建议关闭套接字 
-	int transmitto();	/* 发送数据, 返回
+	int recito(bool upoll = false);		//接收数据, 返回-1或0时建议关闭套接字 
+	int transmitto(bool upoll = false);	/* 发送数据, 返回
 				   0:  发送OK, 也不要设wrSet了.
 				   1:  没发完, 要设wrSet
 				   -1: 有错误, 建议关闭套接字, 但自己不关,
