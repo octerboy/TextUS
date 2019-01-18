@@ -124,6 +124,7 @@ void Tcpcliuna::ignite(TiXmlElement *cfg)
 	if ( (on_start_str = cfg->Attribute("start") ) && strcasecmp(on_start_str, "no") ==0 )
 		gCFG->on_start = false;	/* 并非一开始就启动 */
 
+	gCFG->on_start_poineer = gCFG->on_start;
 	if ( (on_start_str = cfg->Attribute("start_poineer") ) && strcasecmp(on_start_str, "no") ==0 )
 		gCFG->on_start_poineer = false;	/* 并非一开始就启动 */
 
@@ -509,8 +510,8 @@ TINLINE void Tcpcliuna::establish()
 			if ( tcpcli->isConnecting) 
 			{	//正连接中,则向schedule登记
 				mytor.scanfd = tcpcli->connfd;
+				deliver(Notitia::FD_SETWR);
 				deliver(Notitia::FD_SETRD);
-				deliver(Notitia::FD_CLRWR);
 #if defined (_WIN32 )	
 				deliver(Notitia::FD_CLREX);
 #endif

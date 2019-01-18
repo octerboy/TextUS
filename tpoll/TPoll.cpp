@@ -358,7 +358,6 @@ bool TPoll::sponte( Amor::Pius *apius)
 	case Notitia::SET_EPOLL :	/* IOCP,epoll  */
 		ppo = (DPoll::Pollor *)apius->indic;	
 		assert(ppo);
-		WBUG("%p %s", ppo->pupa, "sponte SET_EPOLL");
 
 #if defined(__linux__)
 		if( !epoll_ctl(epfd, ppo->op, ppo->fd, &ppo->ev) )
@@ -369,8 +368,9 @@ bool TPoll::sponte( Amor::Pius *apius)
 #endif	//for linux
 
 #if defined(__sun)
+		WBUG("%p %s(fd=%d) events(%d)", ppo->pupa, "sponte SET_EPOLL", ppo->fd, ppo->events );
 		ret = port_associate(ev_port, PORT_SOURCE_FD, ppo->fd, ppo->events, ppo);
-		if( !ret);
+		if( ret !=0)
 		{
 			ERROR_PRO("port_associate failed");
 			WLOG(WARNING, errMsg);
@@ -817,6 +817,7 @@ LOOP:
 	if ( pendor_top > -1 ) run_pendors();
 
 #if defined(__sun)
+	nget = 1;
 	ret = port_getn(ev_port, pev, max_evs, &nget, 0);
 	if ( ret != 0 ) 
 	{
