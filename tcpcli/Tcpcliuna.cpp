@@ -69,11 +69,13 @@ private:
 		bool on_start_poineer;
 		int try_interval;	//连接失败后，下一次再发起连接的时间间隔(秒)
 		bool use_epoll;
+		struct DPoll::PollorBase lor; /* 探询 */
 		inline G_CFG() {
 			block_mode = false;
 			on_start =  true;
 			try_interval = 0;
 			on_start_poineer = true;
+			lor.type = DPoll::NotUsed;
 		};
 	};
 	struct G_CFG *gCFG;
@@ -185,7 +187,7 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 		if ( tcpcli->isConnecting) //试图完成连接
 			establish_done();
 		else {
-			rcv_pro(tcpcli->recito(), "FD_PROFD recv bytes", true); /* 子实例, 应当是读 */
+			rcv_pro(tcpcli->recito(), "FD_PROFD recv bytes", true);
 		}
 		break;
 
@@ -223,13 +225,14 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 	case Notitia::RD_EPOLL:
 		WBUG("facio RD_EPOLL");
 		do_recv_ex();
-		/* action flags and filter for event remain unchanged */
-		aptus->sponte(&epl_set_ps);	//向tpoll,  再一次注册
 		break;
 
 	case Notitia::WR_EPOLL:
 		WBUG("facio WR_EPOLL");
-		transmit_ep();
+		if ( tcpcli->isConnecting) //试图完成连接
+			establish_done();
+		else 
+			transmit_ep();
 		break;
 
 	case Notitia::EOF_EPOLL:
@@ -288,7 +291,8 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 		}
 #endif
 		tmp_p.ordo = Notitia::POST_EPOLL;
-		tmp_p.indic = 0;
+		tmp_p.indic = &gCFG->lor;
+		gCFG->lor.pupa = this;
 		
 		aptus->sponte(&tmp_p);	//向tpoll, 取得TPOLL
 		if ( tmp_p.indic )
@@ -643,7 +647,7 @@ inline void Tcpcliuna::transmit_ep()
 	
 	case -1://有严重错误, 关闭
 		SLOG(WARNING)
-		end();
+		end(true);
 		break;
 
 	default:
@@ -653,7 +657,7 @@ inline void Tcpcliuna::transmit_ep()
 
 TINLINE void Tcpcliuna::end(bool outer)
 {
-	WBUG("end().....");
+	WBUG("end(%s).....", outer? "won't connect again" : "will connect again");
 	if ( tcpcli->connfd == -1 ) return;	/* 不重复关闭 */
 	if ( gCFG->use_epoll ) 
 	{
@@ -784,14 +788,45 @@ inline void Tcpcliuna::rcv_pro(long len, const char *msg, bool outer)
 
 inline void Tcpcliuna::do_recv_ex()
 {
-	int len;
-	while ( (len = tcpcli->recito()) != 0 ) 
-	{	//==0即为Pending
-		rcv_pro(len, "rcv_pro recv bytes");
+	long len;
+LOOP:
+	len = tcpcli->recito(gCFG->use_epoll);
+	switch ( len ) 
+	{
+	case 0:	//Pending
+		SLOG(INFO)
 #if !defined (_WIN32 )	
-		if ( len < RCV_FRAME_SIZE ) 
-			break;	//len 不足8192时, 或有错误即终止
+		/* action flags and filter for event remain unchanged */
+		aptus->sponte(&epl_set_ps);	//向tpoll,  再一次注册
 #endif
+		return;
+		break;
+
+	case -1://Close
+		SLOG(INFO)
+		end();	//失败即关闭
+		return;
+		break;
+
+	case -2://Error
+		SLOG(NOTICE)
+		end(true);	//失败即关闭
+		return;
+		break;
+
+	default:	
+		WBUG("client recv %ld bytes", len);
+#if !defined (_WIN32 )	
+		if ( len < RCV_FRAME_SIZE ) { 
+			/* action flags and filter for event remain unchanged */
+			aptus->sponte(&epl_set_ps);	//向tpoll,  再一次注册
+			aptus->sponte(&pro_tbuf_ps);
+			return;	//len 不足8192时即终止
+		}
+		aptus->sponte(&pro_tbuf_ps);
+#endif
+		break;
 	}
+	goto LOOP;
 }
 #include "hook.c"

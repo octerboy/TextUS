@@ -76,8 +76,21 @@ public:
 	OVERLAPPED rcv_ovp, snd_ovp;
 	WSABUF wsa_snd, wsa_rcv;
 	DWORD rb, flag;
-	LPFN_CONNECTEX lpfnConnectEx;
+#if defined( _MSC_VER ) && (_MSC_VER < 1400 )
+typedef
+BOOL (PASCAL FAR * LPFN_CONNECTEX) (
+    IN SOCKET s,
+    IN const struct sockaddr FAR *name,
+    IN int namelen,
+    IN PVOID lpSendBuffer OPTIONAL,
+    IN DWORD dwSendDataLength,
+    OUT LPDWORD lpdwBytesSent,
+    IN LPOVERLAPPED lpOverlapped
+    );
 #endif
+	LPFN_CONNECTEX lpfnConnectEx;
+#endif	//for WIN32
+
 private:
 	bool wr_blocked;	//1: 最近一次写阻塞, 0: 最近一次写没有阻塞
 };

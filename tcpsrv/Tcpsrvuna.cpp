@@ -66,10 +66,12 @@ private:
 		bool lonely;
 		int back_log;
 		bool use_epoll;
+		struct DPoll::PollorBase lor; /* 探询 */
 		inline G_CFG() {
 			on_start = true;
 			back_log = 100;
 			use_epoll = false;
+			lor.type = DPoll::NotUsed;
 		};
 	};
 	struct G_CFG *gCFG;
@@ -227,8 +229,6 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 	case Notitia::RD_EPOLL:
 		WBUG("facio RD_EPOLL");
 		do_recv_ex();
-		/* action flags and filter for event remain unchanged */
-		aptus->sponte(&epl_set_ps);	//向tpoll,  再一次注册
 		break;
 
 	case Notitia::WR_EPOLL:
@@ -302,7 +302,8 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 	case Notitia::IGNITE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY");		
 		tmp_p.ordo = Notitia::POST_EPOLL;
-		tmp_p.indic = 0;
+		tmp_p.indic = &gCFG->lor;
+		gCFG->lor.pupa = this;
 		
 #if defined (_WIN32)
 		if ( !tcpsrv->sock_start() ) 
@@ -471,6 +472,7 @@ TINLNE void Tcpsrvuna::parent_begin()
 
 #if  defined(__sun)
 		pollor.fd = tcpsrv->listenfd;
+		//pollor.events = POLLIN|POLLOUT;
 		pollor.events = POLLIN;
 #endif	//for sun
 
@@ -537,15 +539,46 @@ inline void Tcpsrvuna::do_accept_ex()
 
 inline void Tcpsrvuna::do_recv_ex()
 {
-	int len;
-	while ( (len = tcpsrv->recito(gCFG->use_epoll)) != 0 ) 
-	{	//==0即为Pending
-		child_rcv_pro(len, "child_pro recv bytes");
+	long len;
+LOOP:
+	len = tcpsrv->recito(gCFG->use_epoll);
+	switch ( len ) 
+	{
+	case 0:	//Pending
+		SLOG(INFO)
 #if !defined (_WIN32 )	
-		if ( len < RCV_FRAME_SIZE ) 
-			break;	//len 不足8192时, 或有错误即终止
+		/* action flags and filter for event remain unchanged */
+		aptus->sponte(&epl_set_ps);	//向tpoll,  再一次注册
 #endif
+		return;
+		break;
+
+	case -1://Close
+		SLOG(INFO)
+		end();	//失败即关闭
+		return;
+		break;
+
+	case -2://Error
+		SLOG(NOTICE)
+		end();	//失败即关闭
+		return;
+		break;
+
+	default:	
+		WBUG("child recv %ld bytes", len);
+#if !defined (_WIN32 )	
+		if ( len < RCV_FRAME_SIZE ) { 
+			/* action flags and filter for event remain unchanged */
+			aptus->sponte(&epl_set_ps);	//向tpoll,  再一次注册
+			aptus->facio(&pro_tbuf_ps);
+			return;	//len 不足8192时即终止
+		}
+		aptus->facio(&pro_tbuf_ps);
+#endif
+		break;
 	}
+	goto LOOP;
 }
 
 TINLNE void Tcpsrvuna::child_begin()

@@ -347,8 +347,8 @@ bool TPoll::sponte( Amor::Pius *apius)
 
 	case Notitia::POST_EPOLL :	/* user post  */
 		baspo = (DPoll::PollorBase *)apius->indic;	
-		WBUG("%p %s", baspo, "sponte POST_EPOLL");
-		if ( !baspo)
+		WBUG("%p %s", baspo->pupa, "sponte POST_EPOLL");
+		if ( baspo->type == DPoll::NotUsed)
 		{
 			apius->indic = this;
 			break;
@@ -903,11 +903,13 @@ LOOP:
 #define PPO  ((struct DPoll::Pollor *)AKEY)
 #define TOR  ((struct Timor *)AKEY)
 
+	WBUG("nget %d", nget);
 	for ( geti = 0 ; geti < nget; geti++)
 	{
 		switch (AOR->type ) 
 		{
 		case DPoll::Alarm:
+			WBUG("get DPoll:Alarm");
 			pupa = TOR->pupa ;
 			TOR->type = DPoll::NotUsed;
 			TOR->pupa = 0;
@@ -942,6 +944,7 @@ LOOP:
 			break;
 
 		case DPoll::Timer:
+			WBUG("get DPoll:Timer");
 			TOR->pupa->facio(&timer_pius);
 			break;
 
@@ -952,6 +955,7 @@ LOOP:
 			break;
 
 		case DPoll::Sock:
+			WBUG("get DPoll:Sock");
 #if  defined(__sun)
 			if (A_GET.portev_events & (POLLIN | POLLRDNORM )) {
 				PPO->pupa->facio(&(PPO->pro_ps));

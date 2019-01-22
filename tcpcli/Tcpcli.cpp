@@ -81,6 +81,10 @@ Tcpcli::~Tcpcli() { }
 bool Tcpcli::sock_start()
 {
 	WSADATA wsaData;
+#if defined( _MSC_VER ) && (_MSC_VER < 1400 )
+	#define WSAID_CONNECTEX \
+    {0x25a207b9,0xddf3,0x4660,{0x8e,0xe9,0x76,0xe5,0x8c,0x74,0x06,0x3e}}
+#endif
 	GUID GuidConnectEx = WSAID_CONNECTEX;
 	DWORD dwBytes = 0;
 	int fd;
@@ -250,7 +254,7 @@ bool Tcpcli::annecto_ex()
 		}
 	}
 	if ( dwBytes > 0 )
-		snd_buf->commit(-dwBytes);	//提交所读出的数据
+		snd_buf->commit(-(long)dwBytes);	//提交所读出的数据
 	return true;
 }
 #endif
