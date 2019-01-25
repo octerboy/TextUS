@@ -215,7 +215,7 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 				end();
 			} else {
 				WBUG("child PRO_EPOLL recv %d bytes", aget->dwNumberOfBytesTransferred);
-				aptus->sponte(&pro_tbuf_ps);
+				aptus->facio(&pro_tbuf_ps);
 			}
 		} else if ( aget->lpOverlapped == &(tcpsrv->snd_ovp) ) {
 			//写数据完成
@@ -323,7 +323,7 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 		}
 #endif
 		gCFG->sch->sponte(&tmp_p);	//向tpoll, 取得TPOLL
-		if ( tmp_p.indic )
+		if ( tmp_p.indic == gCFG->sch)
 			gCFG->use_epoll = true;
 		else
 			gCFG->use_epoll = false;
@@ -402,7 +402,8 @@ bool Tcpsrvuna::sponte( Amor::Pius *pius)
 		if (gCFG->use_epoll ) {
 			gCFG->sch->sponte(&epl_clr_ps);	//向tpoll,  注销
 		} else {
-			deliver(Notitia::FD_CLRRD);
+			local_pius.ordo = Notitia::FD_CLRRD;
+			gCFG->sch->sponte(&local_pius);	//向Sched, 以清rdSet.
 		}
 		break;
 
@@ -411,7 +412,8 @@ bool Tcpsrvuna::sponte( Amor::Pius *pius)
 		if (gCFG->use_epoll ) {
 			gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  注册
 		} else {
-			deliver(Notitia::FD_SETRD);
+			local_pius.ordo = Notitia::FD_SETRD;
+			gCFG->sch->sponte(&local_pius);	//向Sched, 以设置rdSet.
 		}
 		break;
 
@@ -476,7 +478,7 @@ TINLNE void Tcpsrvuna::parent_begin()
 		my_tor.scanfd = tcpsrv->listenfd;
 		local_pius.ordo = Notitia::FD_SETRD;
 		local_pius.indic = &my_tor;
-		aptus->sponte(&local_pius);	//向Sched, 以设置rdSet.
+		gCFG->sch->sponte(&local_pius);	//向Sched, 以设置rdSet.
 	} else {
 		pollor.pro_ps.ordo = Notitia::ACCEPT_EPOLL;
 #if defined (_WIN32 )	
@@ -644,7 +646,7 @@ TINLNE void Tcpsrvuna::child_begin()
 	} else {
 		my_tor.scanfd = tcpsrv->connfd;
 		local_pius.ordo = Notitia::FD_SETRD;
-		aptus->sponte(&local_pius);	//向Sched, 以设置rdSet.
+		gCFG->sch->sponte(&local_pius);	//向Sched, 以设置rdSet.
 	}
 
 	tcpsrv->rcv_buf->reset();	//TCP接收(发送)缓冲区清空
@@ -757,14 +759,14 @@ TINLNE void Tcpsrvuna::child_transmit()
 		local_pius.ordo =Notitia::FD_CLRWR;
 		//向Sched, 以设置wrSet.
 
-		aptus->sponte(&local_pius);	
+		gCFG->sch->sponte(&local_pius);	
 		break;
 		
 	case 1:	//新写阻塞, 需要设一下了
 		SLOG(INFO)
 		//向Sched, 以设置wrSet.
 		local_pius.ordo =Notitia::FD_SETWR;
-		aptus->sponte(&local_pius);
+		gCFG->sch->sponte(&local_pius);
 		break;
 		
 	case 3:	//还是写阻塞, 不变
@@ -789,7 +791,7 @@ TINLNE void Tcpsrvuna::end_service()
 	{
 		my_tor.scanfd = tcpsrv->listenfd;
 		local_pius.ordo = Notitia::FD_CLRRD;
-		aptus->sponte(&local_pius);	/* 向Sched, 以清除rdSet. */
+		gCFG->sch->sponte(&local_pius);	/* 向Sched, 以清除rdSet. */
 	}
 	tcpsrv->endListen();	/* will close listenfd */
 	
@@ -821,10 +823,10 @@ TINLNE void Tcpsrvuna::end(bool down)
 	if (!gCFG->use_epoll)
 	{
 		local_pius.ordo = Notitia::FD_CLRRD;
-		aptus->sponte(&local_pius);	//向Sched, 以清rdSet.
+		gCFG->sch->sponte(&local_pius);	//向Sched, 以清rdSet.
 	
 		local_pius.ordo = Notitia::FD_CLRWR;
-		aptus->sponte(&local_pius);	//向Sched, 以清wrSet.
+		gCFG->sch->sponte(&local_pius);	//向Sched, 以清wrSet.
 	}
 	/* just close for all kinds of system  */
 

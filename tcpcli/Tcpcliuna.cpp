@@ -306,7 +306,7 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 		gCFG->lor.pupa = this;
 		
 		gCFG->sch->sponte(&tmp_p);	//向tpoll, 取得TPOLL
-		if ( tmp_p.indic )
+		if ( tmp_p.indic == gCFG->sch )
 			gCFG->use_epoll = true;
 		else
 			gCFG->use_epoll = false;
@@ -382,7 +382,7 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 		{
 			gCFG->sch->sponte(&epl_clr_ps); //向tpoll,  注销
 		} else {
-			deliver(Notitia::FD_CLRRD);
+			 deliver(Notitia::FD_CLRRD);
 		}
 		break;
 
@@ -457,7 +457,7 @@ Tcpcliuna::Tcpcliuna()
 
 Tcpcliuna::~Tcpcliuna()
 {	
-	aptus->sponte(&clr_timer_pius); /* 清除定时 */
+	gCFG->sch->sponte(&clr_timer_pius); /* 清除定时 */
 	delete tcpcli;
 	if (has_config )
 		delete gCFG;
@@ -585,7 +585,7 @@ TINLINE void Tcpcliuna::establish_done()
 	/* TCP接收(发送)缓冲区清空 */
 	//if ( tcpcli->rcv_buf) tcpcli->rcv_buf->reset();	
 	//if ( tcpcli->snd_buf) tcpcli->snd_buf->reset();
-	aptus->sponte(&clr_timer_pius); /* 清除定时 */
+	gCFG->sch->sponte(&clr_timer_pius); /* 清除定时 */
 	WLOG(INFO, "estabish %s:%d ok!", tcpcli->server_ip, tcpcli->server_port);
 	deliver(Notitia::START_SESSION); //向接力者发出通知, 本对象开始
 }
@@ -602,12 +602,12 @@ TINLINE void Tcpcliuna::transmit()
 	case 2: //原有阻塞, 没有阻塞了, 清一下
 		errpro();
 		local_pius.ordo =Notitia::FD_CLRWR;
-		aptus->sponte(&local_pius);	
+		gCFG->sch->sponte(&local_pius);	
 		break;
 	case 1:	//新写阻塞, 需要设一下了
 		errpro();
 		local_pius.ordo =Notitia::FD_SETWR;
-		aptus->sponte(&local_pius);	
+		gCFG->sch->sponte(&local_pius);	
 		break;
 	case 3:	//还是写阻塞, 不变
 		errpro();
@@ -682,9 +682,8 @@ TINLINE void Tcpcliuna::end(bool outer)
 {
 	WBUG("end(%s).....", outer? "won't connect again" : "will connect again");
 	if ( tcpcli->connfd == -1 ) return;	/* 不重复关闭 */
-	if ( gCFG->use_epoll ) 
+	if ( !gCFG->use_epoll ) 
 	{
-	} else {
 		deliver(Notitia::FD_CLRWR);
 		deliver(Notitia::FD_CLREX);
 		deliver(Notitia::FD_CLRRD);
@@ -693,9 +692,9 @@ TINLINE void Tcpcliuna::end(bool outer)
 	tcpcli->end();		//Tcpcli也关闭
 	if (outer )
 	{
-		aptus->sponte(&clr_timer_pius); /* 清除定时, 不再重连服务端 */
+		gCFG->sch->sponte(&clr_timer_pius); /* 清除定时, 不再重连服务端 */
 	} else {
-		aptus->sponte(&alarm_pius); /* 这将使得重连服务端 */
+		gCFG->sch->sponte(&alarm_pius); /* 这将使得重连服务端 */
 	}
 
 	deliver(Notitia::END_SESSION);/* 向左、右传递本类的会话关闭信号 */
@@ -753,7 +752,7 @@ TINLINE void Tcpcliuna::deliver(Notitia::HERE_ORDO aordo)
 	case Notitia::FD_SETWR:
 	case Notitia::FD_SETEX:
 		local_pius.ordo =aordo;
-		aptus->sponte(&local_pius);	//向Sched
+		gCFG->sch->sponte(&local_pius);	//向Sched
 		return ;
 
 	default:

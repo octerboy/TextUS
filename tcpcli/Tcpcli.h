@@ -48,8 +48,8 @@ public:
 	bool annecto_done(); /* 处理未完成的一个连接 */
 	bool isConnecting;	//true:连接中, false:已经连接完成或未开始连接
 
-	int recito(bool up=false);		//接收数据, 返回false时建议关闭套接字 
-	int transmitto(bool up=false);	/* 发送数据, 返回
+	int recito();		//接收数据, 返回false时建议关闭套接字 
+	int transmitto();	/* 发送数据, 返回
 				   0:  发送OK, 也不要设wrSet了.
 				   1:  没发完, 要设wrSet
 				   -1: 有错误, 建议关闭套接字, 但自己不关,
@@ -76,6 +76,8 @@ public:
 	OVERLAPPED rcv_ovp, snd_ovp;
 	WSABUF wsa_snd, wsa_rcv;
 	DWORD rb, flag;
+	int recito_ex();		//接收数据, 返回<0时建议关闭套接字 
+	int transmitto_ex();
 #if defined( _MSC_VER ) && (_MSC_VER < 1400 )
 typedef
 BOOL (PASCAL FAR * LPFN_CONNECTEX) (

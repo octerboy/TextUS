@@ -59,11 +59,13 @@ public:
 	DWORD rb, flag;
 	bool sock_start();
 	LPFN_ACCEPTEX lpfnAcceptEx ;
+	int recito_ex();		//接收数据, 返回<0时建议关闭套接字 
+	int transmitto_ex();	
 #endif
 
 
-	int recito(bool upoll = false);		//接收数据, 返回-1或0时建议关闭套接字 
-	int transmitto(bool upoll = false);	/* 发送数据, 返回
+	int recito();		//接收数据, 返回-1或0时建议关闭套接字 
+	int transmitto();	/* 发送数据, 返回
 				   0:  发送OK, 也不要设wrSet了.
 				   1:  没发完, 要设wrSet
 				   -1: 有错误, 建议关闭套接字, 但自己不关,
