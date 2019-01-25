@@ -54,7 +54,6 @@ public:
 private:
 	Amor::Pius clr_timer_pius, alarm_pius;	/* 清超时, 设超时 */
 	Amor::Pius local_pius;
-	Amor::Pius info_pius;
 	Describo::Criptor mytor; //保存套接字, 各实例不同
 	DPoll::Pollor pollor; /* 保存事件句柄, 各子实例不同 */
 	Amor::Pius epl_set_ps, epl_clr_ps, pro_tbuf_ps;
@@ -69,6 +68,7 @@ private:
 		bool on_start_poineer;
 		int try_interval;	//连接失败后，下一次再发起连接的时间间隔(秒)
 		bool use_epoll;
+		Amor *sch;
 		struct DPoll::PollorBase lor; /* 探询 */
 		inline G_CFG() {
 			block_mode = false;
@@ -76,6 +76,7 @@ private:
 			try_interval = 0;
 			on_start_poineer = true;
 			lor.type = DPoll::NotUsed;
+			sch = 0;
 		};
 	};
 	struct G_CFG *gCFG;
@@ -154,6 +155,7 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 		WBUG("facio PRO_TBUF");
 		if ( tcpcli->connfd < 0 || tcpcli->isConnecting )
 		{
+			Amor::Pius info_pius;
 			info_pius.ordo = Notitia::CHANNEL_NOT_ALIVE;
 			info_pius.indic = 0;
 			aptus->sponte(&info_pius);
@@ -208,7 +210,8 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 				WLOG(INFO, "IOCP recv 0 disconnected");
 				end();
 			} else {
-				rcv_pro( aget->dwNumberOfBytesTransferred , "PRO_EPOLL recv bytes", true);
+				WBUG("PRO_EPOLL recv %d bytes", aget->dwNumberOfBytesTransferred);
+				aptus->sponte(&pro_tbuf_ps);
 			}
 		} else if ( aget->lpOverlapped == &(tcpcli->snd_ovp) ) {
 			//写数据完成
@@ -290,11 +293,19 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 			SLOG(EMERG);
 		}
 #endif
+		tmp_p.ordo = Notitia::CMD_GET_SCHED;
+		aptus->sponte(&tmp_p);	//向tpoll, 取得sched
+		gCFG->sch = (Amor*)tmp_p.indic;
+		if ( !gCFG->sch ) 
+		{
+			WLOG(ERR, "no sched or tpoll");
+			break;
+		}
 		tmp_p.ordo = Notitia::POST_EPOLL;
 		tmp_p.indic = &gCFG->lor;
 		gCFG->lor.pupa = this;
 		
-		aptus->sponte(&tmp_p);	//向tpoll, 取得TPOLL
+		gCFG->sch->sponte(&tmp_p);	//向tpoll, 取得TPOLL
 		if ( tmp_p.indic )
 			gCFG->use_epoll = true;
 		else
@@ -327,6 +338,10 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 			}
 			tb++;
 			if ( *tb) tcpcli->rcv_buf = *tb;
+#if defined(_WIN32)
+			tcpcli->wsa_snd.buf = (char *)tcpcli->snd_buf->base;
+			tcpcli->wsa_rcv.len = RCV_FRAME_SIZE;
+#endif
 		} else 
 			WLOG(NOTICE,"facio PRO_TBUF null.");
 		break;
@@ -365,6 +380,7 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 		WBUG("facio CMD_CHANNEL_PAUSE");
 		if ( gCFG->use_epoll)
 		{
+			gCFG->sch->sponte(&epl_clr_ps); //向tpoll,  注销
 		} else {
 			deliver(Notitia::FD_CLRRD);
 		}
@@ -374,6 +390,7 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 		WBUG("sponte CMD_CHANNEL_RESUME");
 		if ( gCFG->use_epoll)
 		{
+			gCFG->sch->sponte(&epl_set_ps); //向tpoll,  注册
 		} else {
 			deliver(Notitia::FD_SETRD);
 		}
@@ -409,10 +426,10 @@ Tcpcliuna::Tcpcliuna()
 {
 	pollor.pupa = this;
 	pollor.type = DPoll::Sock;
-	epl_set_ps.ordo = Notitia::SET_EPOLL;
-	epl_set_ps.indic = &pollor;
 	epl_clr_ps.ordo = Notitia::CLR_EPOLL;
 	epl_clr_ps.indic = &pollor;
+	epl_set_ps.ordo = Notitia::SET_EPOLL;
+	epl_set_ps.indic = &pollor;
 	pro_tbuf_ps.ordo = Notitia::PRO_TBUF;
 	pro_tbuf_ps.indic = 0;
 
@@ -460,7 +477,7 @@ TINLINE void Tcpcliuna::establish()
 		pollor.pro_ps.ordo = Notitia::ACCEPT_EPOLL;
 #if defined (_WIN32 )	
 		pollor.hnd.sock = tcpcli->connfd;
-		aptus->sponte(&epl_set_ps);	//向tpoll
+		gCFG->sch->sponte(&epl_set_ps);	//向tpoll
 		if ( tcpcli->annecto_ex() )
 		{
 			if ( tcpcli->isConnecting) return;
@@ -501,7 +518,7 @@ TINLINE void Tcpcliuna::establish()
 			EV_SET(&(pollor.events[1]), tcpcli->connfd, EVFILT_WRITE, EV_ADD | EV_DISABLE, 0, 0, &pollor);
 #endif	//for bsd
 
-		aptus->sponte(&epl_set_ps);	//向tpoll
+		gCFG->sch->sponte(&epl_set_ps);	//向tpoll
 
 #if  defined(__linux__)
 		pollor.op = EPOLL_CTL_MOD; //以后操作就是修改了。
@@ -556,7 +573,7 @@ TINLINE void Tcpcliuna::establish_done()
 		pollor.events[1].flags = EV_ADD | EV_DISABLE;
 #endif	//for bsd
 
-		aptus->sponte(&epl_set_ps);	//向tpoll
+		gCFG->sch->sponte(&epl_set_ps);	//向tpoll
 #endif	//for WIN32
 	} else {
 		mytor.scanfd = tcpcli->connfd;
@@ -608,7 +625,11 @@ TINLINE void Tcpcliuna::transmit()
 
 inline void Tcpcliuna::transmit_ep()
 {
+#if defined (_WIN32 )
+	switch ( tcpcli->transmitto_ex() )
+#else
 	switch ( tcpcli->transmitto() )
+#endif
 	{
 	case 0: //没有阻塞, 不变
 		break;
@@ -642,7 +663,9 @@ inline void Tcpcliuna::transmit_ep()
 		pollor.events[1].flags = EV_ADD | EV_ONESHOT;
 #endif	//for bsd
 
-		aptus->sponte(&epl_set_ps);	//向tpoll, 以设置kqueue等
+#if !defined(_WIN32 )
+		gCFG->sch->sponte(&epl_set_ps);	//向tpoll, 以设置kqueue等
+#endif
 		break;
 	
 	case -1://有严重错误, 关闭
@@ -790,14 +813,18 @@ inline void Tcpcliuna::do_recv_ex()
 {
 	long len;
 LOOP:
-	len = tcpcli->recito(gCFG->use_epoll);
+#if defined (_WIN32 )	
+	len = tcpcli->recito_ex();
+#else
+	len = tcpcli->recito();
+#endif
 	switch ( len ) 
 	{
 	case 0:	//Pending
 		SLOG(INFO)
 #if !defined (_WIN32 )	
 		/* action flags and filter for event remain unchanged */
-		aptus->sponte(&epl_set_ps);	//向tpoll,  再一次注册
+		gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
 #endif
 		return;
 		break;
@@ -819,10 +846,11 @@ LOOP:
 #if !defined (_WIN32 )	
 		if ( len < RCV_FRAME_SIZE ) { 
 			/* action flags and filter for event remain unchanged */
-			aptus->sponte(&epl_set_ps);	//向tpoll,  再一次注册
+			gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
 			aptus->sponte(&pro_tbuf_ps);
 			return;	//len 不足8192时即终止
 		}
+#else
 		aptus->sponte(&pro_tbuf_ps);
 #endif
 		break;

@@ -18,7 +18,6 @@
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
-#define FD_SETSIZE 1024
 #if defined(_WIN32)
 #include <winsock2.h>
 #endif
@@ -61,8 +60,6 @@
 #define ERROR_PRO(X)  if ( errMsg ) \
 		TEXTUS_SNPRINTF(errMsg, errstr_len, "%s errno %d, %s.", X, errno, strerror(errno));
 #endif
-
-#define TOR_SIZE FD_SETSIZE
 
 class TPoll: public Amor
 {
@@ -952,7 +949,10 @@ LOOP:
 			break;
 
 		case DPoll::File:
+#if defined (_WIN32)
+			goto WIN_POLL;
 			break;
+#endif
 
 		case DPoll::Sock:
 			WBUG("get DPoll:Sock");
@@ -1036,6 +1036,7 @@ LOOP:
 			PPO->pupa->facio(&poll_ps);
 #endif
 #if defined (_WIN32)
+		WIN_POLL:
 			if ( success ) {
 				poll_ps.ordo = PPO->pro_ps.ordo;
 				poll_ps.indic = &A_GET;

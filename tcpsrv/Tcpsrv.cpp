@@ -91,6 +91,8 @@ Tcpsrv::Tcpsrv()
 #if defined (_WIN32)
 	memset(&rcv_ovp, 0, sizeof(OVERLAPPED));
 	memset(&snd_ovp, 0, sizeof(OVERLAPPED));
+	wsa_rcv.len = RCV_FRAME_SIZE;
+	wsa_snd.buf = (char*)snd_buf->base;
 #endif
 }
 
@@ -356,41 +358,70 @@ void Tcpsrv::endListen()
 	return ;
 }
 
+#if defined(_WIN32)
+int Tcpsrv::recito_ex()
+{	
+	int rc;
+
+	rcv_buf->grant(RCV_FRAME_SIZE);	//保证有足够空间
+	wsa_rcv.buf = (char *)rcv_buf->point;
+	flag = 0;
+	memset(&rcv_ovp, 0, sizeof(OVERLAPPED));
+	rc = WSARecv(connfd, &wsa_rcv, 1, &rb, &flag, &rcv_ovp, NULL);
+	if ( rc == 0 )
+	{
+		if ( rb == 0 ) {
+			if ( errMsg ) 
+				TEXTUS_SNPRINTF(errMsg, errstr_len, "recv 0, disconnected");
+			return -1;
+		}
+		rcv_buf->commit(rb);	/* 指针向后移 */
+		return rb;
+	} else {
+		if ( WSA_IO_PENDING == WSAGetLastError() ) {
+			return 0;
+		} else {
+			ERROR_PRO ("WSARecv");
+			return -2;
+		}
+	}
+}
+
+int Tcpsrv::transmitto_ex()
+{
+	int rc;
+SndAgain:
+	wsa_snd.len = snd_buf->point - snd_buf->base;   //发送长度
+	wsa_snd.buf = (char *)snd_buf->point;
+	memset(&snd_ovp, 0, sizeof(OVERLAPPED));
+	rc = WSASend(connfd, &wsa_snd, 1, &rb, 0, &snd_ovp, NULL);
+
+	if ( rc == 0 )
+	{
+		snd_buf->commit(-(long)rb);
+		if (wsa_snd.len > rb )
+		{	
+			goto SndAgain;
+		} else 
+			return 0;
+	} else {
+		if ( WSA_IO_PENDING == WSAGetLastError() ) {
+			snd_buf->commit(-(long)wsa_snd.len);	//已经到了系统
+			return 1; //回去再试, 
+		} else {
+			ERROR_PRO ("WSASend");
+			return -1;
+		}
+	}
+}
+#endif
+
 /* 接收发生错误时, 建议关闭这个套接字 */
-int Tcpsrv::recito( bool use_epoll)
+int Tcpsrv::recito()
 {	
 	long len;
 
 	rcv_buf->grant(RCV_FRAME_SIZE);	//保证有足够空间
-
-#if defined(_WIN32)
-	if ( use_epoll ) 
-	{
-		int rc;
-		wsa_rcv.buf = (char *)rcv_buf->point;
-		wsa_rcv.len = RCV_FRAME_SIZE;
-		flag = 0;
-		rc = WSARecv(connfd, &wsa_rcv, 1, &rb, &flag, &rcv_ovp, NULL);
-		if ( rc == 0 )
-		{
-			len = rb;
-			if ( len == 0 ) {
-				if ( errMsg ) 
-					TEXTUS_SNPRINTF(errMsg, errstr_len, "recv 0, disconnected");
-				return -1;
-			}
-			goto LAST_COMMIT;
-		} else {
-			if ( WSA_IO_PENDING == WSAGetLastError() ) {
-				return 0;
-			} else {
-				ERROR_PRO ("WSARecv");
-				return -2;
-			}
-		}
-	}
-#endif
-
 ReadAgain:
 	if( (len = recv(connfd, (char *)rcv_buf->point, RCV_FRAME_SIZE, MSG_NOSIGNAL)) == 0) /* (char*) for WIN32 */
 	{	//对方关闭套接字
@@ -418,41 +449,15 @@ ReadAgain:
 			return -2;
 		}
 	}
-#if defined(_WIN32)
-LAST_COMMIT:
-#endif
 	rcv_buf->commit(len);	/* 指针向后移 */
 	return len;
 }
 
 /* 发送有错误时, 返回-1, 建议关闭这个套接字 */
-int Tcpsrv::transmitto(bool use_epoll)
+int Tcpsrv::transmitto()
 {
-	long len;
-	long snd_len = snd_buf->point - snd_buf->base;	//发送长度
-#if defined(_WIN32)
-	if ( use_epoll ) 
-	{
-		int rc;
-		wsa_snd.buf = (char *)snd_buf->point;
-		wsa_snd.len = snd_len;
-		rc = WSASend(connfd, &wsa_snd, 1, &rb, 0, &snd_ovp, NULL);
-
-		if ( rc == 0 )
-		{
-			len = rb;
-			goto LAST_SND_COMMIT;
-		} else {
-			if ( WSA_IO_PENDING == WSAGetLastError() ) {
-				len = wsa_snd.len;
-				goto LAST_SND_COMMIT;
-			} else {
-				ERROR_PRO ("WSASend");
-				return -1;
-			}
-		}
-	}
-#endif
+	long len,snd_len;
+	snd_len = snd_buf->point - snd_buf->base;	//发送长度
 
 SendAgain:
 	len = send(connfd, (char *)snd_buf->base, snd_len, MSG_NOSIGNAL); /* (char*) for WIN32 */
@@ -482,9 +487,6 @@ SendAgain:
 			return -1;
 		}
 	}
-#if defined(_WIN32)
-LAST_SND_COMMIT:
-#endif
 	snd_buf->commit(-len);	//提交所读出的数据
 	if (snd_len > len )
 	{	
@@ -508,7 +510,6 @@ LAST_SND_COMMIT:
 		}
 	}
 }
-
 
 unsigned short Tcpsrv::getSrvPort()
 {

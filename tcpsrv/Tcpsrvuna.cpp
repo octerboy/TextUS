@@ -66,12 +66,14 @@ private:
 		bool lonely;
 		int back_log;
 		bool use_epoll;
+		Amor *sch;
 		struct DPoll::PollorBase lor; /* 探询 */
 		inline G_CFG() {
 			on_start = true;
 			back_log = 100;
 			use_epoll = false;
 			lor.type = DPoll::NotUsed;
+			sch = 0;
 		};
 	};
 	struct G_CFG *gCFG;
@@ -191,7 +193,7 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 #else
 		parent_accept(); /* 既然由侦听实例, 必是建立新连接 */
 		/* action flags and filter for event remain unchanged */
-		aptus->sponte(&epl_set_ps);	//向tpoll,  再一次注册
+		gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
 #endif
 		break;
 
@@ -212,7 +214,8 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 				WLOG(INFO, "IOCP recv 0 disconnected");
 				end();
 			} else {
-				child_rcv_pro( aget->dwNumberOfBytesTransferred , "child_pro PRO_EPOLL recv bytes");
+				WBUG("child PRO_EPOLL recv %d bytes", aget->dwNumberOfBytesTransferred);
+				aptus->sponte(&pro_tbuf_ps);
 			}
 		} else if ( aget->lpOverlapped == &(tcpsrv->snd_ovp) ) {
 			//写数据完成
@@ -301,6 +304,14 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 		
 	case Notitia::IGNITE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY");		
+		tmp_p.ordo = Notitia::CMD_GET_SCHED;
+		aptus->sponte(&tmp_p);	//向tpoll, 取得sched
+		gCFG->sch = (Amor*)tmp_p.indic;
+		if ( !gCFG->sch ) 
+		{
+			WLOG(ERR, "no sched or tpoll");
+			break;
+		}
 		tmp_p.ordo = Notitia::POST_EPOLL;
 		tmp_p.indic = &gCFG->lor;
 		gCFG->lor.pupa = this;
@@ -311,7 +322,7 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 			SLOG(EMERG);
 		}
 #endif
-		aptus->sponte(&tmp_p);	//向tpoll, 取得TPOLL
+		gCFG->sch->sponte(&tmp_p);	//向tpoll, 取得TPOLL
 		if ( tmp_p.indic )
 			gCFG->use_epoll = true;
 		else
@@ -388,12 +399,20 @@ bool Tcpsrvuna::sponte( Amor::Pius *pius)
 	
 	case Notitia::CMD_CHANNEL_PAUSE :
 		WBUG("sponte CMD_CHANNEL_PAUSE");
-		deliver(Notitia::FD_CLRRD);
+		if (gCFG->use_epoll ) {
+			gCFG->sch->sponte(&epl_clr_ps);	//向tpoll,  注销
+		} else {
+			deliver(Notitia::FD_CLRRD);
+		}
 		break;
 
 	case Notitia::CMD_CHANNEL_RESUME :
 		WBUG("sponte CMD_CHANNEL_RESUME");
-		deliver(Notitia::FD_SETRD);
+		if (gCFG->use_epoll ) {
+			gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  注册
+		} else {
+			deliver(Notitia::FD_SETRD);
+		}
 		break;
 
 	default:
@@ -480,7 +499,7 @@ TINLNE void Tcpsrvuna::parent_begin()
 		EV_SET(&(pollor.events[0]), tcpsrv->listenfd, EVFILT_READ, EV_ADD | EV_ONESHOT, 0, 0, &pollor);
 		EV_SET(&(pollor.events[1]), tcpsrv->listenfd, EVFILT_WRITE, EV_ADD | EV_DISABLE, 0, 0, &pollor);
 #endif	//for bsd
-		aptus->sponte(&epl_set_ps);	//向tpoll
+		gCFG->sch->sponte(&epl_set_ps);	//向tpoll
 
 #if  defined(__linux__)
 		pollor.op = EPOLL_CTL_MOD; //以后操作就是修改了。
@@ -541,14 +560,18 @@ inline void Tcpsrvuna::do_recv_ex()
 {
 	long len;
 LOOP:
-	len = tcpsrv->recito(gCFG->use_epoll);
+#if defined (_WIN32 )	
+	len = tcpsrv->recito_ex();
+#else
+	len = tcpsrv->recito();
+#endif
 	switch ( len ) 
 	{
 	case 0:	//Pending
 		SLOG(INFO)
 #if !defined (_WIN32 )	
 		/* action flags and filter for event remain unchanged */
-		aptus->sponte(&epl_set_ps);	//向tpoll,  再一次注册
+		gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
 #endif
 		return;
 		break;
@@ -570,10 +593,11 @@ LOOP:
 #if !defined (_WIN32 )	
 		if ( len < RCV_FRAME_SIZE ) { 
 			/* action flags and filter for event remain unchanged */
-			aptus->sponte(&epl_set_ps);	//向tpoll,  再一次注册
+			gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
 			aptus->facio(&pro_tbuf_ps);
 			return;	//len 不足8192时即终止
 		}
+#else
 		aptus->facio(&pro_tbuf_ps);
 #endif
 		break;
@@ -606,7 +630,7 @@ TINLNE void Tcpsrvuna::child_begin()
 		EV_SET(&(pollor.events[1]), tcpsrv->connfd, EVFILT_WRITE, EV_ADD|EV_DISABLE, 0, 0, &pollor);
 #endif	//for bsd
 
-		aptus->sponte(&epl_set_ps);	//向tpoll, 以设置iocp等
+		gCFG->sch->sponte(&epl_set_ps);	//向tpoll, 以设置iocp等
 		/* 以下是后续操作 */
 
 #if  defined(__linux__)
@@ -669,22 +693,26 @@ inline void Tcpsrvuna::new_conn_pro()
 
 TINLNE void Tcpsrvuna::child_transmit_ep()
 {
-	switch ( tcpsrv->transmitto(true) )
+#if defined (_WIN32 )	
+	switch ( tcpsrv->transmitto_ex() )
+#else
+	switch ( tcpsrv->transmitto() )
+#endif
 	{
 	case 0: //没有阻塞, 不变
 		break;
 	
 	case 2: //原有阻塞, 没有阻塞了, 清一下
 #if  defined(__linux__)
-		pollor.ev.events &= ~EPOLLOUT;	//等下一次设置POLLIN时不再设
+		pollor.ev.events &= ~EPOLLOUT;	//等下一次设置POLLIN时再清
 #endif	//for linux
 
 #if  defined(__sun)
-		pollor.events &= ~POLLOUT;	//等下一次设置POLLIN时不再设
+		pollor.events &= ~POLLOUT;	//等下一次设置POLLIN时再清
 #endif	//for sun
 
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
-		pollor.events[1].flags = EV_ADD | EV_DISABLE;	//等下一次设置时不再设
+		pollor.events[1].flags = EV_ADD | EV_DISABLE;	//等下一次设置时再清
 #endif	//for bsd
 		break;
 		
@@ -703,7 +731,9 @@ TINLNE void Tcpsrvuna::child_transmit_ep()
 		pollor.events[1].flags = EV_ADD | EV_ONESHOT;
 #endif	//for bsd
 
-		aptus->sponte(&epl_set_ps);	//向tpoll, 以设置kqueue等
+#if !defined(_WIN32)	
+		gCFG->sch->sponte(&epl_set_ps);	//向tpoll, 以设置kqueue等
+#endif
 		break;
 	
 	case -1://有严重错误, 关闭
@@ -842,4 +872,3 @@ TINLNE void Tcpsrvuna::deliver(Notitia::HERE_ORDO aordo)
 	aptus->facio(&tmp_pius);
 }
 #include "hook.c"
-
