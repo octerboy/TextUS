@@ -611,9 +611,11 @@ TINLNE void Tcpsrvuna::child_begin()
 {	
 	if (gCFG->use_epoll)
 	{
-		pollor.pro_ps.ordo = Notitia::RD_EPOLL;
 #if defined (_WIN32 )	
 		pollor.hnd.sock = tcpsrv->connfd;
+		pollor.pro_ps.ordo = Notitia::PRO_EPOLL;
+#else
+		pollor.pro_ps.ordo = Notitia::RD_EPOLL;
 #endif
 
 #if  defined(__linux__)

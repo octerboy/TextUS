@@ -556,11 +556,12 @@ TINLINE void Tcpcliuna::establish_done()
 
 	if ( gCFG->use_epoll ) 
 	{
-		pollor.pro_ps.ordo = Notitia::RD_EPOLL;
 #if defined (_WIN32 )	
+		pollor.pro_ps.ordo = Notitia::PRO_EPOLL;
 		/* 主动去接收, 如果一开始有数据, 则先接收; 另外实现IOCP投递 */
 		do_recv_ex();
 #else //other unix like 
+		pollor.pro_ps.ordo = Notitia::RD_EPOLL;
 #if  defined(__linux__)
 		pollor.ev.events &= ~EPOLLOUT;
 #endif	//for linux

@@ -394,11 +394,14 @@ bool TPoll::sponte( Amor::Pius *apius)
 			break;
 		}
 
+		WBUG("%p %s(handle=%p) ", ppo->pupa, "sponte SET_EPOLL", port_hnd );
+		/*
 		if ( !SetFileCompletionNotificationModes(port_hnd, FILE_SKIP_COMPLETION_PORT_ON_SUCCESS) )
 		{
 			ERROR_PRO("SetFileCompletionNotificationModes failed");
 			WLOG(WARNING, errMsg);
 		}
+		*/
 		hPort = CreateIoCompletionPort(port_hnd, iocp_port, (ULONG_PTR)ppo /* completion key */, number_threads);  
 		if (hPort == NULL)  
 		{ 

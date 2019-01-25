@@ -347,6 +347,7 @@ int Tcpcli::recito_ex()
 	rcv_buf->grant(RCV_FRAME_SIZE);	//保证有足够空间
 	wsa_rcv.buf = (char *)rcv_buf->point;
 	flag = 0;
+	rb = 0;
 	memset(&rcv_ovp, 0, sizeof(OVERLAPPED));
 	rc = WSARecv(connfd, &wsa_rcv, 1, &rb, &flag, &rcv_ovp, NULL);
 	if ( rc == 0 )
@@ -373,7 +374,7 @@ int Tcpcli::transmitto_ex()
 	int rc;
 SndAgain:
 	wsa_snd.len = snd_buf->point - snd_buf->base;   //发送长度
-	wsa_snd.buf = (char *)snd_buf->point;
+	wsa_snd.buf = (char *)snd_buf->base;
 	memset(&snd_ovp, 0, sizeof(OVERLAPPED));
 	rc = WSASend(connfd, &wsa_snd, 1, &rb, 0, &snd_ovp, NULL);
 
