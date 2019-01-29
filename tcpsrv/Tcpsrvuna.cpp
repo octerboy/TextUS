@@ -103,7 +103,6 @@ private:
 #if defined (_WIN32 )	
 	inline void do_accept_ex();
 #endif	//for WIN32
-	inline void do_recv_ex();
 #include "wlog.h"
 };
 
@@ -153,6 +152,7 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 {
 	TiXmlElement *cfg;
 	Amor::Pius tmp_p;
+	long len;
 
 #if defined (_WIN32 )	
 	OVERLAPPED_ENTRY *aget;
@@ -215,23 +215,55 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 				end();
 			} else {
 				WBUG("child PRO_EPOLL recv %d bytes", aget->dwNumberOfBytesTransferred);
+				tcpsrv->rcv_buf->commit(aget->dwNumberOfBytesTransferred);
 				aptus->facio(&pro_tbuf_ps);
+				if ( !tcpsrv->recito_ex())
+				{
+					SLOG(ERR)
+					end();	//失败即关闭
+				}
 			}
 		} else if ( aget->lpOverlapped == &(tcpsrv->snd_ovp) ) {
-			//写数据完成
-			if ( tcpsrv->snd_buf->point > tcpsrv->snd_buf->base )	//继续写
-				child_transmit_ep();
+			WBUG("child PRO_EPOLL sent %d bytes", aget->dwNumberOfBytesTransferred); //写数据完成
 		} else {
 			WLOG(ALERT, "not my overlap");
-			break;
 		}
-		do_recv_ex();
 #endif
 		break;
 
 	case Notitia::RD_EPOLL:
 		WBUG("facio RD_EPOLL");
-		do_recv_ex();
+LOOP:
+		switch ( (len = tcpsrv->recito()) ) 
+		{
+		case 0:	//Pending
+			SLOG(INFO)
+			/* action flags and filter for event remain unchanged */
+			gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
+			break;
+
+		case -1://Close
+			SLOG(INFO)
+			end();	//失败即关闭
+			break;
+
+		case -2://Error
+			SLOG(NOTICE)
+			end();	//失败即关闭
+			break;
+
+		default:	
+			WBUG("child recv %ld bytes", len);
+			if ( len < RCV_FRAME_SIZE ) { 
+				/* action flags and filter for event remain unchanged */
+				gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
+				aptus->facio(&pro_tbuf_ps);
+			} else {
+				aptus->facio(&pro_tbuf_ps);
+				goto LOOP;
+			}
+			break;
+		}
 		break;
 
 	case Notitia::WR_EPOLL:
@@ -558,57 +590,10 @@ inline void Tcpsrvuna::do_accept_ex()
 }
 #endif
 
-inline void Tcpsrvuna::do_recv_ex()
-{
-	long len;
-LOOP:
-#if defined (_WIN32 )	
-	len = tcpsrv->recito_ex();
-#else
-	len = tcpsrv->recito();
-#endif
-	switch ( len ) 
-	{
-	case 0:	//Pending
-		SLOG(INFO)
-#if !defined (_WIN32 )	
-		/* action flags and filter for event remain unchanged */
-		gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
-#endif
-		return;
-		break;
-
-	case -1://Close
-		SLOG(INFO)
-		end();	//失败即关闭
-		return;
-		break;
-
-	case -2://Error
-		SLOG(NOTICE)
-		end();	//失败即关闭
-		return;
-		break;
-
-	default:	
-		WBUG("child recv %ld bytes", len);
-#if !defined (_WIN32 )	
-		if ( len < RCV_FRAME_SIZE ) { 
-			/* action flags and filter for event remain unchanged */
-			gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
-			aptus->facio(&pro_tbuf_ps);
-			return;	//len 不足8192时即终止
-		}
-#else
-		aptus->facio(&pro_tbuf_ps);
-#endif
-		break;
-	}
-	goto LOOP;
-}
-
 TINLNE void Tcpsrvuna::child_begin()
 {	
+	tcpsrv->rcv_buf->reset();	//TCP接收(发送)缓冲区清空
+	tcpsrv->snd_buf->reset();
 	if (gCFG->use_epoll)
 	{
 #if defined (_WIN32 )	
@@ -643,7 +628,12 @@ TINLNE void Tcpsrvuna::child_begin()
 
 #if defined (_WIN32 )	
 		/* 主动去接收, 如果一开始有数据, 则先接收; 另外实现IOCP投递 */
-		do_recv_ex();
+		if ( !tcpsrv->recito_ex())
+		{
+			SLOG(ERR)
+			end();	//失败即关闭
+			return;
+		}
 #endif	//for WIN32
 	} else {
 		my_tor.scanfd = tcpsrv->connfd;
@@ -651,8 +641,6 @@ TINLNE void Tcpsrvuna::child_begin()
 		gCFG->sch->sponte(&local_pius);	//向Sched, 以设置rdSet.
 	}
 
-	tcpsrv->rcv_buf->reset();	//TCP接收(发送)缓冲区清空
-	tcpsrv->snd_buf->reset();
 	deliver(Notitia::START_SESSION); //向接力者发出通知, 本对象开始会话
 	return;
 }
@@ -829,8 +817,9 @@ TINLNE void Tcpsrvuna::end(bool down)
 	
 		local_pius.ordo = Notitia::FD_CLRWR;
 		gCFG->sch->sponte(&local_pius);	//向Sched, 以清wrSet.
-	}
-	/* just close for all kinds of system  */
+	} 
+	// else gCFG->sch->sponte(&epl_clr_ps);	//向tpoll,  注销
+	/* just close for all kinds of system ?  */
 
 	if ( down)
 		tcpsrv->end();		//Tcpsrv也关闭

@@ -56,10 +56,10 @@ public:
 	OVERLAPPED rcv_ovp, snd_ovp;
 	char accept_buf[128];
 	WSABUF wsa_snd, wsa_rcv;
-	DWORD rb, flag;
+	DWORD flag;
 	bool sock_start();
 	LPFN_ACCEPTEX lpfnAcceptEx ;
-	int recito_ex();		//接收数据, 返回<0时建议关闭套接字 
+	bool recito_ex();		//接收数据, 返回<0时建议关闭套接字 
 	int transmitto_ex();	
 #endif
 

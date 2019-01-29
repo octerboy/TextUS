@@ -359,55 +359,35 @@ void Tcpsrv::endListen()
 }
 
 #if defined(_WIN32)
-int Tcpsrv::recito_ex()
+bool Tcpsrv::recito_ex()
 {	
 	int rc;
 
 	rcv_buf->grant(RCV_FRAME_SIZE);	//保证有足够空间
 	wsa_rcv.buf = (char *)rcv_buf->point;
 	flag = 0;
-	rb = 0;
 	memset(&rcv_ovp, 0, sizeof(OVERLAPPED));
-	rc = WSARecv(connfd, &wsa_rcv, 1, &rb, &flag, &rcv_ovp, NULL);
-	if ( rc == 0 )
+	rc = WSARecv(connfd, &wsa_rcv, 1, NULL, &flag, &rcv_ovp, NULL);
+	if ( rc != 0 )
 	{
-		printf("rc recv %d\n", rb);
-		for ( int i = 0; i < rb; i++ ) printf("%02x ", rcv_buf->base[i]); printf("\n");
-		if ( rb == 0 ) {
-			if ( errMsg ) 
-				TEXTUS_SNPRINTF(errMsg, errstr_len, "recv 0, disconnected");
-			return -1;
-		}
-		rcv_buf->commit(rb);	/* 指针向后移 */
-		return rb;
-	} else {
-		if ( WSA_IO_PENDING == WSAGetLastError() ) {
-			return 0;
-		} else {
-			ERROR_PRO ("WSARecv");
-			return -2;
+		if ( WSA_IO_PENDING != WSAGetLastError() ) {
+			ERROR_PRO ("WSARecv when connected");
+			return false;
 		}
 	}
+	return true;
 }
 
 int Tcpsrv::transmitto_ex()
 {
 	int rc;
-SndAgain:
 	wsa_snd.len = snd_buf->point - snd_buf->base;   //发送长度
 	wsa_snd.buf = (char *)snd_buf->base;
 	memset(&snd_ovp, 0, sizeof(OVERLAPPED));
-	rc = WSASend(connfd, &wsa_snd, 1, &rb, 0, &snd_ovp, NULL);
+	rc = WSASend(connfd, &wsa_snd, 1, NULL, 0, &snd_ovp, NULL);
 
-	if ( rc == 0 )
+	if ( rc != 0 )
 	{
-		snd_buf->commit(-(long)rb);
-		if (wsa_snd.len > rb )
-		{	
-			goto SndAgain;
-		} else 
-			return 0;
-	} else {
 		if ( WSA_IO_PENDING == WSAGetLastError() ) {
 			snd_buf->commit(-(long)wsa_snd.len);	//已经到了系统
 			return 1; //回去再试, 
@@ -416,6 +396,8 @@ SndAgain:
 			return -1;
 		}
 	}
+	snd_buf->commit(-(long)wsa_snd.len);	//已经到了系统
+	return 0;
 }
 #endif
 

@@ -76,7 +76,7 @@ public:
 	OVERLAPPED rcv_ovp, snd_ovp;
 	WSABUF wsa_snd, wsa_rcv;
 	DWORD rb, flag;
-	int recito_ex();		//接收数据, 返回<0时建议关闭套接字 
+	bool recito_ex();		//接收数据, 返回<0时建议关闭套接字 
 	int transmitto_ex();
 #if defined( _MSC_VER ) && (_MSC_VER < 1400 )
 typedef

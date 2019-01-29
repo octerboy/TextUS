@@ -108,7 +108,30 @@ bool Tcpcli::sock_start()
 		ERROR_PRO("WSAIoctl");
 		return false;
 	}
+	return true;
+}
 
+bool Tcpcli::annecto_ex()
+{
+	DWORD dwBytes =0 ;
+	BOOL bRetVal = FALSE;
+
+	// Empty our overlapped structure and accept connections.
+	memset(&rcv_ovp, 0, sizeof(OVERLAPPED));
+
+	bRetVal = lpfnConnectEx(connfd,  (struct sockaddr *)&servaddr, sizeof(servaddr), 
+				(PVOID)snd_buf->point, snd_buf->point - snd_buf->base, &dwBytes, &rcv_ovp);
+	if (bRetVal == FALSE) { 
+		if (  ERROR_IO_PENDING  == WSAGetLastError() ) {
+			return true;
+		} else {
+			ERROR_PRO("lpfnConnectEx")
+			this->end(false);
+			return false;
+		}
+	}
+	if ( dwBytes > 0 )
+		snd_buf->commit(-(long)dwBytes);	//提交所读出的数据
 	return true;
 }
 #endif
@@ -233,32 +256,6 @@ bool Tcpcli::annecto()
 	return true;
 }
 
-#if defined (_WIN32)
-bool Tcpcli::annecto_ex()
-{
-	DWORD dwBytes =0 ;
-	BOOL bRetVal = FALSE;
-
-	// Empty our overlapped structure and accept connections.
-	memset(&rcv_ovp, 0, sizeof(OVERLAPPED));
-
-	bRetVal = lpfnConnectEx(connfd,  (struct sockaddr *)&servaddr, sizeof(servaddr), 
-				(PVOID)snd_buf->point, snd_buf->point - snd_buf->base, &dwBytes, &rcv_ovp);
-	if (bRetVal == FALSE) { 
-		if (  ERROR_IO_PENDING  == WSAGetLastError() ) {
-			return true;
-		} else {
-			ERROR_PRO("lpfnConnectEx")
-			this->end(false);
-			return false;
-		}
-	}
-	if ( dwBytes > 0 )
-		snd_buf->commit(-(long)dwBytes);	//提交所读出的数据
-	return true;
-}
-#endif
-
 /* 一个TCP连接完成, nonblock方式下用 */
 bool Tcpcli::annecto_done()
 {
@@ -340,53 +337,35 @@ void Tcpcli::herit(Tcpcli *child)
 }
 
 #if defined(_WIN32)
-int Tcpcli::recito_ex()
+bool Tcpcli::recito_ex()
 {	
 	int rc;
 
 	rcv_buf->grant(RCV_FRAME_SIZE);	//保证有足够空间
 	wsa_rcv.buf = (char *)rcv_buf->point;
 	flag = 0;
-	rb = 0;
 	memset(&rcv_ovp, 0, sizeof(OVERLAPPED));
-	rc = WSARecv(connfd, &wsa_rcv, 1, &rb, &flag, &rcv_ovp, NULL);
-	if ( rc == 0 )
+	rc = WSARecv(connfd, &wsa_rcv, 1, NULL, &flag, &rcv_ovp, NULL);
+	if ( rc != 0 )
 	{
-		if ( rb == 0 ) {
-			if ( errMsg ) 
-				TEXTUS_SNPRINTF(errMsg, errstr_len, "recv 0, disconnected");
-			return -1;
-		}
-		rcv_buf->commit(rb);	/* 指针向后移 */
-		return rb;
-	} else {
-		if ( WSA_IO_PENDING == WSAGetLastError() ) {
-			return 0;
-		} else {
-			ERROR_PRO ("WSARecv");
-			return -2;
+		if ( WSA_IO_PENDING != WSAGetLastError() ) {
+			ERROR_PRO ("WSARecv when connected");
+			return false;
 		}
 	}
+	return true;
 }
 
 int Tcpcli::transmitto_ex()
 {
 	int rc;
-SndAgain:
 	wsa_snd.len = snd_buf->point - snd_buf->base;   //发送长度
 	wsa_snd.buf = (char *)snd_buf->base;
 	memset(&snd_ovp, 0, sizeof(OVERLAPPED));
-	rc = WSASend(connfd, &wsa_snd, 1, &rb, 0, &snd_ovp, NULL);
+	rc = WSASend(connfd, &wsa_snd, 1, NULL, 0, &snd_ovp, NULL);
 
-	if ( rc == 0 )
+	if ( rc != 0 )
 	{
-		snd_buf->commit(-(long)rb);
-		if (wsa_snd.len > rb )
-		{	
-			goto SndAgain;
-		} else 
-			return 0;
-	} else {
 		if ( WSA_IO_PENDING == WSAGetLastError() ) {
 			snd_buf->commit(-(long)wsa_snd.len);	//已经到了系统
 			return 1; //回去再试, 
@@ -395,6 +374,8 @@ SndAgain:
 			return -1;
 		}
 	}
+	snd_buf->commit(-(long)wsa_snd.len);	//已经到了系统
+	return 0;
 }
 #endif
 
@@ -440,7 +421,6 @@ int Tcpcli::transmitto()
 {
 	long len, snd_len ;
 	snd_len = snd_buf->point - snd_buf->base;	//发送长度
-
 SendAgain:
 	len = send(connfd, (char *)snd_buf->base, snd_len, MSG_NOSIGNAL); /* (char*) for WIN32 */
 	if( len == SOCKET_ERROR )
@@ -492,5 +472,4 @@ SendAgain:
 		}
 	}
 }
-
 

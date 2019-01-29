@@ -91,7 +91,6 @@ private:
 	TINLINE void release();
 	TINLINE void errpro();
 	TINLINE void rcv_pro(long len, const char *msg, bool outer=false);
-	inline void do_recv_ex();
 
 #include "wlog.h"
 };
@@ -141,9 +140,11 @@ void Tcpcliuna::ignite(TiXmlElement *cfg)
 bool Tcpcliuna::facio( Amor::Pius *pius)
 {
 	const char *ip_str;
-	TiXmlElement *cfg;
 	TBuffer **tb;
+	TiXmlElement *cfg;
 	Amor::Pius tmp_p;
+	long len;
+
 #if defined (_WIN32 )	
 	OVERLAPPED_ENTRY *aget;
 #endif	//for WIN32
@@ -176,7 +177,7 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 		{
 			establish_done();
 		} else {
-			WLOG(ALERT, "parent_pro: not my overlap");
+			WLOG(ALERT, "accept_epoll: not my overlap");
 		}
 #else
 		establish_done();
@@ -211,23 +212,55 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 				end();
 			} else {
 				WBUG("PRO_EPOLL recv %d bytes", aget->dwNumberOfBytesTransferred);
+				tcpcli->rcv_buf->commit(aget->dwNumberOfBytesTransferred);
 				aptus->sponte(&pro_tbuf_ps);
+				if ( !tcpcli->recito_ex())
+				{
+					SLOG(ERR)
+					end();	//失败即关闭
+				}
 			}
 		} else if ( aget->lpOverlapped == &(tcpcli->snd_ovp) ) {
-			//写数据完成
-			if ( tcpcli->snd_buf->point > tcpcli->snd_buf->base )	//继续写
-				transmit_ep();
+			WBUG("client PRO_EPOLL sent %d bytes", aget->dwNumberOfBytesTransferred); //写数据完成
 		} else {
 			WLOG(ALERT, "not my overlap");
-			break;
 		}
-		do_recv_ex();
 #endif
 		break;
 
 	case Notitia::RD_EPOLL:
 		WBUG("facio RD_EPOLL");
-		do_recv_ex();
+LOOP:
+		switch ( (len = tcpcli->recito()) ) 
+		{
+		case 0:	//Pending
+			SLOG(INFO)
+			/* action flags and filter for event remain unchanged */
+			gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
+			break;
+
+		case -1://Close
+			SLOG(INFO)
+			end();	//失败即关闭
+			break;
+
+		case -2://Error
+			SLOG(NOTICE)
+			end();	//失败即关闭
+			break;
+
+		default:	
+			WBUG("client recv %ld bytes", len);
+			if ( len < RCV_FRAME_SIZE ) { 
+				/* action flags and filter for event remain unchanged */
+				gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
+				aptus->sponte(&pro_tbuf_ps);
+			} else {
+				aptus->sponte(&pro_tbuf_ps);
+				goto LOOP;
+			}
+			break;
+		}
 		break;
 
 	case Notitia::WR_EPOLL:
@@ -482,7 +515,12 @@ TINLINE void Tcpcliuna::establish()
 		{
 			if ( tcpcli->isConnecting) return;
 			establish_done();
-			do_recv_ex();
+			if ( !tcpcli->recito_ex())
+			{
+				SLOG(ERR)
+				end();	//失败即关闭
+				return;
+			}
 		} else {
 			errpro();
 		}
@@ -557,11 +595,12 @@ TINLINE void Tcpcliuna::establish_done()
 	if ( gCFG->use_epoll ) 
 	{
 #if defined (_WIN32 )	
+		pollor.hnd.sock = tcpcli->connfd;
 		pollor.pro_ps.ordo = Notitia::PRO_EPOLL;
-		/* 主动去接收, 如果一开始有数据, 则先接收; 另外实现IOCP投递 */
-		do_recv_ex();
 #else //other unix like 
 		pollor.pro_ps.ordo = Notitia::RD_EPOLL;
+#endif	//for WIN32
+
 #if  defined(__linux__)
 		pollor.ev.events &= ~EPOLLOUT;
 #endif	//for linux
@@ -575,6 +614,14 @@ TINLINE void Tcpcliuna::establish_done()
 #endif	//for bsd
 
 		gCFG->sch->sponte(&epl_set_ps);	//向tpoll
+#if defined (_WIN32 )	
+		/* 主动去接收, 如果一开始有数据, 则先接收; 另外实现IOCP投递 */
+		if ( !tcpcli->recito_ex())
+		{
+			SLOG(ERR)
+			end();	//失败即关闭
+			return;
+		}
 #endif	//for WIN32
 	} else {
 		mytor.scanfd = tcpcli->connfd;
@@ -807,54 +854,5 @@ inline void Tcpcliuna::rcv_pro(long len, const char *msg, bool outer)
 		}
 		if ( len < 0 )  end(outer);	//失败即关闭
 	}
-}
-
-inline void Tcpcliuna::do_recv_ex()
-{
-	long len;
-LOOP:
-#if defined (_WIN32 )	
-	len = tcpcli->recito_ex();
-#else
-	len = tcpcli->recito();
-#endif
-	switch ( len ) 
-	{
-	case 0:	//Pending
-		SLOG(INFO)
-#if !defined (_WIN32 )	
-		/* action flags and filter for event remain unchanged */
-		gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
-#endif
-		return;
-		break;
-
-	case -1://Close
-		SLOG(INFO)
-		end();	//失败即关闭
-		return;
-		break;
-
-	case -2://Error
-		SLOG(NOTICE)
-		end(true);	//失败即关闭
-		return;
-		break;
-
-	default:	
-		WBUG("client recv %ld bytes", len);
-#if !defined (_WIN32 )	
-		if ( len < RCV_FRAME_SIZE ) { 
-			/* action flags and filter for event remain unchanged */
-			gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
-			aptus->sponte(&pro_tbuf_ps);
-			return;	//len 不足8192时即终止
-		}
-#else
-		aptus->sponte(&pro_tbuf_ps);
-#endif
-		break;
-	}
-	goto LOOP;
 }
 #include "hook.c"

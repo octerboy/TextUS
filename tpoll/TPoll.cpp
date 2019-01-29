@@ -308,8 +308,8 @@ bool TPoll::sponte( Amor::Pius *apius)
 	case Notitia::CLR_EPOLL :	/* clear epoll  */
 		ppo = (DPoll::Pollor *)apius->indic;	
 		assert(ppo);
-		WBUG("%p %s", ppo->pupa, "sponte CLR_EPOLL");
 #if defined(__sun)
+		WBUG("%p %s", ppo->pupa, "sponte CLR_EPOLL(port_dissociate)");
 		if( !port_dissociate(ev_port, PORT_SOURCE_FD, ppo->fd) )
 		{
 			ERROR_PRO("port_dissociate(PORT_SOURCE_FD) failed");
@@ -318,6 +318,7 @@ bool TPoll::sponte( Amor::Pius *apius)
 #endif
 
 #if defined(__linux__)
+		WBUG("%p %s", ppo->pupa, "sponte CLR_EPOLL(epoll_ctl)");
 		if( !epoll_ctl(epfd, EPOLL_CTL_DEL, ppo->fd, &ppo->ev) )
 		{
 			ERROR_PRO("epoll_ctl failed");
@@ -325,6 +326,7 @@ bool TPoll::sponte( Amor::Pius *apius)
 		}
 #endif	//for linux
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
+		WBUG("%p %s", ppo->pupa, "sponte CLR_EPOLL(kevent)");
 		flg1 = ppo->events[0].flags ;
 		flg2 = ppo->events[1].flags ;
 		ppo->events[0].flags = EV_DELETE;
@@ -395,13 +397,13 @@ bool TPoll::sponte( Amor::Pius *apius)
 		}
 
 		WBUG("%p %s(handle=%p) ", ppo->pupa, "sponte SET_EPOLL", port_hnd );
-		/*
+/*
 		if ( !SetFileCompletionNotificationModes(port_hnd, FILE_SKIP_COMPLETION_PORT_ON_SUCCESS) )
 		{
 			ERROR_PRO("SetFileCompletionNotificationModes failed");
 			WLOG(WARNING, errMsg);
 		}
-		*/
+*/
 		hPort = CreateIoCompletionPort(port_hnd, iocp_port, (ULONG_PTR)ppo /* completion key */, number_threads);  
 		if (hPort == NULL)  
 		{ 
