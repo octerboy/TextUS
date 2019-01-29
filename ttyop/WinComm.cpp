@@ -121,7 +121,6 @@ private:
 	char errMsg[ERRSTR_LEN];
 
 	OVERLAPPED ovlpW, ovlpR;
-	DWORD rb;
 	HANDLE hdev;		/* 串口访问文件句柄 */
 	char comm_name[128];
 	DWORD baud_rate;       /* Baudrate at which running       */
@@ -404,6 +403,8 @@ bool WinComm::facio( Amor::Pius *pius)
 	{
 	case Notitia::PRO_TBUF :
 		WBUG("facio PRO_TBUF");
+		transmitto_ex();
+/*
 		if ( hdev == INVALID_HANDLE_VALUE )
 		{
 			Amor::Pius info_pius;
@@ -413,6 +414,7 @@ bool WinComm::facio( Amor::Pius *pius)
 		} else {
 			transmitto_ex();
 		}
+*/
 		break;
 
 	case Notitia::SET_TBUF:	/* 取得输入TBuffer地址 */
@@ -452,7 +454,7 @@ bool WinComm::facio( Amor::Pius *pius)
 		gCFG->lor.pupa = this;
 		
 		gCFG->sch->sponte(&tmp_pius);	//向tpoll, 取得TPOLL
-		if ( !tmp_pius.indic ) break;
+		if ( tmp_pius.indic != gCFG->sch ) break;
 
 		if ( gCFG->on_start )
 			open_comm();
@@ -463,7 +465,7 @@ bool WinComm::facio( Amor::Pius *pius)
 			0x14 ,0x99 ,0x77 ,0x88 ,0x77 ,0x35 ,0x40 ,0x32 ,0x03 ,0xaf
 			};
 		 rcv_buf->input(snd1, 28);
-		aptus->facio(&pro_tbuf);
+		aptus->sponte(&pro_tbuf_ps);
 		}
 */
 		break;
@@ -501,6 +503,7 @@ bool WinComm::facio( Amor::Pius *pius)
 				close_comm();
 			} else {
 				WBUG("PRO_EPOLL recv %d bytes", aget->dwNumberOfBytesTransferred);
+				rcv_buf->commit(aget->dwNumberOfBytesTransferred);
 				if ( isCli ) 
 					aptus->sponte(&pro_tbuf_ps);
 				else
@@ -545,10 +548,10 @@ bool WinComm::sponte( Amor::Pius *pius)
 		{	//当然tb不能为空
 			if ( *tb) 
 			{	//新到请求的TBuffer
-				snd_buf = *tb;
+				rcv_buf = *tb;
 			}
 			tb++;
-			if ( *tb) rcv_buf = *tb;
+			if ( *tb) snd_buf = *tb;
 		} else 
 			WLOG(NOTICE,"facio PRO_TBUF null.");
 		break;
@@ -614,47 +617,32 @@ WinComm::~WinComm()
 
 void WinComm::transmitto_ex()
 {
-SndAgain:
 	DWORD snd_len = snd_buf->point - snd_buf->base;	//发送长度
 	memset(&ovlpW, 0, sizeof(OVERLAPPED));
-	if ( WriteFile(hdev, snd_buf->base, snd_len, &rb, &ovlpW) )
+	if ( !WriteFile(hdev, snd_buf->base, snd_len, NULL, &ovlpW) )
 	{
-		snd_buf->commit(-(long)rb);
-		if (snd_len > rb )
-		{	
-			goto SndAgain;
-		}
-	} else {
-		if ( ERROR_IO_PENDING == GetLastError() ) {
-			snd_buf->commit(-(long)snd_len);	//已经到了系统
-		} else {
+		if ( ERROR_IO_PENDING != GetLastError() ) {
 			ERROR_PRO ("WriteFile");
 			SLOG(EMERG)
+			close_comm();
+			return ;
 		}
 	}
+	snd_buf->commit(-(long)snd_len);	//已经到了系统
 }
 
 void WinComm::recito_ex()
 {
-Again:
 	rcv_buf->grant(RCV_FRAME_SIZE);
 	memset(&ovlpR, 0, sizeof(OVERLAPPED));
-	if (!ReadFile(hdev, rcv_buf->point, RCV_FRAME_SIZE, &rb, &ovlpR) )
+	if (!ReadFile(hdev, rcv_buf->point, RCV_FRAME_SIZE, NULL, &ovlpR) )
 	{
-		if ( ERROR_IO_PENDING == GetLastError() ) {
-			return ;
-		} else {
+		if ( ERROR_IO_PENDING != GetLastError() ) {
 			ERROR_PRO ("ReadFile");
+			SLOG(EMERG)
 			close_comm();
 		}
-	} else {
-		rcv_buf->commit (rb);
-		if ( isCli ) 
-			aptus->sponte(&pro_tbuf_ps);
-		else
-			aptus->facio(&pro_tbuf_ps);
-	}
-	goto Again;
+	} 
 }
 
 Amor* WinComm::clone()
@@ -704,5 +692,4 @@ inline void WinComm::deliver(Notitia::HERE_ORDO aordo)
 	}
 	aptus->facio(&tmp_pius);
 }
-
 #include "hook.c"
