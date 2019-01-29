@@ -74,6 +74,7 @@ private:
 			use_epoll = false;
 			lor.type = DPoll::NotUsed;
 			sch = 0;
+			lonely = false;
 		};
 	};
 	struct G_CFG *gCFG;
