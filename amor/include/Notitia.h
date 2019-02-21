@@ -57,7 +57,6 @@ enum HERE_ORDO {
 	CMD_GET_SCHED	=33,	/* 取得调度者的指针 */
 	CMD_PUT_PENDOR	=34,	/* 向调度者设置 */
 	DMD_SCHED_RUN	=35,	/* 调度一个对象的运行 */
-
 	CMD_GET_PIUS		=41,	/* get pius from a keeper */
 	DMD_CONTINUE_SELF	=42,	//继续下本接力者
 	DMD_STOP_NEXT 		=43,	//停止下一个接力者
@@ -86,10 +85,10 @@ enum HERE_ORDO {
 	LOG_VAR_INFO	=66,
 	LOG_VAR_DEBUG	=67,
 
-	POST_EPOLL	=69,	//set aio for epoll
-	SIGNAL_EPOLL=70,	//set aio for epoll
+	POST_EPOLL	=69,	//post user for epoll
+	SIGNAL_EPOLL	=70,	//set sigevent for epoll
 	AIO_EPOLL	=71,	//set aio for epoll
-	ACCEPT_EPOLL=72,	//process epoll when parent
+	ACCEPT_EPOLL	=72,	//process epoll when parent
 	SET_EPOLL 	=73, 	//set epoll(IOCP, kqueue, epoll, evport), indic is the pointer of a object of DPoll::Pollor
 	CLR_EPOLL 	=74,	//clear epoll
 	PRO_EPOLL	=75,	//pro epoll
@@ -189,6 +188,14 @@ enum HERE_ORDO {
 	CMD_FORK	=180,	/* cmd to fork a new process */
 	FORKED_PARENT	=181,	/* in  the  parent's thread  of execution, indic point to pid of child */
 	FORKED_CHILD	=182,	/* in the child's thread of execution, indic = 0 */
+
+	PRO_FILE	=183,	/* indic points to a filename, may be pipe (for windows)  */
+	GET_FILE	=184,	/* indic points to an intger: -1: all to end, 0: current block size; > 0 the size of block( bytes) */
+	Pro_File_Open	=185,
+	Pro_File_End	=186,
+	Move_File_From_Current	=187,	/* indic points to an intger */
+	Move_File_From_Begin	=188,
+	Move_File_From_End	=189,
 
 	NEW_HOLDING	=190,	/* new session */
 	AUTH_HOLDING	=191,	/* auth this session */

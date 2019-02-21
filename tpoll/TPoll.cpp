@@ -301,7 +301,7 @@ bool TPoll::sponte( Amor::Pius *apius)
 
 	struct Timor *aor;
 	struct DPoll::PollorBase *baspo=0;
-	assert(apius);
+		assert(apius);
 
 	switch ( apius->ordo )
 	{
@@ -342,6 +342,21 @@ bool TPoll::sponte( Amor::Pius *apius)
 
 		break;
 	case Notitia::AIO_EPOLL :	/*  AIO transaction */
+		WBUG("%p %s", ((DPoll::PollorAio *)apius->indic)->pupa, "sponte AIO_EPOLL");
+#if defined(_WIN32)
+		hPort = CreateIoCompletionPort(((DPoll::PollorAio *)apius->indic)->file_hnd, iocp_port, (ULONG_PTR)apius->indic /* completion key */, number_threads);  
+		if (hPort == NULL)  
+		{ 
+			ERROR_PRO("CreateIoCompletionPort failed to associate");
+			WLOG(WARNING, errMsg);
+		}
+#endif
+#if defined(__sun)
+		((DPoll::PollorAio *)apius->indic)->pn.portnfy_port = ev_port;
+		((DPoll::PollorAio *)apius->indic)->pn.portnfy_user = apius->indic;
+		((DPoll::PollorAio *)apius->indic)->aiocb_R.aio_sigevent.sigev_notify = SIGEV_PORT;
+		((DPoll::PollorAio *)apius->indic)->aiocb_W.aio_sigevent.sigev_notify = SIGEV_PORT;
+#endif
 		break;
 
 	case Notitia::POST_EPOLL :	/* user post  */
@@ -791,6 +806,7 @@ void TPoll:: run()
 #define AKEY A_GET.portev_user
 	uint_t nget, geti;
 	int ret;
+	int my_error;
 	port_event_t *pev =new port_event_t[max_evs]  ;
 	if ( ev_port == -1) return;
 #endif
@@ -951,6 +967,41 @@ LOOP:
 			break;
 
 		case DPoll::Aio:
+			WBUG("get DPoll:Aio");
+#if  defined(__sun)
+			my_error = aio_error((aiocb_t *)(A_GET.portev_object));
+			switch ( my_error)
+			{
+			case 0:
+				poll_ps.ordo = Notitia::PRO_EPOLL;
+				poll_ps.indic = (void*)(A_GET.portev_object);
+				PPO->pupa->facio(&poll_ps);
+				break;
+			case EINPROGRESS:
+			case EINVAL:
+				ERROR_PRO("aio_error");
+				WLOG(WARNING, errMsg);
+				break;
+			default:
+				poll_ps.ordo = Notitia::ERR_EPOLL;
+				ERROR_PRO("aio_error");
+				poll_ps.indic = errMsg;
+				PPO->pupa->facio(&poll_ps);
+				poll_ps.indic = 0;
+				break;
+			}
+#endif
+#if defined (_WIN32)
+			if ( success ) {
+				poll_ps.ordo = PPO->pro_ps.ordo;
+				poll_ps.indic = &A_GET;
+			} else {
+				poll_ps.ordo = Notitia::ERR_EPOLL;
+				ERROR_PRO("GetIOCP");
+				poll_ps.indic = errMsg;
+			}
+			PPO->pupa->facio(&poll_ps);
+#endif
 			break;
 
 		case DPoll::File:

@@ -17,7 +17,7 @@
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
-#include "Amor.h"
+#include "DPoll.h"
 #include "Notitia.h"
 #include "TBuffer.h"
 #include "BTool.h"
@@ -40,6 +40,18 @@
 #endif
 
 #define INLINE inline
+#define RCV_FRAME_SIZE 2048
+
+#if defined( _MSC_VER ) && (_MSC_VER < 1400 )
+typedef unsigned int* ULONG_PTR;
+typedef struct _OVERLAPPED_ENTRY {
+	ULONG_PTR lpCompletionKey;
+	LPOVERLAPPED lpOverlapped;
+	ULONG_PTR Internal;
+	DWORD dwNumberOfBytesTransferred;
+} OVERLAPPED_ENTRY, *LPOVERLAPPED_ENTRY;
+#endif	//for WIN32
+
 class TCgi: public Amor
 {
 public:
@@ -57,13 +69,22 @@ public:
 private:
 	Amor::Pius local_pius;
 	Describo::Criptor mytor; //保存管道描述符, 各实例不同
+	Amor::Pius epl_set_ps, epl_clr_ps, pro_tbuf_ps;
+	DPoll::Pollor pollor; /* 保存事件句柄, 各子实例不同 */
 	bool wr_blocked;
 
 	TBuffer *rcv_buf, *snd_buf;
 	PacketObj *rcv_pac;
 #if defined(_WIN32)
 	HANDLE pipe_in[2], pipe_out[2];
+	OVERLAPPED snd_ovp, rcv_ovp;
+	void transmitto_ex();
+	void recito_ex();
+	DPoll::Pollor pollor_out; /* 保存事件句柄, 各子实例不同 */
+	Amor::Pius epl_set_out, epl_clr_out;
 #else
+	void toExprog_ex();
+	long fromExprog_ex();
 	int sv[2];
 #endif
 	TBuffer work_buf;	/* 保存临时参数*/
@@ -88,6 +109,9 @@ private:
 	enum DIRECTION { BOTH=0, TO_PROG=1, FROM_PROG=3, PROG_ONCE=4 } ;
 
 	struct G_CFG {
+		bool use_epoll;
+		Amor *sch;
+		struct DPoll::PollorBase lor; /* 探询 */
 		const char *exec_file;
 		int argc;	/* 参数个数, 包括argv[0] 指向执行文件名 */
 		TBuffer buf; 	/* 保存各个常量参数 */
@@ -96,6 +120,8 @@ private:
 		bool has_buffer;	/* 向后提供TBuffer, 这里成为数据源 */
 
 		inline G_CFG () {
+			lor.type = DPoll::NotUsed;
+			sch = 0;
 			exec_file = 0;
 			argc = 0;
 			argv = 0 ;
@@ -220,13 +246,29 @@ bool TCgi::facio( Amor::Pius *pius)
 	PacketObj **tmp;
 	int i;
 	unsigned char *p;
+	Amor::Pius tmp_p;
+#if defined (_WIN32 )	
+	OVERLAPPED_ENTRY *aget;
+#else
+	long len;
+#endif	//for WIN32
+
 
 	assert(pius);
 	switch (pius->ordo)
 	{
 	case Notitia::PRO_TBUF :
 		WBUG("facio PRO_TBUF");
-		toExprog();
+		if ( gCFG->use_epoll)
+		{
+#if defined (_WIN32 )
+			transmitto_ex();
+#else
+			toExprog_ex();
+#endif
+		} else {
+			toExprog();
+		}
 		break;
 
 	case Notitia::PRO_UNIPAC :
@@ -240,8 +282,7 @@ bool TCgi::facio( Amor::Pius *pius)
 			int &no = gCFG->argv[i].field_no;
 
 			if ( no >= 0 && rcv_pac->max >= no
-				&& rcv_pac->fld[no].val
-			)
+				&& rcv_pac->fld[no].val	)
 			{
 				unsigned long &range = rcv_pac->fld[no].range;
 				if ( p + range +1 >= work_buf.limit )	/* 一个程序接受的参数超过1024? */
@@ -253,6 +294,83 @@ bool TCgi::facio( Amor::Pius *pius)
 			}
 		}
 		work_buf.commit(p - work_buf.point );
+		break;
+
+	case Notitia::ERR_EPOLL:
+		WBUG("facio ERR_EPOLL");
+		WLOG(WARNING, (char*)pius->indic);	
+		end();	//直接关闭就可.
+		break;
+
+	case Notitia::PRO_EPOLL:
+		WBUG("facio PRO_EPOLL");
+#if defined (_WIN32 )
+		aget = (OVERLAPPED_ENTRY *)pius->indic;
+		if ( aget->lpOverlapped == &(rcv_ovp) )
+		{	//已读数据,  不失败并有数据才向接力者传递
+			if ( aget->dwNumberOfBytesTransferred ==0 ) 
+			{
+				WLOG(INFO, "IOCP recv 0 disconnected");
+				end();
+			} else {
+				WBUG("child PRO_EPOLL recv %d bytes", aget->dwNumberOfBytesTransferred);
+				snd_buf->commit(aget->dwNumberOfBytesTransferred);
+				aptus->facio(&pro_tbuf_ps);
+				recito_ex();
+			}
+		} else if ( aget->lpOverlapped == &(snd_ovp) ) {
+			WBUG("client PRO_EPOLL sent %d bytes", aget->dwNumberOfBytesTransferred); //写数据完成
+		} else {
+			WLOG(ALERT, "not my overlap");
+		}
+#endif
+		break;
+
+	case Notitia::RD_EPOLL:
+		WBUG("facio RD_EPOLL");
+#if !defined (_WIN32 )
+LOOP:
+		switch ( (len = fromExprog_ex()) ) 
+		{
+		case 0:	//Pending
+			/* action flags and filter for event remain unchanged */
+			gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
+			break;
+
+		case -1://Close
+			end();	//失败即关闭
+			break;
+
+		case -2://Error
+			end();	//失败即关闭
+			break;
+
+		default:	
+			WBUG("recv %ld bytes", len);
+			if ( len < RCV_FRAME_SIZE ) { 
+				/* action flags and filter for event remain unchanged */
+				gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
+				aptus->sponte(&pro_tbuf_ps);
+			} else {
+				aptus->sponte(&pro_tbuf_ps);
+				goto LOOP;
+			}
+			break;
+		}
+#endif
+		break;
+
+	case Notitia::WR_EPOLL:
+		WBUG("facio WR_EPOLL");
+#if !defined (_WIN32 )
+		toExprog_ex();
+#endif
+		break;
+
+	case Notitia::EOF_EPOLL:
+		WBUG("facio EOF_EPOLL");
+		WLOG(INFO, "pipe closed.");
+		end();
 		break;
 
 	case Notitia::FD_PRORD:
@@ -281,6 +399,25 @@ bool TCgi::facio( Amor::Pius *pius)
 		WBUG("facio IGNITE_ALL_READY");
 		if ( gCFG->has_buffer)
 			deliver(Notitia::SET_TBUF);
+
+		tmp_p.ordo = Notitia::CMD_GET_SCHED;
+		aptus->sponte(&tmp_p);	//向tpoll, 取得sched
+		gCFG->sch = (Amor*)tmp_p.indic;
+		if ( !gCFG->sch ) 
+		{
+			WLOG(ERR, "no sched or tpoll");
+			break;
+		}
+		tmp_p.ordo = Notitia::POST_EPOLL;
+		tmp_p.indic = &gCFG->lor;
+		gCFG->lor.pupa = this;
+		
+		gCFG->sch->sponte(&tmp_p);	//向tpoll, 取得TPOLL
+		if ( tmp_p.indic == gCFG->sch )
+			gCFG->use_epoll = true;
+		else
+			gCFG->use_epoll = false;
+
 		break;
 
 	case Notitia::CLONE_ALL_READY:
@@ -352,17 +489,38 @@ bool TCgi::sponte( Amor::Pius *pius)
 
 	case Notitia::PRO_TBUF :
 		WBUG("sponte PRO_TBUF");
-		toExprog();
+		if ( gCFG->use_epoll)
+		{
+#if defined (_WIN32 )
+			transmitto_ex();
+#else
+			toExprog_ex();
+#endif
+		} else {
+			toExprog();
+		}
 		break;
 
 	case Notitia::CMD_CHANNEL_PAUSE :
 		WBUG("sponte CMD_CHANNEL_PAUSE");
-		deliver(Notitia::FD_CLRRD);
+		if ( gCFG->use_epoll)
+		{
+			gCFG->sch->sponte(&epl_clr_ps); //向tpoll,  注销
+		} else {
+			 deliver(Notitia::FD_CLRRD);
+		}
+
 		break;
 
 	case Notitia::CMD_CHANNEL_RESUME :
 		WBUG("sponte CMD_CHANNEL_RESUME");
-		deliver(Notitia::FD_SETRD);
+		if ( gCFG->use_epoll)
+		{
+			gCFG->sch->sponte(&epl_set_ps); //向tpoll,  注册
+		} else {
+			deliver(Notitia::FD_SETRD);
+		}
+
 		break;
 
 	default:
@@ -373,6 +531,24 @@ bool TCgi::sponte( Amor::Pius *pius)
 
 TCgi::TCgi():work_buf(1024)
 {
+	pollor.pupa = this;
+#if defined(_WIN32)
+	pollor.type = DPoll::File;
+	pollor_out.type = DPoll::File;
+	epl_clr_out.ordo = Notitia::CLR_EPOLL;
+	epl_clr_out.indic = &pollor_out;
+	epl_set_out.ordo = Notitia::SET_EPOLL;
+	epl_set_out.indic = &pollor_out;
+#else
+	pollor.type = DPoll::Sock;
+#endif
+	epl_clr_ps.ordo = Notitia::CLR_EPOLL;
+	epl_clr_ps.indic = &pollor;
+	epl_set_ps.ordo = Notitia::SET_EPOLL;
+	epl_set_ps.indic = &pollor;
+	pro_tbuf_ps.ordo = Notitia::PRO_TBUF;
+	pro_tbuf_ps.indic = 0;
+
 	mytor.pupa = this;
 	local_pius.ordo = Notitia::TEXTUS_RESERVED;
 	local_pius.indic = &mytor;
@@ -467,21 +643,21 @@ INLINE void TCgi::toExprog()
 INLINE void TCgi::fromExprog()
 {
 	/* 读取pipe_in[0]中的数据 */
-	unsigned char tmp[1024], *t_buf;
+	unsigned char tmp[RCV_FRAME_SIZE], *t_buf;
 	bool has = false;
 	int rBytes;
 	if (snd_buf && ( gCFG->direction == BOTH || gCFG->direction == FROM_PROG ))
 	{
-		snd_buf->grant(1024);
+		snd_buf->grant(RCV_FRAME_SIZE);
 		t_buf = snd_buf->point;
 		has = true;	/* 将有数据传递 */
 	} else 
 		t_buf = tmp;
 
 #if defined(_WIN32)
-	if (ReadFile(pipe_in[0], t_buf, 1024, (LPDWORD)&rBytes, NULL) == FALSE)
+	if (ReadFile(pipe_in[0], t_buf, RCV_FRAME_SIZE, (LPDWORD)&rBytes, NULL) == FALSE)
 #else
-	if ( (rBytes = recv(sv[0], t_buf, 1024, MSG_NOSIGNAL)) < 0 )
+	if ( (rBytes = recv(sv[0], t_buf, RCV_FRAME_SIZE, MSG_NOSIGNAL)) < 0 )
 #endif
 	{
 		WLOG_OSERR("read pipe");
@@ -576,11 +752,26 @@ bool TCgi::init()
 	CloseHandle(pipe_out[0]); // 关闭写管道的读端
 
 	sessioning = true;
-	if ( gCFG->direction == BOTH || gCFG->direction == FROM_PROG )
+	if ( gCFG->use_epoll ) 
 	{
-		/* 以另一线程去读管道 */
-		if ( _beginthread((my_thread_func)cycle_fromPro, 0, this) == -1 )
-			WLOG_OSERR("_beginthread");
+		pollor.hnd.file = pipe_in[0];
+		pollor.pro_ps.ordo = Notitia::PRO_EPOLL;
+		gCFG->sch->sponte(&epl_set_ps);	//向tpoll
+		pollor_out.hnd.file = pipe_out[1];
+		pollor_out.pro_ps.ordo = Notitia::PRO_EPOLL;
+		gCFG->sch->sponte(&epl_set_out);	//向tpoll
+		if ( gCFG->direction == BOTH || gCFG->direction == FROM_PROG )
+		{
+			/* 主动去接收, 如果一开始有数据, 则先接收; 另外实现IOCP投递 */
+			recito_ex();
+		}
+	} else {
+		if ( gCFG->direction == BOTH || gCFG->direction == FROM_PROG )
+		{
+			/* 以另一线程去读管道 */
+			if ( _beginthread((my_thread_func)cycle_fromPro, 0, this) == -1 )
+				WLOG_OSERR("_beginthread");
+		}
 	}
 #else
 	if ( socketpair(AF_UNIX, SOCK_STREAM, 0, sv) == -1 )	// 创建管道
@@ -591,9 +782,29 @@ bool TCgi::init()
 
 	sessioning = true;
 	/* 加入轮询 */
-	mytor.scanfd = sv[0];
-	deliver(Notitia::FD_SETEX);
-	deliver(Notitia::FD_SETRD);
+	if ( gCFG->use_epoll ) 
+	{
+		pollor.pro_ps.ordo = Notitia::RD_EPOLL;
+		pollor.fd = sv[0];
+#if  defined(__linux__)
+		pollor.ev.events &= ~EPOLLOUT;
+#endif	//for linux
+
+#if  defined(__sun)
+		pollor.events &= ~POLLOUT;
+#endif	//for sun
+
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
+		EV_SET(&(pollor.events[0]), sv[0], EVFILT_READ, EV_ADD | EV_ONESHOT, 0, 0, &pollor);
+		EV_SET(&(pollor.events[1]), sv[0], EVFILT_WRITE, EV_ADD | EV_DISABLE, 0, 0, &pollor);
+#endif	//for bsd
+
+		gCFG->sch->sponte(&epl_set_ps);	//向tpoll
+	} else {
+		mytor.scanfd = sv[0];
+		deliver(Notitia::FD_SETEX);
+		deliver(Notitia::FD_SETRD);
+	}
 	deliver(Notitia::CMD_FORK);
 #endif
 	return true;
@@ -712,12 +923,6 @@ INLINE void TCgi::deliver(Notitia::HERE_ORDO aordo)
 		aptus->facio(&tmp_pius);
 		break;
 
-	case Notitia::DMD_SET_TIMER:
-	case Notitia::DMD_CLR_TIMER:
-		WBUG("deliver DMD_SET(CLR)_TIMER(%d)", aordo);
-		tmp_pius.indic = this;
-		break;
-
 	case Notitia::CMD_FORK:
 		WBUG("deliver CMD_FORK");
 		break;
@@ -730,7 +935,7 @@ INLINE void TCgi::deliver(Notitia::HERE_ORDO aordo)
 	case Notitia::FD_SETEX:
 		WBUG("deliver FD_CLR/SET(%d)", aordo);
 		local_pius.ordo =aordo;
-		aptus->sponte(&local_pius);	//向Sched
+		gCFG->sch->sponte(&local_pius);	//向Sched
 		return ;
 
 	default:
@@ -738,5 +943,198 @@ INLINE void TCgi::deliver(Notitia::HERE_ORDO aordo)
 	}
 	aptus->sponte(&tmp_pius);
 }
+
+#if defined (_WIN32 )
+void TCgi::transmitto_ex()
+{
+	DWORD snd_len = rcv_buf->point - rcv_buf->base;	//发送长度
+	memset(&snd_ovp, 0, sizeof(OVERLAPPED));
+	if ( !WriteFile(pipe_out[1], rcv_buf->base, snd_len, NULL, &snd_ovp) )
+	{
+		if ( ERROR_IO_PENDING != GetLastError() ) {
+			WLOG_OSERR("write pipe")
+			end();
+			return ;
+		}
+	}
+	snd_buf->commit(-(long)snd_len);	//已经到了系统
+}
+
+void TCgi::recito_ex()
+{
+	snd_buf->grant(RCV_FRAME_SIZE);
+	memset(&rcv_ovp, 0, sizeof(OVERLAPPED));
+	if (!ReadFile(pipe_in[0], snd_buf->point, RCV_FRAME_SIZE, NULL, &rcv_ovp) )
+	{
+		if ( ERROR_IO_PENDING != GetLastError() ) {
+			WLOG_OSERR("read pipe");
+			end();
+		}
+	} 
+}
+
+#else	//for not windows
+
+/* 接收发生错误时, 建议关闭这个套接字 */
+long TCgi::fromExprog_ex()
+{	
+	/* 读取pipe_in[0]中的数据 */
+	unsigned char tmp[RCV_FRAME_SIZE], *t_buf;
+	bool has = false;
+	long rBytes;
+	if (snd_buf && ( gCFG->direction == BOTH || gCFG->direction == FROM_PROG ))
+	{
+		snd_buf->grant(RCV_FRAME_SIZE);
+		t_buf = snd_buf->point;
+		has = true;	/* 将有数据传递 */
+	} else 
+		t_buf = tmp;
+
+ReadAgain:
+	if ( (rBytes = recv(sv[0], t_buf, RCV_FRAME_SIZE, MSG_NOSIGNAL)) < 0 )
+	{
+		int error = errno;
+		if (error == EINTR)
+		{	 //有信号而已,再试
+			goto ReadAgain;
+		} else if ( error == EAGAIN || error == EWOULDBLOCK )
+		{	//还在进行中, 回去再等.
+			WLOG(INFO, "read pipe encounter EAGAIN");
+			return 0;
+		} else	
+		{	//的确有错误
+			WLOG_OSERR("read pipe");
+			return -2;
+		}
+	} else if ( rBytes == 0 ) {
+		WLOG(INFO, "pipe closed");
+		return -1;
+	}
+	if ( has ) 
+		snd_buf->commit(rBytes);
+	return rBytes;
+}
+
+/* 发送有错误时, 返回-1, 建议关闭这个套接字 */
+void TCgi::toExprog_ex()
+{
+	long wBytes, snd_len ;
+	int ret;
+	if ( !sessioning )
+	{
+		if ( !init() )
+			return;
+	}
+#define RET_PRO(X) ret=X; goto EP_PRO;
+
+	if ( rcv_buf  && gCFG->direction == BOTH || gCFG->direction == TO_PROG || gCFG->direction == PROG_ONCE )
+	{
+		if ( rcv_buf->point ==  rcv_buf->base  ) 
+		{
+			shutdown(sv[0], SHUT_WR);	// 通知对端数据发送完毕
+			return ;
+		}
+
+SendAgain:
+		snd_len = rcv_buf->point - rcv_buf->base;	//发送长度
+		if ( (wBytes = send(sv[0], rcv_buf->base, rcv_buf->point - rcv_buf->base, MSG_NOSIGNAL)) < 0 )
+		{
+			int error = errno;
+			if (error == EINTR)	
+			{	//有信号而已,再试
+				WLOG_OSERR("write pipe")
+				goto SendAgain;
+			} else if (error ==EWOULDBLOCK || error == EAGAIN)
+			{	//回去再试, 用select, 要设wrSet
+				WLOG(INFO, "writing pipe encounter EAGAIN");
+				if ( wr_blocked ) 	//最近一次阻塞
+				{
+					RET_PRO(3)
+				} else {	//刚发生的阻塞
+					wr_blocked = true;
+					RET_PRO(1)
+				}
+			} else {
+				WLOG_OSERR("write pipe")
+				RET_PRO(-1)
+			}
+		} else {
+			rcv_buf->commit(-wBytes);
+			if (snd_len > wBytes )
+			{	
+				WLOG(INFO, "write pipe not completed.");
+				if ( wr_blocked ) 	//最近一次还是阻塞
+				{
+					RET_PRO(3)
+				} else {	//刚发生的阻塞
+					wr_blocked = true;
+					RET_PRO(1) //回去再试, 
+				}
+			} else 
+			{	//不发生阻塞了
+				if ( wr_blocked ) 	//最近一次阻塞
+				{
+					wr_blocked = false;
+					RET_PRO(2) //发送完成, 不用再设
+				} else
+				{	//一直没有阻塞
+					RET_PRO(0) //发送完成
+				}
+			}
+		}
+EP_PRO:
+		switch ( ret )
+		{
+		case 0: //没有阻塞, 不变
+			break;
+	
+		case 2: //原有阻塞, 没有阻塞了, 清一下
+#if  defined(__linux__)
+			pollor.ev.events &= ~EPOLLOUT;	//等下一次设置POLLIN时不再设
+#endif	//for linux
+
+#if  defined(__sun)
+			pollor.events &= ~POLLOUT;	//等下一次设置POLLIN时不再设
+#endif	//for sun
+
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
+			pollor.events[1].flags = EV_ADD | EV_DISABLE;	//等下一次设置时不再设
+#endif	//for bsd
+			break;
+		
+		case 1:	//新写阻塞, 需要设一下了
+		case 3:	//还是写阻塞, 再设
+#if  defined(__linux__)
+			pollor.ev.events |= EPOLLOUT;
+#endif	//for linux
+
+#if  defined(__sun)
+			pollor.events |= POLLOUT;
+#endif	//for sun
+
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
+			pollor.events[1].flags = EV_ADD | EV_ONESHOT;
+#endif	//for bsd
+
+			gCFG->sch->sponte(&epl_set_ps);	//向tpoll, 以设置kqueue等
+			return;	//即返回, PROG_ONCE不起作用
+			break;
+	
+		case -1://有严重错误, 关闭
+			end();
+			break;
+
+		default:
+			break;
+		}
+	}
+
+	if ( gCFG->direction == PROG_ONCE )
+		shutdown(sv[0], SHUT_WR);	// 通知对端数据发送完毕
+	/* 非持久的, 一次性的, 则写完后即 关闭写管道 */
+}
+
+#endif
+
 
 #include "hook.c"

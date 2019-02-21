@@ -10,7 +10,7 @@ AMOROBJS=TWCap.obj
 all: tpcap.dll
 
 TWCap.obj: TWCap.cpp
-	$(CC) $(CFLAGS)  -I..\sched\include $(DEBUG_FLAG) -DAMOR_CLS_TYPE=TWCap TWCap.cpp
+	$(CC) $(CFLAGS)  -I..\sched\include -I..\tpoll\include -DNNDEBUG -DAMOR_CLS_TYPE=TWCap TWCap.cpp
 
 tpcap.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

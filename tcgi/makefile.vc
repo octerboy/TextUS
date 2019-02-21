@@ -4,13 +4,13 @@
 #	B01:created by octerboy 2007/03/17, Panyu
 
 include ..\Rules.basemod.vc
-CFLAGS =$(CFLAGS) -I..\logdata\include  -I..\baselib\include -I..\sched\include -I..\unipac\include
+CFLAGS =$(CFLAGS) -I..\logdata\include  -I..\baselib\include -I..\sched\include -I..\unipac\include  -I..\tpoll\include
 LDLIB =$(LDLIB) ..\baselib\libbase.lib
 
 all: tcgi.dll
 
 TCgi.obj: TCgi.cpp
-	$(CC) $(CFLAGS)  $(DEBUG_FLAG) -DAMOR_CLS_TYPE=TCgi TCgi.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=TCgi TCgi.cpp
 
 tcgi.dll: TCgi.obj
 	$(LD) $(LDFLAGS) -out:$@ TCgi.obj  $(LDLIB)
