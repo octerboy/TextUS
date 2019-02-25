@@ -17,10 +17,6 @@
 #define DPOLL__H
 #include "Amor.h"
 
-#if defined(__linux__)
-#include <sys/epoll.h>
-#endif
-
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
 #include <sys/event.h>
 #endif	//for bsd
@@ -31,6 +27,15 @@
 #include <poll.h>
 #endif	//for sun
 
+#if defined(__linux__)
+#include <sys/epoll.h>
+#include <sys/syscall.h>
+#include <linux/aio_abi.h>
+#include <inttypes.h>
+#elif !defined(_WIN32)
+#include <aio.h>
+#endif
+
 class DPoll
 {
 public:
@@ -38,6 +43,7 @@ public:
 		NotUsed =  -1,
 		Alarm = 7,
 		Timer = 8,
+		EventFD = 9, /* only for linux eventfd*/
 		Aio = 0x10,
 		File = 0x11,
 		Sock = 0x12
@@ -52,22 +58,42 @@ public:
 		Amor::Pius pro_ps;
 #if defined(_WIN32)
 		HANDLE file_hnd;
-#endif
-
-#if defined(__linux__)
+#elif defined(__linux__)
+		struct iocb aiocb_W, aiocb_R;
+		struct iocb *iocbpp[2];
+		aio_context_t ctx;
+#else
+		struct aiocb aiocb_W, aiocb_R;
 #endif
 
 #if defined(__sun)
+		port_notify_t pn;
 #endif
 
-#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
-#endif
 		inline PollorAio() {
 			pupa = 0;
-			type = NotUsed ;
+			type = Aio;
 			pro_ps.indic = 0;
 #if defined(_WIN32)
 			file_hnd = INVALID_HANDLE_VALUE;
+#else
+			memset(&aiocb_R, 0, sizeof(aiocb_R));
+			memset(&aiocb_W, 0, sizeof(aiocb_W));
+#endif
+#if defined(__sun)
+			aiocb_R.aio_sigevent.sigev_value.sival_ptr = &pn;
+			aiocb_W.aio_sigevent.sigev_value.sival_ptr = &pn;
+			pn.portnfy_user = this;
+#endif
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
+			aiocb_R.aio_sigevent.sigev_value.sigval_ptr = this;
+			aiocb_W.aio_sigevent.sigev_value.sigval_ptr = this;
+#endif
+#if defined(__linux__)
+			aiocb_R.aio_lio_opcode = IOCB_CMD_PREAD;
+			aiocb_W.aio_lio_opcode = IOCB_CMD_PWRITE;
+			iocbpp[0] = &aiocb_R;
+			iocbpp[1] = &aiocb_W;
 #endif
 		};
 	};
@@ -91,6 +117,7 @@ public:
 #endif
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
 		struct kevent events[2];
+		int fd;		//ÃèÊö·û
 #endif
 		inline Pollor() {
 			pupa = 0;

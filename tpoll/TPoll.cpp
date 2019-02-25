@@ -38,6 +38,7 @@
 #endif
 #if defined(__linux__)
 #include <sys/timerfd.h>
+#include <sys/eventfd.h>
 #endif
 #include <sys/timeb.h>
 #include <time.h>
@@ -80,6 +81,35 @@ public:
 #if defined(__linux__)
 	int epfd;
 	struct itimerspec	itimeout;
+	bool use_evtfd;
+	int evt_fd;	/* event fd , for aio */
+	aio_context_t aio_ctx;
+#define NUM_EVENTS 32
+	static struct io_event io_evs[NUM_EVENTS];
+	struct Eventor : DPoll::PollorBase {
+			struct epoll_event ev;
+			inline Eventor() {
+			pupa = 0;
+			type = DPoll::EventFD ;
+			ev.data.ptr=this;
+			ev.events = EPOLLIN | EPOLLET;
+		}
+	} evtor;
+	inline int io_setup(unsigned nr, aio_context_t *ctxp)
+	{
+		return syscall(__NR_io_setup, nr, ctxp);
+	}
+
+	inline int io_destroy(aio_context_t ctx) 
+	{
+		return syscall(__NR_io_destroy, ctx);
+	}
+
+	inline int io_getevents(aio_context_t ctx, long min_nr, long max_nr,
+		struct io_event *events, struct timespec *timeout)
+	{
+		return syscall(__NR_io_getevents, ctx, min_nr, max_nr, events, timeout);
+	}
 #endif	//for linux
 
 #if defined(__sun)
@@ -259,6 +289,11 @@ void TPoll::ignite(TiXmlElement *cfg)
 #endif	//for bsd
 
 #if defined(__linux__)
+	if( cfg->Attribute("no_aio") )
+		use_evtfd = false;
+	else
+		use_evtfd = true;
+
 	epfd = epoll_create1(EPOLL_CLOEXEC);
 	if ( epfd == -1 ) 
 	{
@@ -269,6 +304,19 @@ void TPoll::ignite(TiXmlElement *cfg)
 	itimeout.it_value.tv_nsec = timer_nsec;
 	itimeout.it_interval.tv_sec = timer_sec;
 	itimeout.it_interval.tv_nsec = timer_nsec;
+	if ( use_evtfd ) {
+		evt_fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC); 	/* event fd , for aio */
+		if (evt_fd == -1) {
+				ERROR_PRO("eventfd");
+				return ;
+		}
+
+		aio_ctx = 0;
+		if (io_setup(16384, &aio_ctx)) {
+				ERROR_PRO("io_setup");
+				return ;
+		}
+	}
 #endif	//for linux
 
 	timor_init();	//初始化
@@ -356,6 +404,23 @@ bool TPoll::sponte( Amor::Pius *apius)
 		((DPoll::PollorAio *)apius->indic)->pn.portnfy_user = apius->indic;
 		((DPoll::PollorAio *)apius->indic)->aiocb_R.aio_sigevent.sigev_notify = SIGEV_PORT;
 		((DPoll::PollorAio *)apius->indic)->aiocb_W.aio_sigevent.sigev_notify = SIGEV_PORT;
+#endif
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
+		((DPoll::PollorAio *)apius->indic)->aiocb_R.aio_sigevent.sigev_notify = SIGEV_KEVENT;
+		((DPoll::PollorAio *)apius->indic)->aiocb_W.aio_sigevent.sigev_notify = SIGEV_KEVENT;
+		((DPoll::PollorAio *)apius->indic)->aiocb_R.aio_sigevent.sigev_notify_kqueue = kq;
+		((DPoll::PollorAio *)apius->indic)->aiocb_W.aio_sigevent.sigev_notify_kqueue = kq;
+		((DPoll::PollorAio *)apius->indic)->aiocb_R.aio_sigevent.sigval_ptr = apius->indic;
+		((DPoll::PollorAio *)apius->indic)->aiocb_W.aio_sigevent.sigval_ptr = apius->indic;
+#endif
+#if defined(__linux__)
+		((DPoll::PollorAio *)apius->indic)->aiocb_W.aio_flags = IOCB_FLAG_RESFD;
+		((DPoll::PollorAio *)apius->indic)->aiocb_W.aio_resfd = evt_fd;
+		((DPoll::PollorAio *)apius->indic)->aiocb_W.aio_data = (__u64)apius->indic;
+		((DPoll::PollorAio *)apius->indic)->aiocb_R.aio_flags = IOCB_FLAG_RESFD;
+		((DPoll::PollorAio *)apius->indic)->aiocb_R.aio_resfd = evt_fd;
+		((DPoll::PollorAio *)apius->indic)->aiocb_R.aio_data = (__u64)apius->indic;
+		((DPoll::PollorAio *)apius->indic)->ctx = aio_ctx;
 #endif
 		break;
 
@@ -690,7 +755,16 @@ bool TPoll::facio( Amor::Pius *pius)
 		if ( !init_ok )
 		{ 
 			WLOG(ERR, errMsg);
+			return true;
 		}
+#if defined(__linux__)
+		if( !epoll_ctl(epfd, EPOLL_CTL_ADD, evt_fd, &evtor.ev) )
+		{
+			ERROR_PRO("epoll_ctl(SET_TIMER) failed");
+			WLOG(WARNING, errMsg);
+		}
+#endif	//for linux
+
 		break;
 
 	case Notitia::WINMAIN_PARA:	/* 在整个系统中, 这应是最后被通知到的。 */
@@ -743,6 +817,7 @@ TPoll::TPoll()
 
 #if defined(__linux__)
 	epfd = -1;
+	use_evtfd = false;
 #endif
 
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
@@ -788,6 +863,7 @@ void TPoll:: run()
 #define A_GET pev[geti]
 #define AKEY A_GET.data.ptr
 	int nget, geti;
+	u_int64_t obtain;	//for EventFD
 	struct epoll_event *pev=new struct epoll_event[max_evs];
 	if ( epfd == -1) return;
 #endif	//for linux
@@ -795,6 +871,7 @@ void TPoll:: run()
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
 #define A_GET kev[geti]
 #define AKEY A_GET.udata
+#define Event_ID A_GET.ident
 	int nget, geti;
 	struct kevent *kev=new struct kevent[max_evs];
 	int ret;
@@ -804,6 +881,7 @@ void TPoll:: run()
 #if defined(__sun)
 #define A_GET pev[geti]
 #define AKEY A_GET.portev_user
+#define Event_ID A_GET.portev_object
 	uint_t nget, geti;
 	int ret;
 	int my_error;
@@ -920,6 +998,7 @@ LOOP:
 #define AOR ((struct DPoll::PollorBase *)AKEY)
 #define PPO  ((struct DPoll::Pollor *)AKEY)
 #define TOR  ((struct Timor *)AKEY)
+#define AIOR  ((struct DPoll::PollorAio*)AKEY)
 
 	WBUG("nget %d", nget);
 	for ( geti = 0 ; geti < nget; geti++)
@@ -966,31 +1045,50 @@ LOOP:
 			TOR->pupa->facio(&timer_pius);
 			break;
 
-		case DPoll::Aio:
-			WBUG("get DPoll:Aio");
-#if  defined(__sun)
-			my_error = aio_error((aiocb_t *)(A_GET.portev_object));
-			switch ( my_error)
+		case DPoll::EventFD:
+			WBUG("get DPoll:EventFD"); /* aio for linux*/
+#if defined(__linux__)
+			obtain = 0;
+			if (read(evt_fd, &obtain, sizeof(obtain)) != sizeof(obtain))
 			{
-			case 0:
-				poll_ps.ordo = Notitia::PRO_EPOLL;
-				poll_ps.indic = (void*)(A_GET.portev_object);
-				PPO->pupa->facio(&poll_ps);
-				break;
-			case EINPROGRESS:
-			case EINVAL:
-				ERROR_PRO("aio_error");
-				WLOG(WARNING, errMsg);
-				break;
-			default:
-				poll_ps.ordo = Notitia::ERR_EPOLL;
-				ERROR_PRO("aio_error");
-				poll_ps.indic = errMsg;
-				PPO->pupa->facio(&poll_ps);
-				poll_ps.indic = 0;
+				WLOG_OSERR("read evt_fd");
 				break;
 			}
+			while (obtain > 0) {
+				nget = io_getevents(aio_ctx, 1, obtain > NUM_EVENTS ? NUM_EVENTS: (long) obtain, io_evs, NULL);
+				if (nget > 0) {
+					for (geti = 0; geti < nget; geti++) {
+						switch ( io_evs[geti].res2 ) {
+						case 0:
+							poll_ps.ordo = Notitia::PRO_EPOLL;
+							poll_ps.indic = (void*)(&io_evs[geti]);
+							((DPoll::PollorAio *)io_evs[geti].data)->pupa->facio(&poll_ps);
+							break;
+						case EINPROGRESS:
+						case EINVAL:
+							TEXTUS_SNPRINTF(errMsg, errstr_len, "errno %d, %s.", (int)io_evs[geti].res2, strerror(io_evs[geti].res2));
+							WLOG(WARNING, errMsg);
+							break;
+						default:
+							poll_ps.ordo = Notitia::ERR_EPOLL;
+							if ( (void*)(io_evs[geti].obj) == (void*)&(AIOR->aiocb_W))
+								TEXTUS_SNPRINTF(errMsg, errstr_len, "write errno %d, %s.", (int)io_evs[geti].res2, strerror(io_evs[geti].res2));
+							else
+								TEXTUS_SNPRINTF(errMsg, errstr_len, "read errno %d, %s.", (int)io_evs[geti].res2, strerror(io_evs[geti].res2));
+							poll_ps.indic = errMsg;
+							PPO->pupa->facio(&poll_ps);
+							poll_ps.indic = 0;
+							break;
+						}
+					}
+					obtain -= nget;
+				}
+			}
 #endif
+			break;
+
+		case DPoll::Aio:
+			WBUG("get DPoll:Aio");
 #if defined (_WIN32)
 			if ( success ) {
 				poll_ps.ordo = PPO->pro_ps.ordo;
@@ -1002,6 +1100,32 @@ LOOP:
 			}
 			PPO->pupa->facio(&poll_ps);
 #endif
+#if  defined(__sun) || defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
+			my_error = aio_error((struct aiocb*)(Event_ID));
+			switch ( my_error)
+			{
+			case 0:
+				poll_ps.ordo = Notitia::PRO_EPOLL;
+				poll_ps.indic = (void*)(Event_ID);
+				PPO->pupa->facio(&poll_ps);
+				break;
+			case EINPROGRESS:
+			case EINVAL:
+				TEXTUS_SNPRINTF(errMsg, errstr_len, "errno %d, %s.", my_error, strerror(my_error));
+				WLOG(WARNING, errMsg);
+				break;
+			default:
+				poll_ps.ordo = Notitia::ERR_EPOLL;
+				if ( (void*)(Event_ID) == (void*)&(AIOR->aiocb_W))
+					TEXTUS_SNPRINTF(errMsg, errstr_len, "write errno %d, %s.", my_error, strerror(my_error));
+				else
+					TEXTUS_SNPRINTF(errMsg, errstr_len, "read errno %d, %s.", my_error, strerror(my_error));
+				poll_ps.indic = errMsg;
+				PPO->pupa->facio(&poll_ps);
+				poll_ps.indic = 0;
+				break;
+			}
+#endif
 			break;
 
 		case DPoll::File:
@@ -1009,7 +1133,6 @@ LOOP:
 			goto WIN_POLL;
 			break;
 #endif
-
 		case DPoll::Sock:
 			WBUG("get DPoll:Sock");
 #if  defined(__sun)

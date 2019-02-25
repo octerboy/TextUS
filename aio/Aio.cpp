@@ -28,37 +28,42 @@
 #include <time.h>
 #include <assert.h>
 #include <stdio.h>
+
 #if !defined(_WIN32)
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <aio.h>
 #include <errno.h>
 #include <unistd.h>
 #endif
+
 #include <stdarg.h>
 
-#ifndef inline
-#define inline inline
+/*
+#if defined(__linux__)
+static long io_setup(unsigned nr_reqs, aio_context_t *ctx) {
+	return syscall(__NR_io_setup, nr_reqs, ctx);
+}
+
+static long io_destroy(aio_context_t ctx) {
+	return syscall(__NR_io_destroy, ctx);
+}
+
+static long io_submit(aio_context_t ctx, long n, struct iocb **paiocb) {
+	return syscall(__NR_io_submit, ctx, n, paiocb);
+}
+
+static long io_cancel(aio_context_t ctx, struct iocb *aiocb,
+		      struct io_event *res) {
+	return syscall(__NR_io_cancel, ctx, aiocb, res);
+}
+
+static long io_getevents(aio_context_t ctx, long min_nr, long nr,
+			 struct io_event *events, struct timespec *tmo) {
+	return syscall(__NR_io_getevents, ctx, min_nr, nr, events, tmo);
+}
 #endif 
-
-#define ERRSTR_LEN 1024
-#define ERROR_PRO(X) { \
-	char *s; \
-	char error_string[1024]; \
-	DWORD dw = GetLastError(); \
-	FormatMessage( FORMAT_MESSAGE_FROM_SYSTEM, NULL, dw, \
-		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR) error_string, 1024, NULL );\
-	s= strstr(error_string, "\r\n") ; \
-	if (s )  *s = '\0';  \
-	if ( errMsg ) \
-		TEXTUS_SNPRINTF(errMsg, ERRSTR_LEN, "%s errno %d, %s", X,dw, error_string);\
-	}
-
-#define SLOG(Z) { Amor::Pius log_pius; \
-		log_pius.ordo = Notitia::LOG_##Z; \
-		log_pius.indic = &errMsg[0]; \
-		aptus->sponte(&log_pius); }
+*/
 
 class Aio: public Amor
 {
@@ -77,17 +82,23 @@ private:
 	DPoll::PollorAio pollor; /* 保存事件句柄, 各子实例不同 */
 	Amor::Pius epl_set_ps, epl_clr_ps, pro_tbuf_ps, tmp_ps;
 
-	char errMsg[ERRSTR_LEN];
-
 	char file_name[128];
 	int block_size;
-#if defined(__sun) || defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
-	struct aiocb *aiocbp_W, *aiocbp_R;
-#endif
 #if defined(_WIN32)
 	OVERLAPPED ovlpW, ovlpR;
 	HANDLE hdev;		/* 串口访问文件句柄 */
 #else
+#if defined(__linux__)
+	struct iocb *aiocbp_W, *aiocbp_R;
+	struct iocb **iocbp_W, **iocbp_R;
+	inline int io_submit(aio_context_t ctx, long nr,  struct iocb **iocbpp) 
+	{
+		return syscall(__NR_io_submit, ctx, nr, iocbpp);
+	}
+
+#else
+	struct aiocb *aiocbp_W, *aiocbp_R;
+#endif
 	int fd;
 #endif
 	void a_open();
@@ -110,8 +121,9 @@ private:
 #endif
 		void set_cfg (TiXmlElement *cfg) {
 			const char *str;
-			TiXmlElement *ele, *ele2;
+			TiXmlElement *ele;
 #if defined(_WIN32)
+			TiXmlElement *ele2;
 			for (	ele= cfg->FirstChildElement("access"); ele; ele = ele->NextSiblingElement("access"))
 			{
 				str = ele->GetText();
@@ -272,22 +284,61 @@ private:
 				if ( strcasecmp(str, "read_write" ) == 0 || strcasecmp(str, "write/read") == 0 
 					|| strcasecmp(str, "write_read") == 0 || strcasecmp(str, "read/write") == 0 )	
 					oflag |= O_RDWR;
+#if defined(__sun) || defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
 				if ( strcasecmp(str, "execute" ) == 0 || strcasecmp(str, "exec" ) == 0 )	
 					oflag |= O_EXEC;
+#endif
+#if defined(__sun) 
 				if ( strcasecmp(str, "search" ) == 0 )	
 					oflag |= O_SEARCH;
+				if ( strcasecmp(str, "close_on_fork" ) == 0 )	
+					oflag |= O_CLOFORK;
+				if ( strcasecmp(str, "d_sync" ) == 0 || strcasecmp(str, "d_synchronize" ) == 0)	
+					oflag |= O_DSYNC;
+				if ( strcasecmp(str, "rsync" ) == 0 ) 
+					oflag |= O_RSYNC;
+				if ( strcasecmp(str, "tpd_safe" ) == 0 )	
+					oflag |= O_TPDSAFE;
+				if ( strcasecmp(str, "x_attr" ) == 0 )	
+					oflag |= O_XATTR;
+				if ( strcasecmp(str, "no_links" ) == 0 )	
+					oflag |= O_NOLINKS;
+#endif
+#if defined(__sun) || defined(__linux__)
+				if ( strcasecmp(str, "directory" ) == 0 )	
+					oflag |= O_DIRECTORY;
+				if ( strcasecmp(str, "no_delay" ) == 0 )	
+					oflag |= O_NDELAY;
+#endif
+
+#if defined(__linux__)
+				if ( strcasecmp(str, "no_update_time" ) == 0 )	
+					oflag |= O_NOATIME;
+				if ( strcasecmp(str, "path" ) == 0 )	
+					oflag |= O_PATH;
+				if ( strcasecmp(str, "async" ) == 0 ) 
+					oflag |= O_ASYNC;
+#endif
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
+				if ( strcasecmp(str, "fsync" ) == 0 ) 
+					oflag |= O_FSYNC;
+				if ( strcasecmp(str, "shlock" ) == 0 ) 
+					oflag |= O_SHLOCK;
+				if ( strcasecmp(str, "exlock" ) == 0 ) 
+					oflag |= O_EXLOCK;
+				if ( strcasecmp(str, "verify" ) == 0 ) 
+					oflag |= O_VERIFY;
+#endif
+#if defined(__linux__) || defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
+				if ( strcasecmp(str, "direct" ) == 0 )	
+					oflag |= O_DIRECT;
+#endif
 				if ( strcasecmp(str, "append" ) == 0 )	
 					oflag |= O_APPEND;
 				if ( strcasecmp(str, "close_on_exec" ) == 0 )	
 					oflag |= O_CLOEXEC;
-				if ( strcasecmp(str, "close_on_fork" ) == 0 )	
-					oflag |= O_CLOFORK;
 				if ( strcasecmp(str, "create" ) == 0 || strcasecmp(str, "creat" ) == 0)	
 					oflag |= O_CREAT;
-				if ( strcasecmp(str, "directory" ) == 0 )	
-					oflag |= O_DIRECTORY;
-				if ( strcasecmp(str, "d_sync" ) == 0 || strcasecmp(str, "d_synchronize" ) == 0)	
-					oflag |= O_DSYNC;
 				if ( strcasecmp(str, "excl" ) == 0 )	
 					oflag |= O_EXCL;
 				if ( strcasecmp(str, "largefile" ) == 0 )	
@@ -296,22 +347,12 @@ private:
 					oflag |= O_NOCTTY;
 				if ( strcasecmp(str, "no_follow" ) == 0 )	
 					oflag |= O_NOFOLLOW;
-				if ( strcasecmp(str, "no_links" ) == 0 )	
-					oflag |= O_NOLINKS;
 				if ( strcasecmp(str, "no_block" ) == 0 )	
 					oflag |= O_NONBLOCK;
-				if ( strcasecmp(str, "no_delay" ) == 0 )	
-					oflag |= O_NDELAY;
-				if ( strcasecmp(str, "rsync" ) == 0 ) 
-					oflag |= O_RSYNC;
 				if ( strcasecmp(str, "sync" ) == 0 || strcasecmp(str, "synchronize" ) == 0)	
 					oflag |= O_SYNC;
-				if ( strcasecmp(str, "tpd_safe" ) == 0 )	
-					oflag |= O_TPDSAFE;
 				if ( strcasecmp(str, "trunc" ) == 0 || strcasecmp(str, "truncate" ) == 0)	
 					oflag |= O_TRUNC;
-				if ( strcasecmp(str, "x_attr" ) == 0 )	
-					oflag |= O_XATTR;
 			}
 #endif
 		}
@@ -428,6 +469,9 @@ bool Aio::facio( Amor::Pius *pius)
 #else
 	off_t offset;
 #endif
+#if defined(__linux__)
+	struct io_event *io_evp;
+#endif
 	int get_bytes;
 
 	TBuffer **tb;
@@ -469,6 +513,45 @@ bool Aio::facio( Amor::Pius *pius)
 			}
 		} else if ( aget->lpOverlapped != &ovlpW ) {
 			WLOG(EMERG, "not my overlap");
+			goto H_END;
+		}
+#endif
+
+#if defined(__linux__)
+		io_evp = (struct io_event*)pius->indic;
+		if ( (void*)io_evp->obj == (void*)aiocbp_R ) {
+			WBUG("io_submit(read) return %d", (int)io_evp->res);
+			switch ( io_evp->res) {
+			case 0:
+				WLOG(INFO, "end of file");
+				a_close();
+				tmp_ps.ordo = Notitia::Pro_File_End;
+				tmp_ps.indic = 0;
+				goto ERR_END;
+				break;
+			case -1:
+				WLOG_OSERR("io_submit(read)");
+				a_close();
+				tmp_ps.ordo = Notitia::Pro_File_Err;
+				tmp_ps.indic = 0;
+				goto ERR_END;
+				break;
+			default:
+				rcv_buf->commit(io_evp->res);
+				break;
+			}
+		} else if ( (void*)io_evp->obj == (void*)aiocbp_W ) {
+			WBUG("io_submit(write) return %d", (int)io_evp->res);
+			if ( io_evp->res <= 0 )	{
+				
+				WLOG_OSERR("io_submit(write)");
+				a_close();
+				tmp_ps.ordo = Notitia::Pro_File_Err;
+				tmp_ps.indic = 0;
+				goto ERR_END;
+			}
+		} else {
+			WLOG(EMERG, "not my iocb");
 			goto H_END;
 		}
 #endif
@@ -760,7 +843,6 @@ Aio::Aio()
 	pro_tbuf_ps.ordo = Notitia::PRO_TBUF;
 	pro_tbuf_ps.indic = 0;
 
-	memset(errMsg, 0, sizeof(errMsg));
 	memset(file_name, 0, sizeof(file_name));
 
 #if defined(__sun) || defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
@@ -768,6 +850,12 @@ Aio::Aio()
 	aiocbp_W = &(pollor.aiocb_W);
 #endif
 
+#if defined(__linux__)
+	aiocbp_R = &(pollor.aiocb_R);
+	aiocbp_W = &(pollor.aiocb_W);
+	iocbp_R = &(pollor.iocbpp[0]);
+	iocbp_W = &(pollor.iocbpp[1]);
+#endif
 #if defined(_WIN32)
 	hdev = INVALID_HANDLE_VALUE;
 	memset(&ovlpW, 0, sizeof(OVERLAPPED));
@@ -809,13 +897,23 @@ void Aio::transmitto_ex()
 			return ;
 		}
 	}
+#elif  defined(__linux__)
+	long snd_len = snd_buf->point - snd_buf->base;	//发送长度
+	aiocbp_W->aio_reqprio = 0;
+	aiocbp_W->aio_buf = (u_int64_t) snd_buf->base;
+	aiocbp_W->aio_nbytes = snd_len;
+	aiocbp_W->aio_offset = 0;
+	if (io_submit(pollor.ctx, 1, iocbp_W) <= 0) {
+		WLOG_OSERR("aio_write");
+		a_close();
+	}
 #else
 	long snd_len = snd_buf->point - snd_buf->base;	//发送长度
 	aiocbp_W->aio_nbytes = snd_len;
         aiocbp_W->aio_buf = snd_buf->base;
 	if ( aio_write(aiocbp_W) == -1 )
 	{
-		WLOG_OSERR("aio_write");
+		WLOG_OSERR("io_submit(write)");
 		a_close();
 	}
 #endif
@@ -835,8 +933,17 @@ void Aio::recito_ex()
 			return;
 		}
 	} 
+#elif  defined(__linux__)
+	aiocbp_R->aio_reqprio = 0;
+	aiocbp_R->aio_buf = (u_int64_t) rcv_buf->point;
+	aiocbp_R->aio_nbytes = block_size;
+	aiocbp_R->aio_offset = 0;
+	if (io_submit(pollor.ctx, 1, iocbp_R) <= 0) {
+		WLOG_OSERR("io_submit(read)");
+		a_close();
+	}
 #else
-        aiocbp_R->aio_buf = rcv_buf->point;
+	aiocbp_R->aio_buf = rcv_buf->point;
 	if ( aio_read(aiocbp_R) == -1 )
 	{
 		WLOG_OSERR("aio_read");

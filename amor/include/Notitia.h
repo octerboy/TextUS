@@ -189,9 +189,8 @@ enum HERE_ORDO {
 	FORKED_PARENT	=181,	/* in  the  parent's thread  of execution, indic point to pid of child */
 	FORKED_CHILD	=182,	/* in the child's thread of execution, indic = 0 */
 
-	PRO_FILE	=183,	/* indic points to a filename, may be pipe (for windows)  */
-	GET_FILE	=184,	/* indic points to an intger: -1: all to end, 0: current block size; > 0 the size of block( bytes) */
-	Pro_File_Open	=185,
+	Pro_File_Open	=184,
+	Pro_File_Err	=185,
 	Pro_File_End	=186,
 	Move_File_From_Current	=187,	/* indic points to an intger */
 	Move_File_From_Begin	=188,
@@ -203,6 +202,9 @@ enum HERE_ORDO {
 	CMD_SET_HOLDING	=193,	/* set a session, indic will return an id  */
 	CMD_CLR_HOLDING	=194,	/* to clear a session, indic should point the id */
 	CLEARED_HOLDING	=195,	/* has cleared a session, indic points to the id */
+
+	PRO_FILE	=196,	/* indic points to a filename, may be pipe (for windows)  */
+	GET_FILE	=197,	/* indic points to an intger: -1: all to end, 0: current block size; > 0 the size of block( bytes) */
 
 	SET_UNIPAC		=200, 
 	PRO_UNIPAC		=201, 
