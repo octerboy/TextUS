@@ -86,8 +86,8 @@ public:
 			pn.portnfy_user = this;
 #endif
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
-			aiocb_R.aio_sigevent.sigev_value.sigval_ptr = this;
-			aiocb_W.aio_sigevent.sigev_value.sigval_ptr = this;
+			aiocb_R.aio_sigevent.sigev_value.sival_ptr = this;
+			aiocb_W.aio_sigevent.sigev_value.sival_ptr = this;
 #endif
 #if defined(__linux__)
 			aiocb_R.aio_lio_opcode = IOCB_CMD_PREAD;

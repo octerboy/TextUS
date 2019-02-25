@@ -873,6 +873,7 @@ void TPoll:: run()
 #define AKEY A_GET.udata
 #define Event_ID A_GET.ident
 	int nget, geti;
+	int my_error;
 	struct kevent *kev=new struct kevent[max_evs];
 	int ret;
 	if ( kq == -1) return;
