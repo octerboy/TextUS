@@ -22,12 +22,11 @@
 #include "Notitia.h"
 #include "TBuffer.h"
 #include "textus_string.h"
-
 #include "casecmp.h"
-
 #include <time.h>
 #include <assert.h>
 #include <stdio.h>
+#include <stdarg.h>
 
 #if !defined(_WIN32)
 #include <sys/types.h>
@@ -36,34 +35,6 @@
 #include <errno.h>
 #include <unistd.h>
 #endif
-
-#include <stdarg.h>
-
-/*
-#if defined(__linux__)
-static long io_setup(unsigned nr_reqs, aio_context_t *ctx) {
-	return syscall(__NR_io_setup, nr_reqs, ctx);
-}
-
-static long io_destroy(aio_context_t ctx) {
-	return syscall(__NR_io_destroy, ctx);
-}
-
-static long io_submit(aio_context_t ctx, long n, struct iocb **paiocb) {
-	return syscall(__NR_io_submit, ctx, n, paiocb);
-}
-
-static long io_cancel(aio_context_t ctx, struct iocb *aiocb,
-		      struct io_event *res) {
-	return syscall(__NR_io_cancel, ctx, aiocb, res);
-}
-
-static long io_getevents(aio_context_t ctx, long min_nr, long nr,
-			 struct io_event *events, struct timespec *tmo) {
-	return syscall(__NR_io_getevents, ctx, min_nr, nr, events, tmo);
-}
-#endif 
-*/
 
 class Aio: public Amor
 {
@@ -473,25 +444,14 @@ bool Aio::facio( Amor::Pius *pius)
 	struct io_event *io_evp;
 #endif
 	int get_bytes;
-
 	TBuffer **tb;
 	assert(pius);
+
 	switch (pius->ordo)
 	{
 	case Notitia::PRO_TBUF :
 		WBUG("facio PRO_TBUF");
 		transmitto_ex();
-/*
-		if ( hdev == INVALID_HANDLE_VALUE )
-		{
-			Amor::Pius info_pius;
-			info_pius.ordo = Notitia::CHANNEL_NOT_ALIVE;
-			info_pius.indic = 0;
-			aptus->sponte(&info_pius);
-		} else {
-			transmitto_ex();
-		}
-*/
 		break;
 
 	case Notitia::PRO_EPOLL:
@@ -776,19 +736,7 @@ bool Aio::sponte( Amor::Pius *pius)
 	{
 	case Notitia::PRO_TBUF :	//处理一帧数据而已
 		WBUG("sponte PRO_TBUF");	
-#if defined(_WIN32)
-		if ( hdev == INVALID_HANDLE_VALUE )
-#else
-		if ( fd == -1 )
-#endif
-		{
-			Amor::Pius info_pius;
-			info_pius.ordo = Notitia::CHANNEL_NOT_ALIVE;
-			info_pius.indic = 0;
-			aptus->facio(&info_pius);
-		} else {
-			transmitto_ex();
-		}
+		transmitto_ex();
 		break;
 		
 	case Notitia::SET_TBUF:	/* 取得输入TBuffer地址 */
@@ -894,7 +842,7 @@ void Aio::transmitto_ex()
 		if ( ERROR_IO_PENDING != GetLastError() ) {
 			WLOG_OSERR("WriteFile");
 			a_close();
-			return ;
+			goto ERR_RET;
 		}
 	}
 #elif  defined(__linux__)
@@ -906,6 +854,7 @@ void Aio::transmitto_ex()
 	if (io_submit(pollor.ctx, 1, iocbp_W) <= 0) {
 		WLOG_OSERR("aio_write");
 		a_close();
+		goto ERR_RET;
 	}
 #else
 	long snd_len = snd_buf->point - snd_buf->base;	//发送长度
@@ -915,9 +864,18 @@ void Aio::transmitto_ex()
 	{
 		WLOG_OSERR("io_submit(write)");
 		a_close();
+		goto ERR_RET;
 	}
 #endif
 	snd_buf->commit(-(long)snd_len);	//已经到了系统
+	return;
+ERR_RET:
+	tmp_ps.ordo = Notitia::Pro_File_Err;
+	tmp_ps.indic = 0;
+	if ( isCli ) 
+		aptus->sponte(&tmp_ps);
+	else
+		aptus->facio(&tmp_ps);
 }
 
 void Aio::recito_ex()
@@ -930,7 +888,7 @@ void Aio::recito_ex()
 		if ( ERROR_IO_PENDING != GetLastError() ) {
 			WLOG_OSERR("ReadFile");
 			a_close();
-			return;
+			goto ERR_RET;
 		}
 	} 
 #elif  defined(__linux__)
@@ -941,6 +899,7 @@ void Aio::recito_ex()
 	if (io_submit(pollor.ctx, 1, iocbp_R) <= 0) {
 		WLOG_OSERR("io_submit(read)");
 		a_close();
+		goto ERR_RET;
 	}
 #else
 	aiocbp_R->aio_buf = rcv_buf->point;
@@ -948,9 +907,17 @@ void Aio::recito_ex()
 	{
 		WLOG_OSERR("aio_read");
 		a_close();
-		return;
+		goto ERR_RET;
 	}
 #endif
+	return;
+ERR_RET:
+	tmp_ps.ordo = Notitia::Pro_File_Err;
+	tmp_ps.indic = 0;
+	if ( isCli ) 
+		aptus->sponte(&tmp_ps);
+	else
+		aptus->facio(&tmp_ps);
 }
 
 Amor* Aio::clone()

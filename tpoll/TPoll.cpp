@@ -410,8 +410,8 @@ bool TPoll::sponte( Amor::Pius *apius)
 		((DPoll::PollorAio *)apius->indic)->aiocb_W.aio_sigevent.sigev_notify = SIGEV_KEVENT;
 		((DPoll::PollorAio *)apius->indic)->aiocb_R.aio_sigevent.sigev_notify_kqueue = kq;
 		((DPoll::PollorAio *)apius->indic)->aiocb_W.aio_sigevent.sigev_notify_kqueue = kq;
-		((DPoll::PollorAio *)apius->indic)->aiocb_R.aio_sigevent.sigval_ptr = apius->indic;
-		((DPoll::PollorAio *)apius->indic)->aiocb_W.aio_sigevent.sigval_ptr = apius->indic;
+		((DPoll::PollorAio *)apius->indic)->aiocb_R.aio_sigevent.sigev_value.sival_ptr = apius->indic;
+		((DPoll::PollorAio *)apius->indic)->aiocb_W.aio_sigevent.sigev_value.sival_ptr = apius->indic;
 #endif
 #if defined(__linux__)
 		((DPoll::PollorAio *)apius->indic)->aiocb_W.aio_flags = IOCB_FLAG_RESFD;
