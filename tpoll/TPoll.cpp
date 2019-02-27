@@ -405,7 +405,7 @@ bool TPoll::sponte( Amor::Pius *apius)
 		((DPoll::PollorAio *)apius->indic)->aiocb_R.aio_sigevent.sigev_notify = SIGEV_PORT;
 		((DPoll::PollorAio *)apius->indic)->aiocb_W.aio_sigevent.sigev_notify = SIGEV_PORT;
 #endif
-#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
+#if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)  
 		((DPoll::PollorAio *)apius->indic)->aiocb_R.aio_sigevent.sigev_notify = SIGEV_KEVENT;
 		((DPoll::PollorAio *)apius->indic)->aiocb_W.aio_sigevent.sigev_notify = SIGEV_KEVENT;
 		((DPoll::PollorAio *)apius->indic)->aiocb_R.aio_sigevent.sigev_notify_kqueue = kq;
