@@ -255,11 +255,9 @@ private:
 				if ( strcasecmp(str, "read_write" ) == 0 || strcasecmp(str, "write/read") == 0 
 					|| strcasecmp(str, "write_read") == 0 || strcasecmp(str, "read/write") == 0 )	
 					oflag |= O_RDWR;
-#if defined(__sun) || defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
+#if defined(__sun) 
 				if ( strcasecmp(str, "execute" ) == 0 || strcasecmp(str, "exec" ) == 0 )	
 					oflag |= O_EXEC;
-#endif
-#if defined(__sun) 
 				if ( strcasecmp(str, "search" ) == 0 )	
 					oflag |= O_SEARCH;
 				if ( strcasecmp(str, "close_on_fork" ) == 0 )	
@@ -275,7 +273,7 @@ private:
 				if ( strcasecmp(str, "no_links" ) == 0 )	
 					oflag |= O_NOLINKS;
 #endif
-#if defined(__sun) || defined(__linux__)
+#if defined(__sun) || defined(__linux__) || defined(__FreeBSD__) 
 				if ( strcasecmp(str, "directory" ) == 0 )	
 					oflag |= O_DIRECTORY;
 				if ( strcasecmp(str, "no_delay" ) == 0 )	
@@ -297,10 +295,12 @@ private:
 					oflag |= O_SHLOCK;
 				if ( strcasecmp(str, "exlock" ) == 0 ) 
 					oflag |= O_EXLOCK;
+/*
 				if ( strcasecmp(str, "verify" ) == 0 ) 
 					oflag |= O_VERIFY;
+*/
 #endif
-#if defined(__linux__) || defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
+#if defined(__linux__) || defined(__NetBSD__) 
 				if ( strcasecmp(str, "direct" ) == 0 )	
 					oflag |= O_DIRECT;
 #endif
@@ -312,8 +312,16 @@ private:
 					oflag |= O_CREAT;
 				if ( strcasecmp(str, "excl" ) == 0 )	
 					oflag |= O_EXCL;
+#if !defined(__APPLE__)
 				if ( strcasecmp(str, "largefile" ) == 0 )	
 					oflag |= O_LARGEFILE;
+#endif
+#if defined(__APPLE__)
+				if ( strcasecmp(str, "event_only" ) == 0 )	
+					oflag |= O_EVTONLY;
+				if ( strcasecmp(str, "symbol" ) == 0 )	
+					oflag |= O_SYMLINK;
+#endif
 				if ( strcasecmp(str, "noc_tty" ) == 0 )	
 					oflag |= O_NOCTTY;
 				if ( strcasecmp(str, "no_follow" ) == 0 )	
@@ -325,7 +333,7 @@ private:
 				if ( strcasecmp(str, "trunc" ) == 0 || strcasecmp(str, "truncate" ) == 0)	
 					oflag |= O_TRUNC;
 			}
-#endif
+#endif	/* end for non-windows */
 		}
 		inline G_CFG(TiXmlElement *cfg) {
 			const char *comm_str;
