@@ -1130,6 +1130,7 @@ LOOP:
 			break;
 
 		case DPoll::File:
+			WBUG("get DPoll:File");
 #if defined (_WIN32)
 			goto WIN_POLL;
 			break;

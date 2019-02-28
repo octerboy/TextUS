@@ -334,7 +334,7 @@ void PacIns::load_pac_def()
 
 void PacIns::ignite(TiXmlElement *prop) 
 {
-	const char *comm_str, *ret;
+	const char *comm_str;
 	if (!prop) return;
 	if ( !gCFG ) {
 		gCFG = new struct G_CFG();
@@ -645,18 +645,14 @@ void PacIns::log_pac(PacketObj *pac,const char *prompt, enum PAC_LOG mode)
 
 void PacIns::set_ins (struct InsData *insd)
 {
-	TiXmlElement *e_tmp, *p_ele, *def_ele;
+	TiXmlElement *p_ele, *def_ele;
 	const char *p=0, *pp=0; 
-	char *q;
 
-	int i = 0,a_num,j;
-	struct CmdSnd *a_snd_lst;
+	int i = 0,a_num;
 	size_t lnn; 
-	int lnn2;
 
 	const char *tag;
 	struct PacInsData *paci;
-	bool isFunction;
 
 	if ( insd->ext_ins ) return;	//已经定义过了,  不理
 	if ( !gCFG->pac_def_root ) 

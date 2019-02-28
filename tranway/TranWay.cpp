@@ -986,12 +986,10 @@ ALL_STILL:
 	int hard_work (TiXmlElement *pac_ele, TiXmlElement *usr_ele, struct PVar_Set *g_vars, struct PVar_Set *me_vars, Amor *my_obj)
 	{
 		struct PVar *vr_tmp=0;
-		TiXmlElement *e_tmp, *p_ele, *some_ele;
+		TiXmlElement *e_tmp, *some_ele;
 		const char *p=0, *pp=0; 
-		char *q;
 
 		int i = 0, a_num,j;
-		size_t lnn; 
 		int lnn2;
 		struct CmdRcv *a_rcv_lst;
 		Amor::Pius aps;
@@ -1023,7 +1021,7 @@ ALL_STILL:
 				hard_work_2(&snd_lst[i], pac_ele, usr_ele, g_vars, me_vars);
 		}
 
-	RCV_PRO: /* 预置接收的每个域，设定域号*/
+		/* 预置接收的每个域，设定域号*/
 		a_num  = 0;
 		for ( i = 0 ; i < rcv_num; i++ )
 		{
@@ -1218,7 +1216,7 @@ struct ComplexSubSerial {
 
 	bool ev_pro( TiXmlElement *sub, int &which, int &icc_num)	//为了无限制嵌套
 	{
-		TiXmlElement *pac_ele, *def_ele, *t_ele;
+		TiXmlElement *pac_ele, *t_ele;
 		for ( pac_ele= sub->FirstChildElement(); pac_ele; pac_ele = pac_ele->NextSiblingElement())
 		{
 			if ( !pac_ele->Value() ) continue;
@@ -1484,7 +1482,7 @@ struct INS_Set {
 
 	void put_inses(TiXmlElement *root, struct PVar_Set *var_set, TiXmlElement *map_root, Amor *my_obj)
 	{
-		int mor, vmany, refny,i,j,k;
+		int mor, vmany, refny;
 		refny = 0; 
 		ev_num(root, var_set, map_root, refny);
 
@@ -1754,7 +1752,6 @@ void TranWay::set_global_vars()
 }
 
 void TranWay::ignite(TiXmlElement *prop) {
-	const char *comm_str;
 	if (!prop) return;
 	if ( !gCFG ) {
 		gCFG = new struct G_CFG();
@@ -2055,7 +2052,6 @@ SUB_INS_PRO:
 void TranWay::mk_hand()
 {
 	struct User_Command *usr_com;
-	struct TranIns *trani;
 	int i_ret;
 	struct PVar  *vt;
 

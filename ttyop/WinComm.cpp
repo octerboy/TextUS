@@ -24,6 +24,7 @@
 #include "textus_string.h"
 
 #include "casecmp.h"
+#include "BTool.h"
 
 #include <time.h>
 #include <assert.h>
@@ -54,6 +55,26 @@
 		log_pius.ordo = Notitia::LOG_##Z; \
 		log_pius.indic = &errMsg[0]; \
 		aptus->sponte(&log_pius); }
+
+int squeeze(const char *p, unsigned char *q)	//把空格等挤掉, 只留下16进制字符(大写), 返回实际的长度
+{
+	int i;
+	i = 0;
+	while ( *p ) { 
+		if ( isxdigit(*p) ) 
+		{
+			if (q) q[i] = toupper(*p);
+			i++;
+		} else if ( !isspace(*p)) 
+		{
+			if (q) q[i] = *p;
+			i++;
+		}
+		p++;
+	}
+	if (q) q[i] = '\0';
+	return i;
+};
 
 class WinComm: public Amor
 {
@@ -131,7 +152,7 @@ private:
 	void open_comm();
 	void close_comm();
 
-	inline DWORD checkBaud( int baud )
+	DWORD checkBaud( int baud )
 	{
 		if (baud<=75)
 			return(uBAUD_75);
@@ -202,7 +223,7 @@ private:
 		return(baud);
 	};
 
-	inline void get_prop(TiXmlElement *cfg) 
+	void get_prop(TiXmlElement *cfg) 
 	{
 		const char *comm_str;
 		int baud_f, size_f;
@@ -249,12 +270,20 @@ private:
 		bool on_start;
 		Amor *sch;
 		struct DPoll::PollorBase lor; /* 探询 */
+		unsigned char start_seq[1024];
+		unsigned int seq_len;
 		inline G_CFG(TiXmlElement *cfg) {
 			const char *comm_str;
 			sch = 0;
 			lor.type = DPoll::NotUsed;
+			on_start = true;
 			if ( (comm_str = cfg->Attribute("start") ) && strcasecmp(comm_str, "no") ==0 )
                 		on_start = false; /* 并非一开始就启动 */
+			seq_len = 0;
+			if ( (comm_str = cfg->Attribute("start_seq") ) )
+			{
+				seq_len = BTool::unescape(comm_str, start_seq) ;
+			}
 		};
 	};
 	struct G_CFG *gCFG;
@@ -320,7 +349,7 @@ void WinComm::open_comm()
 
 	if(prop.dwSettableParams & SP_BAUD)
 	{
-			dcb.BaudRate = this->baud_rate ;
+		dcb.BaudRate = this->baud_rate ;
 	} else {
 		ERROR_PRO("不能设置波特率")
 		SLOG(EMERG);
@@ -361,8 +390,8 @@ void WinComm::open_comm()
 		return ;	
 	}
 
-//	if ( !SetCommMask(hdev,EV_RXCHAR | EV_ERR ) )
-	if ( !SetCommMask(hdev,EV_RXCHAR | EV_BREAK |EV_ERR |EV_RING |EV_TXEMPTY) )
+	if ( !SetCommMask(hdev,EV_RXCHAR | EV_ERR ) )
+//	if ( !SetCommMask(hdev,EV_RXCHAR | EV_BREAK |EV_ERR |EV_RING |EV_TXEMPTY) )
 	{
 		ERROR_PRO("SetCommMask")
 		SLOG(EMERG);
@@ -391,6 +420,7 @@ void WinComm::ignite(TiXmlElement *cfg)
 		gCFG = new struct G_CFG(cfg);
 		has_config = true;
 	}
+	get_prop(cfg);
 }
 
 bool WinComm::facio( Amor::Pius *pius)
@@ -458,16 +488,17 @@ bool WinComm::facio( Amor::Pius *pius)
 
 		if ( gCFG->on_start )
 			open_comm();
+		if ( gCFG->seq_len > 0 ) {
 /*
-		{
 		 unsigned char snd1[30] = { 
 			0x02, 0x00, 0x23 ,0x34 ,0x77 ,0x03 ,0x99 ,0x56 ,0x02 ,0x00 ,0x40 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00,
 			0x14 ,0x99 ,0x77 ,0x88 ,0x77 ,0x35 ,0x40 ,0x32 ,0x03 ,0xaf
 			};
-		 rcv_buf->input(snd1, 28);
-		aptus->sponte(&pro_tbuf_ps);
-		}
+		snd_buf->input(snd1, 28);
 */
+			snd_buf->input(gCFG->start_seq, gCFG->seq_len);
+			transmitto_ex();
+		}
 		break;
 
 	case Notitia::CLONE_ALL_READY:
@@ -586,6 +617,7 @@ WinComm::WinComm()
 {
 	pollor.pupa = this;
 	pollor.type = DPoll::File;
+	pollor.pro_ps.ordo = Notitia::PRO_EPOLL;
 	epl_set_ps.ordo = Notitia::SET_EPOLL;
 	epl_set_ps.indic = &pollor;
 	epl_clr_ps.ordo = Notitia::CLR_EPOLL;
@@ -604,6 +636,7 @@ WinComm::WinComm()
 	memset(&ovlpR, 0, sizeof(OVERLAPPED));
 	memset(&ovlpW, 0, sizeof(OVERLAPPED));
 	isCli = false;
+	hdev  = INVALID_HANDLE_VALUE;
 }
 
 WinComm::~WinComm()

@@ -175,7 +175,6 @@ bool PacTran::facio( Amor::Pius *pius)
 
 bool PacTran::sponte( Amor::Pius *pius) 
 {
-	PacketObj **tmp;
 	assert(pius);
 	if (!gCFG ) return false;
 

@@ -138,7 +138,7 @@ int load_xml(const char *f_name, TiXmlDocument &doc,  TiXmlElement *&root, const
 	doc.SetTabSize( 8 );
 	if ( !doc.LoadFile (f_name) || doc.Error()) 
 	{
-		TEXTUS_SPRINTF(err_str, "Loading %s file failed in row %d and column %d, %s", f_name, doc.ErrorRow(), doc.ErrorCol(), doc.ErrorDesc());
+		TEXTUS_SNPRINTF(err_str, 128, "Loading %s file failed in row %d and column %d, %s", f_name, doc.ErrorRow(), doc.ErrorCol(), doc.ErrorDesc());
 		return -1;
 	} 
 	if ( md5_content) {
@@ -166,7 +166,7 @@ int load_xml(const char *f_name, TiXmlDocument &doc,  TiXmlElement *&root, const
 		md_str[32] = 0;
 		if ( strncasecmp(md_str, md5_content, 10) != 0) 
 		{
-			TEXTUS_SPRINTF(err_str, "Loading %s file failed in md5 error", f_name);
+			TEXTUS_SNPRINTF(err_str, 128, "Loading %s file failed in md5 error", f_name);
 			return -3;
 		}
 		}
