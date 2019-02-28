@@ -539,12 +539,12 @@ bool WinComm::facio( Amor::Pius *pius)
 					aptus->sponte(&pro_tbuf_ps);
 				else
 					aptus->facio(&pro_tbuf_ps);
+				recito_ex();
 			}
 		} else if ( aget->lpOverlapped != &ovlpW ) {
 			WLOG(EMERG, "not my overlap");
 			break;
 		}
-		recito_ex();
 		break;
 
 	default:

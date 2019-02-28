@@ -1965,7 +1965,7 @@ SUB_INS_PRO:
 	case INS_Abort:
 		if (trani->err_code ) { 
 			mess.snap[Pos_ErrCode].input(trani->err_code);
-			TEXTUS_SPRINTF(mess.err_str,  "user abort(%d) at %d of %s",  cur_def->ins_all.instructions[mess.ins_which].complex[command_wt.cur].loop_n - command_wt.sub_loop, mess.pro_order, cur_def->flow_id);
+			TEXTUS_SPRINTF(mess.err_str,  "user abort(%ld) at %d of %s",  cur_def->ins_all.instructions[mess.ins_which].complex[command_wt.cur].loop_n - command_wt.sub_loop, mess.pro_order, cur_def->flow_id);
 			mess.snap[Pos_ErrStr].input(mess.err_str);
 			WLOG(WARNING, "Error %s:  %s", mess.snap[Pos_ErrCode].val_p, mess.err_str);
 			command_wt.tran_step = Tran_End;
