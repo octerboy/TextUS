@@ -482,7 +482,7 @@ LOOP:
 		rd_tors.cur == 0 ? NULL: &rset,
 		wr_tors.cur == 0 ? NULL: &wset, 
 		ex_tors.cur == 0 ? NULL: &eset, &tv); 
-
+	WBUG("nready %d", nready);
 	if (nready > 0)
 	{
 		int nre = nready;

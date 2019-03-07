@@ -33,60 +33,6 @@
 #include <sys/stat.h>
 #include <stdarg.h>
 
-#ifndef inline
-#define inline inline
-#endif 
-
-#define RCV_FRAME_SIZE 8192
-#define ERRSTR_LEN 1024
-#define ERROR_PRO(X) { \
-	char *s; \
-	char error_string[1024]; \
-	DWORD dw = GetLastError(); \
-	FormatMessage( FORMAT_MESSAGE_FROM_SYSTEM, NULL, dw, \
-		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR) error_string, 1024, NULL );\
-	s= strstr(error_string, "\r\n") ; \
-	if (s )  *s = '\0';  \
-	if ( errMsg ) \
-		TEXTUS_SNPRINTF(errMsg, ERRSTR_LEN, "%s errno %d, %s", X,dw, error_string);\
-	}
-
-#define SLOG(Z) { Amor::Pius log_pius; \
-		log_pius.ordo = Notitia::LOG_##Z; \
-		log_pius.indic = &errMsg[0]; \
-		aptus->sponte(&log_pius); }
-
-int squeeze(const char *p, unsigned char *q)	//把空格等挤掉, 只留下16进制字符(大写), 返回实际的长度
-{
-	int i;
-	i = 0;
-	while ( *p ) { 
-		if ( isxdigit(*p) ) 
-		{
-			if (q) q[i] = toupper(*p);
-			i++;
-		} else if ( !isspace(*p)) 
-		{
-			if (q) q[i] = *p;
-			i++;
-		}
-		p++;
-	}
-	if (q) q[i] = '\0';
-	return i;
-};
-
-class WinComm: public Amor
-{
-public:
-	void ignite(TiXmlElement *cfg);	
-	bool facio( Pius *);
-	bool sponte( Pius *);
-	Amor *clone();
-
-	WinComm();
-	~WinComm();
-
 	enum tagParityType {	
 		uPARITY_NONE	= 0,
 		uPARITY_ODD	= 1,
@@ -134,20 +80,32 @@ public:
 		uBAUD_921K	= 921600
 	} ;
 
+class WinComm: public Amor
+{
+public:
+	void ignite(TiXmlElement *cfg);	
+	bool facio( Pius *);
+	bool sponte( Pius *);
+	Amor *clone();
+
+	WinComm();
+	~WinComm();
+
 private:
 	bool isCli;
 	DPoll::Pollor pollor; /* 保存事件句柄, 各子实例不同 */
 	Amor::Pius epl_set_ps, epl_clr_ps, pro_tbuf_ps;
+	Amor::Pius tmp_pius;
 
-	char errMsg[ERRSTR_LEN];
-
-	OVERLAPPED ovlpW, ovlpR;
-	HANDLE hdev;		/* 串口访问文件句柄 */
+	OVERLAPPED ovlpW, ovlpR, ovlpE;
+	HANDLE hdev, evt_hnd;	/* 串口访问文件句柄 */
 	char comm_name[128];
 	DWORD baud_rate;       /* Baudrate at which running       */
 	BYTE data_size;        /* Number of bits/byte, 4-8        */
 	BYTE parity;          /* 0-4=None,Odd,Even,Mark,Space    */
 	BYTE stop_bits;        /* 0,1,2 = 1, 1.5, 2               */
+	DWORD evtMask;
+	bool has_evt;
 
 	void open_comm();
 	void close_comm();
@@ -272,8 +230,20 @@ private:
 		struct DPoll::PollorBase lor; /* 探询 */
 		unsigned char start_seq[1024];
 		unsigned int seq_len;
+		DWORD dwEvtMask, dwPurgeFlag, dwInQueue, dwOutQueue ;
+		char action[256];
+		DCB dcb;
+		COMMTIMEOUTS tmo;
+		bool has_dtr, has_rts, has_xon_xoff, has_out_cts, has_out_dsr, has_in_dsr;
+		bool has_err_char, has_eof_char, has_evt_char, has_timeout, has_buffer ;
 		inline G_CFG(TiXmlElement *cfg) {
 			const char *comm_str;
+			char n_str[256];
+			TiXmlElement *ele;
+			size_t i;
+			int val;
+
+			memset(&dcb, 0, sizeof(DCB));
 			sch = 0;
 			lor.type = DPoll::NotUsed;
 			on_start = true;
@@ -283,6 +253,207 @@ private:
 			if ( (comm_str = cfg->Attribute("start_seq") ) )
 			{
 				seq_len = BTool::unescape(comm_str, start_seq) ;
+			}
+			dwEvtMask = 0;
+			ele =  cfg->FirstChildElement("event_mask") ;
+			if ( ele && (comm_str = ele->GetText() ) )
+			{
+				for ( i = 0 ; i < strlen(comm_str); i++)
+					n_str[i]= toupper(comm_str[i]);
+				n_str[i] = 0;
+				if ( strstr(n_str, "BREAK") ) dwEvtMask |= EV_BREAK;
+				if ( strstr(n_str, "CTS") ) dwEvtMask |= EV_CTS;
+				if ( strstr(n_str, "DSR") ) dwEvtMask |= EV_DSR;
+				if ( strstr(n_str, "ERR") ) dwEvtMask |= EV_ERR;
+				if ( strstr(n_str, "RING") ) dwEvtMask |= EV_RING;
+				if ( strstr(n_str, "RLSD") ) dwEvtMask |= EV_RLSD;
+				if ( strstr(n_str, "RXCHAR") ) dwEvtMask |= EV_RXCHAR;
+				if ( strstr(n_str, "RXFLAG") ) dwEvtMask |= EV_RXFLAG;
+				if ( strstr(n_str, "TXEMPTY") ) dwEvtMask |= EV_TXEMPTY;
+			}
+			dwPurgeFlag = 0;
+			ele =  cfg->FirstChildElement("purge") ;
+			if ( ele && (comm_str = ele->GetText() ) )
+			{
+				for ( i = 0 ; i < strlen(comm_str); i++)
+					n_str[i]= tolower(comm_str[i]);
+				n_str[i] = 0;
+				if ( strstr(n_str, "rx_abort") ) dwPurgeFlag |= PURGE_RXABORT;
+				if ( strstr(n_str, "rx_clear") ) dwPurgeFlag |= PURGE_RXCLEAR;
+				if ( strstr(n_str, "tx_abort") ) dwPurgeFlag |= PURGE_TXABORT;
+				if ( strstr(n_str, "tx_clear") ) dwPurgeFlag |= PURGE_TXCLEAR;
+			}
+			
+			action[0] = 0;
+			ele =  cfg->FirstChildElement("action") ;
+			if ( ele && (comm_str = ele->GetText() ) )
+			{
+				for ( i = 0 ; i < strlen(comm_str); i++)
+					action[i]= tolower(comm_str[i]);
+				action[i] = 0;
+			}
+			has_buffer = false;
+			ele =  cfg->FirstChildElement("buffer") ;
+			if ( ele ) 
+			{
+				int val;
+				dwInQueue =  dwOutQueue = 1;
+				has_buffer = true;
+				if ( TIXML_SUCCESS ==ele->QueryIntAttribute("in", &val))
+					dwInQueue = (DWORD)val;
+				if ( TIXML_SUCCESS == ele->QueryIntAttribute("out",&val))
+					dwOutQueue = (DWORD)val;
+			}
+			has_timeout = false;
+			ele =  cfg->FirstChildElement("timeout") ;
+			if ( ele ) 
+			{
+				int val;
+				has_timeout = true;
+				tmo.ReadIntervalTimeout=-1;
+				tmo.ReadTotalTimeoutConstant=-1;
+				tmo.ReadTotalTimeoutMultiplier=-1;
+				tmo.WriteTotalTimeoutConstant=-1;
+				tmo.WriteTotalTimeoutMultiplier=-1;
+				if ( TIXML_SUCCESS == ele->QueryIntAttribute("ReadInterval", &val))
+					tmo.ReadIntervalTimeout = (DWORD)val;
+				if ( TIXML_SUCCESS == ele->QueryIntAttribute("ReadConstant", &val))
+					tmo.ReadTotalTimeoutConstant= (DWORD)val;
+				if ( TIXML_SUCCESS == ele->QueryIntAttribute("ReadMultiplier", &val))
+					tmo.ReadTotalTimeoutMultiplier = (DWORD)val;
+				if ( TIXML_SUCCESS == ele->QueryIntAttribute("WriteMultiplier", &val))
+					tmo.WriteTotalTimeoutMultiplier = (DWORD)val;
+				if ( TIXML_SUCCESS == ele->QueryIntAttribute("WriteConstant", &val))
+					tmo.WriteTotalTimeoutConstant= (DWORD)val;
+			}
+			has_xon_xoff = false;
+			ele =  cfg->FirstChildElement("Xon_Xoff") ;
+			if ( ele )
+			{
+				has_xon_xoff = true;
+				comm_str = ele->GetText();
+				for ( i = 0 ; i < strlen(comm_str); i++)
+					n_str[i]= tolower(comm_str[i]);
+				n_str[i] = 0;
+				if ( strstr(n_str, "tx_continue_on_xoff"))
+					dcb.fTXContinueOnXoff = true;
+				else
+					dcb.fTXContinueOnXoff = false;
+				if ( strstr(n_str, "out_xon_xoff"))
+					dcb.fOutX = true;
+				else
+					dcb.fOutX = false;
+				if ( strstr(n_str, "in_xon_xoff"))
+					dcb.fInX = true;
+				else
+					dcb.fInX = false;
+				BTool::unescape(ele->Attribute("xon"), (unsigned char*)n_str);
+				dcb.XonChar = n_str[0];
+				BTool::unescape(ele->Attribute("xoff"), (unsigned char*)n_str);
+				dcb.XoffChar = n_str[0];
+				ele->QueryIntAttribute("xon_lim", &val);
+				dcb.XonLim = (WORD)val;
+				ele->QueryIntAttribute("xoff_lim", &val);
+				dcb.XoffLim = (WORD)val;
+			}
+			has_rts = false;
+			ele =  cfg->FirstChildElement("RTS") ;
+			if ( ele )
+			{
+				has_rts = true;
+				comm_str = ele->GetText();
+				for ( i = 0 ; i < strlen(comm_str); i++)
+					n_str[i]= tolower(comm_str[i]);
+				n_str[i] = 0;
+				if ( strstr(n_str, "disable"))
+					dcb.fRtsControl = RTS_CONTROL_DISABLE;
+				if ( strstr(n_str, "enable"))
+					dcb.fRtsControl = RTS_CONTROL_ENABLE;
+				if ( strstr(n_str, "handshake"))
+					dcb.fRtsControl = RTS_CONTROL_HANDSHAKE;
+				if ( strstr(n_str, "toggle"))
+					dcb.fRtsControl = RTS_CONTROL_TOGGLE;
+			}
+			has_dtr = false;
+			ele =  cfg->FirstChildElement("DTR") ;
+			if ( ele )
+			{
+				has_dtr = true;
+				comm_str = ele->GetText();
+				for ( i = 0 ; i < strlen(comm_str); i++)
+					n_str[i]= tolower(comm_str[i]);
+				n_str[i] = 0;
+				if ( strstr(n_str, "disable"))
+					dcb.fDtrControl = DTR_CONTROL_DISABLE;
+				if ( strstr(n_str, "enable"))
+					dcb.fDtrControl = DTR_CONTROL_ENABLE;
+				if ( strstr(n_str, "handshake"))
+					dcb.fDtrControl = DTR_CONTROL_HANDSHAKE;
+			}
+			has_out_dsr = false;
+			has_out_cts = false;
+			has_in_dsr = false;
+			ele =  cfg->FirstChildElement("control") ;
+			if ( ele )
+			{
+				has_dtr = true;
+				comm_str = ele->GetText();
+				for ( i = 0 ; i < strlen(comm_str); i++)
+					n_str[i]= tolower(comm_str[i]);
+				n_str[i] = 0;
+				if ( strstr(n_str, "cts_enable"))
+				{
+					has_out_cts = true;
+					dcb.fOutxCtsFlow = TRUE;
+				}
+				if ( strstr(n_str, "cts_disable"))
+				{
+					has_out_cts = true;
+					dcb.fOutxCtsFlow = FALSE;
+				}
+				if ( strstr(n_str, "out_dsr_disable"))
+				{
+					has_out_dsr = true;
+					dcb.fOutxDsrFlow = FALSE;
+				}
+				if ( strstr(n_str, "out_dsr_enable"))
+				{
+					has_out_dsr = true;
+					dcb.fOutxDsrFlow = TRUE;
+				}
+				if ( strstr(n_str, "in_dsr_disable"))
+				{
+					has_in_dsr = true;
+					dcb.fDsrSensitivity = FALSE; 
+				}
+				if ( strstr(n_str, "in_dsr_enable"))
+				{
+					has_in_dsr = true;
+					dcb.fDsrSensitivity = TRUE; 
+				}
+				comm_str = ele->Attribute("parity_error_char");
+				if ( comm_str ) 
+				{
+					has_err_char = true;
+					BTool::unescape(comm_str, (unsigned char*)n_str);
+					dcb.fErrorChar = TRUE;
+					dcb.ErrorChar = n_str[0];
+				}
+				comm_str = ele->Attribute("event_char");
+				if ( comm_str ) 
+				{
+					has_evt_char = true;
+					BTool::unescape(comm_str, (unsigned char*)n_str);
+					dcb.EvtChar = n_str[0];
+				}
+				comm_str = ele->Attribute("EOF_char");
+				if ( comm_str ) 
+				{
+					has_eof_char = true;
+					BTool::unescape(comm_str, (unsigned char*)n_str);
+					dcb.fErrorChar = TRUE;
+					dcb.EofChar = n_str[0];
+				}
 			}
 		};
 	};
@@ -294,6 +465,9 @@ private:
 
 	inline void transmitto_ex();
 	inline void recito_ex();
+	void wait_evt();
+	void pro_evt();
+	void evt_deliver(Pius *);
 	inline void deliver(Notitia::HERE_ORDO aordo);
 
 #include "wlog.h"
@@ -304,8 +478,7 @@ void WinComm::close_comm()
 	WBUG("close_comm(%s).....", comm_name);
 	if ( !CloseHandle(hdev) )
 	{
-		ERROR_PRO("CloseHandle")
-		SLOG(ERR)
+		WLOG_OSERR("CloseHandle");
 	}
 	hdev = INVALID_HANDLE_VALUE;
 	deliver(Notitia::END_SESSION);/* 向左、右传递本类的会话关闭信号 */
@@ -315,35 +488,44 @@ void WinComm::open_comm()
 {
 	DCB dcb;
 	COMMPROP prop;
+	COMMTIMEOUTS tmo;
 	char msg[128];
 
 	if ( this->hdev  != INVALID_HANDLE_VALUE ) return;
 	memset(&dcb,0,sizeof(dcb));
 
 	this->hdev = CreateFile(this->comm_name, GENERIC_READ|GENERIC_WRITE, 0, NULL, 
-		OPEN_EXISTING, FILE_FLAG_WRITE_THROUGH | FILE_FLAG_OVERLAPPED, NULL);
+//				OPEN_EXISTING, 0, NULL);
+//		OPEN_EXISTING, FILE_FLAG_WRITE_THROUGH, NULL);
+		OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
+//		OPEN_EXISTING, FILE_FLAG_WRITE_THROUGH | FILE_FLAG_OVERLAPPED, NULL);
 
 	if (hdev == INVALID_HANDLE_VALUE)
 	{
 		sprintf_s(msg, "CreateFile(%s)",this->comm_name);
-		ERROR_PRO(msg)
-		SLOG(EMERG);
+		WLOG_OSERR(msg);
 		return ;
 	}
-
+	if ( gCFG->dwEvtMask )
+	{
+		evt_hnd = CreateEvent(	NULL, TRUE, FALSE, NULL);
+		if (evt_hnd == INVALID_HANDLE_VALUE)
+		{
+			WLOG_OSERR("CreateEvent");
+			return ;
+		}
+	}
 	//the following get commport properties into lpprop
 	if (GetCommProperties (hdev, &prop) == 0)
 	{
-		ERROR_PRO("GetCommProperties")
-		SLOG(EMERG);
+		WLOG_OSERR("GetCommProperties");
 		return ;	
 	}
 
 	//the following get and set DCB
 	if (GetCommState(hdev, &dcb) == 0)
 	{
-		ERROR_PRO("GetCommState")
-		SLOG(EMERG);
+		WLOG_OSERR("GetCommState");
 		return ;	
 	}
 
@@ -351,8 +533,7 @@ void WinComm::open_comm()
 	{
 		dcb.BaudRate = this->baud_rate ;
 	} else {
-		ERROR_PRO("不能设置波特率")
-		SLOG(EMERG);
+		WLOG(ERR,"不能设置波特率");
 		return ;	
 	}
 
@@ -360,8 +541,7 @@ void WinComm::open_comm()
 	{
 		dcb.Parity = this->parity;
 	} else {
-		ERROR_PRO("不能设置校验方式")
-		SLOG(EMERG);
+		WLOG(ERR,"不能设置校验方式");
 		return ;	
 	}
 
@@ -369,8 +549,7 @@ void WinComm::open_comm()
 	{
 		dcb.StopBits = this->stop_bits ;
 	} else {
-		ERROR_PRO("不能设置停止位")
-		SLOG(EMERG);
+		WLOG(ERR,"不能设置停止位");
 		return ;	
 	}
 
@@ -378,32 +557,111 @@ void WinComm::open_comm()
 	{
 		dcb.ByteSize = this->data_size ;
 	} else {
-		ERROR_PRO("不能设置字节尺寸")
-		SLOG(EMERG);
+		WLOG(ERR,"不能设置字节尺寸");
+		return ;	
+	}
+	dcb.fBinary = TRUE;
+	if ( gCFG->has_dtr)
+	{
+		dcb.fDtrControl = gCFG->dcb.fDtrControl;
+	}
+	if ( gCFG->has_out_dsr)
+	{
+		dcb.fOutxDsrFlow = gCFG->dcb.fOutxDsrFlow;
+	}
+	if ( gCFG->has_out_cts)
+	{
+		dcb.fOutxCtsFlow = gCFG->dcb.fOutxCtsFlow;
+	}
+	if ( gCFG->has_in_dsr)
+	{
+		dcb.fDsrSensitivity = gCFG->dcb.fDsrSensitivity;
+	}
+	if ( gCFG->has_err_char)
+	{
+		dcb.fErrorChar = gCFG->dcb.fErrorChar;
+		dcb.ErrorChar = gCFG->dcb.ErrorChar;
+	}
+	if ( gCFG->has_evt_char)
+	{
+		dcb.EvtChar = gCFG->dcb.EvtChar;
+	}
+	if ( gCFG->has_eof_char)
+	{
+		dcb.EofChar = gCFG->dcb.EofChar;
+	}
+
+	if ( gCFG->has_rts)
+	{
+		dcb.fRtsControl = gCFG->dcb.fRtsControl;
+	}
+
+	if ( !strstr(gCFG->action, "no_set_state"))
+	if ( !SetCommState(hdev,&dcb) )
+	{
+		WLOG_OSERR("SetCommState");
 		return ;	
 	}
 
-	if (SetCommState(hdev,&dcb) == 0)
+	if ( gCFG->dwEvtMask )
+	if ( !SetCommMask(hdev, gCFG->dwEvtMask ) )
 	{
-		ERROR_PRO("SetCommState")
-		SLOG(EMERG);
+		WLOG_OSERR("SetCommMask");
 		return ;	
 	}
 
-	if ( !SetCommMask(hdev,EV_RXCHAR | EV_ERR ) )
-//	if ( !SetCommMask(hdev,EV_RXCHAR | EV_BREAK |EV_ERR |EV_RING |EV_TXEMPTY) )
+	if ( strstr(gCFG->action, "clear_break"))
+	if ( !ClearCommBreak(hdev) )
 	{
-		ERROR_PRO("SetCommMask")
-		SLOG(EMERG);
-		return ;	
-	}
-
-	if (ClearCommBreak(hdev) == 0)
-	{
-		ERROR_PRO("ClearCommBreak")
-		SLOG(EMERG);
+		WLOG_OSERR("SetCommBreak");
 		return ;		
 	}
+
+	if ( strstr(gCFG->action, "set_break"))
+	if ( !SetCommBreak(hdev) )
+	{
+		WLOG_OSERR("ClearCommBreak");
+		return ;		
+	}
+
+	if ( gCFG->has_buffer)
+	if ( !SetupComm(hdev, gCFG->dwInQueue, gCFG->dwOutQueue) )
+	{
+		WLOG_OSERR("SetupComm");
+		return ;		
+	}
+
+	if ( gCFG->has_timeout)
+	{
+		if ( !GetCommTimeouts(hdev, &tmo) )
+		{
+			WLOG_OSERR("GetCommTimeouts");
+			return ;		
+		}
+		if ( gCFG->tmo.ReadIntervalTimeout !=  -1 )
+			tmo.ReadIntervalTimeout =  gCFG->tmo.ReadIntervalTimeout;
+		if ( gCFG->tmo.ReadTotalTimeoutConstant!=  -1 )
+			tmo.ReadTotalTimeoutConstant =  gCFG->tmo.ReadTotalTimeoutConstant ;
+		if ( gCFG->tmo.ReadTotalTimeoutMultiplier!=  -1 )
+			tmo.ReadTotalTimeoutMultiplier =  gCFG->tmo.ReadTotalTimeoutMultiplier ;
+		if ( gCFG->tmo.WriteTotalTimeoutConstant!=  -1 )
+			tmo.WriteTotalTimeoutConstant =  gCFG->tmo.WriteTotalTimeoutConstant ;
+		if ( gCFG->tmo.WriteTotalTimeoutMultiplier!=  -1 )
+			tmo.WriteTotalTimeoutMultiplier =  gCFG->tmo.WriteTotalTimeoutMultiplier ;
+		if ( !SetCommTimeouts(hdev, &tmo) )
+		{
+			WLOG_OSERR("SetCommTimeouts");
+			return ;		
+		}
+	}
+
+	if ( gCFG->dwPurgeFlag)
+	if ( !PurgeComm(hdev, gCFG->dwPurgeFlag))
+	{
+		WLOG_OSERR("PurgeComm");
+		return ;
+	}
+
 	pollor.hnd.file = hdev;
 	gCFG->sch->sponte(&epl_set_ps);	//向tpoll
 	/* 接收(发送)缓冲区清空 */
@@ -411,6 +669,7 @@ void WinComm::open_comm()
 	if ( snd_buf) snd_buf->reset();
 	deliver(Notitia::START_SESSION); //向接力者发出通知, 本对象开始
 	recito_ex();
+	wait_evt();
 }
 
 void WinComm::ignite(TiXmlElement *cfg)
@@ -427,24 +686,12 @@ bool WinComm::facio( Amor::Pius *pius)
 {
 	OVERLAPPED_ENTRY *aget;
 	TBuffer **tb;
-	Amor::Pius tmp_pius;
 	assert(pius);
 	switch (pius->ordo)
 	{
 	case Notitia::PRO_TBUF :
 		WBUG("facio PRO_TBUF");
 		transmitto_ex();
-/*
-		if ( hdev == INVALID_HANDLE_VALUE )
-		{
-			Amor::Pius info_pius;
-			info_pius.ordo = Notitia::CHANNEL_NOT_ALIVE;
-			info_pius.indic = 0;
-			aptus->sponte(&info_pius);
-		} else {
-			transmitto_ex();
-		}
-*/
 		break;
 
 	case Notitia::SET_TBUF:	/* 取得输入TBuffer地址 */
@@ -489,13 +736,6 @@ bool WinComm::facio( Amor::Pius *pius)
 		if ( gCFG->on_start )
 			open_comm();
 		if ( gCFG->seq_len > 0 ) {
-/*
-		 unsigned char snd1[30] = { 
-			0x02, 0x00, 0x23 ,0x34 ,0x77 ,0x03 ,0x99 ,0x56 ,0x02 ,0x00 ,0x40 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00 ,0x00,
-			0x14 ,0x99 ,0x77 ,0x88 ,0x77 ,0x35 ,0x40 ,0x32 ,0x03 ,0xaf
-			};
-		snd_buf->input(snd1, 28);
-*/
 			snd_buf->input(gCFG->start_seq, gCFG->seq_len);
 			transmitto_ex();
 		}
@@ -523,15 +763,24 @@ bool WinComm::facio( Amor::Pius *pius)
 		gCFG->sch->sponte(&epl_set_ps); //向tpoll,  注册
 		break;
 
+	case Notitia::ERR_EPOLL:
+		WBUG("facio ERR_EPOLL");
+		WLOG(WARNING, (char*)pius->indic);	
+		close_comm();	//直接关闭就可.
+		break;
+
 	case Notitia::PRO_EPOLL:
-		WBUG("facio PRO_EPOLL");
 		aget = (OVERLAPPED_ENTRY *)pius->indic;
+		WBUG("facio PRO_EPOLL ovlp=%p (W=%p, R=%p)", aget->lpOverlapped, &ovlpW, &ovlpR);
 		if ( aget->lpOverlapped == &ovlpR )
 		{	//已读数据,  不失败并有数据才向接力者传递
 			if ( aget->dwNumberOfBytesTransferred ==0 ) 
 			{
-				WLOG(INFO, "IOCP recv 0 disconnected");
-				close_comm();
+				WLOG(INFO, "%s recv timeout", comm_name);
+				recito_ex();
+				tmp_pius.indic = 0;
+				tmp_pius.ordo = Notitia::Comm_Recv_Timeout;
+				evt_deliver(&tmp_pius);
 			} else {
 				WBUG("PRO_EPOLL recv %d bytes", aget->dwNumberOfBytesTransferred);
 				rcv_buf->commit(aget->dwNumberOfBytesTransferred);
@@ -541,9 +790,14 @@ bool WinComm::facio( Amor::Pius *pius)
 					aptus->facio(&pro_tbuf_ps);
 				recito_ex();
 			}
-		} else if ( aget->lpOverlapped != &ovlpW ) {
+		} else if ( aget->lpOverlapped == &ovlpW ) {
+			WBUG("epoll for write ok");	
+		} else if ( aget->lpOverlapped == &ovlpE ) {
+			WBUG("epoll for event ok");
+			pro_evt();
+			wait_evt();
+		} else {
 			WLOG(EMERG, "not my overlap");
-			break;
 		}
 		break;
 
@@ -625,8 +879,6 @@ WinComm::WinComm()
 	pro_tbuf_ps.ordo = Notitia::PRO_TBUF;
 	pro_tbuf_ps.indic = 0;
 
-	memset(errMsg, 0, sizeof(errMsg));
-
 	m_rcv_buf = new TBuffer(1024);
 	m_snd_buf = new TBuffer(1024);
 	rcv_buf = m_rcv_buf;
@@ -635,6 +887,7 @@ WinComm::WinComm()
 	has_config = false;
 	memset(&ovlpR, 0, sizeof(OVERLAPPED));
 	memset(&ovlpW, 0, sizeof(OVERLAPPED));
+	memset(&ovlpE, 0, sizeof(OVERLAPPED));
 	isCli = false;
 	hdev  = INVALID_HANDLE_VALUE;
 }
@@ -652,11 +905,11 @@ void WinComm::transmitto_ex()
 {
 	DWORD snd_len = snd_buf->point - snd_buf->base;	//发送长度
 	memset(&ovlpW, 0, sizeof(OVERLAPPED));
+//	printf("write ovlpW %p\n", &ovlpW);
 	if ( !WriteFile(hdev, snd_buf->base, snd_len, NULL, &ovlpW) )
 	{
 		if ( ERROR_IO_PENDING != GetLastError() ) {
-			ERROR_PRO ("WriteFile");
-			SLOG(EMERG)
+			WLOG_OSERR("WriteFile");
 			close_comm();
 			return ;
 		}
@@ -666,13 +919,126 @@ void WinComm::transmitto_ex()
 
 void WinComm::recito_ex()
 {
-	rcv_buf->grant(RCV_FRAME_SIZE);
+	rcv_buf->grant(512);
 	memset(&ovlpR, 0, sizeof(OVERLAPPED));
-	if (!ReadFile(hdev, rcv_buf->point, RCV_FRAME_SIZE, NULL, &ovlpR) )
+	//if (!ReadFile(hdev, rcv_buf->point, 1, &rd, NULL) )
+	if (!ReadFile(hdev, rcv_buf->point, 1, NULL, &ovlpR) )
 	{
 		if ( ERROR_IO_PENDING != GetLastError() ) {
-			ERROR_PRO ("ReadFile");
-			SLOG(EMERG)
+			WLOG_OSERR("ReadFile");
+			close_comm();
+		}
+	} 
+}
+
+void WinComm::pro_evt()
+{
+	if ( evtMask && EV_BREAK)
+	{
+		tmp_pius.ordo = Notitia::Comm_Event_Break;
+		tmp_pius.indic = 0;
+		evt_deliver(&tmp_pius);
+	} 
+	if ( evtMask && EV_CTS)
+	{
+		tmp_pius.ordo = Notitia::Comm_Event_CTS;
+		tmp_pius.indic = 0;
+		evt_deliver(&tmp_pius);
+	}
+	if ( evtMask && EV_DSR)
+	{
+		tmp_pius.ordo = Notitia::Comm_Event_DSR;
+		tmp_pius.indic = 0;
+		evt_deliver(&tmp_pius);
+	}
+	if ( evtMask && EV_ERR)
+	{
+		DWORD err;
+		COMSTAT st;
+		if ( !ClearCommError(hdev, &err, &st))
+		{
+			WLOG_OSERR("ClearCommError");
+			return;
+		}
+		tmp_pius.indic = (void*)&st;
+		if ( err && CE_BREAK)
+		{
+			tmp_pius.ordo = Notitia::Comm_Err_Break;
+			evt_deliver(&tmp_pius);
+		}
+		if ( err && CE_FRAME)
+		{
+			tmp_pius.ordo = Notitia::Comm_Err_Frame;
+			evt_deliver(&tmp_pius);
+		}
+		if ( err && CE_OVERRUN)
+		{
+			tmp_pius.ordo = Notitia::Comm_Err_OverRun;
+			evt_deliver(&tmp_pius);
+		}
+		if ( err && CE_RXOVER)
+		{
+			tmp_pius.ordo = Notitia::Comm_Err_RxOver;
+			evt_deliver(&tmp_pius);
+		}
+		if ( err && CE_RXPARITY)
+		{
+			tmp_pius.ordo = Notitia::Comm_Err_RxParity;
+			evt_deliver(&tmp_pius);
+		}
+	}
+	if ( evtMask && EV_RING)
+	{
+		tmp_pius.ordo = Notitia::Comm_Event_Ring;
+		tmp_pius.indic = 0;
+		evt_deliver(&tmp_pius);
+	}
+	if ( evtMask && EV_RLSD)
+	{
+		tmp_pius.ordo = Notitia::Comm_Event_RLSD;
+		tmp_pius.indic = 0;
+		evt_deliver(&tmp_pius);
+	}
+	if ( evtMask && EV_RXCHAR)
+	{
+		WBUG("event RXCHAR");
+		tmp_pius.ordo = Notitia::Comm_Event_RxChar;
+		tmp_pius.indic = 0;
+		evt_deliver(&tmp_pius);
+	}
+	if ( evtMask && EV_RXFLAG)
+	{
+		tmp_pius.ordo = Notitia::Comm_Event_RxFlag;
+		tmp_pius.indic = 0;
+		evt_deliver(&tmp_pius);
+	}
+	if ( evtMask && EV_TXEMPTY)
+	{
+		tmp_pius.ordo = Notitia::Comm_Event_TxEmpty;
+		tmp_pius.indic = 0;
+		evt_deliver(&tmp_pius);
+	}
+}
+
+void WinComm::evt_deliver(Pius *ps)
+{
+	if ( isCli ) 
+		aptus->sponte(ps);
+	else
+		aptus->facio(ps);
+}
+
+void WinComm::wait_evt()
+{
+	if ( !gCFG->dwEvtMask ) return;
+	memset(&ovlpE, 0, sizeof(OVERLAPPED));
+	ovlpE.hEvent = evt_hnd;
+	ResetEvent(ovlpE.hEvent );
+	evtMask = 0;
+	if ( !WaitCommEvent(hdev, &evtMask, &ovlpE) )
+	{
+		if ( ERROR_IO_PENDING != GetLastError() ) {
+			WLOG_OSERR("WaitCommEvent");
 			close_comm();
 		}
 	} 
@@ -689,7 +1055,6 @@ Amor* WinComm::clone()
 /* 向接力者提交 */
 inline void WinComm::deliver(Notitia::HERE_ORDO aordo)
 {
-	Amor::Pius tmp_pius;
 	TBuffer *tb[3];
 	tmp_pius.ordo = aordo;
 	tmp_pius.indic = 0;

@@ -219,6 +219,22 @@ enum HERE_ORDO {
 	Pro_TranWay		=213,	//要求处理TranWay
 	Ans_TranWay		=214,	//应答处理TranWay
 	Log_InsWay		=215,	//日志记录InsWay结构数据， 用于事务出现错误时的日志
+	
+	Comm_Recv_Timeout	=280,	/* recv time out */
+	Comm_Event_Break	=281,	/* Communication Serial Event */
+	Comm_Event_CTS		=282,
+	Comm_Event_DSR		=283,
+	Comm_Event_Err		=284,
+	Comm_Event_Ring		=285,
+	Comm_Event_RLSD		=286,
+	Comm_Event_RxChar	=287,
+	Comm_Event_RxFlag	=288,
+	Comm_Event_TxEmpty	=289,
+	Comm_Err_Break		=295,	/* Communication Serial Error */
+	Comm_Err_Frame		=296,
+	Comm_Err_OverRun	=297,
+	Comm_Err_RxOver		=298,
+	Comm_Err_RxParity	=299,
 
 	CMD_SET_DBFACE	=300, 	/* set the DB data interface definition */
 	CMD_SET_DBCONN	=301, 	/* indic[0] points type (an integer): 0: SQL, 1: RPC, 2:FUNCTION

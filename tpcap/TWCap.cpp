@@ -95,6 +95,24 @@ private:
 
 void TWCap::ignite(TiXmlElement *prop)
 {
+	WORD wVersionRequested;
+	WSADATA wsaData;
+	int err;
+
+	wVersionRequested = MAKEWORD( 2, 2 );
+
+	err = WSAStartup( wVersionRequested, &wsaData );
+	if ( err != 0 ) 
+	{ /* Couldn't find a usable  WinSock DLL. */
+		WLOG(ERR,"can't initialize socket library");
+		return;
+	}
+
+	if ( LOBYTE( wsaData.wVersion ) != 2 || HIBYTE( wsaData.wVersion ) != 2 ) 
+	{ /* Tell the user that we could not find a usable WinSock DLL. */
+    		WSACleanup( );
+		WLOG_OSERR("WSAStartup");
+	}
 	if (!prop) return;
 	if ( !gCFG ) 
 	{
@@ -279,7 +297,7 @@ void TWCap::init()
 
 	my_tor.scanfd = sock_fd;
 	local_pius.ordo = Notitia::FD_SETRD;
-	aptus->sponte(&local_pius);	//向Sched, 以设置rdSet.
+	gCFG->sch->sponte(&local_pius);	//向Sched, 以设置rdSet.
 	return ;
 
 ERROR_PRO:
