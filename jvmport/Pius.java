@@ -179,6 +179,12 @@ public class Pius {
 	public static final long CMD_FORK	=180;	/* cmd to fork a new process */
 	public static final long FORKED_PARENT	=181;	/* in  the  parent's thread  of execution, indic point to pid of child */
 	public static final long FORKED_CHILD	=182;	/* in the child's thread of execution, indic = 0 */
+	public static final long Pro_File_Open	=184;	
+	public static final long Pro_File_Err	=185;	
+	public static final long Pro_File_End 	=186;	
+	public static final long Move_File_From_Current	=187;	
+	public static final long Move_File_From_Begin 	=188;	
+	public static final long Move_File_From_End	=189;	
 
 	public static final long NEW_HOLDING	=190;	/* new session */
 	public static final long AUTH_HOLDING	=191;	/* auth this session */
@@ -187,6 +193,9 @@ public class Pius {
 	public static final long CMD_CLR_HOLDING=194;	/* to clear a session, indic should point the id */
 	public static final long CLEARED_HOLDING=195;	/* has cleared a session, indic points to the id */
 
+	public static final long PRO_FILE	=196;	
+	public static final long GET_FILE	=197;	
+
 	public static final long SET_UNIPAC	=200; 
 	public static final long PRO_UNIPAC	=201; 
 	public static final long ERR_UNIPAC_COMPOSE	=202;
@@ -194,6 +203,29 @@ public class Pius {
 	public static final long ERR_UNIPAC_INFO	=204;	/* 这里来的packetobj要对应到SOAP响应的fault中去 */
 	public static final long MULTI_UNIPAC_END	=205;	/* 多个PACKETOBJ结束 */
 
+	public static final long Set_InsWay=210;	
+	public static final long Pro_InsWay=211;	
+	public static final long Ans_InsWay=212;	
+	public static final long Pro_TranWay=213;	
+	public static final long Ans_TranWay=214;	
+	public static final long Log_InsWay=215;	
+
+	public static final long Comm_Recv_Timeout=280;	
+	public static final long Comm_Event_Break=281;	
+	public static final long Comm_Event_CTS=282;	
+	public static final long Comm_Event_DSR=283;	
+	public static final long Comm_Event_Err=284;	
+	public static final long Comm_Event_Ring=285;	
+	public static final long Comm_Event_RLSD=286;	
+	public static final long Comm_Event_RxChar=287;	
+	public static final long Comm_Event_RxFlag=288;	
+	public static final long Comm_Event_TxEmpty=289;	
+
+	public static final long Comm_Err_Break=295;	
+	public static final long Comm_Err_Frame=296;	
+	public static final long Comm_Err_OverRun=297;	
+	public static final long Comm_Err_RxOver=298;	
+	public static final long Comm_Err_RxParity=299;	
 
 	public static final long CMD_SET_DBFACE	=300; 	/* set the DB data interface definition */
 	public static final long CMD_SET_DBCONN	=301; 	/* indic[0] points type (an integer): 0: SQL, 1: RPC, 2:FUNCTION

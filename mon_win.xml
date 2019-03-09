@@ -1,5 +1,5 @@
-<?xml version="1.0" encoding="GB2312" ?>
-<root tag="Module" sum="2ED01276DB1C62F66A5106EB80DDCA97" path="./win_release/">
+<?xml version="1.0" encoding="gb2312" ?>
+<root tag="Module" sum="AB1D65378D2C3C2987B39BD751F38307" path="./">
     <![CDATA[<greeting>抓IP数据包</greeting>]]>
 
     <Module name="log2buff" sum="no" disable="no">
@@ -15,7 +15,7 @@
             <Log>
                 <exclude level="all" />
             </Log>
-            <Fly>
+            <Fly group="99">
                 <sponte ordo="DMD_SET_ALARM" />
             </Fly>
         </Module>
@@ -27,17 +27,14 @@
     </Module>
     <!-- TCP 监听                                -->
     <Module name="tpcap" sum="no">
-        <Property device="192.168.3.162" />
+        <Property device="192.168.2.22" />
         <Trend>
             <laeve ordo="END_SESSION" goon="no">
                 <owner ordo="DMD_END_SESSION" />
             </laeve>
         </Trend>
-        <Fly>
-            <sponte ordo="FD_SETRD" />
-            <sponte ordo="FD_SETWR" />
-            <sponte ordo="FD_CLRRD" />
-            <sponte ordo="FD_CLRWR" />
+        <Fly group="99">
+            <sponte ordo="CMD_GET_SCHED" />
         </Fly>
         <Log ID="-78" alias="pcap">
             <exclude level="DEBUG" />
@@ -114,11 +111,8 @@
                     </Log>
                     <Module name="montcp" sum="no" disable="no">
                         <!-- 监听设置, 其中 server_ip 和 server_port可以更改, 其它不要更改。 -->
-                        <Property source_ip="14" destination_ip="15" source_port="20" destination_port="21" offset="24" flags="25" data="45" direction="44" server_ip="122.0.64.53" server_port="80" simply="yes" lonely="no">
-                            <service ip="66.249.89.104" port="80" />
-                            <service ip="66.249.89.99" port="80" />
-                            <service ip="61.174.63.213" port="80" />
-                            <service ip="74.125.153.147" port="80" />
+                        <Property source_ip="14" destination_ip="15" source_port="20" destination_port="21" offset="24" flags="25" data="45" direction="44" server_ip="106.122.255.77" server_port="80" simply="yes" lonely="no">
+                            <service ip="14.21.78.176" port="80" />
                         </Property>
                         <Multi radic="yes" seed="4" />
                         <Log ID="-104">
@@ -194,11 +188,11 @@
                             </Log>
                             <Relay />
                             <Module name="tbufile" sum="no">
-                                <Property clear="no" show="yes" style="debug" file="d:\tmp\who_eoo.log" interval="-1" />
+                                <Property clear="no" show="yes" style="debug" file="c:\tmp\who_eoo.log" interval="-1" />
                                 <Log>
                                     <exclude level="all" />
                                 </Log>
-                                <Fly>
+                                <Fly group="99">
                                     <sponte ordo="DMD_SET_ALARM" />
                                 </Fly>
                                 <Ramify stop="yes">
@@ -207,14 +201,61 @@
                                         <field no="44">
                                             <match>\x01</match>
                                         </field>
-                                        <field no="35">
+                                        <ffield no="35">
                                             <match>122.0.64.53</match>
-                                        </field>
+                                        </ffield>
                                     </dextra>
                                 </Ramify>
                             </Module>
                             <Module name="tbufile" sum="no">
-                                <Property clear="no" show="yes" style="debug" file="d:\tmp\who_eoo.log" interval="-1" />
+                                <Property clear="no" show="yes" style="debug" file="c:\tmp\who_eoo.log" interval="-1" />
+                                <!-- 交换TBUF位置 -->
+                                <Muto ordo="SET_TBUF" />
+                                <Log>
+                                    <exclude level="all" />
+                                </Log>
+                                <Ramify stop="yes">
+                                    <!-- 02: to Client, 即从服务端返回的, 01: to Server, 即客户端发出的数据 -->
+                                    <dextra packet="first" ordo="PRO_TBUF">
+                                        <field no="44">
+                                            <match>\x02</match>
+                                        </field>
+                                        <ffield no="31">
+                                            <match>122.0.64.53</match>
+                                        </ffield>
+                                    </dextra>
+                                </Ramify>
+                                <Fly group="99">
+                                    <sponte ordo="DMD_SET_ALARM" />
+                                </Fly>
+                                <Trend>
+                                    <dextra ordo="PRO_TBUF" goon="no">
+                                        <laeve ordo="PRO_TBUF" />
+                                    </dextra>
+                                </Trend>
+                            </Module>
+                            <MModule name="tbufile" sum="no">
+                                <Property clear="no" show="yes" style="debug" file="c:\tmp\who_cn.log" interval="-1" />
+                                <Log>
+                                    <exclude level="all" />
+                                </Log>
+                                <Fly group="99">
+                                    <sponte ordo="DMD_SET_ALARM" />
+                                </Fly>
+                                <Ramify stop="yes">
+                                    <!-- 02: to Client, 即从服务端返回的, 01: to Server, 即客户端发出的数据 -->
+                                    <dextra packet="first" ordo="PRO_TBUF">
+                                        <field no="44">
+                                            <match>\x01</match>
+                                        </field>
+                                        <ffield no="35">
+                                            <match>61.174.63.213</match>
+                                        </ffield>
+                                    </dextra>
+                                </Ramify>
+                            </MModule>
+                            <MModule name="tbufile" sum="no">
+                                <Property clear="no" show="yes" style="debug" file="c:\tmp\who_cn.log" interval="-1" />
                                 <!-- 交换TBUF位置 -->
                                 <Muto ordo="SET_TBUF" />
                                 <Log>
@@ -227,11 +268,11 @@
                                             <match>\x02</match>
                                         </field>
                                         <field no="31">
-                                            <match>122.0.64.53</match>
+                                            <match>61.174.63.213</match>
                                         </field>
                                     </dextra>
                                 </Ramify>
-                                <Fly>
+                                <Fly group="99">
                                     <sponte ordo="DMD_SET_ALARM" />
                                 </Fly>
                                 <Trend>
@@ -239,54 +280,7 @@
                                         <laeve ordo="PRO_TBUF" />
                                     </dextra>
                                 </Trend>
-                            </Module>
-                            <Module name="tbufile" sum="no">
-                                <Property clear="no" show="yes" style="debug" file="d:\tmp\who_cn.log" interval="-1" />
-                                <Log>
-                                    <exclude level="all" />
-                                </Log>
-                                <Fly>
-                                    <sponte ordo="DMD_SET_ALARM" />
-                                </Fly>
-                                <Ramify stop="yes">
-                                    <!-- 02: to Client, 即从服务端返回的, 01: to Server, 即客户端发出的数据 -->
-                                    <dextra packet="first" ordo="PRO_TBUF">
-                                        <field no="44">
-                                            <match>\x01</match>
-                                        </field>
-                                        <field no="35">
-                                            <match>61.174.63.213</match>
-                                        </field>
-                                    </dextra>
-                                </Ramify>
-                            </Module>
-                            <Module name="tbufile" sum="no">
-                                <Property clear="no" show="yes" style="debug" file="d:\tmp\who_cn.log" interval="-1" />
-                                <!-- 交换TBUF位置 -->
-                                <Muto ordo="SET_TBUF" />
-                                <Log>
-                                    <exclude level="all" />
-                                </Log>
-                                <Ramify stop="yes">
-                                    <!-- 02: to Client, 即从服务端返回的, 01: to Server, 即客户端发出的数据 -->
-                                    <dextra packet="first" ordo="PRO_TBUF">
-                                        <field no="44">
-                                            <match>\x02</match>
-                                        </field>
-                                        <field no="31">
-                                            <match>61.174.63.213</match>
-                                        </field>
-                                    </dextra>
-                                </Ramify>
-                                <Fly>
-                                    <sponte ordo="DMD_SET_ALARM" />
-                                </Fly>
-                                <Trend>
-                                    <dextra ordo="PRO_TBUF" goon="no">
-                                        <laeve ordo="PRO_TBUF" />
-                                    </dextra>
-                                </Trend>
-                            </Module>
+                            </MModule>
                         </Module>
                     </Module>
                     <!-- montcp 结束 -->
@@ -294,11 +288,11 @@
             </Module>
         </Module>
     </Module>
-    <Module name="sched" sum="no">
+    <Module name="tpoll" sum="no">
         <Log ID="-1" alias="sched">
             <exclude level="DEBUG" />
         </Log>
-        <Fly where="end" />
+        <Fly group="99" where="end" />
         <Property timer="10000" />
     </Module>
     <Attachment name="libbase" flag="GLOB" sum="no" />

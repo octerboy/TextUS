@@ -1266,6 +1266,21 @@ unsigned long Notitia::get_ordo(const char *comm_str)
 	WHAT_ORDO(Pro_TranWay,Y); \
 	WHAT_ORDO(Ans_TranWay,Y); \
 	WHAT_ORDO(Log_InsWay,Y); \
+	WHAT_ORDO(Comm_Recv_Timeout,Y); \
+	WHAT_ORDO(Comm_Event_Break,Y); \
+	WHAT_ORDO(Comm_Event_CTS,Y); \
+	WHAT_ORDO(Comm_Event_DSR,Y); \
+	WHAT_ORDO(Comm_Event_Err,Y); \
+	WHAT_ORDO(Comm_Event_Ring,Y); \
+	WHAT_ORDO(Comm_Event_RLSD,Y); \
+	WHAT_ORDO(Comm_Event_RxChar,Y); \
+	WHAT_ORDO(Comm_Event_RxFlag,Y); \
+	WHAT_ORDO(Comm_Event_TxEmpty,Y); \
+	WHAT_ORDO(Comm_Err_Break,Y); \
+	WHAT_ORDO(Comm_Err_Frame,Y); \
+	WHAT_ORDO(Comm_Err_OverRun,Y); \
+	WHAT_ORDO(Comm_Err_RxOver,Y); \
+	WHAT_ORDO(Comm_Err_RxParity,Y); \
 	WHAT_ORDO(CMD_SET_DBFACE , Y); \
 	WHAT_ORDO(CMD_SET_DBCONN , Y); \
 	WHAT_ORDO(CMD_DBFETCH , Y); \

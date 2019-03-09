@@ -1,19 +1,21 @@
 # Title: Makefile(VC)
-# ID: Textus-NourlLet-Makefile-vc
-# Build: B01:created by octerboy 2006/05/28, Gaungzhou
+# ID: Textus-ntservice-Makefile-vc
+# Build: B01:created by octerboy 2019/03/08, Gaungzhou
 
 include ..\Rules.basemod.vc
-CFLAGS  =  $(CFLAGS) -I..\logdata\include -I..\httpsrvhead\include
-AMOROBJS=NourlLet.obj 
+CFLAGS  =  $(CFLAGS) -I..\logdata\include
+AMOROBJS=NTSvc.obj 
 
-all: httpnourl.dll
+all: ntservice.dll
 
-NourlLet.obj: NourlLet.cpp
-	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=NourlLet NourlLet.cpp
+NTSvc.obj: NTSvc.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=NTSvc NTSvc.cpp
 
-httpnourl.dll: $(AMOROBJS)
-	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
-        copy $@.* ..\release
+ntservice.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB) advapi32.lib
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
 
 clean:
 	del *.obj
