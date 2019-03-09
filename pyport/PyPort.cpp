@@ -29,8 +29,8 @@
 #include <string.h>
 #include <assert.h>
 #include <stdarg.h>
-#include <Python.h>
-#include <structmember.h>
+#include <python2.7/Python.h>
+#include <python2.7/structmember.h>
 
 class PyPort :public Amor
 {
