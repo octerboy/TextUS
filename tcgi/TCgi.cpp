@@ -1027,7 +1027,7 @@ void TCgi::toExprog_ex()
 	}
 #define RET_PRO(X) ret=X; goto EP_PRO;
 
-	if ( rcv_buf  && gCFG->direction == BOTH || gCFG->direction == TO_PROG || gCFG->direction == PROG_ONCE )
+	if ( rcv_buf  && (gCFG->direction == BOTH || gCFG->direction == TO_PROG || gCFG->direction == PROG_ONCE ))
 	{
 		if ( rcv_buf->point ==  rcv_buf->base  ) 
 		{
