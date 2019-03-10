@@ -40,8 +40,6 @@ public:
 	Amor::Pius local_pius;  //仅用于传回数据
 	Amor::Pius end_pius;  //仅用于传回数据
 	char service_name[256];
-	void start();
-	void run();
 
     void logEvent(WORD wType, DWORD dwID,
 		const char* pszS1 = NULL,const char* pszS2 = NULL,const char* pszS3 = NULL);
@@ -53,7 +51,7 @@ public:
     void OnInterrogate();
     void OnPause();
     void OnContinue();
-    void OnShutdown();
+	void OnShutdown();
 	void saveStatus();    
 
     // data members
@@ -69,7 +67,6 @@ public:
     SERVICE_STATUS_HANDLE m_hServiceStatus;
     SERVICE_STATUS m_Status;
     bool m_bIsRunning;
-	void log(char *s);
 	void my_handle(DWORD dwOpcode);
 	void my_main(DWORD dwArgc, LPTSTR* lpszArgv);
 
@@ -80,7 +77,6 @@ public:
 static void WINAPI serviceMain(DWORD dwArgc, LPTSTR* lpszArgv);
 static void WINAPI handler(DWORD dwOpcode);
 NTSvc *NTSvc::here_svc = (NTSvc*)0;
-#define NTS_HANDLER_FAILED 0x67L
 
 void NTSvc::ignite(TiXmlElement *cfg) { 
 	const char *comm_str;
@@ -99,14 +95,19 @@ bool NTSvc::facio( Amor::Pius *pius)
 {
 	//void **ps;
 	//char *path;
+	bool ret;
+	SERVICE_TABLE_ENTRY st[] = {
+		{service_name, serviceMain},
+		{NULL, NULL}
+	};
 	assert(pius);
 	switch ( pius->ordo )
 	{
 	case Notitia::MAIN_PARA:	/* 在整个系统中, 这应是最后被通知到的。 */
 		WBUG("facio Notitia::MAIN_PARA");
-		//ps = (void**)pius->indic;
-		//if (!parseStandardArgs( (*(int *)ps[0]) - argOffset, &((char**)ps[1])[argOffset]) )
-		start();
+    		WBUG("Calling StartServiceCtrlDispatcher()");
+		ret = StartServiceCtrlDispatcher(st);
+		WBUG("Returned %d from StartServiceCtrlDispatcher()", ret);
 		break;
 	default:
 		return false;
@@ -141,30 +142,24 @@ NTSvc::NTSvc()
     m_bIsRunning = FALSE;
 }
 
-void NTSvc::start()
-{
-	SERVICE_TABLE_ENTRY st[] = {
-		{service_name, serviceMain},
-		{NULL, NULL}
-	};
-
-    WBUG("Calling StartServiceCtrlDispatcher()");
-    BOOL b = ::StartServiceCtrlDispatcher(st);
-    WBUG("Returned %d from StartServiceCtrlDispatcher()", b);
-}
-
-
 void NTSvc::my_main(DWORD dwArgc, LPTSTR* lpszArgv)
 {   
+	void *ps[3];
+	Amor::Pius para;
+	para.ordo = Notitia::MAIN_PARA;
+	ps[0] = &dwArgc
+	ps[1] = lpszArgv
+	ps[2] = 0;
+	para.indic = ps;
     WBUG("Entering NTSvc::ServiceMain()");
     // Register the control request handler
     m_Status.dwCurrentState = SERVICE_START_PENDING;
     m_hServiceStatus = RegisterServiceCtrlHandler(service_name,handler);
-    if (m_hServiceStatus == NULL) {
+	if (m_hServiceStatus == NULL) {
         //logEvent(EVENTLOG_ERROR_TYPE, NTS_HANDLER_FAILED);
 		WLOG_OSERR("RegisterServiceCtrlHandler failed");
-        return;
-    }
+		return;
+	}
 
     // Start the initialisation
     if (initialize()) {
@@ -175,17 +170,12 @@ void NTSvc::my_main(DWORD dwArgc, LPTSTR* lpszArgv)
         m_Status.dwWin32ExitCode = 0;
         m_Status.dwCheckPoint = 0;
         m_Status.dwWaitHint = 0;
-        run();
+	aptus->facio(&para);	
     }
 
     // Tell the service manager we are stopped
     setStatus(SERVICE_STOPPED);
     WBUG("Leaving NTSvc::ServiceMain()");
-}
-
-void NTSvc::log(char *s)
-{
-    WBUG(s);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -255,22 +245,6 @@ bool NTSvc::initialize()
 	WLOG(INFO, "service %s started", service_name); 
     setStatus(SERVICE_RUNNING);
     return TRUE;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////
-// main function to do the real work of the service
-
-// This function performs the main work of the service. 
-// When this function returns the service has stopped.
-void NTSvc::run() {
-    WBUG("Entering NTSvc::Run()");
-    while (m_bIsRunning) {
-        WBUG("Sleeping...");
-        Sleep(5000);
-    }
-
-    // nothing more to do
-    WBUG("Leaving NTSvc::Run()");
 }
 
 // callback service control manager
@@ -350,7 +324,8 @@ bool NTSvc::onInit()
                         (BYTE*)&m_iIncParam,
                         &dwSize);
         RegCloseKey(hkey);
-    } else 	return false;
+    } else 
+	return false;
 
 	// Set the initial state
 	m_iState = m_iStartParam;
