@@ -102,7 +102,7 @@ enum HERE_ORDO {
 	CMD_RELEASE_SESSION	=82,	/* release a sesion which may not to be end */
 
 	NT_SERVICE_PAUSE	=86,	/* NT service pause */
-	NT_SERVICE_RESUME	=97,	/* NT service resume */
+	NT_SERVICE_RESUME	=87,	/* NT service resume */
 	CHANNEL_TIMEOUT		=88,	/* channel timeout when accept DMD_START_SESSION */
 	CMD_CHANNEL_PAUSE	=89,	/* pause a channel */
 	CMD_CHANNEL_RESUME	=90,	/* resume a channel */

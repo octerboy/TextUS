@@ -20,6 +20,7 @@
 
 #include "Amor.h"
 #include "Notitia.h"
+#include "DPoll.h"
 #include "textus_string.h"
 #include <time.h>
 #include <string.h>
@@ -40,6 +41,9 @@ public:
 	Amor::Pius local_pius;  //仅用于传回数据
 	Amor::Pius end_pius;  //仅用于传回数据
 	char service_name[256];
+	struct DPoll::PollorBase lor; /* 探询 */
+	Amor *sch;
+	Amor::Pius epl_set_ps, epl_clr_ps, pro_tbuf_ps, tmp_ps;
 
     void logEvent(WORD wType, DWORD dwID,
 		const char* pszS1 = NULL,const char* pszS2 = NULL,const char* pszS3 = NULL);
@@ -60,7 +64,6 @@ public:
 	static	NTSvc* here_svc; // nasty hack to get object ptr
 
     HANDLE m_hEventSource;
-	int argOffset;
     int m_iMajorVersion;
     int m_iMinorVersion;
 	BYTE m_iStartParam, m_iIncParam, m_iState;
@@ -85,17 +88,13 @@ void NTSvc::ignite(TiXmlElement *cfg) {
 	if ( (comm_str = cfg->Attribute("service_name")) )
 		TEXTUS_STRNCPY( service_name, comm_str, sizeof(service_name)-1);
 
-	if ( (comm_str = cfg->Attribute("offset")) )
-		argOffset = atoi(comm_str);
-	if ( argOffset < 1 ) 
-		argOffset =1;
 }
 
 bool NTSvc::facio( Amor::Pius *pius)
 {
 	//void **ps;
 	//char *path;
-	bool ret;
+	BOOL ret;
 	SERVICE_TABLE_ENTRY st[] = {
 		{service_name, serviceMain},
 		{NULL, NULL}
@@ -105,10 +104,29 @@ bool NTSvc::facio( Amor::Pius *pius)
 	{
 	case Notitia::MAIN_PARA:	/* 在整个系统中, 这应是最后被通知到的。 */
 		WBUG("facio Notitia::MAIN_PARA");
-    		WBUG("Calling StartServiceCtrlDispatcher()");
+    		WBUG("Calling StartServiceCtrlDispatcher(service_name(%s), serviceMain(%p))", st[0].lpServiceName, st[0].lpServiceProc);
 		ret = StartServiceCtrlDispatcher(st);
 		WBUG("Returned %d from StartServiceCtrlDispatcher()", ret);
+		//printf("last %08x\n", GetLastError());
+		if ( !ret ) 
+		{
+			WLOG_OSERR("StartServiceCtrlDispatcher");
+		}
 		break;
+	
+	case Notitia::IGNITE_ALL_READY:
+		WBUG("facio IGNITE_ALL_READY");
+		tmp_ps.ordo = Notitia::CMD_GET_SCHED;
+		tmp_ps.indic = 0;
+		aptus->sponte(&tmp_ps);	//向tpoll, 取得sched
+		sch = (Amor*)tmp_ps.indic;
+		if ( !sch ) 
+		{
+			WLOG(ERR, "no sched or tpoll");
+			break;
+		}
+
+		
 	default:
 		return false;
 	}
@@ -124,7 +142,6 @@ Amor* NTSvc::clone()
 NTSvc::NTSvc()
 {
 	memset(service_name, 0, sizeof(service_name));
-	argOffset = 1;
     here_svc = this;
     m_iMajorVersion = 1;
     m_iMinorVersion = 0;
@@ -147,8 +164,8 @@ void NTSvc::my_main(DWORD dwArgc, LPTSTR* lpszArgv)
 	void *ps[3];
 	Amor::Pius para;
 	para.ordo = Notitia::MAIN_PARA;
-	ps[0] = &dwArgc
-	ps[1] = lpszArgv
+	ps[0] = &dwArgc;
+	ps[1] = lpszArgv;
 	ps[2] = 0;
 	para.indic = ps;
     WBUG("Entering NTSvc::ServiceMain()");
@@ -260,34 +277,37 @@ void WINAPI serviceMain(DWORD dwArgc, LPTSTR* lpszArgv)
    
 void NTSvc::my_handle(DWORD dwOpcode)
 {
-	WBUG("NTSvc::Handler(%lu)", dwOpcode);
     switch (dwOpcode) {
     case SERVICE_CONTROL_STOP: // 1
         setStatus(SERVICE_STOP_PENDING);
         OnStop();
         m_bIsRunning = FALSE;
         //logEvent(EVENTLOG_INFORMATION_TYPE, EVMSG_STOPPED);
-		WLOG(INFO, "service %s stopped", service_name);
+	WLOG(INFO, "service %s stopped", service_name);
         break;
 
     case SERVICE_CONTROL_PAUSE: // 2
         OnPause();
+	WLOG(INFO, "service %s pause", service_name);
         break;
 
     case SERVICE_CONTROL_CONTINUE: // 3
         OnContinue();
+	WLOG(INFO, "service %s continue", service_name);
         break;
 
     case SERVICE_CONTROL_INTERROGATE: // 4
         OnInterrogate();
+	WLOG(INFO, "service %s INTERROGATE", service_name);
         break;
 
     case SERVICE_CONTROL_SHUTDOWN: // 5
+	WLOG(INFO, "service %s shutdown", service_name);
         OnShutdown();
         break;
 
     default:
-		WLOG(ERR, "bad request %d", dwOpcode);
+		WLOG(ERR, "bad request %lu", dwOpcode);
         break;
     }
 
@@ -306,9 +326,12 @@ bool NTSvc::onInit()
 	char szKey[1024];
         DWORD dwType = 0;
         DWORD dwSize = sizeof(m_iStartParam);
-	TEXTUS_SPRINTF(szKey, "SYSTEM\\CurrentControlSet\\Services\\%s\\Parameters", service_name);
+	LSTATUS lst;
+	TEXTUS_SPRINTF(szKey, "SYSTEM\\CurrentControlSet\\services\\%s", service_name);
 
-	if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, szKey, 0, KEY_QUERY_VALUE, &hkey) == ERROR_SUCCESS) {
+	WBUG("szkey %s", szKey);
+	lst = RegOpenKeyEx(HKEY_LOCAL_MACHINE, szKey, 0, KEY_QUERY_VALUE, &hkey);
+	if ( lst == ERROR_SUCCESS) {
         // Yes we are installed
         RegQueryValueEx(hkey,
                         "Start",
@@ -324,43 +347,53 @@ bool NTSvc::onInit()
                         (BYTE*)&m_iIncParam,
                         &dwSize);
         RegCloseKey(hkey);
-    } else 
-	return false;
+	} else  {
+		char *s;
+		char error_string[1024];
+		FormatMessage( FORMAT_MESSAGE_FROM_SYSTEM, NULL, lst, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR) error_string, 1024, NULL );
+		s= strstr(error_string, "\r\n") ;
+		if (s )  *s = '\0';
+		WLOG(ERR, " RegOpenKeyEx error %d %s", lst, error_string);
+		return false;
+	}
 
 	// Set the initial state
 	m_iState = m_iStartParam;
-
 	return true;
 }
 
 // Called when the service control manager wants to stop the service
 void NTSvc::OnStop()
 {
-    WBUG("NTSvc::OnStop()");
+	Amor::Pius tmp_pius;
+	tmp_pius.indic = 0;
+	tmp_pius.ordo = Notitia::CMD_MAIN_EXIT;
+	sch->sponte(&tmp_pius);
+	tmp_ps.ordo = Notitia::POST_EPOLL;
+	tmp_ps.indic = &lor;
+	lor.type = DPoll::User;
+	lor.pupa = this;
+	sch->sponte(&tmp_ps);	
 }
 
 // called when the service is interrogated
 void NTSvc::OnInterrogate()
 {
-    WBUG("NTSvc::OnInterrogate()");
 }
 
 // called when the service is paused
 void NTSvc::OnPause()
 {
-    WBUG("NTSvc::OnPause()");
 }
 
 // called when the service is continued
 void NTSvc::OnContinue()
 {
-    WBUG("NTSvc::OnContinue()");
 }
 
 // called when the service is shut down
 void NTSvc::OnShutdown()
 {
-    WBUG("NTSvc::OnShutdown()");
 }
 
 

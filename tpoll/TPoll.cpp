@@ -427,9 +427,17 @@ bool TPoll::sponte( Amor::Pius *apius)
 	case Notitia::POST_EPOLL :	/* user post  */
 		baspo = (DPoll::PollorBase *)apius->indic;	
 		WBUG("%p %s", baspo->pupa, "sponte POST_EPOLL");
-		if ( baspo->type == DPoll::NotUsed)
+		switch ( baspo->type )
 		{
+		case DPoll::NotUsed:
 			apius->indic = this;
+			break;
+		case DPoll::User:
+#if defined (_WIN32)
+			PostQueuedCompletionStatus(g_poll->iocp_port, 0, (ULONG_PTR)baspo, 0);
+#endif
+			break;
+		default:
 			break;
 		}
 		break;
@@ -1133,8 +1141,9 @@ LOOP:
 			WBUG("get DPoll:File");
 #if defined (_WIN32)
 			goto WIN_POLL;
-			break;
 #endif
+			break;
+
 		case DPoll::Sock:
 			WBUG("get DPoll:Sock");
 #if  defined(__sun)
@@ -1228,6 +1237,10 @@ LOOP:
 			}
 			PPO->pupa->facio(&poll_ps);
 #endif
+			break;
+
+		case DPoll::User:
+			WBUG("get DPoll:User");
 			break;
 		default:
 			break;

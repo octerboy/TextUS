@@ -41,6 +41,7 @@ class DPoll
 public:
 	enum Poll_Type {
 		NotUsed =  -1,
+		User = 6,
 		Alarm = 7,
 		Timer = 8,
 		EventFD = 9, /* only for linux eventfd*/

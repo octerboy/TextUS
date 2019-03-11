@@ -3,7 +3,7 @@
 # Build: B01:created by octerboy 2019/03/08, Gaungzhou
 
 include ..\Rules.basemod.vc
-CFLAGS  =  $(CFLAGS) -I..\logdata\include
+CFLAGS  =  $(CFLAGS) -I..\logdata\include -I..\tpoll\include
 AMOROBJS=NTSvc.obj 
 
 all: ntservice.dll
