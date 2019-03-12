@@ -49,13 +49,13 @@
 #define ERROR_PRO(X) { \
 	char *s; \
 	char error_string[1024]; \
-	DWORD dw = GetLastError(); \
-	FormatMessage( FORMAT_MESSAGE_FROM_SYSTEM, NULL, dw, \
+	dw_error = GetLastError(); \
+	FormatMessage( FORMAT_MESSAGE_FROM_SYSTEM, NULL, dw_error, \
 		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR) error_string, 1024, NULL );\
 	s= strstr(error_string, "\r\n") ; \
 	if (s )  *s = '\0';  \
 	if ( errMsg ) \
-		TEXTUS_SNPRINTF(errMsg, errstr_len, "%s errno %d, %s", X,dw, error_string);\
+		TEXTUS_SNPRINTF(errMsg, errstr_len, "%s errno %d, %s", X, dw_error, error_string);\
 	}
 #else
 #define ERROR_PRO(X)  if ( errMsg ) \
@@ -73,6 +73,7 @@ public:
 	TPoll();
 #if defined (_WIN32)
 	HANDLE iocp_port,timer_queue;
+	DWORD dw_error;
 #endif
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
 	int kq;
@@ -1231,8 +1232,14 @@ LOOP:
 				poll_ps.ordo = PPO->pro_ps.ordo;
 				poll_ps.indic = &A_GET;
 			} else {
-				poll_ps.ordo = Notitia::ERR_EPOLL;
 				ERROR_PRO("GetIOCP");
+				WLOG(WARNING, "GetQueuedCompletionStatus return %d %s", success, errMsg);
+				if ( dw_error == ERROR_MORE_DATA ) 
+				{
+					poll_ps.ordo = Notitia::MORE_DATA_EPOLL;
+				} else {
+					poll_ps.ordo = Notitia::ERR_EPOLL;
+				}
 				poll_ps.indic = errMsg;
 			}
 			PPO->pupa->facio(&poll_ps);

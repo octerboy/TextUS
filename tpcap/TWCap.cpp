@@ -36,7 +36,6 @@
 #include "casecmp.h"
 #include "textus_string.h"
 
-#define RCV_FRAME_SIZE 8192
 class TWCap: public Amor
 {
 public:
@@ -55,7 +54,6 @@ private:
 
 	TBuffer rcv_buf, snd_buf;	/* 向右(左)传递 */
 	SOCKET sock_fd ;
-	int bufsize;
 	OVERLAPPED rcv_ovp;
 	WSABUF wsa_rcv;
 	DWORD flag;
@@ -67,12 +65,16 @@ private:
 		bool use_epoll;
 		Amor *sch;
 		struct DPoll::PollorBase lor; /* 探询 */
+		int rcv_frame_size;
 
 		inline G_CFG(TiXmlElement *cfg) {
 			eth = (const char*) 0;
 			eth = cfg->Attribute("device");
 			lor.type = DPoll::NotUsed;
 			sch = 0;
+			rcv_frame_size = 65536;
+			//rcv_frame_size = 8192;
+			cfg->QueryIntAttribute("frame_size", &rcv_frame_size);
 		};
 
 		inline ~G_CFG() {
@@ -139,7 +141,6 @@ TWCap::TWCap():rcv_buf(8192)
 
 	gCFG = 0;
 	has_config = false;
-	bufsize = 8192;
 }
 
 TWCap::~TWCap() 
@@ -189,7 +190,7 @@ bool TWCap::facio( Amor::Pius *pius)
 		gCFG->sch->sponte(&tmp_p);	//向tpoll, 取得TPOLL
 		if ( tmp_p.indic == gCFG->sch) {
 			gCFG->use_epoll = true;
-			wsa_rcv.len = RCV_FRAME_SIZE;
+			wsa_rcv.len = gCFG->rcv_frame_size;
 			init_ex();
 		} else {
 			gCFG->use_epoll = false;
@@ -203,8 +204,17 @@ bool TWCap::facio( Amor::Pius *pius)
 		deliver(Notitia::SET_TBUF);
 		break;
 
+	case Notitia::MORE_DATA_EPOLL:
+		WBUG("facio MORE_DATA_EPOLL");
+		WLOG(WARNING, (char*)pius->indic);	
+		gCFG->rcv_frame_size *= 2;
+		wsa_rcv.len = gCFG->rcv_frame_size ;
+		recito_ex();
+		break;
+
 	case Notitia::ERR_EPOLL:
 		WBUG("facio ERR_EPOLL");
+		//WLOG(ERR, "wsa_rcv.len %d, buf %p", wsa_rcv.len, wsa_rcv.buf);
 		WLOG(WARNING, (char*)pius->indic);	
 		end();	//直接关闭就可.
 		break;
@@ -220,6 +230,12 @@ bool TWCap::facio( Amor::Pius *pius)
 				end();
 			} else {
 				WBUG("child PRO_EPOLL recv %d bytes", aget->dwNumberOfBytesTransferred);
+				/*
+				if ( aget->dwNumberOfBytesTransferred >= 8192 ) 
+				{
+				WLOG(ERR, "dwNumberOfBytesTransferred %d", aget->dwNumberOfBytesTransferred);
+				}
+				*/
 				rcv_buf.commit(aget->dwNumberOfBytesTransferred);
 				aptus->facio(&pro_tbuf);
 				recito_ex();
@@ -373,9 +389,9 @@ void TWCap::end()
 TINLINE bool TWCap::handle()
 {
 	int rlen;
-	rcv_buf.grant(bufsize);	 //保证有足够空间
+	rcv_buf.grant(gCFG->rcv_frame_size);	 //保证有足够空间
 ReadAgain:
-	rlen = recv( sock_fd , (char*)rcv_buf.point, bufsize, 0 ) ;
+	rlen = recv( sock_fd , (char*)rcv_buf.point, gCFG->rcv_frame_size, 0 ) ;
 	if( rlen > 0 ) 
 	{
 		rcv_buf.commit(rlen);   /* 指针向后移 */	
@@ -400,7 +416,7 @@ ReadAgain:
 void TWCap::recito_ex()
 {	
 	int rc;
-	rcv_buf.grant(RCV_FRAME_SIZE);	//保证有足够空间
+	rcv_buf.grant(gCFG->rcv_frame_size);	//保证有足够空间
 	wsa_rcv.buf = (char *)rcv_buf.point;
 	flag = 0;
 	memset(&rcv_ovp, 0, sizeof(OVERLAPPED));

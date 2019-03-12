@@ -85,6 +85,7 @@ enum HERE_ORDO {
 	LOG_VAR_INFO	=66,
 	LOG_VAR_DEBUG	=67,
 
+	MORE_DATA_EPOLL	=68,	//process when err_more_data (in ms windows)
 	POST_EPOLL	=69,	//post user for epoll
 	SIGNAL_EPOLL	=70,	//set sigevent for epoll
 	AIO_EPOLL	=71,	//set aio for epoll

@@ -204,6 +204,18 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 		end();	//直接关闭就可.
 		break;
 
+#if defined (_WIN32 )	
+	case Notitia::MORE_DATA_EPOLL:
+		WBUG("facio MORE_DATA_EPOLL");
+		WLOG(WARNING, (char*)pius->indic);	
+		tcpsrv->wsa_rcv.len *= 2;
+		if ( !tcpsrv->recito_ex())
+		{
+			SLOG(ERR)
+			end();	//失败即关闭
+		}
+		break;
+#endif
 	case Notitia::PRO_EPOLL:
 		WBUG("facio PRO_EPOLL");
 #if defined (_WIN32 )	
