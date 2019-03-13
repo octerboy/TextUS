@@ -202,13 +202,20 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 
 #if defined (_WIN32 )	
 	case Notitia::MORE_DATA_EPOLL:
-		WBUG("facio MORE_DATA_EPOLL");
-		WLOG(WARNING, (char*)pius->indic);	
-		tcpcli->wsa_rcv.len *= 2;
-		if ( !tcpcli->recito_ex())
-		{
-			SLOG(ERR)
-			end();	//Ê§°Ü¼´¹Ø±Õ
+		aget = (OVERLAPPED_ENTRY *)pius->indic;
+		WLOG(WARNING, "facio MORE_DATA_EPOLL received %d bytes", aget->dwNumberOfBytesTransferred);
+		if ( aget->lpOverlapped == &(tcpcli->rcv_ovp) )
+		{	
+			tcpcli->wsa_rcv.len *= 2;
+			tcpcli->rcv_buf->commit(aget->dwNumberOfBytesTransferred);
+			aptus->sponte(&pro_tbuf_ps);
+			if ( !tcpcli->recito_ex())
+			{
+				SLOG(ERR)
+				end();	//Ê§°Ü¼´¹Ø±Õ
+			}
+		} else {
+			WLOG(ALERT, "not my overlap");
 		}
 		break;
 #endif

@@ -59,22 +59,19 @@ private:
 	DWORD flag;
 	DPoll::Pollor pollor; /* 保存事件句柄, 各子实例不同 */
 	Amor::Pius epl_set_ps, epl_clr_ps;
+	int rcv_frame_size;
 
 	struct G_CFG {
 		const char *eth;
 		bool use_epoll;
 		Amor *sch;
 		struct DPoll::PollorBase lor; /* 探询 */
-		int rcv_frame_size;
 
 		inline G_CFG(TiXmlElement *cfg) {
 			eth = (const char*) 0;
 			eth = cfg->Attribute("device");
 			lor.type = DPoll::NotUsed;
 			sch = 0;
-			rcv_frame_size = 65536;
-			//rcv_frame_size = 8192;
-			cfg->QueryIntAttribute("frame_size", &rcv_frame_size);
 		};
 
 		inline ~G_CFG() {
@@ -190,7 +187,6 @@ bool TWCap::facio( Amor::Pius *pius)
 		gCFG->sch->sponte(&tmp_p);	//向tpoll, 取得TPOLL
 		if ( tmp_p.indic == gCFG->sch) {
 			gCFG->use_epoll = true;
-			wsa_rcv.len = gCFG->rcv_frame_size;
 			init_ex();
 		} else {
 			gCFG->use_epoll = false;
@@ -205,16 +201,33 @@ bool TWCap::facio( Amor::Pius *pius)
 		break;
 
 	case Notitia::MORE_DATA_EPOLL:
-		WBUG("facio MORE_DATA_EPOLL");
-		WLOG(WARNING, (char*)pius->indic);	
-		gCFG->rcv_frame_size *= 2;
-		wsa_rcv.len = gCFG->rcv_frame_size ;
+		aget = (OVERLAPPED_ENTRY *)pius->indic;
+		WLOG(WARNING, "facio MORE_DATA_EPOLL received %d bytes", aget->dwNumberOfBytesTransferred);
+		if ( aget->lpOverlapped != &(rcv_ovp) )
+		{	
+			WLOG(ALERT, "not my overlap");
+			break;
+		}
+/*
+		{
+			char ss[512];
+			int i;
+			if ( aget->dwNumberOfBytesTransferred > 256 ) i = 256;
+				else i = aget->dwNumberOfBytesTransferred;
+			byte2hex(rcv_buf.point, i , ss);
+			ss[2*i] =0 ;
+			WLOG(ERR, "%s", ss);
+		}
+*/
+		rcv_frame_size *= 2;
+		wsa_rcv.len = rcv_frame_size ;
+		rcv_buf.commit(aget->dwNumberOfBytesTransferred);
+		aptus->facio(&pro_tbuf);
 		recito_ex();
 		break;
 
 	case Notitia::ERR_EPOLL:
 		WBUG("facio ERR_EPOLL");
-		//WLOG(ERR, "wsa_rcv.len %d, buf %p", wsa_rcv.len, wsa_rcv.buf);
 		WLOG(WARNING, (char*)pius->indic);	
 		end();	//直接关闭就可.
 		break;
@@ -230,12 +243,6 @@ bool TWCap::facio( Amor::Pius *pius)
 				end();
 			} else {
 				WBUG("child PRO_EPOLL recv %d bytes", aget->dwNumberOfBytesTransferred);
-				/*
-				if ( aget->dwNumberOfBytesTransferred >= 8192 ) 
-				{
-				WLOG(ERR, "dwNumberOfBytesTransferred %d", aget->dwNumberOfBytesTransferred);
-				}
-				*/
 				rcv_buf.commit(aget->dwNumberOfBytesTransferred);
 				aptus->facio(&pro_tbuf);
 				recito_ex();
@@ -268,14 +275,14 @@ bool TWCap::sponte( Amor::Pius *pius)
 
 void TWCap::init()
 {
-	assert(gCFG->eth != (const char*) 0 );
 	if ( !gCFG->eth)
 		return ;
 
+	assert(gCFG->eth != (const char*) 0 );
 	DWORD dwBufferLen[10] ;
 	DWORD dwBufferInLen= 1 ;
 	DWORD dwBytesReturned = 0 ;
-	int value;
+	int value, vsz;
 	SOCKADDR_IN sa;
 	struct in_addr me;
 
@@ -311,6 +318,16 @@ void TWCap::init()
 		goto ERROR_PRO;
 	}
 
+	vsz = sizeof(value);
+	value = 0;
+	if ( SOCKET_ERROR == getsockopt(sock_fd,SOL_SOCKET,  SO_MAX_MSG_SIZE,  (char*)&value, &vsz))
+	{
+		WLOG_OSERR("getsockopt ");
+		goto ERROR_PRO;
+	}
+	WBUG("SO_MAX_MSG_SIZE %d", value);
+	rcv_frame_size = value;
+
 	my_tor.scanfd = sock_fd;
 	local_pius.ordo = Notitia::FD_SETRD;
 	gCFG->sch->sponte(&local_pius);	//向Sched, 以设置rdSet.
@@ -327,14 +344,14 @@ ERROR_PRO:
 
 void TWCap::init_ex()
 {
-	assert(gCFG->eth != (const char*) 0 );
 	if ( !gCFG->eth)
 		return ;
 
+	assert(gCFG->eth != (const char*) 0 );
 	DWORD dwBufferLen[10] ;
 	DWORD dwBufferInLen= 1 ;
 	DWORD dwBytesReturned = 0 ;
-	int value;
+	int value, vsz;
 	SOCKADDR_IN sa;
 	struct in_addr me;
 
@@ -366,10 +383,20 @@ void TWCap::init_ex()
 	value = RCVALL_ON;
 	if( SOCKET_ERROR == WSAIoctl(sock_fd, SIO_RCVALL , &value, sizeof(value), &dwBufferLen, sizeof(dwBufferLen), &dwBytesReturned, NULL, NULL ) )
 	{
-		WLOG_OSERR("WSAIoctl ")
+		WLOG_OSERR("WSAIoctl ");
 		end();
 		return;
 	}
+	vsz = sizeof(value);
+	value = 0;
+	if ( SOCKET_ERROR == getsockopt(sock_fd,SOL_SOCKET,  SO_MAX_MSG_SIZE,  (char*)&value, &vsz))
+	{
+		WLOG_OSERR("getsockopt ");
+		end();
+		return;
+	}
+	WBUG("SO_MAX_MSG_SIZE %d", value);
+	wsa_rcv.len = rcv_frame_size = value;
 
 	pollor.hnd.sock = sock_fd;
 	pollor.pro_ps.ordo = Notitia::PRO_EPOLL;
@@ -389,9 +416,9 @@ void TWCap::end()
 TINLINE bool TWCap::handle()
 {
 	int rlen;
-	rcv_buf.grant(gCFG->rcv_frame_size);	 //保证有足够空间
+	rcv_buf.grant(rcv_frame_size);	 //保证有足够空间
 ReadAgain:
-	rlen = recv( sock_fd , (char*)rcv_buf.point, gCFG->rcv_frame_size, 0 ) ;
+	rlen = recv( sock_fd , (char*)rcv_buf.point, rcv_frame_size, 0 ) ;
 	if( rlen > 0 ) 
 	{
 		rcv_buf.commit(rlen);   /* 指针向后移 */	
@@ -416,8 +443,9 @@ ReadAgain:
 void TWCap::recito_ex()
 {	
 	int rc;
-	rcv_buf.grant(gCFG->rcv_frame_size);	//保证有足够空间
+	rcv_buf.grant(rcv_frame_size);	//保证有足够空间
 	wsa_rcv.buf = (char *)rcv_buf.point;
+	memset(wsa_rcv.buf, 0, rcv_frame_size);
 	flag = 0;
 	memset(&rcv_ovp, 0, sizeof(OVERLAPPED));
 	rc = WSARecv(sock_fd, &wsa_rcv, 1, NULL, &flag, &rcv_ovp, NULL);

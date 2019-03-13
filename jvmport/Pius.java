@@ -82,6 +82,7 @@ public class Pius {
 	public static final long LOG_VAR_INFO	=66;
 	public static final long LOG_VAR_DEBUG	=67;
 
+	public static final long MORE_DATA_EPOLL=68;
 	public static final long POST_EPOLL	=69;
 	public static final long SIGNAL_EPOLL	=70;
 	public static final long AIO_EPOLL	=71;
@@ -98,6 +99,8 @@ public class Pius {
 	public static final long END_SERVICE 	=81;	/* */
 	public static final long CMD_RELEASE_SESSION	=82;	/* release a sesion which may not to be end */
 
+	public static final long NT_SERVICE_PAUSE	=86;
+	public static final long NT_SERVICE_RESUME	=87;
 	public static final long CHANNEL_TIMEOUT	=88;	/* channel timeout when accept DMD_START_SESSION */
 	public static final long CMD_CHANNEL_PAUSE	=89;	/* pause a channel */
 	public static final long CMD_CHANNEL_RESUME	=90;	/* resume a channel */

@@ -1237,10 +1237,11 @@ LOOP:
 				if ( dw_error == ERROR_MORE_DATA ) 
 				{
 					poll_ps.ordo = Notitia::MORE_DATA_EPOLL;
+					poll_ps.indic = &A_GET;
 				} else {
 					poll_ps.ordo = Notitia::ERR_EPOLL;
+					poll_ps.indic = errMsg;
 				}
-				poll_ps.indic = errMsg;
 			}
 			PPO->pupa->facio(&poll_ps);
 #endif

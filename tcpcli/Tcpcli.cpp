@@ -69,6 +69,7 @@ Tcpcli::Tcpcli()
 	snd_buf = 0;
 	errstr_len = 0;
 	errMsg = 0;
+	rcv_frame_size = RCV_FRAME_SIZE;
 #if defined (_WIN32)
 	memset(&rcv_ovp, 0, sizeof(OVERLAPPED));
 	memset(&snd_ovp, 0, sizeof(OVERLAPPED));
@@ -267,6 +268,17 @@ bool Tcpcli::annecto_done()
 	int len = sizeof(error); //WIN32, SCO都这样
 #endif
 	bool ret = true;
+	int value;
+	if ( getsockopt(connfd ,SOL_SOCKET,  SO_RCVBUF,  (GETSOCK_OPT_TYPE)&value, &len) < 0)
+	{
+		ERROR_PRO("getsockopt")
+		err_lev = 3;
+		ret = false;
+	}
+	rcv_frame_size = value;
+#if defined(_WIN32)
+	wsa_rcv.len = rcv_frame_size = value;
+#endif
 	if (getsockopt(connfd, SOL_SOCKET, SO_ERROR, (GETSOCK_OPT_TYPE)&error, &len) < 0)
 	{
 		ERROR_PRO("annecto_done(getsockopt)")
@@ -341,7 +353,7 @@ bool Tcpcli::recito_ex()
 {	
 	int rc;
 
-	rcv_buf->grant(RCV_FRAME_SIZE);	//保证有足够空间
+	rcv_buf->grant(rcv_frame_size);	//保证有足够空间
 	wsa_rcv.buf = (char *)rcv_buf->point;
 	flag = 0;
 	memset(&rcv_ovp, 0, sizeof(OVERLAPPED));
@@ -384,9 +396,9 @@ int Tcpcli::recito()
 {	
 	long len;
 
-	rcv_buf->grant(RCV_FRAME_SIZE);	//保证有足够空间
+	rcv_buf->grant(rcv_frame_size);	//保证有足够空间
 ReadAgain:
-	if( (len = recv(connfd, (char *)rcv_buf->point, RCV_FRAME_SIZE, MSG_NOSIGNAL)) == 0) /* (char*) for WIN32 */
+	if( (len = recv(connfd, (char *)rcv_buf->point, rcv_frame_size, MSG_NOSIGNAL)) == 0) /* (char*) for WIN32 */
 	{	//对方关闭套接字
 		if ( errMsg ) 
 			TEXTUS_SNPRINTF(errMsg, errstr_len, "recv 0, disconnected");
