@@ -20,7 +20,6 @@
 
 #include "Amor.h"
 #include "Notitia.h"
-#include "DPoll.h"
 #include "textus_string.h"
 #include <time.h>
 #include <string.h>
@@ -41,7 +40,7 @@ public:
 	Amor::Pius local_pius;  //仅用于传回数据
 	Amor::Pius end_pius;  //仅用于传回数据
 	char service_name[256];
-	struct DPoll::PollorBase lor; /* 探询 */
+//	struct DPoll::PollorBase lor; /* 探询 */
 	Amor *sch;
 	Amor::Pius epl_set_ps, epl_clr_ps, pro_tbuf_ps, tmp_ps;
 
@@ -369,11 +368,6 @@ void NTSvc::OnStop()
 	tmp_pius.indic = 0;
 	tmp_pius.ordo = Notitia::CMD_MAIN_EXIT;
 	sch->sponte(&tmp_pius);
-	tmp_ps.ordo = Notitia::POST_EPOLL;
-	tmp_ps.indic = &lor;
-	lor.type = DPoll::User;
-	lor.pupa = this;
-	sch->sponte(&tmp_ps);	
 }
 
 // called when the service is interrogated

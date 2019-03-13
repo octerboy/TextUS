@@ -74,6 +74,7 @@ public:
 #if defined (_WIN32)
 	HANDLE iocp_port,timer_queue;
 	DWORD dw_error;
+	struct DPoll::PollorBase  a_basp;
 #endif
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
 	int kq;
@@ -724,6 +725,9 @@ END_ALARM_PRO:
 	case Notitia::CMD_MAIN_EXIT :	/* 终止程序 */
 		WBUG("CMD_MAIN_EXIT");
 		shouldEnd = true;
+#if defined (_WIN32)
+		PostQueuedCompletionStatus(g_poll->iocp_port, 0, (ULONG_PTR)&a_basp, 0);
+#endif
 		break;
 
 	case Notitia::CMD_GET_SCHED:	/* 取得本对象地址 */
@@ -822,6 +826,7 @@ TPoll::TPoll()
 
 #if defined(_WIN32)
 	iocp_port = NULL;
+	a_basp.type = DPoll::User;
 #endif
 
 #if defined(__linux__)
