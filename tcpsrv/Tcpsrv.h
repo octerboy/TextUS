@@ -39,6 +39,7 @@ public:
 
 	int listenfd;	//侦听
 	int connfd; 	//-1表示本实例空闲, 每个子实例不同,负责侦听的实例保存最近一次的连接
+	int rcv_frame_size;
 
 	bool servio(bool block = false);	/* 设定侦听套接字, 如果成功,则:
 				 listenfd有值。*/

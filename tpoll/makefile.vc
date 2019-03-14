@@ -11,10 +11,13 @@ AMOROBJS=TPoll.obj
 all: tpoll.dll
 
 TPoll.obj: TPoll.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -D_WIN32XX=Y -DAMOR_CLS_TYPE=TPoll TPoll.cpp 
+	move TPoll.obj TPollX.obj
 	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=TPoll TPoll.cpp
 
 tpoll.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(LD) $(LDFLAGS) -out:tpollxp.dll TPollX.obj  $(LDLIB)
 	$(_VC_MANIFEST_PRO)
 	$(_POST_RPO_SUB)
 

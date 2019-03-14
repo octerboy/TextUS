@@ -69,6 +69,7 @@ public:
 	int errstr_len;
 	struct sockaddr_in servaddr;
 	bool clio( bool block); /* ×¼±¸connfd */
+	int rcv_frame_size;
 
 #if defined (_WIN32 )
 	bool sock_start();

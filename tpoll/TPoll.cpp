@@ -904,16 +904,17 @@ void TPoll:: run()
 	if ( ev_port == -1) return;
 #endif
 
-#if defined(_WIN32XX)
+#if defined(_WIN32) && !defined(_WIN32XX)
 #define A_GET pov[geti]
 #define AKEY A_GET.lpCompletionKey
 	BOOL success;
 	ULONG nget, geti;
+	DWORD num_trans;
 	OVERLAPPED_ENTRY *pov = new OVERLAPPED_ENTRY[max_evs];
 	if (!iocp_port) return;
 #endif
 
-#if defined(_WIN32)
+#if defined(_WIN32XX)
 #define A_GET a_en
 #define AKEY A_GET.lpCompletionKey
 	BOOL success;
@@ -960,7 +961,7 @@ LOOP:
 #endif	//for linux
 
 
-#if defined(_WIN32XX)
+#if defined(_WIN32) && !defined(_WIN32XX)
 	nget = 0;
 	success =  GetQueuedCompletionStatusEx(iocp_port,         // Completion port handle
 			pov, // pre-allocated array of OVERLAPPED_ENTRY structures
@@ -974,18 +975,18 @@ LOOP:
 		DWORD nError = GetLastError();
 		if(nError == ERROR_ABANDONED_WAIT_0)	//fd closed
 		{
-			ERROR_PRO("GetQueuedCompletionStatus");
+			ERROR_PRO("GetQueuedCompletionStatusEx");
 			WLOG(INFO,errMsg);
 		} else if(nError != WAIT_TIMEOUT)	//TIME OUT
 		{
-			ERROR_PRO("GetQueuedCompletionStatus");
+			ERROR_PRO("GetQueuedCompletionStatusEx");
 			WLOG(ERR,errMsg);
 		}
 		goto LOOP;  
 	}
 #endif
 
-#if defined(_WIN32)
+#if defined(_WIN32XX)
 	memset(&A_GET, 0, sizeof(A_GET));
 	success = GetQueuedCompletionStatus(iocp_port,         // Completion port handle  
 			&(A_GET.dwNumberOfBytesTransferred),  // Bytes transferred  
@@ -1226,12 +1227,28 @@ LOOP:
 			}
 #endif	//for bsd
 
-#if defined (_WIN32XX)
-			poll_ps.ordo = pov[geti].dwNumberOfBytesTransferred< 0 ? Notitia::ERR_EPOLL : PPO->pro_ps.ordo;
-			poll_ps.indic = &A_GET;
+#if defined(_WIN32) && !defined(_WIN32XX)
+		WIN_POLL:
+			num_trans = 0;
+			if (GetOverlappedResult(PPO->hnd.file, A_GET.lpOverlapped, &num_trans, FALSE))
+			{
+				poll_ps.ordo = PPO->pro_ps.ordo;
+				poll_ps.indic = &A_GET;
+			} else {
+				ERROR_PRO("GetIOCPEx");
+				WLOG(WARNING, "GetOverlappedResult %s", errMsg);
+				if ( dw_error == ERROR_MORE_DATA ) 
+				{
+					poll_ps.ordo = Notitia::MORE_DATA_EPOLL;
+					poll_ps.indic = &A_GET;
+				} else {
+					poll_ps.ordo = Notitia::ERR_EPOLL;
+					poll_ps.indic = errMsg;
+				}
+			}
 			PPO->pupa->facio(&poll_ps);
 #endif
-#if defined (_WIN32)
+#if defined (_WIN32XX)
 		WIN_POLL:
 			if ( success ) {
 				poll_ps.ordo = PPO->pro_ps.ordo;
