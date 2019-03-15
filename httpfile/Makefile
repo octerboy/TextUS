@@ -9,9 +9,11 @@ all:httpfile.so
 
 FileLet.o:FileLet.cpp
 	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=FileLet -o $@ $^
+	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG) -DUSE_TEXTUS_AIO -DAMOR_CLS_TYPE=FileLet -o FileLetAio.o $^
 
 httpfile.so: FileLet.o 
 	${LD} $(LDFLAGS) -o $@ $^  $(LDLIBS) -lbase
+	${LD} $(LDFLAGS) -o httfileaio.so FileLetAio.o  $(LDLIBS) -lbase
 	$(_POST_RPO_SUB)
 
 clean:

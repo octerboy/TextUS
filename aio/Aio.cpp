@@ -72,11 +72,11 @@ private:
 #endif
 	int fd;
 #endif
-	void a_open();
+	bool a_open();
 	void a_close();
 	
 	struct G_CFG {
-		bool on_start;
+		bool on_start;	/* 这个适合管道操作, 所以有session概念 */
 		Amor *sch;
 		struct DPoll::PollorBase lor; /* 探询 */
 		int block_size;
@@ -385,15 +385,13 @@ void Aio::a_close()
 	}
 	fd = -1;
 #endif
-	deliver(Notitia::END_SESSION);/* 向左、右传递本类的会话关闭信号 */
 }
 
-void Aio::a_open()
+bool Aio::a_open()
 {
 	char msg[128];
-
 #if defined(_WIN32)
-	if ( this->hdev  != INVALID_HANDLE_VALUE ) return;
+	if ( this->hdev  != INVALID_HANDLE_VALUE ) return false;
 	/* to do SecurityAttributes .... */
 	this->hdev = CreateFile(this->file_name, gCFG->dwDesiredAccess, gCFG->dwShareMode, NULL, 
 		gCFG->dwCreationDisposition, gCFG->dwFlagsAndAttributes, NULL);
@@ -402,7 +400,7 @@ void Aio::a_open()
 	{
 		TEXTUS_SPRINTF(msg, "CreateFile(%s)",this->file_name);
 		WLOG_OSERR(msg);
-		return ;
+		return false;
 	}
 	pollor.file_hnd = hdev;
 #else
@@ -411,14 +409,15 @@ void Aio::a_open()
 	{
 		TEXTUS_SPRINTF(msg, "open(%s)",this->file_name);
 		WLOG_OSERR(msg);
-		return ;
+		return false;
 	}
 #endif
+	/* 接收(发送)缓冲区清空 */
 	if ( rcv_buf) rcv_buf->reset();	
 	if ( snd_buf) snd_buf->reset();
 #if defined(__sun) || defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
 	aiocbp_R->aio_fildes = fd;
-	aiocbp_R->aio_nbytes = gCFG->block_size;
+	aiocbp_R->aio_nbytes = block_size;
         aiocbp_R->aio_buf = rcv_buf->point;
         aiocbp_R->aio_offset = 0;
 	aiocbp_W->aio_fildes = fd;
@@ -427,8 +426,7 @@ void Aio::a_open()
         aiocbp_W->aio_offset = 0;
 #endif
 	gCFG->sch->sponte(&epl_set_ps);	//向tpoll
-	/* 接收(发送)缓冲区清空 */
-	deliver(Notitia::START_SESSION); //向接力者发出通知, 本对象开始
+	return true;
 }
 
 void Aio::ignite(TiXmlElement *cfg)
@@ -439,6 +437,12 @@ void Aio::ignite(TiXmlElement *cfg)
 		has_config = true;
 	}
 }
+
+#define DELI(X)	\
+	if ( isCli ) {	\
+		aptus->sponte(&X);	\
+	} else {			\
+		aptus->facio(&X); }
 
 bool Aio::facio( Amor::Pius *pius)
 {
@@ -511,7 +515,6 @@ bool Aio::facio( Amor::Pius *pius)
 		} else if ( (void*)io_evp->obj == (void*)aiocbp_W ) {
 			WBUG("io_submit(write) return %d", (int)io_evp->res);
 			if ( io_evp->res <= 0 )	{
-				
 				WLOG_OSERR("io_submit(write)");
 				a_close();
 				tmp_ps.ordo = Notitia::Pro_File_Err;
@@ -551,18 +554,12 @@ bool Aio::facio( Amor::Pius *pius)
 			goto H_END;
 		}
 #endif
-		if ( isCli ) 
-			aptus->sponte(&pro_tbuf_ps);
-		else
-			aptus->facio(&pro_tbuf_ps);
+		DELI(pro_tbuf_ps)
 		if ( get_file_all )
 			recito_ex();
 		break;
 ERR_END:
-		if ( isCli ) 
-			aptus->sponte(&tmp_ps);
-		else
-			aptus->facio(&tmp_ps);
+		DELI(tmp_ps)
 H_END:
 		break;
 
@@ -580,11 +577,6 @@ H_END:
 			if ( *tb) rcv_buf = *tb;
 		} else 
 			WLOG(NOTICE,"facio PRO_TBUF null.");
-		break;
-
-	case Notitia::DMD_END_SESSION:
-		WBUG("facio DMD_END_SESSION");
-		a_close();
 		break;
 
 	case Notitia::IGNITE_ALL_READY:
@@ -606,7 +598,10 @@ H_END:
 		if ( tmp_ps.indic != gCFG->sch ) break;
 
 		if ( gCFG->on_start )
-			a_open();
+		{
+			if ( a_open())		//开始建立连接
+				deliver(Notitia::START_SESSION); //向接力者发出通知, 本对象开始
+		}
 /*
 		{
 		 unsigned char snd1[30] = { 
@@ -623,43 +618,37 @@ H_END:
 		WBUG("facio CLONE_ALL_READY");
 		deliver(Notitia::SET_TBUF);
 		if ( gCFG->on_start )
-			a_open();
+		{
+			if ( a_open())		//开始建立连接
+				deliver(Notitia::START_SESSION); //向接力者发出通知, 本对象开始
+		}
 		break;
 
-	case Notitia::DMD_START_SESSION:
-		WBUG("facio DMD_START_SESSION");
-		a_open();		//开始建立连接
-		break;
-#if 0
-	case Notitia::CMD_CHANNEL_PAUSE :
-		WBUG("facio CMD_CHANNEL_PAUSE");
-		gCFG->sch->sponte(&epl_clr_ps); //向tpoll,  注销
-		break;
-
-	case Notitia::CMD_CHANNEL_RESUME :
-		WBUG("sponte CMD_CHANNEL_RESUME");
-		gCFG->sch->sponte(&epl_set_ps); //向tpoll,  注册
-		break;
-#endif
 	case Notitia::ERR_EPOLL:
 		WBUG("facio ERR_EPOLL");
 		WLOG(WARNING, (char*)pius->indic);	
 		a_close();	//直接关闭就可.
-		tmp_ps.ordo = Notitia::Pro_File_End;
+		tmp_ps.ordo = Notitia::Pro_File_Err;
 		tmp_ps.indic = 0;
-		if ( isCli ) 
-			aptus->sponte(&tmp_ps);
-		else
-			aptus->facio(&tmp_ps);
+		DELI(tmp_ps)
 		break;
 
 	case Notitia::PRO_FILE :
 		WBUG("facio PRO_FILE");
-		a_open();
+		TEXTUS_STRCPY(file_name, (char*)pius->indic);
+		if ( a_open() )
+		{
+			tmp_ps.ordo = Notitia::Pro_File_Open;
+		} else {
+			tmp_ps.ordo = Notitia::Pro_File_Err;
+		}
+		tmp_ps.indic = 0;
+		DELI(tmp_ps)
 		break;
 
 	case Notitia::GET_FILE :
 		WBUG("facio GET_FILE");
+/*
 		get_bytes = *(int*)pius->indic;
 		switch ( get_bytes) {
 		case 0:
@@ -679,6 +668,7 @@ H_END:
 			recito_ex();
 			break;
 		}
+*/
 		recito_ex();
 		break;
 
@@ -731,6 +721,28 @@ H_END:
 #endif
 		break;
 
+	case Notitia::DMD_START_SESSION:
+		WBUG("facio DMD_START_SESSION");
+		if ( a_open())		//开始建立连接
+			deliver(Notitia::START_SESSION); //向接力者发出通知, 本对象开始
+		break;
+
+	case Notitia::DMD_END_SESSION:
+		WBUG("facio DMD_END_SESSION");
+		a_close();
+		deliver(Notitia::END_SESSION);/* 向左、右传递本类的会话关闭信号 */
+		break;
+#if 0
+	case Notitia::CMD_CHANNEL_PAUSE :
+		WBUG("facio CMD_CHANNEL_PAUSE");
+		gCFG->sch->sponte(&epl_clr_ps); //向tpoll,  注销
+		break;
+
+	case Notitia::CMD_CHANNEL_RESUME :
+		WBUG("sponte CMD_CHANNEL_RESUME");
+		gCFG->sch->sponte(&epl_set_ps); //向tpoll,  注册
+		break;
+#endif
 	default:
 		return false;
 	}	
@@ -766,8 +778,15 @@ bool Aio::sponte( Amor::Pius *pius)
 	case Notitia::DMD_END_SESSION:	//强制关闭，等同主动关闭，要通知别人
 		WLOG(INFO,"DMD_END_SESSION");
 		a_close();
+		deliver(Notitia::END_SESSION);/* 向左、右传递本类的会话关闭信号 */
 		break;
 
+	case Notitia::DMD_START_SESSION:
+		WBUG("sponte DMD_START_SESSION");
+		if ( a_open() )
+			deliver(Notitia::START_SESSION); //向接力者发出通知, 本对象开始
+		break;
+#if 0
 	case Notitia::CMD_CHANNEL_PAUSE :
 		WBUG("sponte CMD_CHANNEL_PAUSE");
 		gCFG->sch->sponte(&epl_clr_ps); //向tpoll,  注销
@@ -777,12 +796,7 @@ bool Aio::sponte( Amor::Pius *pius)
 		WBUG("sponte CMD_CHANNEL_RESUME");
 		gCFG->sch->sponte(&epl_set_ps); //向tpoll,  注册
 		break;
-
-	case Notitia::DMD_START_SESSION:
-		WBUG("sponte DMD_START_SESSION");
-		a_open();		//打开通道
-		break;
-
+#endif
 	default:
 		return false;
 	}	
@@ -827,7 +841,6 @@ Aio::Aio()
 	gCFG = 0;
 	has_config = false;
 	isCli = false;
-	get_file_all = false;
 	get_file_all = false;
 }
 
@@ -880,10 +893,7 @@ void Aio::transmitto_ex()
 ERR_RET:
 	tmp_ps.ordo = Notitia::Pro_File_Err;
 	tmp_ps.indic = 0;
-	if ( isCli ) 
-		aptus->sponte(&tmp_ps);
-	else
-		aptus->facio(&tmp_ps);
+	DELI(tmp_ps)
 }
 
 void Aio::recito_ex()
@@ -922,10 +932,7 @@ void Aio::recito_ex()
 ERR_RET:
 	tmp_ps.ordo = Notitia::Pro_File_Err;
 	tmp_ps.indic = 0;
-	if ( isCli ) 
-		aptus->sponte(&tmp_ps);
-	else
-		aptus->facio(&tmp_ps);
+	DELI(tmp_ps)
 }
 
 Amor* Aio::clone()

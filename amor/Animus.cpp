@@ -1243,8 +1243,9 @@ unsigned long Notitia::get_ordo(const char *comm_str)
 	WHAT_ORDO(CMD_FORK , Y); \
 	WHAT_ORDO(FORKED_PARENT , Y); \
 	WHAT_ORDO(FORKED_CHILD , Y); \
+	WHAT_ORDO(Pro_File_Err_Op, Y); \
 	WHAT_ORDO(Pro_File_Open, Y); \
-	WHAT_ORDO(Pro_File_Err, Y); \
+	WHAT_ORDO(Pro_File_Err_Rd, Y); \
 	WHAT_ORDO(Pro_File_End, Y); \
 	WHAT_ORDO(Move_File_From_Current, Y); \
 	WHAT_ORDO(Move_File_From_Begin, Y); \

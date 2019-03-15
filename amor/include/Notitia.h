@@ -192,8 +192,9 @@ enum HERE_ORDO {
 	FORKED_PARENT	=181,	/* in  the  parent's thread  of execution, indic point to pid of child */
 	FORKED_CHILD	=182,	/* in the child's thread of execution, indic = 0 */
 
+	Pro_File_Err_Op	=183,
 	Pro_File_Open	=184,
-	Pro_File_Err	=185,
+	Pro_File_Err_Rd	=185,
 	Pro_File_End	=186,
 	Move_File_From_Current	=187,	/* indic points to an intger */
 	Move_File_From_Begin	=188,

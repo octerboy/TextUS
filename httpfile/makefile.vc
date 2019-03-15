@@ -11,10 +11,13 @@ AMOROBJS=FileLet.obj
 all: httpfile.dll
 
 FileLet.obj: FileLet.cpp
-	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=FileLet FileLet.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DUSE_TEXTUS_AIO -DAMOR_CLS_TYPE=FileLet FileLet.cpp
+	move FileLet.obj FileLetAio.obj
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=FileLet FileLet.cpp
 
 httpfile.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(LD) $(LDFLAGS) -out:httpfileaio.dll FileLetAio.obj  $(LDLIB)
 	$(_VC_MANIFEST_PRO)
 	$(_POST_RPO_SUB)
 

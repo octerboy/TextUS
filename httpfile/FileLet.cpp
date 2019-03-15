@@ -123,11 +123,12 @@ private:
 
 
 	/* false:未处理请求; true:已处理请求 */
-	bool handle();
+	void handle();
 	void to_response(char *ptr, size_t total);
 
 	char path[1024];
 	char *file;
+	Amor::Pius get_ps, pro_ps, hd_ps;
 };
 
 static const char* get_mime_type( char* name );
@@ -156,7 +157,7 @@ bool FileLet::facio( Amor::Pius *pius)
 			WLOG(ERR,"req_body buf or res_entity buf is null!");
 			break;
 		}
-		(void) handle();
+		handle();
 		break;
 
 	case Notitia::SET_TBUF:	/* 第一个是http请求体, 第二个是http响应体 */
@@ -166,21 +167,55 @@ bool FileLet::facio( Amor::Pius *pius)
 			if ( *tb) req_body = *tb; 
 			tb++;
 			if ( *tb) res_entity = *tb;
-		} else 
-		{	
+		} else {	
 			WLOG(WARNING, "facio SET_TBUF null");
 		}
 		file_name = getHead("Path");
+#ifdef USE_TEXTUS_AIO
+		return false;	//aptus continues to deliver SET_TBUF
+#endif
 		break;
 		
 	default:
-		WBUG("facio %lu", pius->ordo);
 		return false;
 	}
 	return true;
 }
 
-bool FileLet::sponte( Amor::Pius *pius) { return false; }
+bool FileLet::sponte( Amor::Pius *pius) 
+{ 
+	switch (pius->ordo)
+	{
+	case Notitia::Pro_File_Open:	//open file succeed
+		WBUG("sponte Pro_File_Open");	
+		aptus->sponte(&hd_ps);
+		aptus->facio(&get_ps);
+		break;
+
+	case Notitia::Pro_File_Err_Op:	//file open error
+		WBUG("sponte Pro_File_Err_Op");	
+		setContentSize(0);
+		sendError(403);
+		aptus->sponte(&hd_ps);
+		break;
+
+	case Notitia::Pro_File_Err_Rd:	//file read error
+		WBUG("sponte Pro_File_Err_Rd");	
+		local_pius.ordo = Notitia::END_SESSION;
+		aptus->sponte(&local_pius);
+		break;
+
+	case Notitia::Pro_File_End:	//EOF
+		WBUG("sponte Pro_File_End");	
+		WBUG("has sent the file of %s", file);
+		break;
+
+	default:
+		return false;
+	}
+		
+	return true; 
+}
 
 FileLet::FileLet()
 {
@@ -190,6 +225,12 @@ FileLet::FileLet()
 	gCFG = 0;
 	has_config = false;
 	file = &(path[1]);
+	get_ps.ordo = Notitia::GET_FILE;
+	get_ps.indic = 0;
+	pro_ps.ordo = Notitia::PRO_FILE;
+	pro_ps.indic = 0;
+	hd_ps.ordo = Notitia::PRO_HTTP_HEAD;
+	hd_ps.indic = 0;
 }
 
 Amor* FileLet::clone()
@@ -236,7 +277,7 @@ void FileLet::to_response(char *ptr, size_t total)
 	}
 }
 
-bool FileLet::handle()
+void FileLet::handle()
 {
 	char *end_c;
 	bool has_slash;
@@ -247,16 +288,22 @@ bool FileLet::handle()
 	char fixed_type[500];
 
 #if defined(_WIN32)
+#if !defined(USE_TEXTUS_AIO)
 	HANDLE fd;
 	HANDLE hFileMapping;
+#endif
 	#define ISMYDIR(x) (_S_IFDIR & x)
 	#define ISMYREG(x) (_S_IFREG & x)
 #else
 	#define ISMYDIR(x) (S_ISDIR(x))	
 	#define ISMYREG(x) (S_ISREG(x))	
+#if !defined(USE_TEXTUS_AIO)
 	int fd;		/* 文件句柄 */
 #endif
+#endif
+#if !defined(USE_TEXTUS_AIO)
 	char* ptr;
+#endif
 
 	WBUG("Request path is %s", file_name);
 	if ( file_name[0] != '/')
@@ -309,7 +356,7 @@ PROAGAIN:
 		if ( !file_found )
 		{
 			WLOG(INFO, "Not found the file of %s", file);
-			return false;	/* 被认为找不到文件，另行处理 */
+			return ;	/* 被认为找不到文件，另行处理 */
 		}
 
 		if ( ISMYDIR(sb.st_mode) )
@@ -333,7 +380,7 @@ PROAGAIN:
 		if ( !(ISMYREG(sb.st_mode)) )
 		{
 			WLOG(INFO, "it's not regular file of %s", file);
-			return false;	/* 被认为找不到文件，另行处理 */
+			return ;	/* 被认为找不到文件，另行处理 */
 		}
 	}
 
@@ -357,6 +404,11 @@ PROAGAIN:
 	}
 
 SEND_FILE:
+#ifdef USE_TEXTUS_AIO
+	get_ps.indic = file;
+	setContentSize(sb.st_size);
+	aptus->facio(&get_ps);
+#else
 #if defined(_WIN32)
 	fd = CreateFile(file, GENERIC_READ, FILE_SHARE_READ, NULL, 
 		OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
@@ -367,17 +419,17 @@ SEND_FILE:
 #endif
 	{	
 		sendError(403);
-		local_pius.ordo = Notitia::PRO_HTTP_HEAD ;
-		aptus->sponte(&local_pius);
-		return true;	/* 已经发现错误,返回内容已定,故返回真 */
+		//local_pius.ordo = Notitia::PRO_HTTP_HEAD ;
+		aptus->sponte(&hd_ps);
+		return ;	/* 已经发现错误,返回内容已定,故返回真 */
     	}
 	WBUG("found the file of %s", file);
 
 	setContentSize(sb.st_size);
 	
 	/* 响应头已经准备完毕, 将此发送出去 */
-	local_pius.ordo = Notitia::PRO_HTTP_HEAD ;	
-	aptus->sponte(&local_pius);
+	//local_pius.ordo = Notitia::PRO_HTTP_HEAD ;	
+	aptus->sponte(&hd_ps);
 
     	if ( sb.st_size > 0 )	/* avoid zero-length mmap */
 	{
@@ -407,12 +459,11 @@ SEND_FILE:
 #endif
 
 	WBUG("has sent the file of %s", file);
-	goto End;
+	return ;
+#endif
 Error:
-	local_pius.ordo = Notitia::PRO_HTTP_HEAD ;	
-	aptus->sponte(&local_pius);
-End:
-	return true;
+	//local_pius.ordo = Notitia::PRO_HTTP_HEAD ;	
+	aptus->sponte(&hd_ps);
 }
 
 const char* get_mime_type( char* name )
