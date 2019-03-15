@@ -194,7 +194,7 @@ enum HERE_ORDO {
 
 	Pro_File_Err_Op	=183,
 	Pro_File_Open	=184,
-	Pro_File_Err_Rd	=185,
+	Pro_File_Err	=185,
 	Pro_File_End	=186,
 	Move_File_From_Current	=187,	/* indic points to an intger */
 	Move_File_From_Begin	=188,
