@@ -199,8 +199,8 @@ bool FileLet::sponte( Amor::Pius *pius)
 		aptus->sponte(&hd_ps);
 		break;
 
-	case Notitia::Pro_File_Err_Rd:	//file read error
-		WBUG("sponte Pro_File_Err_Rd");	
+	case Notitia::Pro_File_Err:	//file read error
+		WBUG("sponte Pro_File_Err");	
 		local_pius.ordo = Notitia::END_SESSION;
 		aptus->sponte(&local_pius);
 		break;
