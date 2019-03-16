@@ -1157,6 +1157,9 @@ void PyPort::free_aps(Amor::Pius &aps)
 		delete (unsigned char*)aps.indic;
 		break;
 
+	case Notitia::PRO_FILE:
+		break;
+
 	case Notitia::DMD_SET_ALARM:
 		/* ps.indic 是一个java.lang.integer, 转成int, 并且还要加一个jvmport的指针 */
 		delete[] (int*)(((void **)aps.indic)[1]);
@@ -1256,6 +1259,14 @@ bool PyPort::get_aps(Amor::Pius &aps, PyObject *args, const char *err_msg)
 		*opcode = (unsigned char)(PyInt_AS_LONG(ps_obj->indic)&0xFF);
 		aps.indic = opcode;
 	}
+		break;
+
+	case Notitia::PRO_FILE:
+		if ( !PyString_Check(ps_obj->indic)) {
+			WLOG(WARNING,"aps.indic is not of PyString_Type! when PRO_FILE");
+			return false;
+		}
+		aps.indic = PyString_AsString(ps_obj->indic);
 		break;
 
 	case Notitia::DMD_SET_ALARM:
@@ -1521,8 +1532,13 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 		/* indic 指向一个指针struct SetResponseCmd* */
 		break;
 
+	case Notitia::PRO_FILE:
+		WBUG("%s PRO_FILE", meth_str);
+		goto STRING_PRO;
+
 	case Notitia::WebSock_Start:
 		WBUG("%s WebSock_Start", meth_str);
+		STRING_PRO:
 		ps_obj->indic = PyString_FromString((const char*)pius->indic);
 		ret_obj = PyObject_CallMethod(pInstance, py_method, (char*)"O", ps_obj);
 		Py_DECREF(ps_obj->indic); 
