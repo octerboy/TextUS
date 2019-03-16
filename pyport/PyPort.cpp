@@ -1580,14 +1580,14 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 		break;
 	}
 
-	case Notitia::TIMER:
 		/* 这些要转一个PyInt_Type, 这个不需要了 */
 		/*
+	case Notitia::TIMER:
 		ps_obj->indic = PyInt_FromLong((long)*((int*) (pius->indic)));
 		ret_obj = PyObject_CallMethod(pInstance, py_method, (char*)"O", ps_obj);
 		Py_DECREF(ps_obj->indic);
-		*/
 		break;
+		*/
 
 	case Notitia::DMD_SET_TIMER:
 		/* indic指向this, 通知给Java的, 有Java程序进行时间片管理吗? 没有, 所以暂不实现. */
@@ -1641,11 +1641,13 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 	case Notitia::ERR_FRAME_LENGTH:
 	case Notitia::START_SERVICE:
 	case Notitia::DMD_END_SERVICE:
+	case Notitia::TIMER:
 		/* 这些本来就是不需要indic的 */
 		ret_obj = PyObject_CallMethod(pInstance, py_method, (char*)"O", ps_obj);
 		break;
 
 	default :
+		ret_obj = PyObject_CallMethod(pInstance, py_method, (char*)"O", ps_obj);
 		break;
 	}
 LAST:
