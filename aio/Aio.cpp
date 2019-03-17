@@ -21,6 +21,7 @@
 #include "Amor.h"
 #include "Notitia.h"
 #include "TBuffer.h"
+#include "PacData.h"
 #include "textus_string.h"
 #include "casecmp.h"
 #include <time.h>
@@ -55,6 +56,7 @@ private:
 
 	char file_name[128];
 	int block_size;
+	PacketObj *fname_pac;
 #if defined(_WIN32)
 	OVERLAPPED ovlpW, ovlpR;
 	HANDLE hdev;		/* 串口访问文件句柄 */
@@ -80,6 +82,7 @@ private:
 		Amor *sch;
 		struct DPoll::PollorBase lor; /* 探询 */
 		int block_size;
+		int pac_fld_num;
 #if defined(_WIN32)
 		DWORD                 dwDesiredAccess;
 		DWORD                 dwShareMode;
@@ -342,7 +345,9 @@ private:
 			if ( (comm_str = cfg->Attribute("start") ) && strcasecmp(comm_str, "no") ==0 )
                 		on_start = false; /* 并非一开始就启动 */
 			block_size = 512;
+			pac_fld_num = 1;
 			cfg->QueryIntAttribute("block_size", &(block_size));
+			cfg->QueryIntAttribute("field", &(pac_fld_num));
 #if defined(_WIN32)
 			dwDesiredAccess = 0;
 			dwShareMode = 0;
@@ -421,7 +426,7 @@ bool Aio::a_open()
         aiocbp_R->aio_buf = rcv_buf->point;
         aiocbp_R->aio_offset = 0;
 	aiocbp_W->aio_fildes = fd;
-	aiocbp_W->aio_nbytes = gCFG->block_size;
+	aiocbp_W->aio_nbytes = block_size;
         aiocbp_W->aio_buf = snd_buf->base;
         aiocbp_W->aio_offset = 0;
 #endif
@@ -633,9 +638,30 @@ H_END:
 		DELI(tmp_ps)
 		break;
 
+	case Notitia::SET_UNIPAC:
+		WBUG("facio SET_UNIPAC");
+		{
+		PacketObj **tmp;
+		if ( (tmp = (PacketObj **)(pius->indic)))
+		{
+			if ( *tmp) fname_pac = *tmp; 
+			else
+				WLOG(WARNING, "sponte SET_UNIPAC rcv_pac null");
+		} else 
+			WLOG(WARNING, "facio SET_UNIPAC null");
+		}
+
+		break;
+	case Notitia::PRO_FILE_Pac :
+		WBUG("facio PRO_FILE_Pac");
+		TEXTUS_STRCPY(file_name, (char*)(fname_pac->getfld(gCFG->pac_fld_num)));
+		goto A_OPEN_PRO;
+		break;
+
 	case Notitia::PRO_FILE :
 		WBUG("facio PRO_FILE");
 		TEXTUS_STRCPY(file_name, (char*)pius->indic);
+A_OPEN_PRO:
 		if ( a_open() )
 		{
 			tmp_ps.ordo = Notitia::Pro_File_Open;

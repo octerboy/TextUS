@@ -1258,6 +1258,7 @@ unsigned long Notitia::get_ordo(const char *comm_str)
 	WHAT_ORDO(CLEARED_HOLDING , Y); \
 	WHAT_ORDO(PRO_FILE, Y); \
 	WHAT_ORDO(GET_FILE, Y); \
+	WHAT_ORDO(PRO_FILE_Pac, Y); \
 	WHAT_ORDO(SET_UNIPAC , Y); \
 	WHAT_ORDO(PRO_UNIPAC , Y); \
 	WHAT_ORDO(ERR_UNIPAC_COMPOSE , Y); \

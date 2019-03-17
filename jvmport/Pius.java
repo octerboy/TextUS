@@ -199,6 +199,7 @@ public class Pius {
 
 	public static final long PRO_FILE	=196;	
 	public static final long GET_FILE	=197;	
+	public static final long PRO_FILE_Pac	=199;	
 
 	public static final long SET_UNIPAC	=200; 
 	public static final long PRO_UNIPAC	=201; 

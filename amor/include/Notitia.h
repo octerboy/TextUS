@@ -208,7 +208,8 @@ enum HERE_ORDO {
 	CLEARED_HOLDING	=195,	/* has cleared a session, indic points to the id */
 
 	PRO_FILE	=196,	/* indic points to a filename, may be pipe (for windows)  */
-	GET_FILE	=197,	/* indic points to an intger: -1: all to end, 0: current block size; > 0 the size of block( bytes) */
+	GET_FILE	=197,	/* indic is null */
+	PRO_FILE_Pac	=199,	/* indic points to a PacketObj, not for java or python */
 
 	SET_UNIPAC		=200, 
 	PRO_UNIPAC		=201, 

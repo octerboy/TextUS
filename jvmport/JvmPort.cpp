@@ -56,7 +56,7 @@ static jobject getIntegerObj(JNIEnv *env, int val);
 static void toInt (JNIEnv *env, int *val, jobject jInt );
 
 static void getPiusIndic (JNIEnv *env,  Amor::Pius &pius, jobject ps, jobject amr);
-static void freePiusIndic (Amor::Pius &pius);
+static void freePiusIndic (JNIEnv *env,Amor::Pius &pius, jobject ps);
 
 typedef struct _FaceList {
 		DBFace *face;
@@ -770,7 +770,7 @@ JNIEXPORT jboolean JNICALL Java_textor_jvmport_Amor_facio (JNIEnv *env, jobject 
 		env->DeleteLocalRef((jobject)pius.indic);
 		return ret;
 	}
-	freePiusIndic(pius);
+	freePiusIndic(env, pius, ps);
 	return ret;
 }
 
@@ -792,7 +792,7 @@ JNIEXPORT jboolean JNICALL Java_textor_jvmport_Amor_sponte (JNIEnv *env, jobject
 		env->DeleteLocalRef((jobject)pius.indic);
 		return ret;
 	}
-	freePiusIndic(pius);
+	freePiusIndic(env, pius, ps);
 	return ret;
 }
 
@@ -1663,6 +1663,11 @@ static void getPiusIndic (JNIEnv *env,  Amor::Pius &pius, jobject ps, jobject am
 		pius.indic = ((JvmPort*)getPointer(env, amor))->clr_timer_pius.indic;
 		break;
 
+	case Notitia::PRO_FILE:
+		/* ps.indic 指向 jstring */
+		pius.indic = (void*)env->GetStringUTFChars((jstring)env->GetObjectField(ps, indic_fld),0);
+		break;
+
 	case Notitia::Get_WS_MsgType:
 	case Notitia::Set_WS_MsgType:
 		/* ps.indic 是一个java.lang.integer, 转成unsigned char*, 并且还要加一个jvmport的指针 */
@@ -1711,12 +1716,11 @@ static void getPiusIndic (JNIEnv *env,  Amor::Pius &pius, jobject ps, jobject am
 }
 
 /* 从Java程序到C++程序, 在调用C++程序后, 释放相应的indic指针 */
-static void freePiusIndic (Amor::Pius &pius) 
+static void freePiusIndic (JNIEnv *env, Amor::Pius &pius, jobject ps) 
 {
 	void **ptrArray;
 	TiXmlDocument *docp;
 	TiXmlElement *root;
-	
 	switch ( pius.ordo )
 	{
 	case Notitia::SET_TBUF:
@@ -1767,6 +1771,16 @@ static void freePiusIndic (Amor::Pius &pius)
 		/* indic 指向一个指针struct SetResponseCmd* */
 		break;
 
+	case Notitia::PRO_FILE:
+		/* indic 指向一个const char* */
+		{
+		jfieldID indic_fld;
+		jclass pius_cls;
+		pius_cls = env->FindClass("textor/jvmport/Pius");
+		indic_fld = env->GetFieldID(pius_cls, "indic", "Ljava/lang/Object;");
+		env->ReleaseStringUTFChars((jstring)env->GetObjectField(ps, indic_fld), (const char*) pius.indic);
+		}
+		break;
 	default :
 		break;
 	}
@@ -1945,6 +1959,7 @@ bool JvmPort::pius2Java (Pius *pius, jmethodID fs_mid)
 		break;
 
 	case Notitia::WebSock_Start:
+	case Notitia::PRO_FILE:
 	{
 		jobject sockStr;
 		sockStr = jvmcfg->env->NewStringUTF((const char*)pius->indic);

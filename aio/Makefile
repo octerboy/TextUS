@@ -3,7 +3,7 @@
 # Build
 #	B01:created by octerboy 2019/02/13
 include ../Rules.basemod
-INCLUDE_DIR += -I../logdata/include -I../tpoll/include -I../baselib/include
+INCLUDE_DIR += -I../logdata/include -I../tpoll/include -I../baselib/include -I../unipac/include
 
 all:aio.so
 
