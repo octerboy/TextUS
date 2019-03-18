@@ -128,7 +128,7 @@ private:
 
 	char path[1024];
 	char *file;
-	Amor::Pius get_ps, pro_ps, hd_ps;
+	Amor::Pius get_file_ps, pro_file_ps, head_ps;
 };
 
 static const char* get_mime_type( char* name );
@@ -188,15 +188,15 @@ bool FileLet::sponte( Amor::Pius *pius)
 	{
 	case Notitia::Pro_File_Open:	//open file succeed
 		WBUG("sponte Pro_File_Open");	
-		aptus->sponte(&hd_ps);
-		aptus->facio(&get_ps);
+		aptus->sponte(&head_ps);
+		aptus->facio(&get_file_ps);
 		break;
 
 	case Notitia::Pro_File_Err_Op:	//file open error
 		WBUG("sponte Pro_File_Err_Op");	
 		setContentSize(0);
 		sendError(403);
-		aptus->sponte(&hd_ps);
+		aptus->sponte(&head_ps);
 		break;
 
 	case Notitia::Pro_File_Err:	//file read error
@@ -225,12 +225,12 @@ FileLet::FileLet()
 	gCFG = 0;
 	has_config = false;
 	file = &(path[1]);
-	get_ps.ordo = Notitia::GET_FILE;
-	get_ps.indic = 0;
-	pro_ps.ordo = Notitia::PRO_FILE;
-	pro_ps.indic = 0;
-	hd_ps.ordo = Notitia::PRO_HTTP_HEAD;
-	hd_ps.indic = 0;
+	get_file_ps.ordo = Notitia::GET_FILE;
+	get_file_ps.indic = 0;
+	pro_file_ps.ordo = Notitia::PRO_FILE;
+	pro_file_ps.indic = 0;
+	head_ps.ordo = Notitia::PRO_HTTP_HEAD;
+	head_ps.indic = 0;
 }
 
 Amor* FileLet::clone()
@@ -405,9 +405,9 @@ PROAGAIN:
 
 SEND_FILE:
 #ifdef USE_TEXTUS_AIO
-	get_ps.indic = file;
+	pro_file_ps.indic = file;
 	setContentSize(sb.st_size);
-	aptus->facio(&get_ps);
+	aptus->facio(&pro_file_ps);
 #else
 #if defined(_WIN32)
 	fd = CreateFile(file, GENERIC_READ, FILE_SHARE_READ, NULL, 
@@ -420,7 +420,7 @@ SEND_FILE:
 	{	
 		sendError(403);
 		//local_pius.ordo = Notitia::PRO_HTTP_HEAD ;
-		aptus->sponte(&hd_ps);
+		aptus->sponte(&head_ps);
 		return ;	/* 已经发现错误,返回内容已定,故返回真 */
     	}
 	WBUG("found the file of %s", file);
@@ -429,7 +429,7 @@ SEND_FILE:
 	
 	/* 响应头已经准备完毕, 将此发送出去 */
 	//local_pius.ordo = Notitia::PRO_HTTP_HEAD ;	
-	aptus->sponte(&hd_ps);
+	aptus->sponte(&head_ps);
 
     	if ( sb.st_size > 0 )	/* avoid zero-length mmap */
 	{
@@ -463,7 +463,7 @@ SEND_FILE:
 #endif
 Error:
 	//local_pius.ordo = Notitia::PRO_HTTP_HEAD ;	
-	aptus->sponte(&hd_ps);
+	aptus->sponte(&head_ps);
 }
 
 const char* get_mime_type( char* name )
