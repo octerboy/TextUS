@@ -65,7 +65,7 @@ private:
 #if !defined (_WIN32)
 	struct timeval start_tv, end_tv;
 	struct timezone start_tz, end_tz;
-	static	long t2k;
+	static unsigned	long t2k;
 #else
 	static unsigned __int64 t2k;
 	FILETIME start_tm, end_tm;
@@ -117,6 +117,8 @@ char BufTmr::md_magic[] = {0};
 int BufTmr::md_magic_len = 0;
 #if defined (_WIN32)
 unsigned __int64 BufTmr::t2k = 0;
+#else
+unsigned long BufTmr::t2k = 0;
 #endif
 
 void BufTmr::ignite(TiXmlElement *cfg) 
@@ -199,11 +201,6 @@ bool BufTmr::facio( Amor::Pius *pius)
 	{
 	case Notitia::PRO_TBUF:	
 		WBUG("facio PRO_TBUF");
-		if ( gCFG->time_out == 0 ) 
-		{
-			stamp();
-			break;
-		}
 		if ( !framing ) {
 #if !defined (_WIN32)
 			gettimeofday(&start_tv, &start_tz);
@@ -211,7 +208,12 @@ bool BufTmr::facio( Amor::Pius *pius)
 			GetSystemTimeAsFileTime(&start_tm);
 #endif
 			framing = true;
-			gCFG->sch->sponte(&alarm_pius); /* 定时开始 */
+			if ( gCFG->time_out == 0 ) 
+			{
+				stamp();
+			} else {
+				gCFG->sch->sponte(&alarm_pius); /* 定时开始 */
+			}
 		}
 		break;
 
