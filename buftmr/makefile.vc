@@ -5,12 +5,15 @@
 include ..\Rules.basemod.vc
 CFLAGS  = $(CFLAGS)  -I..\logdata\include -I..\baselib\include  -I..\unipac\include
 LDLIB = $(LDLIB) ..\baselib\libbase.lib
-AMOROBJS=BufTmr.obj
+AMOROBJS=BufTmr.obj md5.obj
 
 all: buftmr.dll
 
 BufTmr.obj: BufTmr.cpp
 	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=BufTmr BufTmr.cpp
+
+md5.obj: md5.c
+	$(CC) $(CFLAGS) md5.c 
 
 buftmr.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

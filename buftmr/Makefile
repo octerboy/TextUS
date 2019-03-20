@@ -10,7 +10,10 @@ all:buftmr.so
 BufTmr.o: BufTmr.cpp
 	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=BufTmr -o $@ $^ 
 	
-buftmr.so: BufTmr.o
+md5.o:md5.c
+	${CC} ${CFLAGS} -o $@ $^
+
+buftmr.so: BufTmr.o md5.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase
 	$(_POST_RPO_SUB)
 
