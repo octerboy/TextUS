@@ -62,13 +62,13 @@ private:
 	PacketObj *pa[3];
 	void *arr[3];
 	TBuffer *rcv_buf, *snd_buf;
-#if !defined (_WIN32)
+#if defined (_WIN32)
+	static unsigned __int64 t2k;
+	FILETIME start_tm, end_tm;
+#else
 	struct timeval start_tv, end_tv;
 	struct timezone start_tz, end_tz;
 	static unsigned	long t2k;
-#else
-	static unsigned __int64 t2k;
-	FILETIME start_tm, end_tm;
 #endif
 	static char md_magic[64];	/*默认是MD_MAGIC */
 	static int md_magic_len;
@@ -157,16 +157,14 @@ void BufTmr::stamp()
 	MD5_CTX Md5Ctx;
 	unsigned char md[16];
 	//if ( !framing ) return;
-#if !defined (_WIN32)
-	gettimeofday(&end_tv, &end_tz);
-#else
+#if defined (_WIN32)
 	unsigned __int64 etik, stik;
-	GetSystemTimeAsFileTime(&end_tm);
 	etik = (unsigned __int64)end_tm.dwLowDateTime + (((unsigned __int64)end_tm.dwHighDateTime) << 32);
 	stik = (unsigned __int64)start_tm.dwLowDateTime + (((unsigned __int64)start_tm.dwHighDateTime) << 32);
 	interval = (long) ((stik - etik)/10000);
 	start_sec =  (long) ((stik - t2k)/10000000);
 	start_milli =  (long) ((stik - t2k)/10000 - start_sec*1000);
+#else
 #endif
 	length  = rcv_buf->point - rcv_buf->base;
 	tmr_pac.input(BODY_LEN_FLD, (unsigned char*)&length, sizeof(length));
@@ -202,14 +200,19 @@ bool BufTmr::facio( Amor::Pius *pius)
 	case Notitia::PRO_TBUF:	
 		WBUG("facio PRO_TBUF");
 		if ( !framing ) {
-#if !defined (_WIN32)
-			gettimeofday(&start_tv, &start_tz);
-#else
+#if defined (_WIN32)
 			GetSystemTimeAsFileTime(&start_tm);
+#else
+			gettimeofday(&start_tv, &start_tz);
 #endif
 			framing = true;
 			if ( gCFG->time_out == 0 ) 
 			{
+#if defined (_WIN32)
+				end_tm = start_tm;
+#else
+				end_tv = start_tv;
+#endif
 				stamp();
 			} else {
 				gCFG->sch->sponte(&alarm_pius); /* 定时开始 */
@@ -225,6 +228,11 @@ bool BufTmr::facio( Amor::Pius *pius)
 
 	case Notitia::TIMER:	/* 连接超时 */
 		WBUG("facio TIMER" );
+#if defined (_WIN32)
+		GetSystemTimeAsFileTime(&end_tm);
+#else
+		gettimeofday(&end_tv, &end_tz);
+#endif
 		stamp();
 		break;
 
