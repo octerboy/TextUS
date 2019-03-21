@@ -57,6 +57,7 @@ private:
 	char file_name[128];
 	int block_size;
 	PacketObj *fname_pac;
+	void epoll_set();
 #if defined(_WIN32)
 	OVERLAPPED ovlpW, ovlpR;
 	HANDLE hdev;		/* 串口访问文件句柄 */
@@ -420,6 +421,12 @@ bool Aio::a_open()
 	/* 接收(发送)缓冲区清空 */
 	if ( rcv_buf) rcv_buf->reset();	
 	if ( snd_buf) snd_buf->reset();
+	epoll_set();
+	return true;
+}
+
+void Aio::epoll_set()
+{
 #if defined(__sun) || defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
 	aiocbp_R->aio_fildes = fd;
 	aiocbp_R->aio_nbytes = block_size;
@@ -431,7 +438,6 @@ bool Aio::a_open()
         aiocbp_W->aio_offset = 0;
 #endif
 	gCFG->sch->sponte(&epl_set_ps);	//向tpoll
-	return true;
 }
 
 void Aio::ignite(TiXmlElement *cfg)
@@ -652,6 +658,13 @@ H_END:
 		}
 
 		break;
+
+	case Notitia::PRO_FILE_FD :
+		WBUG("facio PRO_FILE_FD");
+		fd = *(int*)(pius->indic);
+		epoll_set();
+		break;
+
 	case Notitia::PRO_FILE_Pac :
 		WBUG("facio PRO_FILE_Pac");
 		TEXTUS_STRCPY(file_name, (char*)(fname_pac->getfld(gCFG->pac_fld_num)));

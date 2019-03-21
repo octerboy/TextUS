@@ -209,6 +209,7 @@ enum HERE_ORDO {
 
 	PRO_FILE	=196,	/* indic points to a filename, may be pipe (for windows)  */
 	GET_FILE	=197,	/* indic is null */
+	PRO_FILE_FD	=198,	/* indic points to file descriptor, not for java or python */
 	PRO_FILE_Pac	=199,	/* indic points to a PacketObj, not for java or python */
 
 	SET_UNIPAC		=200, 
