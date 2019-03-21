@@ -63,12 +63,11 @@ private:
 	void *arr[3];
 	TBuffer *rcv_buf, *snd_buf;
 #if defined (_WIN32)
-	static unsigned __int64 t2k;
 	FILETIME start_tm, end_tm;
+	static unsigned __int64 t2k;
 #else
-	struct timeval start_tv, end_tv;
-	struct timezone start_tz, end_tz;
-	static unsigned	long t2k;
+	struct timespec start_tp, end_tp;
+	static time_t t2k;
 #endif
 	static char md_magic[64];	/*默认是MD_MAGIC */
 	static int md_magic_len;
@@ -118,7 +117,7 @@ int BufTmr::md_magic_len = 0;
 #if defined (_WIN32)
 unsigned __int64 BufTmr::t2k = 0;
 #else
-unsigned long BufTmr::t2k = 0;
+time_t BufTmr::t2k = 0;
 #endif
 
 void BufTmr::ignite(TiXmlElement *cfg) 
@@ -137,7 +136,15 @@ void BufTmr::ignite(TiXmlElement *cfg)
 	SystemTimeToFileTime(&y2k, &ct2k);
 	t2k = (unsigned __int64)ct2k.dwLowDateTime + (((unsigned __int64)ct2k.dwHighDateTime) << 32);
 #else
-
+	struct tm time_str;
+	time_str.tm_year    = 100;
+	time_str.tm_mon = 0;
+	time_str.tm_mday = 1;
+	time_str.tm_hour = 0;
+	time_str.tm_min = 0;
+	time_str.tm_sec = 0;
+	time_str.tm_isdst = 0;
+	t2k = mktime(&time_str);
 #endif
 	if (!cfg) return;
 
@@ -165,6 +172,9 @@ void BufTmr::stamp()
 	start_sec =  (long) ((stik - t2k)/10000000);
 	start_milli =  (long) ((stik - t2k)/10000 - start_sec*1000);
 #else
+	interval = 1000* (end_tp.tv_sec - start_tp.tv_sec) + (end_tp.tv_nsec - start_tp.tv_nsec)/1000000;
+	start_sec =  start_tp.tv_sec - t2k;
+	start_milli =  start_tp.tv_nsec/1000000;
 #endif
 	length  = rcv_buf->point - rcv_buf->base;
 	tmr_pac.input(BODY_LEN_FLD, (unsigned char*)&length, sizeof(length));
@@ -185,7 +195,6 @@ void BufTmr::stamp()
 	offset = MD_SUM_LEN;
 	tmr_pac.input(OFFSET_FLD, &offset, sizeof(offset));
 
-			
 	framing = false;
 	//gCFG->sch->sponte(&clr_timer_pius); /* 一次定时，不用清除 */
 	aptus->facio(&pro_tbuf);
@@ -203,7 +212,7 @@ bool BufTmr::facio( Amor::Pius *pius)
 #if defined (_WIN32)
 			GetSystemTimeAsFileTime(&start_tm);
 #else
-			gettimeofday(&start_tv, &start_tz);
+			clock_gettime(CLOCK_REALTIME, &start_tp);
 #endif
 			framing = true;
 			if ( gCFG->time_out == 0 ) 
@@ -211,7 +220,7 @@ bool BufTmr::facio( Amor::Pius *pius)
 #if defined (_WIN32)
 				end_tm = start_tm;
 #else
-				end_tv = start_tv;
+				end_tp = start_tp;
 #endif
 				stamp();
 			} else {
@@ -231,7 +240,7 @@ bool BufTmr::facio( Amor::Pius *pius)
 #if defined (_WIN32)
 		GetSystemTimeAsFileTime(&end_tm);
 #else
-		gettimeofday(&end_tv, &end_tz);
+		clock_gettime(CLOCK_REALTIME, &end_tp);
 #endif
 		stamp();
 		break;
