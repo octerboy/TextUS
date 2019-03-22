@@ -24,6 +24,7 @@
 #include "PacData.h"
 #include "textus_string.h"
 #include "casecmp.h"
+#include "BTool.h"
 #include <time.h>
 #include <assert.h>
 #include <stdio.h>
@@ -47,20 +48,19 @@ public:
 
 	Aio();
 	~Aio();
-
 private:
-	bool isCli;
+	bool should_spo;
 	bool get_file_all;
 	DPoll::PollorAio pollor; /* 保存事件句柄, 各子实例不同 */
 	Amor::Pius epl_set_ps, epl_clr_ps, pro_tbuf_ps, tmp_ps;
 
-	char file_name[128];
+	char file_name[1024];
 	int block_size;
 	PacketObj *fname_pac;
 	void epoll_set();
 #if defined(_WIN32)
 	OVERLAPPED ovlpW, ovlpR;
-	HANDLE hdev;		/* 串口访问文件句柄 */
+	HANDLE hdev, *hdevPtr;		/* 串口访问文件句柄 */
 #else
 #if defined(__linux__)
 	struct iocb *aiocbp_W, *aiocbp_R;
@@ -69,11 +69,10 @@ private:
 	{
 		return syscall(__NR_io_submit, ctx, nr, iocbpp);
 	}
-
 #else
 	struct aiocb *aiocbp_W, *aiocbp_R;
 #endif
-	int fd;
+	int fd, *fdPtr;
 #endif
 	bool a_open();
 	void a_close();
@@ -84,6 +83,8 @@ private:
 		struct DPoll::PollorBase lor; /* 探询 */
 		int block_size;
 		int pac_fld_num;
+		unsigned char start_seq[1024];
+		unsigned int seq_len;
 #if defined(_WIN32)
 		DWORD                 dwDesiredAccess;
 		DWORD                 dwShareMode;
@@ -349,6 +350,11 @@ private:
 			pac_fld_num = 1;
 			cfg->QueryIntAttribute("block_size", &(block_size));
 			cfg->QueryIntAttribute("field", &(pac_fld_num));
+			seq_len = 0;
+			if ( (comm_str = cfg->Attribute("start_seq") ) )
+			{
+				seq_len = BTool::unescape(comm_str, start_seq) ;
+			}
 #if defined(_WIN32)
 			dwDesiredAccess = 0;
 			dwShareMode = 0;
@@ -408,7 +414,6 @@ bool Aio::a_open()
 		WLOG_OSERR(msg);
 		return false;
 	}
-	pollor.file_hnd = hdev;
 #else
 	fd = open(file_name,  gCFG->oflag, gCFG->mode);
 	if ( fd == -1 )
@@ -437,20 +442,31 @@ void Aio::epoll_set()
         aiocbp_W->aio_buf = snd_buf->base;
         aiocbp_W->aio_offset = 0;
 #endif
+#if defined(_WIN32)
+	pollor.file_hnd = hdev;
+#endif
 	gCFG->sch->sponte(&epl_set_ps);	//向tpoll
+	if ( gCFG->seq_len > 0 ) {
+		snd_buf->input(gCFG->start_seq, gCFG->seq_len);
+		transmitto_ex();
+	}
 }
 
 void Aio::ignite(TiXmlElement *cfg)
 {
+	const char *comm_str;
 	if ( !gCFG) 
 	{
 		gCFG = new struct G_CFG(cfg);
 		has_config = true;
 	}
+	comm_str = cfg->Attribute("file");
+	if ( comm_str ) 
+		TEXTUS_SPRINTF(file_name, comm_str);
 }
 
 #define DELI(X)	\
-	if ( isCli ) {	\
+	if ( should_spo ) {	\
 		aptus->sponte(&X);	\
 	} else {			\
 		aptus->facio(&X); }
@@ -466,7 +482,9 @@ bool Aio::facio( Amor::Pius *pius)
 #if defined(__linux__)
 	struct io_event *io_evp;
 #endif
+#if defined(__sun) || defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
 	int get_bytes;
+#endif
 	TBuffer **tb;
 	assert(pius);
 
@@ -576,7 +594,7 @@ H_END:
 
 	case Notitia::SET_TBUF:	/* 取得输入TBuffer地址 */
 		WBUG("facio SET_TBUF");
-		isCli = true;
+		should_spo = true;
 		tb = (TBuffer **)(pius->indic);
 		if (tb) 
 		{	//当然tb不能为空
@@ -647,22 +665,27 @@ H_END:
 	case Notitia::SET_UNIPAC:
 		WBUG("facio SET_UNIPAC");
 		{
-		PacketObj **tmp;
-		if ( (tmp = (PacketObj **)(pius->indic)))
-		{
-			if ( *tmp) fname_pac = *tmp; 
-			else
-				WLOG(WARNING, "sponte SET_UNIPAC rcv_pac null");
-		} else 
-			WLOG(WARNING, "facio SET_UNIPAC null");
+			PacketObj **tmp;
+			if ( (tmp = (PacketObj **)(pius->indic)))
+			{
+				if ( tmp[0] ) 
+					fname_pac = tmp[0]; 
+				else {
+					WLOG(WARNING, "sponte SET_UNIPAC rcv_pac null");
+				}
+			} else {
+				WLOG(WARNING, "facio SET_UNIPAC null");
+			}
 		}
-
 		break;
 
 	case Notitia::PRO_FILE_FD :
 		WBUG("facio PRO_FILE_FD");
-		fd = *(int*)(pius->indic);
-		epoll_set();
+#if defined(_WIN32)
+		hdevPtr = (HANDLE*)(pius->indic);
+#else
+		fdPtr = (int*)(pius->indic);
+#endif
 		break;
 
 	case Notitia::PRO_FILE_Pac :
@@ -760,6 +783,16 @@ A_OPEN_PRO:
 #endif
 		break;
 
+	case Notitia::START_SESSION:
+		WBUG("facio START_SESSION");	/*接受来自左边的, 则fd也是来自左边 */
+#if defined(_WIN32)
+		hdev = *hdevPtr;
+#else
+		fd = *fdPtr;
+#endif
+		epoll_set();
+		break;
+
 	case Notitia::DMD_START_SESSION:
 		WBUG("facio DMD_START_SESSION");
 		if ( a_open())		//开始建立连接
@@ -800,7 +833,7 @@ bool Aio::sponte( Amor::Pius *pius)
 		
 	case Notitia::SET_TBUF:	/* 取得输入TBuffer地址 */
 		WBUG("sponte SET_TBUF");
-		isCli = false;
+		should_spo = false;
 		tb = (TBuffer **)(pius->indic);
 		if (tb) 
 		{	//当然tb不能为空
@@ -879,7 +912,7 @@ Aio::Aio()
 	snd_buf = m_snd_buf;
 	gCFG = 0;
 	has_config = false;
-	isCli = false;
+	should_spo = false;
 	get_file_all = false;
 }
 
@@ -1015,7 +1048,7 @@ inline void Aio::deliver(Notitia::HERE_ORDO aordo)
 
 	case Notitia::END_SESSION:
 		WBUG("deliver END_SESSION");
-		if ( isCli ) {
+		if ( should_spo ) {
 			aptus->sponte(&tmp_ps);
 			return;
 		}
@@ -1023,7 +1056,7 @@ inline void Aio::deliver(Notitia::HERE_ORDO aordo)
 
 	case Notitia::START_SESSION:
 		WBUG("deliver START_SESSION");
-		if ( isCli ) {
+		if ( should_spo ) {
 			aptus->sponte(&tmp_ps);
 			return;
 		}

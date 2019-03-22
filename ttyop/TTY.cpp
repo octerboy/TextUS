@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
+/* Copyright (c) 2005-2020 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -17,9 +17,11 @@
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
+#include "DPoll.h"
 #include "Amor.h"
 #include "Notitia.h"
 #include "TBuffer.h"
+#include "PacData.h"
 #include "textus_string.h"
 #include "Describo.h"
 #include "casecmp.h"
@@ -31,14 +33,10 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <stdarg.h>
-#if !defined (_WIN32)
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <termios.h>
-#else
-#include <io.h>
-#endif
 
 #ifndef TINLINE
 #define TINLINE inline
@@ -57,16 +55,21 @@ public:
 	~TTY();
 
 private:
-	Amor::Pius local_pius;
-	Amor::Pius pro_tbuf;
+	Amor::Pius local_pius, pro_tbuf;
 	time_t last_failed_time;	//最近一次的失败时间,秒
+	bool should_spo;
+	PacketObj *fname_pac;
+	char ttyname[1024];
 
 	char errMsg[ERRSTR_LEN];
 
 	struct G_CFG {
 		unsigned int    parity, stop_bit, baud_rate, data_size;
-		const char *ttyname;
 		bool on_start;
+		Amor *sch;
+		struct DPoll::PollorBase lor; /* 探询 */
+		bool useAio;
+		int pac_fld_num;
 		inline int checkBaud( int baud )
 		{
 			if (baud<=50)
@@ -136,14 +139,15 @@ private:
 			const char *comm_str;
 			int baud_f, size_f, stop_f;
 
-			ttyname = 0;
 			parity = 0 ;		/* None=0,Odd=1,Even=2  */
 			data_size = CS8;	/* Data Bit = 8     */
     			stop_bit = 1;		/* Stop Bit = 1     */
 			on_start = true;
+			useAio = false;
 
 			if ( !cfg) return;
-			ttyname = cfg->Attribute("tty");
+			pac_fld_num = 1;
+			cfg->QueryIntAttribute("field", &(pac_fld_num));
 			comm_str = cfg->Attribute("parity");
 			if ( strcasecmp(comm_str, "odd" ) == 0 )
 				parity = 1 ;
@@ -174,6 +178,8 @@ private:
 
 			if ( (comm_str = cfg->Attribute("start") ) && strcasecmp(comm_str, "no") ==0 )
                 		on_start = false; /* 并非一开始就启动 */
+			sch = 0;
+			lor.type = DPoll::NotUsed;
 		};
 	};
 	struct G_CFG *gCFG;
@@ -182,14 +188,18 @@ private:
     	int ttyfd;	/* 文件句柄 */
 	Describo::Criptor mytor; /* 保存套接字, 各子实例不同 */
 	
+#if defined(__linux__)
 	struct  termio  ttyold, ttynew;
-	TBuffer *rcv_buf;
-	TBuffer *snd_buf;
+#else
+	struct  termios  ttyold, ttynew;
+#endif
+	TBuffer *rcv_buf, *snd_buf;
+	TBuffer *m_rcv_buf, *m_snd_buf;
 	bool wr_blocked ; 	/* 最近一次写阻塞标志 */
 
 	TINLINE void transmit();
 	TINLINE bool recito();
-	TINLINE void init();
+	TINLINE bool init();
 	TINLINE bool set();
 	bool setup_com();
 	TINLINE void end();
@@ -198,13 +208,23 @@ private:
 #include "wlog.h"
 };
 
+#define DELI(X)	\
+	if ( should_spo ) {	\
+		aptus->sponte(&X);	\
+	} else {			\
+		aptus->facio(&X); }
+
 void TTY::ignite(TiXmlElement *cfg)
 {
+	const char *comm_str;
 	if ( !gCFG) 
 	{
 		gCFG = new struct G_CFG(cfg);
 		has_config = true;
 	}
+	comm_str = cfg->Attribute("tty");
+	if ( comm_str ) 
+		TEXTUS_SPRINTF(ttyname, comm_str);
 }
 
 #define SLOG(Z) { Amor::Pius log_pius; \
@@ -232,9 +252,47 @@ void TTY::ignite(TiXmlElement *cfg)
 
 bool TTY::facio( Amor::Pius *pius)
 {
+	Amor::Pius tmp_pius;
 	assert(pius);
 	switch (pius->ordo)
 	{
+	case Notitia::SET_UNIPAC:
+		WBUG("facio SET_UNIPAC");
+		{
+			PacketObj **tmp;
+			if ( (tmp = (PacketObj **)(pius->indic)))
+			{
+				if ( tmp[0] ) 
+					fname_pac = tmp[0]; 
+				else {
+					WLOG(WARNING, "sponte SET_UNIPAC rcv_pac null");
+				}
+			} else {
+				WLOG(WARNING, "facio SET_UNIPAC null");
+			}
+		}
+		break;
+
+	case Notitia::PRO_FILE_Pac :
+		WBUG("facio PRO_FILE_Pac");
+		TEXTUS_STRCPY(ttyname, (char*)(fname_pac->getfld(gCFG->pac_fld_num)));
+		goto OPEN_PRO;
+		break;
+
+	case Notitia::PRO_FILE :
+		WBUG("facio PRO_FILE");
+		TEXTUS_STRCPY(ttyname, (char*)pius->indic);
+OPEN_PRO:
+		if ( init() )
+		{
+			local_pius.ordo = Notitia::Pro_File_Open;
+		} else {
+			local_pius.ordo = Notitia::Pro_File_Err;
+		}
+		local_pius.indic = 0;
+		DELI(local_pius)
+		break;
+
 	case Notitia::FD_PRORD:
 		WBUG("facio FD_PRORD");
 		if ( recito() )
@@ -258,9 +316,32 @@ bool TTY::facio( Amor::Pius *pius)
 
 	case Notitia::IGNITE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY");
-		deliver(Notitia::SET_TBUF);
+		tmp_pius.ordo = Notitia::CMD_GET_SCHED;
+		aptus->sponte(&tmp_pius);	//向tpoll, 取得sched
+		gCFG->sch = (Amor*)tmp_pius.indic;
+		if ( !gCFG->sch ) 
+		{
+			WLOG(ERR, "no sched or tpoll");
+			break;
+		}
+		tmp_pius.ordo = Notitia::POST_EPOLL;
+		tmp_pius.indic = &gCFG->lor;
+		gCFG->lor.pupa = this;
+		
+		gCFG->sch->sponte(&tmp_pius);	//向tpoll, 取得TPOLL
+		if ( tmp_pius.indic == gCFG->sch )
+		{
+			gCFG->useAio = true;
+			tmp_pius.ordo = Notitia::PRO_FILE_FD;
+			tmp_pius.indic = &ttyfd;
+			aptus->facio(&tmp_pius);
+		} else {
+			gCFG->useAio = false;
+			deliver(Notitia::SET_TBUF);
+		}
 		if ( gCFG->on_start )
 			init();
+
 /*
 		{
 		 unsigned char snd1[30] = { 
@@ -275,7 +356,10 @@ bool TTY::facio( Amor::Pius *pius)
 
 	case Notitia::CLONE_ALL_READY:
 		WBUG("facio CLONE_ALL_READY");
-		deliver(Notitia::SET_TBUF);
+		if (!gCFG->useAio )
+		{
+			deliver(Notitia::SET_TBUF);
+		}
 		if ( gCFG->on_start )
 			init();
 		break;
@@ -298,6 +382,25 @@ bool TTY::facio( Amor::Pius *pius)
 	case Notitia::CMD_CHANNEL_RESUME :
 		WBUG("sponte CMD_CHANNEL_RESUME");
 		deliver(Notitia::FD_SETRD);
+		break;
+
+	case Notitia::SET_TBUF:	/* 取得输入TBuffer地址 */
+		WBUG("facio SET_TBUF");
+		should_spo = true;
+		{
+		TBuffer **tb;
+		tb = (TBuffer **)(pius->indic);
+		if (tb) 
+		{	//当然tb不能为空
+			if ( *tb) 
+			{	//新到请求的TBuffer
+				snd_buf = *tb;
+			}
+			tb++;
+			if ( *tb) rcv_buf = *tb;
+		} else 
+			WLOG(NOTICE,"facio PRO_TBUF null.");
+		}
 		break;
 
 	default:
@@ -343,6 +446,25 @@ bool TTY::sponte( Amor::Pius *pius)
 		init();		//打开通道
 		break;
 
+	case Notitia::SET_TBUF:	/* 取得输入TBuffer地址 */
+		WBUG("sponte SET_TBUF");
+		should_spo = false;
+		{
+		TBuffer **tb;
+		tb = (TBuffer **)(pius->indic);
+		if (tb) 
+		{	//当然tb不能为空
+			if ( *tb) 
+			{	//新到请求的TBuffer
+				rcv_buf = *tb;
+			}
+			tb++;
+			if ( *tb) snd_buf = *tb;
+		} else 
+			WLOG(NOTICE,"facio PRO_TBUF null.");
+		}
+		break;
+
 	default:
 		return false;
 	}	
@@ -367,6 +489,10 @@ TTY::TTY()
 	has_config = false;
 	ttyfd = -1;
 	wr_blocked = false; 	//刚开始, 最近一次写当然不阻塞
+	m_rcv_buf = new TBuffer(1024);
+	m_snd_buf = new TBuffer(1024);
+	rcv_buf = m_rcv_buf;
+	snd_buf = m_snd_buf;
 }
 
 TTY::~TTY()
@@ -374,8 +500,8 @@ TTY::~TTY()
 	end();
 	if (has_config )
 		delete gCFG;
-	delete rcv_buf;
-	delete snd_buf;
+	delete m_rcv_buf;
+	delete m_snd_buf;
 }
 
 TINLINE bool TTY::recito()
@@ -500,9 +626,12 @@ TINLINE void TTY::end()
 	WBUG("end().....");
 	if ( ttyfd == -1 ) 
 		return;	/* 不重复关闭 */
+	if ( !gCFG->useAio )
+	{
 	deliver(Notitia::FD_CLRWR);
 	deliver(Notitia::FD_CLREX);
 	deliver(Notitia::FD_CLRRD);
+	}
 	
 	ioctl(ttyfd,TCSETAF,&ttyold);	/* 复原设置 */
 	close(ttyfd);
@@ -516,6 +645,7 @@ Amor* TTY::clone()
 	TTY *child;
 	child = new TTY();
 	child->gCFG = gCFG;
+	memcpy(child->ttyname, ttyname, strlen(ttyname)+1);
 	return (Amor*)child;
 }
 
@@ -552,7 +682,7 @@ TINLINE void TTY::deliver(Notitia::HERE_ORDO aordo)
 	case Notitia::FD_SETWR:
 	case Notitia::FD_SETEX:
 		local_pius.ordo =aordo;
-		aptus->sponte(&local_pius);	//向Sched
+		gCFG->sch->sponte(&local_pius);	//向Sched
 		return ;
 
 	default:
@@ -561,14 +691,14 @@ TINLINE void TTY::deliver(Notitia::HERE_ORDO aordo)
 	aptus->facio(&tmp_pius);
 }
 
-void TTY::init()
+bool TTY::init()
 {
-	ttyfd=open(gCFG->ttyname,O_RDWR);
+	ttyfd=open(ttyname,O_RDWR);
 	if ( ttyfd < 0 )
 	{
 		ERROR_PRO("open tty");
 		SLOG(ERR);
-		return;
+		return false;
 	}
 
     	if( !setup_com() )
@@ -577,18 +707,21 @@ void TTY::init()
 		SLOG(ERR);
         	close(ttyfd);
 		ttyfd = -1;
-		return;
+		return false;
 	}
+	if ( !gCFG->useAio )
+	{
+		mytor.scanfd = ttyfd;
+		deliver(Notitia::FD_SETRD);
+		deliver(Notitia::FD_CLRWR);
+		deliver(Notitia::FD_CLREX);
 
-	mytor.scanfd = ttyfd;
-	deliver(Notitia::FD_SETRD);
-	deliver(Notitia::FD_CLRWR);
-	deliver(Notitia::FD_CLREX);
-
-	/* 接收(发送)缓冲区清空 */
-	if ( rcv_buf) rcv_buf->reset();	
-	if ( snd_buf) snd_buf->reset();
+		/* 接收(发送)缓冲区清空 */
+		if ( rcv_buf) rcv_buf->reset();	
+		if ( snd_buf) snd_buf->reset();
+	}
 	deliver(Notitia::START_SESSION); //向接力者发出通知, 本对象开始
+	return true;
 }
 
 bool TTY::set()
@@ -630,7 +763,9 @@ bool TTY::set()
 	else
 		ttynew.c_cflag &= ~CSTOPB ;
 
+#if defined(__linux__)
 	ttynew.c_line=0;    /* line discipline */
+#endif
 
 	if ( ioctl(ttyfd,TCSETAF,&ttynew) == -1 )
 		return false;
