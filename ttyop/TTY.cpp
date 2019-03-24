@@ -125,12 +125,15 @@ private:
 
 			else if (baud<=230400)
 				return(B230400);
-
+#if defined(B460800)
     			else if (baud <= 460800) 
 				return (B460800);
+#endif
 
+#if defined(B921600)
 			else if (baud <= 921600)
 				return(B921600);
+#endif
 
 			return(B9600);
 		}
@@ -224,7 +227,7 @@ void TTY::ignite(TiXmlElement *cfg)
 	}
 	comm_str = cfg->Attribute("tty");
 	if ( comm_str ) 
-		TEXTUS_SPRINTF(ttyname, comm_str);
+		TEXTUS_STRCPY(ttyname, comm_str);
 }
 
 #define SLOG(Z) { Amor::Pius log_pius; \
@@ -633,7 +636,7 @@ TINLINE void TTY::end()
 	deliver(Notitia::FD_CLRRD);
 	}
 	
-	ioctl(ttyfd,TCSETAF,&ttyold);	/* 复原设置 */
+	//ioctl(ttyfd,TCSETAF,&ttyold);	/* 复原设置 */
 	close(ttyfd);
 	ttyfd = -1;
 
@@ -723,7 +726,7 @@ bool TTY::init()
 	deliver(Notitia::START_SESSION); //向接力者发出通知, 本对象开始
 	return true;
 }
-
+#if 0
 bool TTY::set()
 {
 	if ( ioctl(ttyfd,TCGETA,&ttyold) == -1 )
@@ -772,6 +775,7 @@ bool TTY::set()
 
 	return true;
 }
+#endif
 
 bool TTY:: setup_com(){
 	struct termios options; 
@@ -829,5 +833,5 @@ bool TTY:: setup_com(){
 		return false;
 	return true;
 }
-
+/* https://www.cmrr.umn.edu/~strupp/serial.html#3_1_1 */
 #include "hook.c"
