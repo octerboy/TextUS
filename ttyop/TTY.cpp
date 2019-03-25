@@ -21,6 +21,7 @@
 #include "Amor.h"
 #include "Notitia.h"
 #include "TBuffer.h"
+#include "BTool.h"
 #include "PacData.h"
 #include "textus_string.h"
 #include "Describo.h"
@@ -65,6 +66,15 @@ private:
 
 	struct G_CFG {
 		unsigned int    parity, stop_bit, baud_rate, data_size;
+		tcflag_t	c_iflag, un_iflag;        /* input modes */
+		tcflag_t	c_oflag, un_oflag;        /* output modes */
+		tcflag_t	c_cflag, un_cflag;        /* control modes */
+		tcflag_t	c_lflag, un_lflag;        /* line discipline modes */
+		cc_t	c_cc[NCCS];
+		cc_t	c_line;
+		int file_flg;
+		bool raw_mode;
+
 		bool on_start;
 		Amor *sch;
 		struct DPoll::PollorBase lor; /* 探询 */
@@ -140,7 +150,9 @@ private:
 
 		inline G_CFG(TiXmlElement *cfg) {
 			const char *comm_str;
-			int baud_f, size_f, stop_f;
+			int baud_f, size_f, stop_f,i;
+			TiXmlElement *ele;
+			char n_str[256];
 
 			parity = 0 ;		/* None=0,Odd=1,Even=2  */
 			data_size = CS8;	/* Data Bit = 8     */
@@ -150,7 +162,21 @@ private:
 
 			if ( !cfg) return;
 			pac_fld_num = 1;
+			raw_mode = true;
+			comm_str = cfg->Attribute("raw");
+			if ( strcasecmp(comm_str, "yes") ==0 )
+			{
+				raw_mode = true;
+			} else {
+				raw_mode = false;
+			}
 			cfg->QueryIntAttribute("field", &(pac_fld_num));
+			c_line = 0;
+			if ( cfg->Attribute("line"))
+			{
+				cfg->QueryIntAttribute("line", &(file_flg));
+				c_line = (cc_t) file_flg;
+			}
 			comm_str = cfg->Attribute("parity");
 			if ( strcasecmp(comm_str, "odd" ) == 0 )
 				parity = 1 ;
@@ -183,7 +209,267 @@ private:
                 		on_start = false; /* 并非一开始就启动 */
 			sch = 0;
 			lor.type = DPoll::NotUsed;
-		};
+
+			ele =  cfg->FirstChildElement("input") ;
+			c_iflag = 0;
+			un_iflag =~c_iflag;
+			if ( ele && (comm_str = ele->GetText() ) )
+			{
+				for ( i = 0 ; i < strlen(comm_str); i++)
+					n_str[i]= toupper(comm_str[i]);
+				n_str[i] = 0;
+				#define Set_InputMode(X) if ( strstr(n_str, #X) ) c_iflag |= X;
+				Set_InputMode(IGNBRK)
+				Set_InputMode(BRKINT)
+				Set_InputMode(IGNPAR)
+				Set_InputMode(PARMRK)
+				Set_InputMode(INPCK)
+				Set_InputMode(ISTRIP)
+				Set_InputMode(INLCR)
+				Set_InputMode(IGNCR)
+				Set_InputMode(ICRNL)
+				Set_InputMode(IUCLC)
+				Set_InputMode(IXON)
+				Set_InputMode(IXANY)
+				Set_InputMode(IXOFF)
+				Set_InputMode(IMAXBEL)
+				#undef Set_InputMode
+				#define Set_InputMode(X) if ( strstr(n_str, "~"#X) ) un_iflag &= ~X ;
+				Set_InputMode(IGNBRK)
+				Set_InputMode(BRKINT)
+				Set_InputMode(IGNPAR)
+				Set_InputMode(PARMRK)
+				Set_InputMode(INPCK)
+				Set_InputMode(ISTRIP)
+				Set_InputMode(INLCR)
+				Set_InputMode(IGNCR)
+				Set_InputMode(ICRNL)
+				Set_InputMode(IUCLC)
+				Set_InputMode(IXON)
+				Set_InputMode(IXANY)
+				Set_InputMode(IXOFF)
+				Set_InputMode(IMAXBEL)
+			}
+
+			ele =  cfg->FirstChildElement("output") ;
+			c_oflag = 0;
+			un_oflag = ~c_oflag;
+			if ( ele && (comm_str = ele->GetText() ) )
+			{
+				for ( i = 0 ; i < strlen(comm_str); i++)
+					n_str[i]= toupper(comm_str[i]);
+				n_str[i] = 0;
+				#define Set_OutputMode(X) if ( strstr(n_str, #X) ) c_oflag |= X;
+				Set_OutputMode(OPOST)
+				Set_OutputMode(OLCUC)
+				Set_OutputMode(ONLCR)
+				Set_OutputMode(OCRNL)
+				Set_OutputMode(ONOCR)
+				Set_OutputMode(ONLRET)
+				Set_OutputMode(OFILL)
+				Set_OutputMode(OFDEL)
+				Set_OutputMode(NLDLY)
+				Set_OutputMode(NL0)
+				Set_OutputMode(NL1)
+				Set_OutputMode(CRDLY)
+				Set_OutputMode(CR0)
+				Set_OutputMode(CR1)
+				Set_OutputMode(CR2)
+				Set_OutputMode(CR3)
+				Set_OutputMode(TABDLY)
+				Set_OutputMode(TAB0)
+				Set_OutputMode(TAB1)
+				Set_OutputMode(TAB2)
+				Set_OutputMode(TAB3)
+				Set_OutputMode(BSDLY)
+				Set_OutputMode(BS0)
+				Set_OutputMode(BS1)
+				Set_OutputMode(FFDLY)
+				Set_OutputMode(FF0)
+				Set_OutputMode(FF1)
+				Set_OutputMode(VTDLY)
+				Set_OutputMode(VT0)
+				Set_OutputMode(VT1)
+			#undef Set_OutputMode	
+			#define Set_OutputMode(X) if ( strstr(n_str, "~"#X) ) un_oflag &= ~X;
+				Set_OutputMode(OPOST)
+				Set_OutputMode(OLCUC)
+				Set_OutputMode(ONLCR)
+				Set_OutputMode(OCRNL)
+				Set_OutputMode(ONOCR)
+				Set_OutputMode(ONLRET)
+				Set_OutputMode(OFILL)
+				Set_OutputMode(OFDEL)
+				Set_OutputMode(NLDLY)
+				Set_OutputMode(NL0)
+				Set_OutputMode(NL1)
+				Set_OutputMode(CRDLY)
+				Set_OutputMode(CR0)
+				Set_OutputMode(CR1)
+				Set_OutputMode(CR2)
+				Set_OutputMode(CR3)
+				Set_OutputMode(TABDLY)
+				Set_OutputMode(TAB0)
+				Set_OutputMode(TAB1)
+				Set_OutputMode(TAB2)
+				Set_OutputMode(TAB3)
+				Set_OutputMode(BSDLY)
+				Set_OutputMode(BS0)
+				Set_OutputMode(BS1)
+				Set_OutputMode(FFDLY)
+				Set_OutputMode(FF0)
+				Set_OutputMode(FF1)
+				Set_OutputMode(VTDLY)
+				Set_OutputMode(VT0)
+				Set_OutputMode(VT1)
+			}
+
+			ele =  cfg->FirstChildElement("local") ;
+			c_lflag = 0;
+			un_lflag = ~c_lflag;
+			if ( ele && (comm_str = ele->GetText() ) )
+			{
+				for ( i = 0 ; i < strlen(comm_str); i++)
+					n_str[i]= toupper(comm_str[i]);
+				n_str[i] = 0;
+				#define Set_LineDiscp(X) if ( strstr(n_str, #X) ) c_lflag |= X;
+				Set_LineDiscp(ISIG)
+				Set_LineDiscp(ICANON)
+				Set_LineDiscp(XCASE)
+				Set_LineDiscp(ECHO)
+				Set_LineDiscp(ECHOE)
+				Set_LineDiscp(ECHOK)
+				Set_LineDiscp(ECHONL)
+				Set_LineDiscp(NOFLSH)
+				Set_LineDiscp(TOSTOP)
+				Set_LineDiscp(ECHOCTL)
+				Set_LineDiscp(ECHOPRT)
+				Set_LineDiscp(ECHOKE)
+				Set_LineDiscp(FLUSHO)
+				Set_LineDiscp(PENDIN)
+				Set_LineDiscp(IEXTEN)
+			#ifdef EXTPROC
+				Set_LineDiscp(EXTPROC)
+			#endif
+			#undef Set_LineDiscp
+			#define Set_LineDiscp(X) if ( strstr(n_str, "~"#X) ) un_lflag &= ~X;
+				Set_LineDiscp(ISIG)
+				Set_LineDiscp(ICANON)
+				Set_LineDiscp(XCASE)
+				Set_LineDiscp(ECHO)
+				Set_LineDiscp(ECHOE)
+				Set_LineDiscp(ECHOK)
+				Set_LineDiscp(ECHONL)
+				Set_LineDiscp(NOFLSH)
+				Set_LineDiscp(TOSTOP)
+				Set_LineDiscp(ECHOCTL)
+				Set_LineDiscp(ECHOPRT)
+				Set_LineDiscp(ECHOKE)
+				Set_LineDiscp(FLUSHO)
+				Set_LineDiscp(PENDIN)
+				Set_LineDiscp(IEXTEN)
+				#ifdef EXTPROC
+				Set_LineDiscp(EXTPROC)
+				#endif
+			}
+			ele =  cfg->FirstChildElement("control") ;
+			c_cflag = 0;
+			un_cflag = ~c_cflag;
+			if ( ele && (comm_str = ele->GetText() ) )
+			{
+				for ( i = 0 ; i < strlen(comm_str); i++)
+					n_str[i]= toupper(comm_str[i]);
+				n_str[i] = 0;
+			#define Set_Ctrl(X) if ( strstr(n_str, #X) ) c_cflag |= X;
+				Set_Ctrl(HUPCL)
+				Set_Ctrl(CLOCAL)
+				Set_Ctrl(CRTSCTS)
+				Set_Ctrl(CIBAUD)
+			#ifdef RCV1EN
+				Set_Ctrl(RCV1EN)
+			#endif
+			#ifdef LOBLK
+				Set_Ctrl(LOBLK)
+			#endif
+			#ifdef XCLUDE
+				Set_Ctrl(XCLUDE)
+			#endif
+			#ifdef CMSPAR
+				Set_Ctrl(CMSPAR)
+			#endif
+			#ifdef CIBAUDEX
+				Set_Ctrl(CIBAUDEX)
+			#endif
+			#undef Set_Ctrl
+			#define Set_Ctrl(X) if ( strstr(n_str, "~"#X) ) un_cflag &= ~X;
+				Set_Ctrl(HUPCL)
+				Set_Ctrl(CLOCAL)
+				Set_Ctrl(CRTSCTS)
+				Set_Ctrl(CIBAUD)
+			#ifdef RCV1EN
+				Set_Ctrl(RCV1EN)
+			#endif
+			#ifdef LOBLK
+				Set_Ctrl(LOBLK)
+			#endif
+			#ifdef XCLUDE
+				Set_Ctrl(XCLUDE)
+			#endif
+			#ifdef CMSPAR
+				Set_Ctrl(CMSPAR)
+			#endif
+			#ifdef CIBAUDEX
+				Set_Ctrl(CIBAUDEX)
+			#endif
+			}
+			for ( ele= cfg->FirstChildElement("flag"); ele; ele = ele->NextSiblingElement("flag"))
+			{
+				comm_str = ele->GetText();
+				if ( !comm_str || strlen(comm_str) == 0 ) continue;
+				if ( strcasecmp(comm_str, "read_only" ) == 0 )	
+					file_flg |= O_RDONLY;
+				if ( strcasecmp(comm_str, "write_only" ) == 0 )	
+					file_flg |= O_WRONLY;
+				if ( strcasecmp(comm_str, "read_write" ) == 0 || strcasecmp(comm_str, "write/read") == 0 
+					|| strcasecmp(comm_str, "write_read") == 0 || strcasecmp(comm_str, "read/write") == 0 )	
+					file_flg |= O_RDWR;
+#if defined(__sun) || defined(__linux__) || defined(__FreeBSD__) 
+				if ( strcasecmp(comm_str, "no_delay" ) == 0 )	
+					file_flg |= O_NDELAY;
+#endif
+				if ( strcasecmp(comm_str, "noc_tty" ) == 0 )	
+					file_flg |= O_NOCTTY;
+				if ( strcasecmp(comm_str, "no_block" ) == 0 )	
+					file_flg |= O_NONBLOCK;
+			}
+			memset(c_cc, 0, sizeof(c_cc));
+			ele =  cfg->FirstChildElement("character") ;
+			#define SET_CC(X) \
+			comm_str = ele->Attribute(#X);	\
+			if ( comm_str) {		\
+				BTool::unescape(comm_str, (unsigned char*)&n_str[0]) ;	\
+				c_cc[X] = n_str[0];		\
+			}
+			SET_CC(VINTR)
+			SET_CC(VQUIT)
+			SET_CC(VERASE)
+			SET_CC(VKILL)
+			SET_CC(VEOF)
+			SET_CC(VTIME)
+			SET_CC(VMIN)
+		#ifdef VSWTC
+			SET_CC(VSWTC)
+		#endif
+			SET_CC(VSTART)
+			SET_CC(VSTOP)
+			SET_CC(VSUSP)
+			SET_CC(VEOL)
+			SET_CC(VREPRINT)
+			SET_CC(VDISCARD)
+			SET_CC(VWERASE)
+			SET_CC(VLNEXT)
+			SET_CC(VEOL2)
+		}
 	};
 	struct G_CFG *gCFG;
 	bool has_config;
@@ -236,22 +522,8 @@ void TTY::ignite(TiXmlElement *cfg)
 		aptus->sponte(&log_pius); \
 		}
 
-#if defined (_WIN32 )
-#define ERROR_PRO(X) { \
-	char *s; \
-	char error_string[1024]; \
-	DWORD dw = GetLastError(); \
-	FormatMessage( FORMAT_MESSAGE_FROM_SYSTEM, NULL, dw, \
-		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR) error_string, 1024, NULL );\
-	s= strstr(error_string, "\r\n") ; \
-	if (s )  *s = '\0';  \
-	if ( errMsg ) \
-		TEXTUS_SNPRINTF(errMsg, ERRSTR_LEN, "%s errno %d, %s", X,dw, error_string);\
-	}
-#else
 #define ERROR_PRO(X)  if ( errMsg ) \
 		TEXTUS_SNPRINTF(errMsg, ERRSTR_LEN, "%s errno %d, %s.", X, errno, strerror(errno));
-#endif
 
 bool TTY::facio( Amor::Pius *pius)
 {
@@ -521,12 +793,7 @@ ReadAgain:
 		return false;
 	} else if ( len == -1 )
 	{ 
-#if defined (_WIN32 )
-		DWORD error;	
-		error = GetLastError();
-#else
 		int error = errno;
-#endif 
 		if (error == EINTR)
 		{	 //有信号而已,再试
 			goto ReadAgain;
@@ -563,12 +830,7 @@ SendAgain:
 	len = write(ttyfd, (char *)snd_buf->base, snd_len); /* (char*) for WIN32 */
 	if( len == -1 )
 	{ 
-#if defined (_WIN32 )
-		DWORD error;	
-		error = GetLastError();
-#else
 		int error = errno;
-#endif 
 		if (error == EINTR)	
 		{	//有信号而已,再试
 			goto SendAgain;
@@ -631,9 +893,9 @@ TINLINE void TTY::end()
 		return;	/* 不重复关闭 */
 	if ( !gCFG->useAio )
 	{
-	deliver(Notitia::FD_CLRWR);
-	deliver(Notitia::FD_CLREX);
-	deliver(Notitia::FD_CLRRD);
+		deliver(Notitia::FD_CLRWR);
+		deliver(Notitia::FD_CLREX);
+		deliver(Notitia::FD_CLRRD);
 	}
 	
 	//ioctl(ttyfd,TCSETAF,&ttyold);	/* 复原设置 */
@@ -696,18 +958,17 @@ TINLINE void TTY::deliver(Notitia::HERE_ORDO aordo)
 
 bool TTY::init()
 {
-	ttyfd=open(ttyname,O_RDWR);
+	//ttyfd=open(ttyname,O_RDWR);
+	ttyfd=open(ttyname, gCFG->file_flg);
 	if ( ttyfd < 0 )
 	{
-		ERROR_PRO("open tty");
-		SLOG(ERR);
+		WLOG_OSERR("open tty");
 		return false;
 	}
 
     	if( !setup_com() )
 	{
-		ERROR_PRO("set tty");
-		SLOG(ERR);
+		WLOG_OSERR("set tty");
         	close(ttyfd);
 		ttyfd = -1;
 		return false;
@@ -779,6 +1040,7 @@ bool TTY::set()
 
 bool TTY:: setup_com(){
 	struct termios options; 
+	unsigned int i;
 	if ( tcgetattr(ttyfd, &options) != 0 ) 
 		return false;
 
@@ -816,18 +1078,35 @@ bool TTY:: setup_com(){
 
 	options.c_cflag &= ~CSIZE;
 	options.c_cflag |= gCFG->data_size;    
+	options.c_cflag |= gCFG->c_cflag;
+	options.c_cflag &= gCFG->un_cflag;
+#if defined(__linux__)
+	options.c_line=0;    /* line discipline */
+#endif
 
-	/* Set c_iflag input options */
-	options.c_iflag &=~(IXON | IXOFF | IXANY);
-	options.c_iflag &=~(INLCR | IGNCR | ICRNL);
-	options.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
 
-	/* Set c_oflag output options */
-	options.c_oflag &= ~OPOST;   
+	if ( gCFG->raw_mode )  {
+		/* Set c_iflag input options */
+		options.c_iflag &=~(IXON | IXOFF | IXANY);
+		options.c_iflag &=~(INLCR | IGNCR | ICRNL);
+		options.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+		/* Set c_oflag output options */
+		options.c_oflag &= ~OPOST;   
+	} else {
+		options.c_iflag |= gCFG->c_iflag;
+		options.c_oflag |= gCFG->c_oflag;
+		options.c_iflag &= gCFG->un_iflag;
+		options.c_oflag &= gCFG->un_oflag;
+	}
 
 	/* Set the timeout options */
 	options.c_cc[VMIN]  = 0;
 	options.c_cc[VTIME] = 10;
+	for ( i = 0 ; i < NCCS; i++ ) 
+	{
+			if ( gCFG->c_cc[i] > 0 ) 
+				options.c_cc[i] = gCFG->c_cc[i];
+	}
 
 	if ( tcsetattr(ttyfd, TCSANOW, &options) != 0 ) 
 		return false;
