@@ -3,7 +3,7 @@
 # Build
 #	B01:created by octerboy 2005/06/10
 include ../Rules.basemod
-INCLUDE_DIR += -I../logdata/include -I../sched/include -I../baselib/include
+INCLUDE_DIR += -I../logdata/include -I../unipac/include -I../sched/include -I../baselib/include -I../tpoll/include
 
 all:ttyop.so
 
