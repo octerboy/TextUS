@@ -54,7 +54,6 @@ public:
 
 	TTY();
 	~TTY();
-
 private:
 	Amor::Pius local_pius, pro_tbuf;
 	time_t last_failed_time;	//最近一次的失败时间,秒
@@ -63,7 +62,6 @@ private:
 	char ttyname[1024];
 
 	char errMsg[ERRSTR_LEN];
-
 	struct G_CFG {
 		unsigned int    parity, stop_bit, baud_rate, data_size;
 		tcflag_t	c_iflag, un_iflag;        /* input modes */
@@ -73,7 +71,7 @@ private:
 		cc_t	c_cc[NCCS];
 		cc_t	c_line;
 		int file_flg;
-		bool raw_mode;
+		int wmode;
 
 		bool on_start;
 		Amor *sch;
@@ -150,7 +148,8 @@ private:
 
 		inline G_CFG(TiXmlElement *cfg) {
 			const char *comm_str;
-			int baud_f, size_f, stop_f,i;
+			int baud_f, size_f, stop_f;
+			unsigned int i;
 			TiXmlElement *ele;
 			char n_str[256];
 
@@ -162,13 +161,13 @@ private:
 
 			if ( !cfg) return;
 			pac_fld_num = 1;
-			raw_mode = true;
-			comm_str = cfg->Attribute("raw");
-			if ( strcasecmp(comm_str, "yes") ==0 )
+			wmode = 0;
+			comm_str = cfg->Attribute("mode");
+			if ( strcasecmp(comm_str, "raw") ==0 )
 			{
-				raw_mode = true;
-			} else {
-				raw_mode = false;
+				wmode = 1;
+			} else if ( strcasecmp(comm_str, "canon") ==0 ) {
+				wmode = 2;
 			}
 			cfg->QueryIntAttribute("field", &(pac_fld_num));
 			c_line = 0;
@@ -385,6 +384,8 @@ private:
 				Set_Ctrl(CLOCAL)
 				Set_Ctrl(CRTSCTS)
 				Set_Ctrl(CIBAUD)
+				Set_Ctrl(CBAUD)
+				Set_Ctrl(CREAD)
 			#ifdef RCV1EN
 				Set_Ctrl(RCV1EN)
 			#endif
@@ -397,8 +398,26 @@ private:
 			#ifdef CMSPAR
 				Set_Ctrl(CMSPAR)
 			#endif
-			#ifdef CIBAUDEX
-				Set_Ctrl(CIBAUDEX)
+			#ifdef XMT1EN
+				Set_Ctrl(XMT1EN)
+			#endif
+			#ifdef CRTSXOFF
+				Set_Ctrl(CRTSXOFF)
+			#endif
+			#ifdef CRTS_IFLOW
+				Set_Ctrl(CRTS_IFLOW)
+			#endif
+			#ifdef CCTS_OFLOW
+				Set_Ctrl(CCTS_OFLOW)
+			#endif
+			#ifdef PAREXT
+				Set_Ctrl(PAREXT)
+			#endif
+			#ifdef CBAUDEXT
+				Set_Ctrl(CBAUDEXT)
+			#endif
+			#ifdef CIBAUDEXT
+				Set_Ctrl(CIBAUDEXT)
 			#endif
 			#undef Set_Ctrl
 			#define Set_Ctrl(X) if ( strstr(n_str, "~"#X) ) un_cflag &= ~X;
@@ -406,6 +425,8 @@ private:
 				Set_Ctrl(CLOCAL)
 				Set_Ctrl(CRTSCTS)
 				Set_Ctrl(CIBAUD)
+				Set_Ctrl(CBAUD)
+				Set_Ctrl(CREAD)
 			#ifdef RCV1EN
 				Set_Ctrl(RCV1EN)
 			#endif
@@ -418,10 +439,29 @@ private:
 			#ifdef CMSPAR
 				Set_Ctrl(CMSPAR)
 			#endif
-			#ifdef CIBAUDEX
-				Set_Ctrl(CIBAUDEX)
+			#ifdef XMT1EN
+				Set_Ctrl(XMT1EN)
+			#endif
+			#ifdef CRTSXOFF
+				Set_Ctrl(CRTSXOFF)
+			#endif
+			#ifdef CRTS_IFLOW
+				Set_Ctrl(CRTS_IFLOW)
+			#endif
+			#ifdef CCTS_OFLOW
+				Set_Ctrl(CCTS_OFLOW)
+			#endif
+			#ifdef PAREXT
+				Set_Ctrl(PAREXT)
+			#endif
+			#ifdef CBAUDEXT
+				Set_Ctrl(CBAUDEXT)
+			#endif
+			#ifdef CIBAUDEXT
+				Set_Ctrl(CIBAUDEXT)
 			#endif
 			}
+			file_flg = 0;
 			for ( ele= cfg->FirstChildElement("flag"); ele; ele = ele->NextSiblingElement("flag"))
 			{
 				comm_str = ele->GetText();
@@ -477,19 +517,14 @@ private:
     	int ttyfd;	/* 文件句柄 */
 	Describo::Criptor mytor; /* 保存套接字, 各子实例不同 */
 	
-#if defined(__linux__)
-	struct  termio  ttyold, ttynew;
-#else
-	struct  termios  ttyold, ttynew;
-#endif
-	TBuffer *rcv_buf, *snd_buf;
-	TBuffer *m_rcv_buf, *m_snd_buf;
+	//struct  termios  ttyold, ttynew;
+	//TINLINE bool set();
+	TBuffer *rcv_buf, *snd_buf, *m_rcv_buf, *m_snd_buf;
 	bool wr_blocked ; 	/* 最近一次写阻塞标志 */
 
 	TINLINE void transmit();
 	TINLINE bool recito();
 	TINLINE bool init();
-	TINLINE bool set();
 	bool setup_com();
 	TINLINE void end();
 	TINLINE void deliver(Notitia::HERE_ORDO aordo);
@@ -758,8 +793,6 @@ TTY::TTY()
 	last_failed_time = 0;
 	memset(errMsg, 0, sizeof(errMsg));
 
-	rcv_buf = new TBuffer(1024);
-	snd_buf = new TBuffer(1024);
 	gCFG = 0;
 	has_config = false;
 	ttyfd = -1;
@@ -958,8 +991,10 @@ TINLINE void TTY::deliver(Notitia::HERE_ORDO aordo)
 
 bool TTY::init()
 {
-	//ttyfd=open(ttyname,O_RDWR);
-	ttyfd=open(ttyname, gCFG->file_flg);
+	if ( !gCFG->file_flg )
+		ttyfd=open(ttyname,O_RDWR);
+	else
+		ttyfd=open(ttyname, gCFG->file_flg);
 	if ( ttyfd < 0 )
 	{
 		WLOG_OSERR("open tty");
@@ -1080,32 +1115,31 @@ bool TTY:: setup_com(){
 	options.c_cflag |= gCFG->data_size;    
 	options.c_cflag |= gCFG->c_cflag;
 	options.c_cflag &= gCFG->un_cflag;
-#if defined(__linux__)
-	options.c_line=0;    /* line discipline */
-#endif
-
-
-	if ( gCFG->raw_mode )  {
+	options.c_iflag |= gCFG->c_iflag;
+	options.c_oflag |= gCFG->c_oflag;
+	options.c_iflag &= gCFG->un_iflag;
+	options.c_oflag &= gCFG->un_oflag;
+	if ( gCFG->wmode  == 1 )  {
 		/* Set c_iflag input options */
 		options.c_iflag &=~(IXON | IXOFF | IXANY);
 		options.c_iflag &=~(INLCR | IGNCR | ICRNL);
 		options.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
 		/* Set c_oflag output options */
 		options.c_oflag &= ~OPOST;   
-	} else {
-		options.c_iflag |= gCFG->c_iflag;
-		options.c_oflag |= gCFG->c_oflag;
-		options.c_iflag &= gCFG->un_iflag;
-		options.c_oflag &= gCFG->un_oflag;
+	} else if ( gCFG->wmode  == 2 ) {
+		options.c_lflag |= (ICANON | ECHO | ECHOE );
 	}
 
+#if defined(__linux__)
+	options.c_line= gCFG->c_line;    /* line discipline */
+#endif
 	/* Set the timeout options */
 	options.c_cc[VMIN]  = 0;
 	options.c_cc[VTIME] = 10;
 	for ( i = 0 ; i < NCCS; i++ ) 
 	{
-			if ( gCFG->c_cc[i] > 0 ) 
-				options.c_cc[i] = gCFG->c_cc[i];
+		if ( gCFG->c_cc[i] > 0 ) 
+			options.c_cc[i] = gCFG->c_cc[i];
 	}
 
 	if ( tcsetattr(ttyfd, TCSANOW, &options) != 0 ) 
