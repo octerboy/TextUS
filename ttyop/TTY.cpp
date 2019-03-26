@@ -227,11 +227,16 @@ private:
 				Set_InputMode(INLCR)
 				Set_InputMode(IGNCR)
 				Set_InputMode(ICRNL)
+			#ifdef IUCLC
 				Set_InputMode(IUCLC)
+			#endif
 				Set_InputMode(IXON)
 				Set_InputMode(IXANY)
 				Set_InputMode(IXOFF)
 				Set_InputMode(IMAXBEL)
+			#ifdef IUTF8
+				Set_InputMode(IUTF8)
+			#endif
 				#undef Set_InputMode
 				#define Set_InputMode(X) if ( strstr(n_str, "~"#X) ) un_iflag &= ~X ;
 				Set_InputMode(IGNBRK)
@@ -243,11 +248,16 @@ private:
 				Set_InputMode(INLCR)
 				Set_InputMode(IGNCR)
 				Set_InputMode(ICRNL)
+			#ifdef IUCLC
 				Set_InputMode(IUCLC)
+			#endif
 				Set_InputMode(IXON)
 				Set_InputMode(IXANY)
 				Set_InputMode(IXOFF)
 				Set_InputMode(IMAXBEL)
+			#ifdef IUTF8
+				Set_InputMode(IUTF8)
+			#endif
 			}
 
 			ele =  cfg->FirstChildElement("output") ;
@@ -260,7 +270,9 @@ private:
 				n_str[i] = 0;
 				#define Set_OutputMode(X) if ( strstr(n_str, #X) ) c_oflag |= X;
 				Set_OutputMode(OPOST)
+			#ifdef OUCLC
 				Set_OutputMode(OLCUC)
+			#endif
 				Set_OutputMode(ONLCR)
 				Set_OutputMode(OCRNL)
 				Set_OutputMode(ONOCR)
@@ -289,10 +301,18 @@ private:
 				Set_OutputMode(VTDLY)
 				Set_OutputMode(VT0)
 				Set_OutputMode(VT1)
+			#ifdef OXTABS
+				Set_OutputMode(OXTABS)
+			#endif
+			#ifdef ONOEOT
+				Set_OutputMode(ONOEOT)
+			#endif
 			#undef Set_OutputMode	
 			#define Set_OutputMode(X) if ( strstr(n_str, "~"#X) ) un_oflag &= ~X;
 				Set_OutputMode(OPOST)
+			#ifdef OUCLC
 				Set_OutputMode(OLCUC)
+			#endif
 				Set_OutputMode(ONLCR)
 				Set_OutputMode(OCRNL)
 				Set_OutputMode(ONOCR)
@@ -321,6 +341,12 @@ private:
 				Set_OutputMode(VTDLY)
 				Set_OutputMode(VT0)
 				Set_OutputMode(VT1)
+			#ifdef OXTABS
+				Set_OutputMode(OXTABS)
+			#endif
+			#ifdef ONOEOT
+				Set_OutputMode(ONOEOT)
+			#endif
 			}
 
 			ele =  cfg->FirstChildElement("local") ;
@@ -331,45 +357,61 @@ private:
 				for ( i = 0 ; i < strlen(comm_str); i++)
 					n_str[i]= toupper(comm_str[i]);
 				n_str[i] = 0;
-				#define Set_LineDiscp(X) if ( strstr(n_str, #X) ) c_lflag |= X;
-				Set_LineDiscp(ISIG)
-				Set_LineDiscp(ICANON)
-				Set_LineDiscp(XCASE)
-				Set_LineDiscp(ECHO)
-				Set_LineDiscp(ECHOE)
-				Set_LineDiscp(ECHOK)
-				Set_LineDiscp(ECHONL)
-				Set_LineDiscp(NOFLSH)
-				Set_LineDiscp(TOSTOP)
-				Set_LineDiscp(ECHOCTL)
-				Set_LineDiscp(ECHOPRT)
-				Set_LineDiscp(ECHOKE)
-				Set_LineDiscp(FLUSHO)
-				Set_LineDiscp(PENDIN)
-				Set_LineDiscp(IEXTEN)
-			#ifdef EXTPROC
-				Set_LineDiscp(EXTPROC)
+				#define Set_Local(X) if ( strstr(n_str, #X) ) c_lflag |= X;
+				Set_Local(ISIG)
+				Set_Local(ICANON)
+			#ifdef XCASE
+				Set_Local(XCASE)
 			#endif
-			#undef Set_LineDiscp
-			#define Set_LineDiscp(X) if ( strstr(n_str, "~"#X) ) un_lflag &= ~X;
-				Set_LineDiscp(ISIG)
-				Set_LineDiscp(ICANON)
-				Set_LineDiscp(XCASE)
-				Set_LineDiscp(ECHO)
-				Set_LineDiscp(ECHOE)
-				Set_LineDiscp(ECHOK)
-				Set_LineDiscp(ECHONL)
-				Set_LineDiscp(NOFLSH)
-				Set_LineDiscp(TOSTOP)
-				Set_LineDiscp(ECHOCTL)
-				Set_LineDiscp(ECHOPRT)
-				Set_LineDiscp(ECHOKE)
-				Set_LineDiscp(FLUSHO)
-				Set_LineDiscp(PENDIN)
-				Set_LineDiscp(IEXTEN)
-				#ifdef EXTPROC
-				Set_LineDiscp(EXTPROC)
-				#endif
+				Set_Local(ECHO)
+				Set_Local(ECHOE)
+				Set_Local(ECHOK)
+				Set_Local(ECHONL)
+				Set_Local(NOFLSH)
+				Set_Local(TOSTOP)
+				Set_Local(ECHOCTL)
+				Set_Local(ECHOPRT)
+				Set_Local(ECHOKE)
+				Set_Local(FLUSHO)
+				Set_Local(PENDIN)
+				Set_Local(IEXTEN)
+			#ifdef EXTPROC
+				Set_Local(EXTPROC)
+			#endif
+			#ifdef ALTWERASE
+				Set_Local(ALTWERASE)
+			#endif
+			#ifdef NOKERNINFO
+				Set_Local(NOKERNINFO)
+			#endif
+			#undef Set_Local
+			#define Set_Local(X) if ( strstr(n_str, "~"#X) ) un_lflag &= ~X;
+				Set_Local(ISIG)
+				Set_Local(ICANON)
+			#ifdef XCASE
+				Set_Local(XCASE)
+			#endif
+				Set_Local(ECHO)
+				Set_Local(ECHOE)
+				Set_Local(ECHOK)
+				Set_Local(ECHONL)
+				Set_Local(NOFLSH)
+				Set_Local(TOSTOP)
+				Set_Local(ECHOCTL)
+				Set_Local(ECHOPRT)
+				Set_Local(ECHOKE)
+				Set_Local(FLUSHO)
+				Set_Local(PENDIN)
+				Set_Local(IEXTEN)
+			#ifdef EXTPROC
+				Set_Local(EXTPROC)
+			#endif
+			#ifdef ALTWERASE
+				Set_Local(ALTWERASE)
+			#endif
+			#ifdef NOKERNINFO
+				Set_Local(NOKERNINFO)
+			#endif
 			}
 			ele =  cfg->FirstChildElement("control") ;
 			c_cflag = 0;
@@ -383,8 +425,12 @@ private:
 				Set_Ctrl(HUPCL)
 				Set_Ctrl(CLOCAL)
 				Set_Ctrl(CRTSCTS)
+			#ifdef CIBAUD
 				Set_Ctrl(CIBAUD)
+			#endif
+			#ifdef CBAUD
 				Set_Ctrl(CBAUD)
+			#endif
 				Set_Ctrl(CREAD)
 			#ifdef RCV1EN
 				Set_Ctrl(RCV1EN)
@@ -407,8 +453,20 @@ private:
 			#ifdef CRTS_IFLOW
 				Set_Ctrl(CRTS_IFLOW)
 			#endif
+			#ifdef CDTR_IFLOW
+				Set_Ctrl(CDTR_IFLOW)
+			#endif
 			#ifdef CCTS_OFLOW
 				Set_Ctrl(CCTS_OFLOW)
+			#endif
+			#ifdef CDSR_OFLOW
+				Set_Ctrl(CDSR_OFLOW)
+			#endif
+			#ifdef CCAR_OFLOW
+				Set_Ctrl(CCAR_OFLOW)
+			#endif
+			#ifdef MDMBUF
+				Set_Ctrl(MDMBUF)
 			#endif
 			#ifdef PAREXT
 				Set_Ctrl(PAREXT)
@@ -424,8 +482,12 @@ private:
 				Set_Ctrl(HUPCL)
 				Set_Ctrl(CLOCAL)
 				Set_Ctrl(CRTSCTS)
+			#ifdef CIBAUD
 				Set_Ctrl(CIBAUD)
+			#endif
+			#ifdef CBAUD
 				Set_Ctrl(CBAUD)
+			#endif
 				Set_Ctrl(CREAD)
 			#ifdef RCV1EN
 				Set_Ctrl(RCV1EN)
@@ -448,8 +510,20 @@ private:
 			#ifdef CRTS_IFLOW
 				Set_Ctrl(CRTS_IFLOW)
 			#endif
+			#ifdef CDTR_IFLOW
+				Set_Ctrl(CDTR_IFLOW)
+			#endif
 			#ifdef CCTS_OFLOW
 				Set_Ctrl(CCTS_OFLOW)
+			#endif
+			#ifdef CDSR_OFLOW
+				Set_Ctrl(CDSR_OFLOW)
+			#endif
+			#ifdef CCAR_OFLOW
+				Set_Ctrl(CCAR_OFLOW)
+			#endif
+			#ifdef MDMBUF
+				Set_Ctrl(MDMBUF)
 			#endif
 			#ifdef PAREXT
 				Set_Ctrl(PAREXT)

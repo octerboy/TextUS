@@ -11,7 +11,7 @@ TTY.o:TTY.cpp
 	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=TTY -o $@ $^
 
 ttyop.so: TTY.o
-	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS)
+	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase
 	$(_POST_RPO_SUB)
 	
 clean:
