@@ -137,12 +137,50 @@ private:
     			else if (baud <= 460800) 
 				return (B460800);
 #endif
-
+#if defined(B500000)
+    			else if (baud <= 500000) 
+				return (B500000);
+#endif
+#if defined(B576000)
+    			else if (baud <= 576000) 
+				return (B576000);
+#endif
 #if defined(B921600)
 			else if (baud <= 921600)
 				return(B921600);
 #endif
-
+#if defined(B1000000)
+			else if (baud <= 1000000)
+				return(B1000000);
+#endif
+#if defined(B1152000)
+			else if (baud <= 1152000)
+				return(B1152000);
+#endif
+#if defined(B1500000)
+			else if (baud <= 1500000)
+				return(B1500000);
+#endif
+#if defined(B2000000)
+			else if (baud <= 2000000)
+				return(B2000000);
+#endif
+#if defined(B2500000)
+			else if (baud <= 2500000)
+				return(B2500000);
+#endif
+#if defined(B3000000)
+			else if (baud <= 3000000)
+				return(B3000000);
+#endif
+#if defined(B3500000)
+			else if (baud <= 3500000)
+				return(B3500000);
+#endif
+#if defined(B4000000)
+			else if (baud <= 4000000)
+				return(B4000000);
+#endif
 			return(B9600);
 		}
 
@@ -378,6 +416,9 @@ private:
 			#ifdef EXTPROC
 				Set_Local(EXTPROC)
 			#endif
+			#ifdef DEFECHO 
+				Set_Local(DEFECHO)
+			#endif
 			#ifdef ALTWERASE
 				Set_Local(ALTWERASE)
 			#endif
@@ -405,6 +446,9 @@ private:
 				Set_Local(IEXTEN)
 			#ifdef EXTPROC
 				Set_Local(EXTPROC)
+			#endif
+			#ifdef DEFECHO 
+				Set_Local(DEFECHO)
 			#endif
 			#ifdef ALTWERASE
 				Set_Local(ALTWERASE)

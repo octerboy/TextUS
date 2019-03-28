@@ -61,7 +61,7 @@ private:
 	PacketObj tmr_pac;     /* 起止时间参数 */
 	PacketObj *pa[3];
 	void *arr[3];
-	TBuffer *rcv_buf, *snd_buf;
+	TBuffer *rcv_buf;
 #if defined (_WIN32)
 	FILETIME start_tm, end_tm;
 	static unsigned __int64 t2k;
@@ -277,6 +277,23 @@ ALL_READY:
 			tmp_p.ordo = Notitia::SET_UNIPAC;
 			tmp_p.indic = &pa[0];
 			aptus->facio(&tmp_p);
+		}
+		break;
+
+	case Notitia::SET_TBUF:	/* 取得输入TBuffer地址 */
+		WBUG("facio SET_TBUF");
+		{ TBuffer **tb;
+		tb = (TBuffer **)(pius->indic);
+		if (tb) 
+		{	//当然tb不能为空
+			if ( *tb) 
+			{	//新到请求的TBuffer
+				rcv_buf = *tb;
+			}
+			tb++;
+			if ( *tb) rcv_buf = *tb;
+		} else 
+			WLOG(NOTICE,"facio PRO_TBUF null.");
 		}
 		break;
 
