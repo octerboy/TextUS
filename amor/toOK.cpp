@@ -36,15 +36,15 @@ void env_sub(const char *path_source, char *path_dest)
 		{
 			if ( q > qw )
 				q = qw;
-		} else {	//若有一个为空
-			if ( !q )	//不管哪个为null, 结果一样 
+		} else {	//????一??为??
+			if ( !q )	//?????母?为null, ????一?? 
 				q = qw;
 		}
 		if (!q)
-		{	//没有$( ${开头, 整结束了
+		{	//没??$( ${??头, ????????
 			TEXTUS_STRCAT(pt, ps);
 			break;
-		} else {	//有
+		} else {	//??
 			TEXTUS_STRNCAT(pt, ps, q-ps);
 			q++;
 			if ( *q == '(' )
@@ -52,7 +52,7 @@ void env_sub(const char *path_source, char *path_dest)
 			else
 				right= "}";
 
-			q++;	//q跳过括号
+			q++;	//q????括??
 			qr = strpbrk(q, right);
 			if ( qr && ((size_t) (qr - q+1)) < sizeof(env_n) )
 			{
@@ -71,9 +71,9 @@ void env_sub(const char *path_source, char *path_dest)
 				if (env )
 					TEXTUS_STRCAT(pt, env);
 		#endif
-				ps = (qr+1);	//不管有无环境变量, 都跳过了
+				ps = (qr+1);	//???????藁?????量, ????????
 			} else {
-				//没有右括号
+				//没????括??
 				ps = q;
 			}
 		}
@@ -173,7 +173,7 @@ char* r_share(const char *so_file)
 	static char r_file[1024];
 	int l = 0, n = 0;
 	memset(r_file, 0, sizeof(r_file));
-	if ( ld_lib_path)
+	if ( ld_lib_path[0])
 	{
 		l = strlen(ld_lib_path);
 		if (l > 512 ) l = 512;

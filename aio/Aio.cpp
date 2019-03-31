@@ -462,7 +462,7 @@ void Aio::ignite(TiXmlElement *cfg)
 	}
 	comm_str = cfg->Attribute("file");
 	if ( comm_str ) 
-		TEXTUS_SPRINTF(file_name, comm_str);
+		TEXTUS_STRCPY(file_name, comm_str);
 }
 
 #define DELI(X)	\

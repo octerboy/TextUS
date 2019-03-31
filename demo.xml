@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="gb2312" ?>
-<root tag="Module" path="./release/" sum="29DB2AF0490872066EAE88445EA6C43B">
+<root tag="Module" path="./release/" sum="A053788B7EA72D2937EBBEB009DEF214">
     <![CDATA[<greeting>Hello, World!</greeting>]]>
 
     <Module name="log2buff" sum="no" disable="no">
@@ -643,7 +643,7 @@
                         <Exclude level="DEBUG" />
                     </Log>
                 </Module>
-                <Module name="httpnourl" disable="yes" sum="281E">
+                <Module name="httpnourl" disable="yes" sum="0000">
                     <Property />
                     <Log ID="-98" />
                 </Module>

@@ -811,7 +811,7 @@ Unipac::Unipac():do_tmp(1024)
 	tb_ps.indic = 0;
 
 	pa_ps.ordo = Notitia::PRO_TBUF;
-	pa_ps.indic = 0;
+	pa_ps.indic = &tb[0];
 
 	local_p.ordo = Notitia::PRO_UNIPAC;
 	local_p.indic = 0;

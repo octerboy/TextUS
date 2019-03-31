@@ -267,7 +267,19 @@ bool Bu2File::facio( Amor::Pius *pius)
 
 	case Notitia::PRO_TBUF :
 		WBUG("facio PRO_TBUF");
-		if ( !first_buf )
+		if (pius->indic) 
+		{	//当然tb不能为空
+			tb = (TBuffer **)(pius->indic);
+			if ( *tb) 
+			{	//新到请求的TBuffer
+				first_buf = *tb;
+			} else {
+				WLOG(WARNING, "first_buf is null");
+				break;
+			}
+			tb++;
+			if ( *tb) second_buf = *tb;
+		} else if ( !first_buf )
 		{
 			WLOG(WARNING, "first_buf is null");
 			break;
