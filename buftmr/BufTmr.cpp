@@ -57,7 +57,7 @@ public:
 	~BufTmr();
 
 private:
-	Amor::Pius clr_timer_pius, alarm_pius, pro_tbuf;  /* 清超时, 设超时 */
+	Amor::Pius clr_timer_pius, alarm_pius, pro_unipac, pro_tbuf;  /* 清超时, 设超时 */
 	PacketObj tmr_pac;     /* 起止时间参数 */
 	PacketObj *pa[3];
 	void *arr[3];
@@ -81,6 +81,7 @@ private:
 		unsigned char *tag;
 		unsigned short seq_len;
 		unsigned char *seq;
+		int pac_sub, tbuf_sub;
 		
 		Amor *sch;
 		inline G_CFG ( TiXmlElement *cfg ) {
@@ -104,6 +105,9 @@ private:
 				seq = new unsigned char[seq_len];
 				seq_len = BTool::unescape(str, seq);
 			}
+			pac_sub = tbuf_sub = 0;
+			cfg->QueryIntAttribute("pac_sub", &pac_sub);
+			cfg->QueryIntAttribute("tbuf_sub", &tbuf_sub);
 		};
 	};
 	struct G_CFG *gCFG;	/* Shared for all objects in this node */
@@ -197,6 +201,7 @@ void BufTmr::stamp()
 
 	framing = false;
 	//gCFG->sch->sponte(&clr_timer_pius); /* 一次定时，不用清除 */
+	aptus->facio(&pro_unipac);
 	aptus->facio(&pro_tbuf);
 }
 
@@ -269,6 +274,9 @@ bool BufTmr::facio( Amor::Pius *pius)
 	case Notitia::CLONE_ALL_READY:
 		WBUG("facio CLONE(IGNITE)_ALL_READY" );			
 ALL_READY:
+		pro_unipac.subor =gCFG->pac_sub;
+		pro_unipac.indic = &pa[0];
+		pro_tbuf.subor = gCFG->tbuf_sub;
 		arr[0] = this;
 		arr[1] = &(gCFG->time_out);
 		arr[2] = 0;
@@ -282,6 +290,7 @@ ALL_READY:
 
 	case Notitia::SET_TBUF:	/* 取得输入TBuffer地址 */
 		WBUG("facio SET_TBUF");
+		pro_tbuf.indic =pius->indic;
 		{ TBuffer **tb;
 		tb = (TBuffer **)(pius->indic);
 		if (tb) 
@@ -295,6 +304,7 @@ ALL_READY:
 		} else 
 			WLOG(NOTICE,"facio PRO_TBUF null.");
 		}
+		return false; /* 可以续传 */
 		break;
 
 	default:
@@ -307,6 +317,8 @@ bool BufTmr::sponte( Amor::Pius *pius) { return false; }
 
 BufTmr::BufTmr()
 {
+	pro_unipac.indic = 0;
+	pro_unipac.ordo = Notitia::PRO_UNIPAC;
 	pro_tbuf.indic = 0;
 	pro_tbuf.ordo = Notitia::PRO_TBUF;
 
