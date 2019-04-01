@@ -85,6 +85,7 @@ private:
 	Describo::Criptor my_tor; /* 保存套接字, 各子实例不同 */
 	DPoll::Pollor pollor; /* 保存事件句柄, 各子实例不同 */
 	Amor::Pius epl_set_ps, epl_clr_ps, pro_tbuf_ps;
+	TBuffer *tb_arr[3];
 
 	Tcpsrv *tcpsrv;
 	Tcpsrvuna *last_child;	/* 最近一次连接的子实例 */
@@ -477,7 +478,7 @@ Tcpsrvuna::Tcpsrvuna()
 	epl_clr_ps.ordo = Notitia::CLR_EPOLL;
 	epl_clr_ps.indic = &pollor;
 	pro_tbuf_ps.ordo = Notitia::PRO_TBUF;
-	pro_tbuf_ps.indic = 0;
+	pro_tbuf_ps.indic = &tb_arr[0];
 
 	my_tor.pupa = this;
 	local_pius.ordo = Notitia::TEXTUS_RESERVED;	/* 未定, 可有Notitia::FD_CLRWR等多种可能 */
@@ -858,7 +859,6 @@ Amor* Tcpsrvuna::clone()
 TINLNE void Tcpsrvuna::deliver(Notitia::HERE_ORDO aordo)
 {
 	Amor::Pius tmp_pius;
-	TBuffer *tb[3];
 	tmp_pius.ordo = aordo;
 	tmp_pius.indic = 0;
 
@@ -866,10 +866,10 @@ TINLNE void Tcpsrvuna::deliver(Notitia::HERE_ORDO aordo)
 	{
 	case Notitia::SET_TBUF:
 		WBUG("deliver SET_TBUF");
-		tb[0] = tcpsrv->rcv_buf;
-		tb[1] = tcpsrv->snd_buf;
-		tb[2] = 0;
-		tmp_pius.indic = &tb[0];
+		tb_arr[0] = tcpsrv->rcv_buf;
+		tb_arr[1] = tcpsrv->snd_buf;
+		tb_arr[2] = 0;
+		tmp_pius.indic = &tb_arr[0];
 		break;
 	default:
 		WBUG("deliver Notitia::%d", aordo);

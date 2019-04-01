@@ -631,6 +631,7 @@ private:
 	};
 	struct G_CFG *gCFG;
 	bool has_config;
+	TBuffer *tb_arr[3];
 
     	int ttyfd;	/* 文件句柄 */
 	Describo::Criptor mytor; /* 保存套接字, 各子实例不同 */
@@ -878,16 +879,16 @@ bool TTY::sponte( Amor::Pius *pius)
 		WBUG("sponte SET_TBUF");
 		should_spo = false;
 		{
-		TBuffer **tb;
-		tb = (TBuffer **)(pius->indic);
-		if (tb) 
+		TBuffer **tbp;
+		tbp = (TBuffer **)(pius->indic);
+		if (tbp) 
 		{	//当然tb不能为空
-			if ( *tb) 
+			if ( *tbp) 
 			{	//新到请求的TBuffer
-				rcv_buf = *tb;
+				rcv_buf = *tbp;
 			}
-			tb++;
-			if ( *tb) snd_buf = *tb;
+			tbp++;
+			if ( *tbp) snd_buf = *tbp;
 		} else 
 			WLOG(NOTICE,"facio PRO_TBUF null.");
 		}
@@ -906,7 +907,7 @@ TTY::TTY()
 	local_pius.indic = &mytor;
 
 	pro_tbuf.ordo = Notitia::PRO_TBUF;
-	pro_tbuf.indic = 0;
+	pro_tbuf.indic = &tb_arr[0];
 
 	last_failed_time = 0;
 	memset(errMsg, 0, sizeof(errMsg));
@@ -1069,7 +1070,6 @@ Amor* TTY::clone()
 TINLINE void TTY::deliver(Notitia::HERE_ORDO aordo)
 {
 	Amor::Pius tmp_pius;
-	TBuffer *tb[3];
 	tmp_pius.ordo = aordo;
 	tmp_pius.indic = 0;
 
@@ -1077,10 +1077,10 @@ TINLINE void TTY::deliver(Notitia::HERE_ORDO aordo)
 	{
 	case Notitia::SET_TBUF:
 		WBUG("deliver SET_TBUF");
-		tb[0] = rcv_buf;
-		tb[1] = snd_buf;
-		tb[2] = 0;
-		tmp_pius.indic = &tb[0];
+		tb_arr[0] = rcv_buf;
+		tb_arr[1] = snd_buf;
+		tb_arr[2] = 0;
+		tmp_pius.indic = &tb_arr[0];
 		break;
 
 	case Notitia::END_SESSION:

@@ -462,6 +462,7 @@ private:
 
 	TBuffer *rcv_buf, *snd_buf;
 	TBuffer *m_rcv_buf, *m_snd_buf;
+	TBuffer *tb_arr[3];
 
 	inline void transmitto_ex();
 	inline void recito_ex();
@@ -685,7 +686,6 @@ void WinComm::ignite(TiXmlElement *cfg)
 bool WinComm::facio( Amor::Pius *pius)
 {
 	OVERLAPPED_ENTRY *aget;
-	TBuffer **tb;
 	assert(pius);
 	switch (pius->ordo)
 	{
@@ -697,17 +697,20 @@ bool WinComm::facio( Amor::Pius *pius)
 	case Notitia::SET_TBUF:	/* 取得输入TBuffer地址 */
 		WBUG("facio SET_TBUF");
 		isCli = true;
-		tb = (TBuffer **)(pius->indic);
-		if (tb) 
+		{
+		TBuffer **tbp;
+		tbp = (TBuffer **)(pius->indic);
+		if (tbp) 
 		{	//当然tb不能为空
-			if ( *tb) 
+			if ( *tbp) 
 			{	//新到请求的TBuffer
-				snd_buf = *tb;
+				snd_buf = *tbp;
 			}
-			tb++;
-			if ( *tb) rcv_buf = *tb;
+			tbp++;
+			if ( *tbp) rcv_buf = *tbp;
 		} else 
 			WLOG(NOTICE,"facio PRO_TBUF null.");
+		}
 		break;
 
 	case Notitia::DMD_END_SESSION:
@@ -877,7 +880,7 @@ WinComm::WinComm()
 	epl_clr_ps.ordo = Notitia::CLR_EPOLL;
 	epl_clr_ps.indic = &pollor;
 	pro_tbuf_ps.ordo = Notitia::PRO_TBUF;
-	pro_tbuf_ps.indic = 0;
+	pro_tbuf_ps.indic = &tb_arr[0];
 
 	m_rcv_buf = new TBuffer(1024);
 	m_snd_buf = new TBuffer(1024);
@@ -1055,7 +1058,6 @@ Amor* WinComm::clone()
 /* 向接力者提交 */
 inline void WinComm::deliver(Notitia::HERE_ORDO aordo)
 {
-	TBuffer *tb[3];
 	tmp_pius.ordo = aordo;
 	tmp_pius.indic = 0;
 
@@ -1063,10 +1065,10 @@ inline void WinComm::deliver(Notitia::HERE_ORDO aordo)
 	{
 	case Notitia::SET_TBUF:
 		WBUG("deliver SET_TBUF");
-		tb[0] = rcv_buf;
-		tb[1] = snd_buf;
-		tb[2] = 0;
-		tmp_pius.indic = &tb[0];
+		tb_arr[0] = rcv_buf;
+		tb_arr[1] = snd_buf;
+		tb_arr[2] = 0;
+		tmp_pius.indic = &tb_arr[0];
 		break;
 
 	case Notitia::END_SESSION:
