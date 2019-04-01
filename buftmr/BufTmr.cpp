@@ -284,6 +284,7 @@ ALL_READY:
 			Amor::Pius tmp_p;
 			tmp_p.ordo = Notitia::SET_UNIPAC;
 			tmp_p.indic = &pa[0];
+			tmp_p.subor = gCFG->pac_sub;
 			aptus->facio(&tmp_p);
 		}
 		break;
