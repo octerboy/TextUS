@@ -1,0 +1,24 @@
+# Title: XmlConf Makefile(VC)
+# ID: Textus-xmlconf-Makefile-vc
+# Build: 
+#	B01:created by octerboy 2019/03/19, Guangzhou
+include ..\Rules.basemod.vc
+CFLAGS  = $(CFLAGS)  -I..\logdata\include -I..\baselib\include  -I..\unipac\include
+LDLIB = $(LDLIB) ..\baselib\libbase.lib
+AMOROBJS=XmlConf.obj
+
+all: xmlconf.dll
+
+XmlConf.obj: XmlConf.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=XmlConf XmlConf.cpp
+
+xmlconf.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib
