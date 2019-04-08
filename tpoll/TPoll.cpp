@@ -75,6 +75,22 @@ public:
 	HANDLE iocp_port,timer_queue;
 	DWORD dw_error;
 	struct DPoll::PollorBase  a_basp;
+	ULONG timer_resolution;
+	typedef NTSTATUS (CALLBACK* NTSETTIMERRESOLUTION)
+	(
+		IN ULONG DesiredTime,
+		IN BOOLEAN SetResolution,
+		OUT PULONG ActualTime
+	);
+	NTSETTIMERRESOLUTION NtSetTimerResolution;
+
+	typedef NTSTATUS (CALLBACK* NTQUERYTIMERRESOLUTION)
+	(
+		OUT PULONG MaximumTime,
+		OUT PULONG MinimumTime,
+		OUT PULONG CurrentTime
+	);
+	NTQUERYTIMERRESOLUTION NtQueryTimerResolution;
 #endif
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
 	int kq;
@@ -232,6 +248,7 @@ VOID CALLBACK timer_routine(PVOID lpParam, BOOLEAN TimerOrWaitFired)
 void TPoll::ignite(TiXmlElement *cfg)
 {
 	const char *timer_str;
+	int timer_res;
 
 	number_threads= 2;
 	cfg->QueryIntAttribute("iocp_thread_num", &number_threads);
@@ -251,6 +268,29 @@ void TPoll::ignite(TiXmlElement *cfg)
 	timer_usec = (timer_milli % 1000) * 1000;
 	timer_nsec = (timer_milli % 1000) * 1000000;
 #if defined (_WIN32)
+	timer_resolution = 0;
+	timer_res = 0;
+	cfg->QueryIntAttribute("timer_resolution", &timer_res);
+	timer_resolution = timer_res;
+
+	if (timer_resolution > 0 )  
+	{
+		NTSTATUS nStatus;
+		ULONG cur=0;
+		HMODULE hNtDll = LoadLibrary(TEXT("NtDll.dll"));
+		if (hNtDll)
+		{
+			NtQueryTimerResolution = (NTQUERYTIMERRESOLUTION)GetProcAddress(hNtDll,"NtQueryTimerResolution");
+			NtSetTimerResolution = (NTSETTIMERRESOLUTION)GetProcAddress(hNtDll,"NtSetTimerResolution");
+			FreeLibrary(hNtDll);
+		}
+		if (NtQueryTimerResolution == NULL || NtSetTimerResolution  ==  NULL) {
+			ERROR_PRO("NtSetTimerResolution not found");
+			return ;
+		}
+		nStatus = NtSetTimerResolution(10000, true, &cur);
+		WLOG(INFO, "current timer resolution is %lu(100ns)", cur);
+	}
 	iocp_port = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, number_threads); 
 	if (iocp_port == NULL)  
 	{
@@ -827,6 +867,7 @@ TPoll::TPoll()
 #if defined(_WIN32)
 	iocp_port = NULL;
 	a_basp.type = DPoll::User;
+	timer_resolution = 0;
 #endif
 
 #if defined(__linux__)
