@@ -48,6 +48,7 @@ private:
 	TiXmlDeclaration *dec;
 	
 	void wfile();
+	bool set_conf_ele (TiXmlElement *ref_up, TiXmlElement *reqele, TiXmlElement *cfg_ele, bool test);
 
 	struct G_CFG {
 		TiXmlDocument doc_cfg;	//xml config file
@@ -164,34 +165,108 @@ bool XmlConf::facio( Amor::Pius *pius)
 	return true;
 }
 
+bool XmlConf::set_conf_ele (TiXmlElement *ref_up, TiXmlElement *reqele, TiXmlElement *cfg_ele, bool test)
+{
+	TiXmlNode* child;
+	TiXmlText* childText;
+	TiXmlElement *ele_f, *ele_s, *ele_t;
+	TiXmlAttribute *att;
+	TiXmlNode* child_s, *child_t;
+	TiXmlText* childText_s, *childText_t;
+	const char *val_s;
+
+	for ( ele_s = reqele->FirstChildElement(); ele_s; ele_s = ele_s->NextSiblingElement())
+	{
+		const char *vn = ele_s->Value();	/* 针对请求中的每一个元素 */
+		ele_f = ref_up->FirstChildElement(vn);	/* 参考中有相应的元素 */
+		if ( !ele_f ) return false;
+		ele_t = cfg_ele->FirstChildElement(vn);	/* 实际配置中有相应的元素 */
+		if ( !ele_t ) return false;
+		for ( att = ele_s->FirstAttribute(); att; att = att->Next() )	//所有属性进行设置
+		{
+			val_s = ele_s->Attribute(att->Name());
+			if ( ele_f->Attribute(att->Name()) && ele_t->Attribute(att->Name()) )
+			{
+				if ( !test && val_s)
+					ele_t->SetAttribute(att->Name(), val_s);
+			} else 
+				return false;
+				
+		}	
+		child = ele_f->FirstChild();
+		child_s = ele_s->FirstChild();
+		child_t = ele_t->FirstChild();
+		if ( child_s ) {
+			childText_s = child_s->ToText();
+			if ( childText_s )  {		//首先, 请求这个元素
+				if ( !child || !child_t ) 
+					return false;
+				childText = child->ToText();	 //ref中要有点Text内容, 这里才设置
+				childText_t = child_t->ToText();
+				if ( !childText || !childText_t )
+					return false;
+				if ( !test)
+					child_t->SetValue(child_s->Value());
+			}
+		}
+		return set_conf_ele(ele_f, ele_s, ele_t, test);
+	}
+	return true;
+}
+
 void XmlConf::wfile()
 {
 	TiXmlPrinter printer;
-	int len;
+	unsigned long len;
+	unsigned char *act;
+	unsigned char *p;
 
 	req_doc.Clear();
 	res_doc.Clear();
 	res_doc.InsertEndChild(*dec);
 	res_doc.InsertEndChild(comment);
-	req_doc.Parse((const char*) rcv_pac->getfld(gCFG->xml_fld));
 
-	if (req_doc.Error())
+	act = rcv_pac->getfld(gCFG->act_fld, &len);
+	switch ( *act ) 
 	{
-		WLOG(ERR, "xml data parse error: %s", req_doc.ErrorDesc());
-		goto ERR_PRO;
-		return ;
+	case 'S':	//设置配置文件
+		p = (unsigned char*) rcv_pac->getfld(gCFG->xml_fld, &len);
+		if ( p )  {
+			p[len] = 0;
+			req_doc.Parse((const char*)p);
+		} 
+		if (! p || req_doc.Error())
+		{
+			WLOG(ERR, "xml data parse error: %s", req_doc.ErrorDesc());
+			goto ErrPro;
+		}
+		if ( set_conf_ele (gCFG->cfg_ref->FirstChildElement(), req_doc.RootElement(), gCFG->doc_cfg.RootElement(), false) )
+		{
+			set_conf_ele (gCFG->cfg_ref->FirstChildElement(), req_doc.RootElement(), gCFG->doc_cfg.RootElement(), true);
+			gCFG->doc_cfg.SaveFile();
+		} else {
+			goto ErrPro;
+		}
+		break;
+	case 'G':	//取得配置文件
+		gCFG->doc_cfg.Accept( &printer );
+		len = (int) printer.Size();
+		snd_pac->input(gCFG->xml_fld, (unsigned char*) printer.CStr(), len);
+		snd_pac->input(gCFG->act_fld, (unsigned char*) "g", 1);
+		break;
+	default:
+		break;
 	}
 
+	snd_pac->input(gCFG->act_fld, (unsigned char*) "s", 1);
+	snd_pac->input(gCFG->xml_fld, (unsigned char*)"OK", 2);
 End:
-	res_doc.Accept( &printer );
-	len = (int) printer.Size();
-	snd_pac->input(gCFG->xml_fld, (unsigned char*) printer.CStr(), len);
-	res_doc.Clear();
 	aptus->sponte(&pro_pac);
 	return;
-ERR_PRO:
+ErrPro:
+	snd_pac->input(gCFG->act_fld, (unsigned char*) "f", 1);
+	snd_pac->input(gCFG->xml_fld, (unsigned char*)"Failed", 6);
 	goto End;
-
 }
 
 bool XmlConf::sponte( Amor::Pius *pius) { return false; }
