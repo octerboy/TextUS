@@ -255,6 +255,7 @@ void XmlConf::wfile()
 		snd_pac->input(gCFG->act_fld, (unsigned char*) "g", 1);
 		break;
 	default:
+		goto ErrPro;
 		break;
 	}
 
