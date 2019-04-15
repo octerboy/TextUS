@@ -81,7 +81,6 @@ private:
 		unsigned char *tag;
 		unsigned short seq_len;
 		unsigned char *seq;
-		int pac_sub, tbuf_sub;
 		
 		Amor *sch;
 		inline G_CFG ( TiXmlElement *cfg ) {
@@ -105,9 +104,6 @@ private:
 				seq = new unsigned char[seq_len];
 				seq_len = BTool::unescape(str, seq);
 			}
-			pac_sub = tbuf_sub = 0;
-			cfg->QueryIntAttribute("pac_sub", &pac_sub);
-			cfg->QueryIntAttribute("tbuf_sub", &tbuf_sub);
 		};
 	};
 	struct G_CFG *gCFG;	/* Shared for all objects in this node */
@@ -169,16 +165,17 @@ void BufTmr::stamp()
 	unsigned char md[16];
 	//if ( !framing ) return;
 #if defined (_WIN32)
-	unsigned __int64 etik, stik;
+	unsigned __int64 etik, stik, intv;
 	etik = (unsigned __int64)end_tm.dwLowDateTime + (((unsigned __int64)end_tm.dwHighDateTime) << 32);
 	stik = (unsigned __int64)start_tm.dwLowDateTime + (((unsigned __int64)start_tm.dwHighDateTime) << 32);
-	interval = (long) ((stik - etik)/10000);
+	intv = (etik-stik)/1000;
+	interval = (long) intv;
 	start_sec =  (long) ((stik - t2k)/10000000);
-	start_milli =  (long) ((stik - t2k)/10000 - start_sec*1000);
+	start_milli =  (long) ((stik - t2k)/1000 - start_sec*10000);
 #else
 	interval = 1000* (end_tp.tv_sec - start_tp.tv_sec) + (end_tp.tv_nsec - start_tp.tv_nsec)/1000000;
 	start_sec =  start_tp.tv_sec - t2k;
-	start_milli =  start_tp.tv_nsec/1000000;
+	start_milli =  start_tp.tv_nsec/100000;
 #endif
 	length  = rcv_buf->point - rcv_buf->base;
 	tmr_pac.input(BODY_LEN_FLD, (unsigned char*)&length, sizeof(length));
@@ -231,6 +228,12 @@ bool BufTmr::facio( Amor::Pius *pius)
 			} else {
 				gCFG->sch->sponte(&alarm_pius); /* 定时开始 */
 			}
+		} else {	//framing ， 每来一次, 记一下时间
+#if defined (_WIN32)
+			GetSystemTimeAsFileTime(&end_tm);
+#else
+			clock_gettime(CLOCK_REALTIME, &end_tp);
+#endif
 		}
 		break;
 
@@ -242,11 +245,6 @@ bool BufTmr::facio( Amor::Pius *pius)
 
 	case Notitia::TIMER:	/* 连接超时 */
 		WBUG("facio TIMER" );
-#if defined (_WIN32)
-		GetSystemTimeAsFileTime(&end_tm);
-#else
-		clock_gettime(CLOCK_REALTIME, &end_tp);
-#endif
 		stamp();
 		break;
 
@@ -274,9 +272,7 @@ bool BufTmr::facio( Amor::Pius *pius)
 	case Notitia::CLONE_ALL_READY:
 		WBUG("facio CLONE(IGNITE)_ALL_READY" );			
 ALL_READY:
-		pro_unipac.subor =gCFG->pac_sub;
 		pro_unipac.indic = &pa[0];
-		pro_tbuf.subor = gCFG->tbuf_sub;
 		arr[0] = this;
 		arr[1] = &(gCFG->time_out);
 		arr[2] = 0;
@@ -284,7 +280,6 @@ ALL_READY:
 			Amor::Pius tmp_p;
 			tmp_p.ordo = Notitia::SET_UNIPAC;
 			tmp_p.indic = &pa[0];
-			tmp_p.subor = gCFG->pac_sub;
 			aptus->facio(&tmp_p);
 		}
 		break;
@@ -301,7 +296,7 @@ ALL_READY:
 				rcv_buf = *tb;
 			}
 			tb++;
-			if ( *tb) rcv_buf = *tb;
+			//if ( *tb) rcv_buf = *tb;
 		} else 
 			WLOG(NOTICE,"facio PRO_TBUF null.");
 		}

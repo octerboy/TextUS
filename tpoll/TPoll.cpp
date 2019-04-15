@@ -75,7 +75,6 @@ public:
 	HANDLE iocp_port,timer_queue;
 	DWORD dw_error;
 	struct DPoll::PollorBase  a_basp;
-	ULONG timer_resolution;
 	typedef NTSTATUS (CALLBACK* NTSETTIMERRESOLUTION)
 	(
 		IN ULONG DesiredTime,
@@ -91,6 +90,7 @@ public:
 		OUT PULONG CurrentTime
 	);
 	NTQUERYTIMERRESOLUTION NtQueryTimerResolution;
+	ULONG cur_time_res;
 #endif
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
 	int kq;
@@ -268,15 +268,16 @@ void TPoll::ignite(TiXmlElement *cfg)
 	timer_usec = (timer_milli % 1000) * 1000;
 	timer_nsec = (timer_milli % 1000) * 1000000;
 #if defined (_WIN32)
+	ULONG timer_resolution;
 	timer_resolution = 0;
 	timer_res = 0;
 	cfg->QueryIntAttribute("timer_resolution", &timer_res);
 	timer_resolution = timer_res;
+	cur_time_res  =0;
 
 	if (timer_resolution > 0 )  
 	{
 		NTSTATUS nStatus;
-		ULONG cur=0;
 		HMODULE hNtDll = LoadLibrary(TEXT("NtDll.dll"));
 		if (hNtDll)
 		{
@@ -288,8 +289,7 @@ void TPoll::ignite(TiXmlElement *cfg)
 			ERROR_PRO("NtSetTimerResolution not found");
 			return ;
 		}
-		nStatus = NtSetTimerResolution(10000, true, &cur);
-		WLOG(INFO, "current timer resolution is %lu(100ns)", cur);
+		nStatus = NtSetTimerResolution(10000, true, &cur_time_res);
 	}
 	iocp_port = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, number_threads); 
 	if (iocp_port == NULL)  
@@ -817,6 +817,9 @@ bool TPoll::facio( Amor::Pius *pius)
 			WLOG(WARNING, errMsg);
 		}
 #endif	//for linux
+#if defined(_WIN32)
+		WLOG(INFO, "current timer resolution is %lu(101ns)", cur_time_res);
+#endif
 
 		break;
 
@@ -867,7 +870,6 @@ TPoll::TPoll()
 #if defined(_WIN32)
 	iocp_port = NULL;
 	a_basp.type = DPoll::User;
-	timer_resolution = 0;
 #endif
 
 #if defined(__linux__)
