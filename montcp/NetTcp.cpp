@@ -78,6 +78,8 @@ private:
 	TINLINE void data_pro();
 	TINLINE void endConn();
 	void deliver(Notitia::HERE_ORDO aordo);
+	void exchg_pac(NetTcp *n);
+	void flagPac(PacketObj *rpac, unsigned char f);
 	
 	/* 处理每一个已建立连接的通讯 */
 	in_addr_t server_addr, client_addr;
@@ -552,6 +554,8 @@ TINLINE bool NetTcp::handle(PacketObj *rpac)
 			}
 		} 
 
+		flagPac(rpac, 0x1F);
+		exchg_pac(neo);
 		neo->initConn(this, rpac);	/* 新建连接初始化 */
 		neo->facio(&start_ps);
 
@@ -559,6 +563,8 @@ TINLINE bool NetTcp::handle(PacketObj *rpac)
 		/* 断开连接 */
 		if ( neo )
 		{	/* 释放对象 */
+			flagPac(rpac, 0x2F);
+			exchg_pac(neo);
 			neo->endConn();
 			gCFG->remove(neo);
 		}
@@ -587,21 +593,26 @@ TINLINE bool NetTcp::handle(PacketObj *rpac)
 			
 			if ( fld_d->range > 0 )
 			{
-				FieldObj  *tmp_f; 	
-				if ( neo->first_pac.max < 0 )
-					neo->first_pac.produce(rcv_pac->max);	
-
-				tmp_f = neo->first_pac.fld;
-				neo->first_pac.fld = rcv_pac->fld;
-				rcv_pac->fld = tmp_f;
-				
-				TBuffer::exchange(neo->first_pac.buf, rcv_pac->buf);
+				exchg_pac(neo);
 				neo->data_pro();
 			}
 		}
 	}
 	
 	return true;
+}
+
+void NetTcp::exchg_pac(NetTcp *neo)
+{
+	FieldObj  *tmp_f; 	
+	if ( neo->first_pac.max < 0 )
+		neo->first_pac.produce(rcv_pac->max);	
+
+	tmp_f = neo->first_pac.fld;
+	neo->first_pac.fld = rcv_pac->fld;
+	rcv_pac->fld = tmp_f;
+	
+	TBuffer::exchange(neo->first_pac.buf, rcv_pac->buf);
 }
 
 TINLINE bool NetTcp::handle_sim(PacketObj *rpac)
@@ -643,10 +654,14 @@ TINLINE bool NetTcp::handle_sim(PacketObj *rpac)
 	if ( (flag & SYN ) && !(flag & ACK) )
 	{
 		WLOG(INFO, "TCP SYN sent. ");
+		dir |= 0x1F;
+		aptus->facio(&pro_unipac);
 		goto END;
 	} else if ( (flag & FIN ) || (flag & RST) ) 
 	{ 
 		WLOG(INFO, "TCP FIN or RST.");
+		dir |= 0x2F;
+		aptus->facio(&pro_unipac);
 		goto END;
 	} else if ( fld_d->no == gCFG->data_fld && fld_tmp->no == gCFG->offset_fld) 
 	{
@@ -680,6 +695,13 @@ TINLINE bool NetTcp::handle_sim(PacketObj *rpac)
 	}
 END:
 	return true;
+}
+
+void NetTcp::flagPac(PacketObj *rpac, unsigned char f)
+{
+	unsigned char *pdir = 0;
+	pdir = rpac->getfld(gCFG->direction_fld);
+	(*pdir) |= f;
 }
 
 bool NetTcp::initConn(NetTcp *fa, PacketObj *rpac)

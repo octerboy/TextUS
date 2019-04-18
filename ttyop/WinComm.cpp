@@ -490,17 +490,12 @@ void WinComm::open_comm()
 	DCB dcb;
 	COMMPROP prop;
 	COMMTIMEOUTS tmo;
-	char msg[128];
+	char msg[128], t_name[160];
 
 	if ( this->hdev  != INVALID_HANDLE_VALUE ) return;
 	memset(&dcb,0,sizeof(dcb));
-
-	this->hdev = CreateFile(this->comm_name, GENERIC_READ|GENERIC_WRITE, 0, NULL, 
-//				OPEN_EXISTING, 0, NULL);
-//		OPEN_EXISTING, FILE_FLAG_WRITE_THROUGH, NULL);
-		OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
-//		OPEN_EXISTING, FILE_FLAG_WRITE_THROUGH | FILE_FLAG_OVERLAPPED, NULL);
-
+	TEXTUS_SPRINTF(t_name, "\\\\.\\%s", this->comm_name);
+	this->hdev = CreateFile(t_name, GENERIC_READ|GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
 	if (hdev == INVALID_HANDLE_VALUE)
 	{
 		sprintf_s(msg, "CreateFile(%s)",this->comm_name);

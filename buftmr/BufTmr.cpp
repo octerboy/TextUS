@@ -41,6 +41,7 @@
 #define START_MILLI_FLD 12
 #define INTERVAL_FLD 13
 #define BODY_LEN_FLD 15
+#define DATA_OPT_FLD 17
 #define MD_MAGIC "1AE!#$$$DD112D"  // 每条日志中再加一点内容，再加MD5，以简单实现的防改。
 #define MD_SUM_LEN 3
 
@@ -81,6 +82,8 @@ private:
 		unsigned char *tag;
 		unsigned short seq_len;
 		unsigned char *seq;
+		unsigned short opt_len;
+		unsigned char *opt;
 		
 		Amor *sch;
 		inline G_CFG ( TiXmlElement *cfg ) {
@@ -92,6 +95,8 @@ private:
 			tag = 0;
 			seq_len = 0;
 			seq = 0;
+			opt_len =0;
+			opt = 0;
 			str = cfg->Attribute("tag");
 			if ( str ) {
 				tag_len = strlen(str);
@@ -103,6 +108,12 @@ private:
 				seq_len = strlen(str);
 				seq = new unsigned char[seq_len];
 				seq_len = BTool::unescape(str, seq);
+			}
+			str = cfg->Attribute("opt");
+			if ( str ) {
+				opt_len = strlen(str);
+				opt = new unsigned char[opt_len];
+				opt_len = BTool::unescape(str, opt);
 			}
 		};
 	};
@@ -179,17 +190,23 @@ void BufTmr::stamp()
 #endif
 	length  = rcv_buf->point - rcv_buf->base;
 	tmr_pac.input(BODY_LEN_FLD, (unsigned char*)&length, sizeof(length));
-	tmr_pac.input(SEQ_FLD, gCFG->seq, gCFG->seq_len);
-	tmr_pac.input(TAG_FLD, gCFG->tag, gCFG->tag_len);
+	if ( gCFG->seq)
+		tmr_pac.input(SEQ_FLD, gCFG->seq, gCFG->seq_len);
+	if ( gCFG->tag)
+		tmr_pac.input(TAG_FLD, gCFG->tag, gCFG->tag_len);
 	tmr_pac.input(START_SEC_FLD, (unsigned char*)&start_sec, sizeof(start_sec));
 	tmr_pac.input(START_MILLI_FLD, (unsigned char*)&start_milli, sizeof(start_milli));
 	tmr_pac.input(INTERVAL_FLD, (unsigned char*)&interval, sizeof(interval));
+	if ( gCFG->opt)
+		tmr_pac.input(DATA_OPT_FLD, gCFG->opt, gCFG->opt_len);
 
 	MD5Init (&Md5Ctx);
 	MD5Update (&Md5Ctx, md_magic, md_magic_len);
 	MD5Update (&Md5Ctx, (char*)&start_sec, sizeof(start_sec));
 	MD5Update (&Md5Ctx, (char*)&start_milli, sizeof(start_milli));
 	MD5Update (&Md5Ctx, (char*)&interval, sizeof(interval));
+	if ( gCFG->opt)
+		MD5Update (&Md5Ctx, (char*)gCFG->opt, gCFG->opt_len);
 	MD5Update (&Md5Ctx, (char*)rcv_buf->base, length);
 	MD5Final ((char *) &md[0], &Md5Ctx);
 	tmr_pac.input(MSG_SUM_FLD, md, MD_SUM_LEN);
@@ -325,7 +342,7 @@ BufTmr::BufTmr()
 
 	alarm_pius.ordo = Notitia::DMD_SET_ALARM;
 	alarm_pius.indic = &arr[0];
-	tmr_pac.produce(16) ;
+	tmr_pac.produce(32) ;
 	pa[0] = &tmr_pac;
 	pa[1] = &tmr_pac;
 	pa[2] = 0;
