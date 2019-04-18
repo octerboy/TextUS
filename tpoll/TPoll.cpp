@@ -818,7 +818,7 @@ bool TPoll::facio( Amor::Pius *pius)
 		}
 #endif	//for linux
 #if defined(_WIN32)
-		WLOG(INFO, "current timer resolution is %lu(101ns)", cur_time_res);
+		WLOG(INFO, "current timer resolution is %lu(100ns)", cur_time_res);
 #endif
 
 		break;
