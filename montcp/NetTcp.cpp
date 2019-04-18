@@ -74,7 +74,7 @@ private:
 	TINLINE bool handle(PacketObj *rpac);
 	TINLINE bool handle_sim(PacketObj *rpac);
 	TINLINE bool match(PacketObj *mpac);
-	bool initConn(NetTcp *fa, PacketObj *rpac);
+	bool initConn(PacketObj *rpac);
 	TINLINE void data_pro();
 	TINLINE void endConn();
 	void deliver(Notitia::HERE_ORDO aordo);
@@ -554,16 +554,16 @@ TINLINE bool NetTcp::handle(PacketObj *rpac)
 			}
 		} 
 
-		flagPac(rpac, 0x1F);
+		flagPac(rpac, 0x10);
 		exchg_pac(neo);
-		neo->initConn(this, rpac);	/* 新建连接初始化 */
+		neo->initConn(rpac);	/* 新建连接初始化 */
 		neo->facio(&start_ps);
 
 	} else if ( (flag & FIN ) || (flag & RST) ) {
 		/* 断开连接 */
 		if ( neo )
 		{	/* 释放对象 */
-			flagPac(rpac, 0x2F);
+			flagPac(rpac, 0x20);
 			exchg_pac(neo);
 			neo->endConn();
 			gCFG->remove(neo);
@@ -639,13 +639,12 @@ TINLINE bool NetTcp::handle_sim(PacketObj *rpac)
 	{	/* to Client */
 		dir = 0x02;
 	}
-
 	if ( dir == 0x00 )
 	{
 		return false;
 	}
 
-	rpac->input(gCFG->direction_fld, &dir, 1);
+	rpac->input(gCFG->direction_fld, &dir, 1);	//match does so when handle multi
 
 	fld_d = &(rpac->fld[gCFG->data_fld]);
 	fld_tmp = &(rpac->fld[gCFG->offset_fld]);
@@ -654,18 +653,19 @@ TINLINE bool NetTcp::handle_sim(PacketObj *rpac)
 	if ( (flag & SYN ) && !(flag & ACK) )
 	{
 		WLOG(INFO, "TCP SYN sent. ");
-		dir |= 0x1F;
+		flagPac(rpac, 0x10);
+		exchg_pac(this);
 		aptus->facio(&pro_unipac);
 		goto END;
 	} else if ( (flag & FIN ) || (flag & RST) ) 
 	{ 
 		WLOG(INFO, "TCP FIN or RST.");
-		dir |= 0x2F;
+		flagPac(rpac, 0x20);
+		exchg_pac(this);
 		aptus->facio(&pro_unipac);
 		goto END;
 	} else if ( fld_d->no == gCFG->data_fld && fld_tmp->no == gCFG->offset_fld) 
 	{
-		FieldObj  *tmp_f; 	
 		offset = ( fld_tmp->val[0] ) & 0xF0 ;
 		offset = offset >> 2;
 		opt_len = offset - 20;
@@ -682,15 +682,7 @@ TINLINE bool NetTcp::handle_sim(PacketObj *rpac)
 		{
 			return false;
 		}
-
-		if ( first_pac.max < 0 )
-			first_pac.produce(rcv_pac->max);	
-
-		tmp_f = first_pac.fld;	
-		first_pac.fld = rcv_pac->fld;
-		rcv_pac->fld = tmp_f;
-				
-		TBuffer::exchange(first_pac.buf, rcv_pac->buf);
+		exchg_pac(this);
 		data_pro();
 	}
 END:
@@ -704,7 +696,7 @@ void NetTcp::flagPac(PacketObj *rpac, unsigned char f)
 	(*pdir) |= f;
 }
 
-bool NetTcp::initConn(NetTcp *fa, PacketObj *rpac)
+bool NetTcp::initConn(PacketObj *rpac)
 {
 	ASSERTPAC(rpac);
 	ValidPAC(rpac);
