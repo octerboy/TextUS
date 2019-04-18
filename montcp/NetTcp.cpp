@@ -524,6 +524,7 @@ TINLINE bool NetTcp::handle(PacketObj *rpac)
 	if ( (flag & SYN ) && !(flag & ACK) )
 	{	/* 正常情况下，这是由client向server第一次发起的 */
 		/* 如果前一次连接没有断开, 这里再次发起, 则取原来的对象, 从新使用 */
+		unsigned char dir = 0x00;
 		ASSERTPAC(rpac);
 		ValidPAC(rpac);
 
@@ -554,9 +555,11 @@ TINLINE bool NetTcp::handle(PacketObj *rpac)
 			}
 		} 
 
-		flagPac(rpac, 0x10);
+		if ( !neo->initConn(rpac))	/* 新建连接初始化 */
+			return false;
+		dir = 0x01;
+		rpac->input(gCFG->direction_fld, &dir, 1);	//match does so when handle multi
 		exchg_pac(neo);
-		neo->initConn(rpac);	/* 新建连接初始化 */
 		neo->facio(&start_ps);
 
 	} else if ( (flag & FIN ) || (flag & RST) ) {
