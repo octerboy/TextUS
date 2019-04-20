@@ -48,7 +48,6 @@
 class BufTmr: public Amor
 {
 public:
-	int count;
 	void ignite(TiXmlElement *cfg);	
 	bool facio( Pius *);
 	bool sponte( Pius *);
@@ -56,7 +55,12 @@ public:
 		
 	BufTmr();
 	~BufTmr();
-
+	enum LocType { 
+		HLVAR	= 13,	/* 变长,一个字节的值表示, 0x26表示38字节长度等  */
+		HLLVAR	= 14,	/* 变长, 高位在前, 你位在后, 下同 */
+		HLLLVAR	= 15,	
+		HL4VAR	= 16	
+	};
 private:
 	Amor::Pius clr_timer_pius, alarm_pius, pro_unipac, pro_tbuf;  /* 清超时, 设超时 */
 	PacketObj tmr_pac;     /* 起止时间参数 */
@@ -84,6 +88,7 @@ private:
 		unsigned char *seq;
 		unsigned short opt_len;
 		unsigned char *opt;
+		LocType len_type;           /* 获取长度值的方式 */
 		
 		Amor *sch;
 		inline G_CFG ( TiXmlElement *cfg ) {
@@ -115,6 +120,14 @@ private:
 				opt = new unsigned char[opt_len];
 				opt_len = BTool::unescape(str, opt);
 			}
+			str = cfg->Attribute("body_len");
+			len_type = HLLVAR;
+			#define LOC(X) if ( str && strcasecmp(str, #X) == 0 )	\
+					len_type =X;
+			LOC(HLVAR)	
+			LOC(HLLVAR)	
+			LOC(HLLLVAR)	
+			LOC(HL4VAR)	
 		};
 	};
 	struct G_CFG *gCFG;	/* Shared for all objects in this node */
@@ -170,11 +183,12 @@ void BufTmr::ignite(TiXmlElement *cfg)
 
 void BufTmr::stamp()
 {
-	unsigned long interval, length, start_sec, start_milli;
+	unsigned long interval, nlen, start_sec, start_milli_l;
 	unsigned char offset;
 	MD5_CTX Md5Ctx;
-	unsigned char md[16];
-	//if ( !framing ) return;
+	unsigned char yaBuf[16];
+	unsigned short start_milli;
+	unsigned int yaLen = 0;
 #if defined (_WIN32)
 	unsigned __int64 etik, stik, intv;
 	etik = (unsigned __int64)end_tm.dwLowDateTime + (((unsigned __int64)end_tm.dwHighDateTime) << 32);
@@ -182,21 +196,45 @@ void BufTmr::stamp()
 	intv = (etik-stik)/1000;
 	interval = (long) intv;
 	start_sec =  (long) ((stik - t2k)/10000000);
-	start_milli =  (long) ((stik - t2k)/1000 - start_sec*10000);
+	start_milli_l =  (long) ((stik - t2k)/1000 - start_sec*10000);
 #else
 	interval = 1000* (end_tp.tv_sec - start_tp.tv_sec) + (end_tp.tv_nsec - start_tp.tv_nsec)/1000000;
 	start_sec =  start_tp.tv_sec - t2k;
-	start_milli =  start_tp.tv_nsec/100000;
+	start_milli_l =  start_tp.tv_nsec/100000;
 #endif
-	length  = rcv_buf->point - rcv_buf->base;
-	tmr_pac.input(BODY_LEN_FLD, (unsigned char*)&length, sizeof(length));
+	start_milli = (unsigned short)start_milli_l;
+	nlen  = rcv_buf->point - rcv_buf->base;
 	if ( gCFG->seq)
 		tmr_pac.input(SEQ_FLD, gCFG->seq, gCFG->seq_len);
 	if ( gCFG->tag)
 		tmr_pac.input(TAG_FLD, gCFG->tag, gCFG->tag_len);
-	tmr_pac.input(START_SEC_FLD, (unsigned char*)&start_sec, sizeof(start_sec));
-	tmr_pac.input(START_MILLI_FLD, (unsigned char*)&start_milli, sizeof(start_milli));
-	tmr_pac.input(INTERVAL_FLD, (unsigned char*)&interval, sizeof(interval));
+
+	yaBuf[3] = (unsigned char)(start_sec%256);
+	start_sec /=256;
+	yaBuf[2] = (unsigned char)(start_sec%256);
+	start_sec /=256;
+	yaBuf[1] = (unsigned char)(start_sec%256);
+	start_sec /=256;
+	yaBuf[0] =(unsigned char)start_sec;
+	tmr_pac.input(START_SEC_FLD, yaBuf, 4);
+	
+	yaBuf[1] = (unsigned char)(start_milli%256);
+	start_milli /=256;
+	yaBuf[0] = (unsigned char)(start_milli%256);
+	start_milli /=256;
+	tmr_pac.input(START_MILLI_FLD, yaBuf, 2);
+
+	yaBuf[3] = (unsigned char)(interval%256);
+	interval /=256;
+	yaBuf[2] = (unsigned char)(interval%256);
+	interval /=256;
+	yaBuf[1] = (unsigned char)(interval%256);
+	interval /=256;
+	yaBuf[0] =(unsigned char)interval;
+	yaLen = 4; 
+	while ( yaBuf[4-yaLen] == 0 && yaLen > 1) yaLen--; 
+	tmr_pac.input(INTERVAL_FLD, &yaBuf[4 -yaLen], yaLen);
+
 	if ( gCFG->opt)
 		tmr_pac.input(DATA_OPT_FLD, gCFG->opt, gCFG->opt_len);
 
@@ -205,16 +243,65 @@ void BufTmr::stamp()
 	MD5Update (&Md5Ctx, (char*)&start_sec, sizeof(start_sec));
 	MD5Update (&Md5Ctx, (char*)&start_milli, sizeof(start_milli));
 	MD5Update (&Md5Ctx, (char*)&interval, sizeof(interval));
+	MD5Update (&Md5Ctx, (char*)rcv_buf->base, nlen);
 	if ( gCFG->opt)
+	{
 		MD5Update (&Md5Ctx, (char*)gCFG->opt, gCFG->opt_len);
-	MD5Update (&Md5Ctx, (char*)rcv_buf->base, length);
-	MD5Final ((char *) &md[0], &Md5Ctx);
-	tmr_pac.input(MSG_SUM_FLD, md, MD_SUM_LEN);
+		nlen += gCFG->opt_len;
+	}
+	MD5Final ((char *) &yaBuf[0], &Md5Ctx);
+	tmr_pac.input(MSG_SUM_FLD, yaBuf, MD_SUM_LEN);
 	offset = MD_SUM_LEN;
 	tmr_pac.input(OFFSET_FLD, &offset, sizeof(offset));
 
+	switch ( gCFG->len_type)
+	{
+	case HLVAR:	
+		yaLen = 1;
+		if ( nlen > 255) 
+			 yaBuf[0] = 0xff;
+		else
+			yaBuf[0] =(unsigned char) (nlen &0xff);
+		break;
+
+	case HLLVAR:	
+		yaLen = 2;
+		if ( nlen > 65535) 
+			memset(yaBuf, 0xff, 2);
+		else {
+			yaBuf[1] = (unsigned char)(nlen%256);
+			nlen /=256;
+			yaBuf[0] =(unsigned char)nlen;
+		}
+		break;
+
+	case HLLLVAR:	
+		yaLen = 3;
+		if ( nlen > 16777215 ) 
+			memset(yaBuf, 0xff, 3);
+		else {
+			yaBuf[2] = (unsigned char)(nlen%256);
+			nlen /=256;
+			yaBuf[1] = (unsigned char)(nlen%256);
+			nlen /=256;
+			yaBuf[0] =(unsigned char)nlen;
+		}
+		break;
+
+	case HL4VAR:	       
+		yaLen = 4;
+		yaBuf[3] = (unsigned char)(nlen%256);
+		nlen /=256;
+		yaBuf[2] = (unsigned char)(nlen%256);
+		nlen /=256;
+		yaBuf[1] = (unsigned char)(nlen%256);
+		nlen /=256;
+		yaBuf[0] =(unsigned char)nlen;
+		break;
+	}
+	tmr_pac.input(BODY_LEN_FLD, yaBuf, yaLen);
+
 	framing = false;
-	//gCFG->sch->sponte(&clr_timer_pius); /* 一次定时，不用清除 */
 	aptus->facio(&pro_unipac);
 	aptus->facio(&pro_tbuf);
 }
@@ -351,7 +438,7 @@ BufTmr::BufTmr()
 BufTmr::~BufTmr() 
 {
 	if ( framing)
-		gCFG->sch->sponte(&clr_timer_pius); /* 清除定时, 不再重连服务端 */
+		gCFG->sch->sponte(&clr_timer_pius); /* 清除定时 */
 	if ( has_config && gCFG)
 		delete gCFG;
 }
