@@ -84,7 +84,7 @@ private:
 	Amor::Pius local_pius;
 	Describo::Criptor my_tor; /* 保存套接字, 各子实例不同 */
 	DPoll::Pollor pollor; /* 保存事件句柄, 各子实例不同 */
-	Amor::Pius epl_set_ps, epl_clr_ps, pro_tbuf_ps;
+	Amor::Pius epl_set_ps, epl_clr_ps;
 
 	TBuffer rcv_buf, snd_buf;	/* 向右(左)传递 */
 	int sock_fd , arptype, ifindex, mtu, bufsize;
