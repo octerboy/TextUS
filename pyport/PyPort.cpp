@@ -219,7 +219,6 @@ static PyObject *python_sponte(PyObject *self, PyObject *args)
 
 static PyObject *python_log(PyObject *self, PyObject *args, TEXTUS_ORDO lev)
 {
-	bool ret;
 	Amor::Pius aps;
 	char **msg_arr=0;
 	Py_ssize_t  args_num,i;
@@ -247,7 +246,7 @@ static PyObject *python_log(PyObject *self, PyObject *args, TEXTUS_ORDO lev)
 	delete [] (char*)msg_arr;
 //	printf("sponte PyPort %p  ordo=%lu subor=%d \n", c_owner, aps.ordo, aps.subor);
 	aps.indic = (void*)buf.base;
-	ret =  c_owner->aptus->sponte(&aps);
+	c_owner->aptus->sponte(&aps);
 	/* release msg */
 	return Py_True;
 }
@@ -1651,7 +1650,7 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 		ret_obj = PyObject_CallMethod(pInstance, py_method, (char*)"O", ps_obj);
 		break;
 	}
-LAST:
+
 	Py_DECREF(ps_obj);
 	if ( ret_obj && PyObject_Compare(ret_obj, Py_True) == 0 )
 	{

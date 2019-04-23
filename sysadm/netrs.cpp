@@ -59,7 +59,7 @@ struct Netrs::NicInfo* Netrs::getNicInfo()
 	struct ifconf ifr;
 	struct ifreq *freq;
 	int skhandle;
-	int ifnum,i, ret;
+	int ifnum,i;
 	struct sockaddr_in *sin;
 	static struct NicSubInfo *subinfo = NULL; 
 
@@ -111,19 +111,19 @@ struct Netrs::NicInfo* Netrs::getNicInfo()
 	for( i = 0; i < ifnum; i++)
 	{
 		strncpy(subinfo[i].iface,freq[i].ifr_name,IF_NAMESIZE);
-		ret = ioctl(skhandle, SIOCGIFADDR, &freq[i]);
+		ioctl(skhandle, SIOCGIFADDR, &freq[i]);
 
 		sin = (struct sockaddr_in *) &freq[i].ifr_addr;
 		strcpy(subinfo[i].ip,inet_ntoa(sin->sin_addr));
 
-		ret = ioctl(skhandle, SIOCGIFNETMASK, &freq[i]);
+		ioctl(skhandle, SIOCGIFNETMASK, &freq[i]);
 		sin = (struct sockaddr_in *) &freq[i].ifr_netmask;
 		strcpy(subinfo[i].netmask,inet_ntoa(sin->sin_addr));
 
-		ret = ioctl(skhandle, SIOCGIFHWADDR, &freq[i]);
+		ioctl(skhandle, SIOCGIFHWADDR, &freq[i]);
 		strcpy(subinfo[i].mac,mac_to_dotted((unsigned char *)freq[i].ifr_hwaddr.sa_data));
 
-		ret = ioctl(skhandle, SIOCGIFFLAGS, &freq[i]);
+		ioctl(skhandle, SIOCGIFFLAGS, &freq[i]);
 		subinfo[i].flag = freq[i].ifr_flags;
 	}	
 

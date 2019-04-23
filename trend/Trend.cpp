@@ -302,7 +302,7 @@ Amor *Trend::clone()
 */
 
 #define DO_TREND(X, Y, Z)		\
-	WBUG("%s ordo %d, owner %p", Z, pius->ordo, owner);	\
+	WBUG("%s ordo %lu, owner %p", Z, pius->ordo, owner);	\
 	Conie *cie;				\
 						\
 	cie =match(Y, pius);			\

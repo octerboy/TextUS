@@ -103,7 +103,7 @@ public:
 	int evt_fd;	/* event fd , for aio */
 	aio_context_t aio_ctx;
 #define NUM_EVENTS 32
-	static struct io_event io_evs[NUM_EVENTS];
+	struct io_event io_evs[NUM_EVENTS];
 	struct Eventor : DPoll::PollorBase {
 			struct epoll_event ev;
 			inline Eventor() {
@@ -248,7 +248,6 @@ VOID CALLBACK timer_routine(PVOID lpParam, BOOLEAN TimerOrWaitFired)
 void TPoll::ignite(TiXmlElement *cfg)
 {
 	const char *timer_str;
-	int timer_res;
 
 	number_threads= 2;
 	cfg->QueryIntAttribute("iocp_thread_num", &number_threads);

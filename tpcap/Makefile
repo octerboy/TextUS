@@ -11,7 +11,7 @@ TPCap.o: TPCap.cpp
 	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=TPCap -o $@ TPCap.cpp
 	
 tpcap.so: TPCap.o
-	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS)
+	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase
 	$(_POST_RPO_SUB)
 
 clean:

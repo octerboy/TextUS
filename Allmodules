@@ -1,6 +1,6 @@
 #all modules name list here.
 DIRS= tinyxml amor baselib ajpfwd airline auxiliary \
-balance \
+balance buftmr \
 dbport dummy formauth grate \
 holding htmlsift httpagent httpauth httpcookie \
 httpdigest httpdir httpfile httpform httpnourl \
@@ -13,7 +13,7 @@ pactran pacins pipe pmuto process pyport ramify relay \
 sched sequence signal slice sslcli sslsrv sslvcert \
 tbufchan tbufile \
 tcgi tcpcli tcpctrl tcpsrv \
-thread tix2pac toway tranway trend tsoap \
+thread tix2pac toway tpoll tranway trend tsoap \
 unifom unipac version \
 jsport \
 sysadm tpcap ttyop \

@@ -987,7 +987,7 @@ ALL_STILL:
 	{
 		struct PVar *vr_tmp=0;
 		TiXmlElement *e_tmp, *some_ele;
-		const char *p=0, *pp=0; 
+		const char *p=0; 
 
 		int i = 0, a_num,j;
 		int lnn2;

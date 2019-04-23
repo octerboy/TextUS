@@ -19,6 +19,7 @@
 /* $NoKeywords: $ */
 
 #include "Amor.h"
+#include "DPoll.h"
 #include "Notitia.h"
 #include "Describo.h"
 #include "TBuffer.h"
@@ -82,6 +83,8 @@ private:
 	Amor::Pius pro_tbuf;
 	Amor::Pius local_pius;
 	Describo::Criptor my_tor; /* 保存套接字, 各子实例不同 */
+	DPoll::Pollor pollor; /* 保存事件句柄, 各子实例不同 */
+	Amor::Pius epl_set_ps, epl_clr_ps, pro_tbuf_ps;
 
 	TBuffer rcv_buf, snd_buf;	/* 向右(左)传递 */
 	int sock_fd , arptype, ifindex, mtu, bufsize;
@@ -89,6 +92,9 @@ private:
 
 	struct G_CFG {
 		const char *eth;
+		Amor *sch;
+		struct DPoll::PollorBase lor; /* 探询 */
+		bool use_epoll;
 
 		inline G_CFG(TiXmlElement *cfg) {
 			eth = (const char*) 0;
@@ -105,6 +111,7 @@ private:
 	TINLINE bool handle();
 	void init();	
 	void deliver(Notitia::HERE_ORDO aordo);
+	void end();
 
 	#include "wlog.h"
 };
@@ -123,6 +130,12 @@ void TPCap::ignite(TiXmlElement *prop)
 
 TPCap::TPCap():rcv_buf(8192)
 {
+	pollor.pupa = this;
+	pollor.type = DPoll::Sock;
+	epl_clr_ps.ordo = Notitia::CLR_EPOLL;
+	epl_clr_ps.indic = &pollor;
+	epl_set_ps.ordo = Notitia::SET_EPOLL;
+	epl_set_ps.indic = &pollor;
 	pro_tbuf.ordo = Notitia::PRO_TBUF;
 	pro_tbuf.indic = 0;
 
@@ -155,6 +168,21 @@ bool TPCap::facio( Amor::Pius *pius)
 
 	switch ( pius->ordo )
 	{
+	case Notitia::ERR_EPOLL:
+		WBUG("facio ERR_EPOLL");
+		WLOG(WARNING, (char*)pius->indic);	
+		end();
+		break;
+
+	case Notitia::RD_EPOLL:
+		WBUG("facio RD_EPOLL");
+		if ( handle() )
+		{
+			gCFG->sch->sponte(&epl_set_ps); //向tpoll,  再一次注册
+			aptus->facio(&pro_tbuf);
+		}
+		break;
+
 	case Notitia::FD_PRORD:
 		WBUG("facio FD_PRORD");
 		if ( handle() )
@@ -198,6 +226,7 @@ bool TPCap::sponte( Amor::Pius *pius)
 void TPCap::init()
 {
 	int err;
+	Amor::Pius tmp_p;
 	assert(gCFG->eth != (const char*) 0 );
 	if ( !gCFG->eth)
 		return ;
@@ -237,9 +266,39 @@ void TPCap::init()
 	}
 	bufsize = MAX_LINKHEADER_SIZE + mtu;
 
-	my_tor.scanfd = sock_fd;
-	local_pius.ordo = Notitia::FD_SETRD;
-	aptus->sponte(&local_pius);	//向Sched, 以设置rdSet.
+	tmp_p.ordo = Notitia::CMD_GET_SCHED;
+	aptus->sponte(&tmp_p);	//向tpoll, 取得sched
+	gCFG->sch = (Amor*)tmp_p.indic;
+	if ( !gCFG->sch ) 
+	{
+		WLOG(ERR, "no sched or tpoll");
+		return ;
+	}
+	tmp_p.ordo = Notitia::POST_EPOLL;
+	tmp_p.indic = &gCFG->lor;
+	gCFG->lor.pupa = this;
+		
+	gCFG->sch->sponte(&tmp_p);	//向tpoll, 取得TPOLL
+	if ( tmp_p.indic == gCFG->sch )
+	{
+		gCFG->use_epoll = true;
+		pollor.ev.data.ptr = &pollor;
+		pollor.fd = sock_fd;
+		pollor.ev.events = EPOLLIN | EPOLLET |EPOLLONESHOT | EPOLLRDHUP ;
+		pollor.pro_ps.ordo = Notitia::RD_EPOLL;
+		//if ( tcpcli->isConnecting)
+		//	pollor.ev.events |= EPOLLOUT;
+		pollor.ev.events &= ~EPOLLOUT;
+		pollor.op = EPOLL_CTL_ADD;
+
+		gCFG->sch->sponte(&epl_set_ps); //向tpoll,  再一次注册
+		pollor.op = EPOLL_CTL_MOD; //以后操作就是修改了。
+	} else {
+		gCFG->use_epoll = false;
+		my_tor.scanfd = sock_fd;
+		local_pius.ordo = Notitia::FD_SETRD;
+		aptus->sponte(&local_pius);	//向Sched, 以设置rdSet.
+	}
 	return ;
 
 ERROR_PRO:
@@ -248,6 +307,12 @@ ERROR_PRO:
 		close(sock_fd);
 		return ;
 	}
+}
+
+void TPCap::end()
+{
+	close(sock_fd);
+	sock_fd = -1;
 }
 
 TINLINE bool TPCap::handle()
@@ -269,10 +334,12 @@ ReadAgain:
 		} else if ( error == EAGAIN || error == EWOULDBLOCK )
 		{	//还在进行中, 回去再等.
 			WLOG_OSERR("recving encounter EAGAIN");
+			gCFG->sch->sponte(&epl_set_ps); //向tpoll,  再一次注册
 			return false;
 		} else	
 		{	//的确有错误
 			WLOG_OSERR("recv socket");
+			end();
 			return false;
 		}
 	}

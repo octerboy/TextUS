@@ -124,7 +124,6 @@ struct PacInsData {
 
 	void set_def(TiXmlElement *def_ele, struct InsData *insd) 
 	{
-		static int i=0;
 		const char *p;
 		char *q;
 		if ( !insd->err_code ) 
@@ -646,7 +645,7 @@ void PacIns::log_pac(PacketObj *pac,const char *prompt, enum PAC_LOG mode)
 void PacIns::set_ins (struct InsData *insd)
 {
 	TiXmlElement *p_ele, *def_ele;
-	const char *p=0, *pp=0; 
+	const char *p=0; 
 
 	int i = 0,a_num;
 	size_t lnn; 

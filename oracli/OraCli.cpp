@@ -111,7 +111,6 @@ static bool isLoaded = false;
 #endif
 void OraCli::ignite(TiXmlElement *cfg) 
 {
-	bool inThread =true;
 	const char *ip, *port, *svcname;
 	const char *default_port = "1521";
 	TiXmlElement *con_ele;
