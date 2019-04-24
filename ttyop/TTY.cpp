@@ -602,31 +602,33 @@ private:
 			}
 			memset(c_cc, 0, sizeof(c_cc));
 			ele =  cfg->FirstChildElement("character") ;
-			#define SET_CC(X) \
-			comm_str = ele->Attribute(#X);	\
-			if ( comm_str) {		\
-				BTool::unescape(comm_str, (unsigned char*)&n_str[0]) ;	\
-				c_cc[X] = n_str[0];		\
+			if ( ele ) {
+				#define SET_CC(X) \
+				comm_str = ele->Attribute(#X);	\
+				if ( comm_str) {		\
+					BTool::unescape(comm_str, (unsigned char*)&n_str[0]) ;	\
+					c_cc[X] = n_str[0];		\
+				}
+				SET_CC(VINTR)
+				SET_CC(VQUIT)
+				SET_CC(VERASE)
+				SET_CC(VKILL)
+				SET_CC(VEOF)
+				SET_CC(VTIME)
+				SET_CC(VMIN)
+			#ifdef VSWTC
+				SET_CC(VSWTC)
+			#endif
+				SET_CC(VSTART)
+				SET_CC(VSTOP)
+				SET_CC(VSUSP)
+				SET_CC(VEOL)
+				SET_CC(VREPRINT)
+				SET_CC(VDISCARD)
+				SET_CC(VWERASE)
+				SET_CC(VLNEXT)
+				SET_CC(VEOL2)
 			}
-			SET_CC(VINTR)
-			SET_CC(VQUIT)
-			SET_CC(VERASE)
-			SET_CC(VKILL)
-			SET_CC(VEOF)
-			SET_CC(VTIME)
-			SET_CC(VMIN)
-		#ifdef VSWTC
-			SET_CC(VSWTC)
-		#endif
-			SET_CC(VSTART)
-			SET_CC(VSTOP)
-			SET_CC(VSUSP)
-			SET_CC(VEOL)
-			SET_CC(VREPRINT)
-			SET_CC(VDISCARD)
-			SET_CC(VWERASE)
-			SET_CC(VLNEXT)
-			SET_CC(VEOL2)
 		}
 	};
 	struct G_CFG *gCFG;

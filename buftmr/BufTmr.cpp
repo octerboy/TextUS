@@ -56,10 +56,10 @@ public:
 	BufTmr();
 	~BufTmr();
 	enum LocType { 
-		HLVAR	= 13,	/* 变长,一个字节的值表示, 0x26表示38字节长度等  */
-		HLLVAR	= 14,	/* 变长, 高位在前, 你位在后, 下同 */
-		HLLLVAR	= 15,	
-		HL4VAR	= 16	
+	HLVAR	= 13,	/* 变长,一个字节的值表示, 0x26表示38字节长度等  */
+	HLLVAR	= 14,	/* 变长, 低位在前, 高位在后, 下同 */
+	HLLLVAR	= 15,	
+	HL4VAR	= 16	
 	};
 private:
 	Amor::Pius clr_timer_pius, alarm_pius, pro_unipac, pro_tbuf;  /* 清超时, 设超时 */
@@ -203,53 +203,48 @@ void BufTmr::stamp()
 	start_milli_l =  start_tp.tv_nsec/100000;
 #endif
 	start_milli = (unsigned short)start_milli_l;
-	nlen  = rcv_buf->point - rcv_buf->base;
-	if ( gCFG->seq)
-		tmr_pac.input(SEQ_FLD, gCFG->seq, gCFG->seq_len);
-	if ( gCFG->tag)
-		tmr_pac.input(TAG_FLD, gCFG->tag, gCFG->tag_len);
+	MD5Init (&Md5Ctx);
+	MD5Update (&Md5Ctx, md_magic, md_magic_len);
 
-	yaBuf[3] = (unsigned char)(start_sec%256);
-	start_sec /=256;
-	yaBuf[2] = (unsigned char)(start_sec%256);
+	if ( gCFG->seq) {
+		tmr_pac.input(SEQ_FLD, gCFG->seq, gCFG->seq_len);
+		MD5Update (&Md5Ctx, (char*)gCFG->seq, gCFG->seq_len);
+	} 
+	if ( gCFG->tag) {
+		tmr_pac.input(TAG_FLD, gCFG->tag, gCFG->tag_len);
+		MD5Update (&Md5Ctx, (char*)gCFG->tag, gCFG->tag_len);
+	}
+	yaBuf[0] = (unsigned char)(start_sec%256);
 	start_sec /=256;
 	yaBuf[1] = (unsigned char)(start_sec%256);
 	start_sec /=256;
-	yaBuf[0] =(unsigned char)start_sec;
+	yaBuf[2] = (unsigned char)(start_sec%256);
+	start_sec /=256;
+	yaBuf[3] =(unsigned char)start_sec;
 	tmr_pac.input(START_SEC_FLD, yaBuf, 4);
-	
-	yaBuf[1] = (unsigned char)(start_milli%256);
-	start_milli /=256;
+	MD5Update (&Md5Ctx, (char*)yaBuf, 4);
+
 	yaBuf[0] = (unsigned char)(start_milli%256);
 	start_milli /=256;
+	yaBuf[1] = (unsigned char)(start_milli%256);
+	start_milli /=256;
 	tmr_pac.input(START_MILLI_FLD, yaBuf, 2);
+	MD5Update (&Md5Ctx, (char*)yaBuf, 2);
 
-	yaBuf[3] = (unsigned char)(interval%256);
-	interval /=256;
-	yaBuf[2] = (unsigned char)(interval%256);
-	interval /=256;
-	yaBuf[1] = (unsigned char)(interval%256);
-	interval /=256;
-	yaBuf[0] =(unsigned char)interval;
-	yaLen = 4; 
-	while ( yaBuf[4-yaLen] == 0 && yaLen > 1) yaLen--; 
-	tmr_pac.input(INTERVAL_FLD, &yaBuf[4 -yaLen], yaLen);
-
-	if ( gCFG->opt)
-		tmr_pac.input(DATA_OPT_FLD, gCFG->opt, gCFG->opt_len);
-
-	MD5Init (&Md5Ctx);
-	MD5Update (&Md5Ctx, md_magic, md_magic_len);
-	MD5Update (&Md5Ctx, (char*)&start_sec, sizeof(start_sec));
-	MD5Update (&Md5Ctx, (char*)&start_milli, sizeof(start_milli));
+	tmr_pac.input(INTERVAL_FLD, (unsigned char*)&interval, sizeof(interval));
 	MD5Update (&Md5Ctx, (char*)&interval, sizeof(interval));
-	MD5Update (&Md5Ctx, (char*)rcv_buf->base, nlen);
+
+	nlen  = rcv_buf->point - rcv_buf->base;
 	if ( gCFG->opt)
 	{
+		tmr_pac.input(DATA_OPT_FLD, gCFG->opt, gCFG->opt_len);
 		MD5Update (&Md5Ctx, (char*)gCFG->opt, gCFG->opt_len);
 		nlen += gCFG->opt_len;
 	}
+
+	MD5Update (&Md5Ctx, (char*)rcv_buf->base, nlen);
 	MD5Final ((char *) &yaBuf[0], &Md5Ctx);
+
 	tmr_pac.input(MSG_SUM_FLD, yaBuf, MD_SUM_LEN);
 	offset = MD_SUM_LEN;
 	tmr_pac.input(OFFSET_FLD, &offset, sizeof(offset));

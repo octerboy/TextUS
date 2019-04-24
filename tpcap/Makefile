@@ -3,7 +3,7 @@
 # Build:
 #	B01:created by octerboy 2007/07/29, Panyu
 include ../Rules.basemod
-INCLUDE_DIR  += -I../baselib/include -I../logdata/include -I../sched/include
+INCLUDE_DIR  += -I../baselib/include -I../logdata/include -I../sched/include -I../tpoll/include
 
 all:tpcap.so
 

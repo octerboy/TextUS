@@ -103,6 +103,7 @@ public:
 	int evt_fd;	/* event fd , for aio */
 	aio_context_t aio_ctx;
 #define NUM_EVENTS 32
+	//static struct io_event io_evs[NUM_EVENTS];
 	struct io_event io_evs[NUM_EVENTS];
 	struct Eventor : DPoll::PollorBase {
 			struct epoll_event ev;
@@ -408,7 +409,7 @@ bool TPoll::sponte( Amor::Pius *apius)
 
 #if defined(__linux__)
 		WBUG("%p %s", ppo->pupa, "sponte CLR_EPOLL(epoll_ctl)");
-		if( !epoll_ctl(epfd, EPOLL_CTL_DEL, ppo->fd, &ppo->ev) )
+		if( epoll_ctl(epfd, EPOLL_CTL_DEL, ppo->fd, &ppo->ev) != 0 )
 		{
 			ERROR_PRO("epoll_ctl failed");
 			WLOG(WARNING, errMsg);
@@ -488,7 +489,7 @@ bool TPoll::sponte( Amor::Pius *apius)
 		assert(ppo);
 
 #if defined(__linux__)
-		if( !epoll_ctl(epfd, ppo->op, ppo->fd, &ppo->ev) )
+		if( epoll_ctl(epfd, ppo->op, ppo->fd, &ppo->ev)  != 0 )
 		{
 			ERROR_PRO("epoll_ctl failed");
 			WLOG(WARNING, errMsg);
@@ -564,7 +565,7 @@ bool TPoll::sponte( Amor::Pius *apius)
 			close(aor->fd);
 			goto END_TIMER_PRO;
 		}
-		if( !epoll_ctl(epfd, EPOLL_CTL_ADD, aor->fd, &aor->ev) )
+		if( epoll_ctl(epfd, EPOLL_CTL_ADD, aor->fd, &aor->ev)  != 0 )
 		{
 			ERROR_PRO("epoll_ctl(SET_TIMER) failed");
 			WLOG(WARNING, errMsg);
@@ -649,7 +650,7 @@ END_TIMER_PRO:
 			close(aor->fd);
 			goto END_ALARM_PRO;
 		}
-		if( !epoll_ctl(epfd, EPOLL_CTL_ADD, aor->fd, &aor->ev) )
+		if( epoll_ctl(epfd, EPOLL_CTL_ADD, aor->fd, &aor->ev)  != 0 )
 		{
 			ERROR_PRO("epoll_ctl(SET_ALARM) failed");
 			WLOG(WARNING, errMsg);
@@ -810,7 +811,7 @@ bool TPoll::facio( Amor::Pius *pius)
 			return true;
 		}
 #if defined(__linux__)
-		if( !epoll_ctl(epfd, EPOLL_CTL_ADD, evt_fd, &evtor.ev) )
+		if( epoll_ctl(epfd, EPOLL_CTL_ADD, evt_fd, &evtor.ev)  != 0 )
 		{
 			ERROR_PRO("epoll_ctl(SET_TIMER) failed");
 			WLOG(WARNING, errMsg);
