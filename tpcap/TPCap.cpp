@@ -64,6 +64,7 @@ static int iface_get_mtu(int fd, const char *device, char *ebuf);
 static int iface_bind(int fd, int ifindex, char *ebuf);
 static int iface_get_id(int fd, const char *device, char *ebuf);
 static int iface_get_arptype(int fd, const char *device, char *ebuf);
+static int iface_set_promisc(int fd, int ifindex, char *ebuf);
 
 
 #define TINLINE inline
@@ -98,8 +99,9 @@ private:
 
 		inline G_CFG(TiXmlElement *cfg) {
 			eth = (const char*) 0;
-			
 			eth = cfg->Attribute("device");
+			sch = 0;
+			lor.type = DPoll::NotUsed;
 		};
 
 		inline ~G_CFG() {
@@ -142,7 +144,9 @@ TPCap::TPCap():rcv_buf(8192)
 	my_tor.pupa = this;
 	local_pius.ordo = Notitia::TEXTUS_RESERVED;	/* 未定, 可有Notitia::FD_CLRWR等多种可能 */
 	local_pius.indic = &my_tor;
-
+#if  defined(__linux__)
+	pollor.ev.data.ptr = &pollor;
+#endif
 	gCFG = 0;
 	has_config = false;
 }
@@ -259,6 +263,12 @@ void TPCap::init()
 		goto ERROR_PRO;
 	}
 
+	if ((err = iface_set_promisc(sock_fd, ifindex, ebuf)) < 0)
+	{
+		WLOG(ERR, "iface_set_promisc %s", ebuf);
+		goto ERROR_PRO;
+	}
+
 	if ( (mtu = iface_get_mtu(sock_fd, gCFG->eth, ebuf)) == - 1)
 	{
 		WLOG(ERR, "iface_get_mtu %s", ebuf);
@@ -321,10 +331,25 @@ TINLINE bool TPCap::handle()
 
 	rcv_buf.grant(bufsize);	 //保证有足够空间
 ReadAgain:
-	rlen = recv(sock_fd, rcv_buf.point, bufsize, MSG_TRUNC);
+	//printf("bufsize %d\n", bufsize);
+	//rlen = recv(sock_fd, rcv_buf.point, bufsize, MSG_TRUNC);
+	rlen = recv(sock_fd, rcv_buf.point, bufsize, 0);
 	if( rlen > 0 ) 
 	{
+		//printf("rlen %d\n", rlen);
 		rcv_buf.commit(rlen);   /* 指针向后移 */	
+		/*
+		if ( rlen > bufsize) {
+		for ( int i = 0 ; i < rcv_buf.point - rcv_buf.base; i++ )
+		{
+			printf("%02x ", rcv_buf.base[i]);
+			if ( (i+1)%32 == 0 ) printf ("\n");
+			if ( (i+1)%32 != 0  &&  (i+1)%16 == 0) printf (" ");
+			if ( i == bufsize-1) printf ("==");
+		}
+		getchar();
+		}
+		*/
 		return true;
 	} else {
 		int error = errno;
@@ -583,6 +608,21 @@ iface_get_arptype(int fd, const char *device, char *ebuf)
 	}
 
 	return ifr.ifr_hwaddr.sa_family;
+}
+
+static int
+iface_set_promisc(int fd, int ifindex, char *ebuf)
+{
+	struct packet_mreq mreq = {0};
+	mreq.mr_ifindex = ifindex;
+	mreq.mr_type = PACKET_MR_PROMISC;
+
+	if (setsockopt(fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) != 0) {
+		snprintf(ebuf, PCAP_ERRBUF_SIZE,
+			"setsockopt(SOL_PACKET, PACKET_ADD_MEMBERSHIP): %s", strerror(errno));
+		return -1;
+	}
+	return 0;
 }
 
 #include "hook.c"

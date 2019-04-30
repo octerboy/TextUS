@@ -432,14 +432,12 @@ bool Aio::a_open()
 
 void Aio::epoll_set()
 {
-#if defined(__sun) || defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
+#if defined(__sun) || defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__) || defined(__linux__)
 	aiocbp_R->aio_fildes = fd;
 	aiocbp_R->aio_nbytes = block_size;
-        aiocbp_R->aio_buf = rcv_buf->point;
         aiocbp_R->aio_offset = 0;
 	aiocbp_W->aio_fildes = fd;
 	aiocbp_W->aio_nbytes = block_size;
-        aiocbp_W->aio_buf = snd_buf->base;
         aiocbp_W->aio_offset = 0;
 #endif
 #if defined(_WIN32)
@@ -462,7 +460,8 @@ void Aio::ignite(TiXmlElement *cfg)
 	}
 	comm_str = cfg->Attribute("file");
 	if ( comm_str ) 
-		TEXTUS_STRCPY(file_name, comm_str);
+		TEXTUS_SPRINTF(file_name, comm_str);
+	block_size = gCFG->block_size;
 }
 
 #define DELI(X)	\
@@ -790,7 +789,9 @@ A_OPEN_PRO:
 #else
 		fd = *fdPtr;
 #endif
+		//printf("1--- ctx %lu \n", pollor.ctx);
 		epoll_set();
+		//printf("2---- ctx %lu \n", pollor.ctx);
 		break;
 
 	case Notitia::DMD_START_SESSION:
@@ -897,6 +898,7 @@ Aio::Aio()
 	aiocbp_W = &(pollor.aiocb_W);
 	iocbp_R = &(pollor.iocbpp[0]);
 	iocbp_W = &(pollor.iocbpp[1]);
+	//printf("==== alloc aiocbp_R %p, iocbpp[0] %p\n", aiocbp_R, pollor.iocbpp[0]);
 #endif
 #if defined(_WIN32)
 	hdev = INVALID_HANDLE_VALUE;
@@ -945,7 +947,7 @@ void Aio::transmitto_ex()
 	aiocbp_W->aio_nbytes = snd_len;
 	aiocbp_W->aio_offset = 0;
 	if (io_submit(pollor.ctx, 1, iocbp_W) <= 0) {
-		WLOG_OSERR("aio_write");
+		WLOG_OSERR("io_submit(write)");
 		a_close();
 		goto ERR_RET;
 	}
@@ -955,7 +957,7 @@ void Aio::transmitto_ex()
         aiocbp_W->aio_buf = snd_buf->base;
 	if ( aio_write(aiocbp_W) == -1 )
 	{
-		WLOG_OSERR("io_submit(write)");
+		WLOG_OSERR("aio_write");
 		a_close();
 		goto ERR_RET;
 	}
@@ -985,7 +987,9 @@ void Aio::recito_ex()
 	aiocbp_R->aio_reqprio = 0;
 	aiocbp_R->aio_buf = (u_int64_t) rcv_buf->point;
 	aiocbp_R->aio_nbytes = block_size;
+	//printf("block %d bytes %d iocbp_R %p aiocbp_R %p\n",block_size,  (int)aiocbp_R->aio_nbytes, iocbp_R, aiocbp_R);
 	aiocbp_R->aio_offset = 0;
+	//{int *a =0; *a= 0; }
 	if (io_submit(pollor.ctx, 1, iocbp_R) <= 0) {
 		WLOG_OSERR("io_submit(read)");
 		a_close();

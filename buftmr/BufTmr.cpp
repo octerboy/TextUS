@@ -82,6 +82,7 @@ private:
 
 	struct G_CFG {
 		int time_out;	/* 超时时间。0: 不设超时 */
+		unsigned short time_len;
 		unsigned short tag_len;
 		unsigned char *tag;
 		unsigned short seq_len;
@@ -89,12 +90,16 @@ private:
 		unsigned short opt_len;
 		unsigned char *opt;
 		LocType len_type;           /* 获取长度值的方式 */
+		unsigned short body_len_n;
 		
 		Amor *sch;
 		inline G_CFG ( TiXmlElement *cfg ) {
 			const char *str;
 			time_out = 0;
 			cfg->QueryIntAttribute("time_out", &(time_out));
+			if ( time_out <  16777215 ) time_len =3 ;
+			if ( time_out <  65535 ) time_len =2 ;
+			if ( time_out <  255 ) time_len =1 ;
 			sch = 0;
 			tag_len = 0;
 			tag = 0;
@@ -128,6 +133,24 @@ private:
 			LOC(HLLVAR)	
 			LOC(HLLLVAR)	
 			LOC(HL4VAR)	
+			switch ( len_type)
+			{
+			case HLVAR:	
+				body_len_n = 1;
+				break;
+
+			case HLLVAR:	
+				body_len_n = 2;
+				break;
+
+			case HLLLVAR:	
+				body_len_n = 3;
+				break;
+
+			case HL4VAR:	
+				body_len_n = 4;
+				break;
+			}
 		};
 	};
 	struct G_CFG *gCFG;	/* Shared for all objects in this node */
@@ -188,7 +211,7 @@ void BufTmr::stamp()
 	MD5_CTX Md5Ctx;
 	unsigned char yaBuf[16];
 	unsigned short start_milli;
-	unsigned int yaLen = 0;
+	unsigned int i, yaLen = 0;
 #if defined (_WIN32)
 	unsigned __int64 etik, stik, intv;
 	etik = (unsigned __int64)end_tm.dwLowDateTime + (((unsigned __int64)end_tm.dwHighDateTime) << 32);
@@ -208,19 +231,17 @@ void BufTmr::stamp()
 
 	if ( gCFG->seq) {
 		tmr_pac.input(SEQ_FLD, gCFG->seq, gCFG->seq_len);
-		MD5Update (&Md5Ctx, (char*)gCFG->seq, gCFG->seq_len);
+		//MD5Update (&Md5Ctx, (char*)gCFG->seq, gCFG->seq_len);
 	} 
 	if ( gCFG->tag) {
 		tmr_pac.input(TAG_FLD, gCFG->tag, gCFG->tag_len);
-		MD5Update (&Md5Ctx, (char*)gCFG->tag, gCFG->tag_len);
+		//MD5Update (&Md5Ctx, (char*)gCFG->tag, gCFG->tag_len);
 	}
-	yaBuf[0] = (unsigned char)(start_sec%256);
-	start_sec /=256;
-	yaBuf[1] = (unsigned char)(start_sec%256);
-	start_sec /=256;
-	yaBuf[2] = (unsigned char)(start_sec%256);
-	start_sec /=256;
-	yaBuf[3] =(unsigned char)start_sec;
+	for ( i = 0 ; i < 4 ; i++)
+	{
+		yaBuf[3-i] = (unsigned char)(start_sec%256);
+		start_sec /=256;
+	}
 	tmr_pac.input(START_SEC_FLD, yaBuf, 4);
 	MD5Update (&Md5Ctx, (char*)yaBuf, 4);
 
@@ -231,8 +252,13 @@ void BufTmr::stamp()
 	tmr_pac.input(START_MILLI_FLD, yaBuf, 2);
 	MD5Update (&Md5Ctx, (char*)yaBuf, 2);
 
-	tmr_pac.input(INTERVAL_FLD, (unsigned char*)&interval, sizeof(interval));
-	MD5Update (&Md5Ctx, (char*)&interval, sizeof(interval));
+	for ( i = 0 ; i < gCFG->time_len ; i++)
+	{
+		yaBuf[gCFG->time_len-i-1] = (unsigned char)(interval%256);
+		interval /=256;
+	}
+	tmr_pac.input(INTERVAL_FLD, (char*)yaBuf, gCFG->time_len);
+	MD5Update (&Md5Ctx, (char*)yaBuf, yaLen);
 
 	nlen  = rcv_buf->point - rcv_buf->base;
 	if ( gCFG->opt)
@@ -249,52 +275,12 @@ void BufTmr::stamp()
 	offset = MD_SUM_LEN;
 	tmr_pac.input(OFFSET_FLD, &offset, sizeof(offset));
 
-	switch ( gCFG->len_type)
+	for ( i = 0 ; i < gCFG->body_len_n ; i++)
 	{
-	case HLVAR:	
-		yaLen = 1;
-		if ( nlen > 255) 
-			 yaBuf[0] = 0xff;
-		else
-			yaBuf[0] =(unsigned char) (nlen &0xff);
-		break;
-
-	case HLLVAR:	
-		yaLen = 2;
-		if ( nlen > 65535) 
-			memset(yaBuf, 0xff, 2);
-		else {
-			yaBuf[1] = (unsigned char)(nlen%256);
-			nlen /=256;
-			yaBuf[0] =(unsigned char)nlen;
-		}
-		break;
-
-	case HLLLVAR:	
-		yaLen = 3;
-		if ( nlen > 16777215 ) 
-			memset(yaBuf, 0xff, 3);
-		else {
-			yaBuf[2] = (unsigned char)(nlen%256);
-			nlen /=256;
-			yaBuf[1] = (unsigned char)(nlen%256);
-			nlen /=256;
-			yaBuf[0] =(unsigned char)nlen;
-		}
-		break;
-
-	case HL4VAR:	       
-		yaLen = 4;
-		yaBuf[3] = (unsigned char)(nlen%256);
+		yaBuf[gCFG->body_len_n-1-i] = (unsigned char)(nlen%256);
 		nlen /=256;
-		yaBuf[2] = (unsigned char)(nlen%256);
-		nlen /=256;
-		yaBuf[1] = (unsigned char)(nlen%256);
-		nlen /=256;
-		yaBuf[0] =(unsigned char)nlen;
-		break;
 	}
-	tmr_pac.input(BODY_LEN_FLD, yaBuf, yaLen);
+	tmr_pac.input(BODY_LEN_FLD, yaBuf, gCFG->body_len_n);
 
 	framing = false;
 	aptus->facio(&pro_unipac);
@@ -312,8 +298,10 @@ bool BufTmr::facio( Amor::Pius *pius)
 		if ( !framing ) {
 #if defined (_WIN32)
 			GetSystemTimeAsFileTime(&start_tm);
+			memcpy(&end_tm, &start_tm, sizeof(start_tm));
 #else
 			clock_gettime(CLOCK_REALTIME, &start_tp);
+			memcpy(&end_tp, &start_tp, sizeof(start_tp));
 #endif
 			framing = true;
 			if ( gCFG->time_out == 0 ) 

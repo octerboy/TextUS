@@ -103,7 +103,6 @@ public:
 	int evt_fd;	/* event fd , for aio */
 	aio_context_t aio_ctx;
 #define NUM_EVENTS 32
-	//static struct io_event io_evs[NUM_EVENTS];
 	struct io_event io_evs[NUM_EVENTS];
 	struct Eventor : DPoll::PollorBase {
 			struct epoll_event ev;
@@ -353,8 +352,10 @@ void TPoll::ignite(TiXmlElement *cfg)
 				return ;
 		}
 
-		aio_ctx = 0;
+		//aio_ctx = 0;
+		memset(&aio_ctx, 0, sizeof(aio_ctx));
 		if (io_setup(16384, &aio_ctx)) {
+		//if (io_setup(16, &aio_ctx)) {
 				ERROR_PRO("io_setup");
 				return ;
 		}
@@ -489,6 +490,7 @@ bool TPoll::sponte( Amor::Pius *apius)
 		assert(ppo);
 
 #if defined(__linux__)
+		WBUG("%p %s(fd=%d) events(%08x)", ppo->pupa, "sponte SET_EPOLL", ppo->fd, ppo->ev.events );
 		if( epoll_ctl(epfd, ppo->op, ppo->fd, &ppo->ev)  != 0 )
 		{
 			ERROR_PRO("epoll_ctl failed");
@@ -507,6 +509,7 @@ bool TPoll::sponte( Amor::Pius *apius)
 #endif
 
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
+		WBUG("%p %s(fd=%d) events(%d)", ppo->pupa, "sponte SET_EPOLL", ppo->fd, ppo->events );
 		if( kevent(kq, &(ppo->events[0]), 2, NULL, 0, NULL) == - 1 )
 		{
 			ERROR_PRO("kevent(SET_EPOLL) failed");
@@ -640,9 +643,9 @@ END_TIMER_PRO:
 			goto END_ALARM_PRO;
 		}
 		tmp_timeout.it_value.tv_sec = interval/1000;
-		tmp_timeout.it_value.tv_nsec = (interval%1000)*1000;
+		tmp_timeout.it_value.tv_nsec = (interval%1000)*1000000;
 		tmp_timeout.it_interval.tv_sec = interval2/1000;
-		tmp_timeout.it_interval.tv_nsec = (interval2%1000)*1000;
+		tmp_timeout.it_interval.tv_nsec = (interval2%1000)*1000000;
 		if (timerfd_settime(aor->fd, 0, &tmp_timeout, NULL) == -1) 
 		{
 			ERROR_PRO("timerfd_settime failed");

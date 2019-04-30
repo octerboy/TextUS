@@ -61,6 +61,25 @@ private:
 	PacketObj *fname_pac;
 	char ttyname[1024];
 
+	bool has_config;
+	TBuffer *tb_arr[3];
+
+    	int ttyfd;	/* 文件句柄 */
+	Describo::Criptor mytor; /* 保存套接字, 各子实例不同 */
+	DPoll::Pollor pollor; /* 保存事件句柄, 各子实例不同 */
+	Amor::Pius epl_set_ps, epl_clr_ps, pro_tbuf_ps;
+	
+	TBuffer *rcv_buf, *snd_buf, *m_rcv_buf, *m_snd_buf;
+	bool wr_blocked ; 	/* 最近一次写阻塞标志 */
+
+	TINLINE void transmit();
+	TINLINE bool recito();
+	TINLINE bool init();
+	bool setup_com();
+	TINLINE void end();
+	TINLINE void deliver(Notitia::HERE_ORDO aordo);
+	void set_wr(bool putin);
+
 	char errMsg[ERRSTR_LEN];
 	struct G_CFG {
 		unsigned int    parity, stop_bit, baud_rate, data_size;
@@ -71,12 +90,13 @@ private:
 		cc_t	c_cc[NCCS];
 		cc_t	c_line;
 		int file_flg;
-		int wmode;
+		bool canon;
+		int xflow;
 
 		bool on_start;
 		Amor *sch;
 		struct DPoll::PollorBase lor; /* 探询 */
-		bool useAio;
+		bool use_epoll;
 		int pac_fld_num;
 		inline int checkBaud( int baud )
 		{
@@ -186,7 +206,7 @@ private:
 
 		inline G_CFG(TiXmlElement *cfg) {
 			const char *comm_str;
-			int baud_f, size_f, stop_f;
+			int baud_f, size_f, stop_f, tmp_i;
 			unsigned int i;
 			TiXmlElement *ele;
 			char n_str[256];
@@ -195,32 +215,45 @@ private:
 			data_size = CS8;	/* Data Bit = 8     */
     			stop_bit = 1;		/* Stop Bit = 1     */
 			on_start = true;
-			useAio = false;
+			use_epoll = false;
 
 			if ( !cfg) return;
 			pac_fld_num = 1;
-			wmode = 0;
-			comm_str = cfg->Attribute("mode");
-			if ( strcasecmp(comm_str, "raw") ==0 )
+			canon = false;
+			comm_str = cfg->Attribute("canon");
+			if ( comm_str && strcasecmp(comm_str, "yes") ==0 )
+				canon = true;
+
+			xflow = 3;
+			comm_str = cfg->Attribute("xflow");
+			if ( comm_str && strcasecmp(comm_str, "rts/cts") ==0 )
 			{
-				wmode = 1;
-			} else if ( strcasecmp(comm_str, "canon") ==0 ) {
-				wmode = 2;
+				xflow = 0;
+			} else if ( comm_str && strcasecmp(comm_str, "xon/xoff") ==0 ) {
+				xflow = 1;
+			} else if ( comm_str && strcasecmp(comm_str, "both") ==0 ) {
+				xflow = 2;
 			}
+
 			cfg->QueryIntAttribute("field", &(pac_fld_num));
 			c_line = 0;
 			if ( cfg->Attribute("line"))
 			{
-				cfg->QueryIntAttribute("line", &(file_flg));
-				c_line = (cc_t) file_flg;
+				cfg->QueryIntAttribute("line", &(tmp_i));
+				c_line = (cc_t) tmp_i;
 			}
+			parity = 0;
 			comm_str = cfg->Attribute("parity");
-			if ( strcasecmp(comm_str, "odd" ) == 0 )
+			if ( comm_str && strcasecmp(comm_str, "odd" ) == 0 )
 				parity = 1 ;
-			else if ( strcasecmp(comm_str, "even" ) == 0 )
+			else if ( comm_str && strcasecmp(comm_str, "even" ) == 0 )
 				parity = 2 ;
-			else if ( strcasecmp(comm_str, "none" ) == 0 )
+			else if ( comm_str && strcasecmp(comm_str, "none" ) == 0 )
 				parity = 0;
+			else if ( comm_str && strcasecmp(comm_str, "mark" ) == 0 )
+				parity = 3;
+			else if ( comm_str && strcasecmp(comm_str, "space" ) == 0 )
+				parity = 4;
 
 			cfg->QueryIntAttribute("baud", &(baud_f));	
 			baud_rate = checkBaud(baud_f);
@@ -632,24 +665,6 @@ private:
 		}
 	};
 	struct G_CFG *gCFG;
-	bool has_config;
-	TBuffer *tb_arr[3];
-
-    	int ttyfd;	/* 文件句柄 */
-	Describo::Criptor mytor; /* 保存套接字, 各子实例不同 */
-	
-	//struct  termios  ttyold, ttynew;
-	//TINLINE bool set();
-	TBuffer *rcv_buf, *snd_buf, *m_rcv_buf, *m_snd_buf;
-	bool wr_blocked ; 	/* 最近一次写阻塞标志 */
-
-	TINLINE void transmit();
-	TINLINE bool recito();
-	TINLINE bool init();
-	bool setup_com();
-	TINLINE void end();
-	TINLINE void deliver(Notitia::HERE_ORDO aordo);
-
 #include "wlog.h"
 };
 
@@ -687,6 +702,31 @@ bool TTY::facio( Amor::Pius *pius)
 	assert(pius);
 	switch (pius->ordo)
 	{
+	case Notitia::ERR_EPOLL:
+		WBUG("facio ERR_EPOLL");
+		WLOG(WARNING, (char*)pius->indic);	
+		end();	//直接关闭就可.
+		break;
+
+	case Notitia::RD_EPOLL:
+		WBUG("facio RD_EPOLL");
+		if ( recito() ) {
+			gCFG->sch->sponte(&epl_set_ps); //向tpoll,  再一次注册
+			aptus->facio(&pro_tbuf);
+		}
+		break;
+
+	case Notitia::WR_EPOLL:
+		WBUG("facio WR_EPOLL");
+		transmit();
+		break;
+
+	case Notitia::EOF_EPOLL:
+		WBUG("facio EOF_EPOLL");
+		WLOG(INFO, "peer disconnected.");
+		end();
+		break;
+
 	case Notitia::SET_UNIPAC:
 		WBUG("facio SET_UNIPAC");
 		{
@@ -761,15 +801,11 @@ OPEN_PRO:
 		
 		gCFG->sch->sponte(&tmp_pius);	//向tpoll, 取得TPOLL
 		if ( tmp_pius.indic == gCFG->sch )
-		{
-			gCFG->useAio = true;
-			tmp_pius.ordo = Notitia::PRO_FILE_FD;
-			tmp_pius.indic = &ttyfd;
-			aptus->facio(&tmp_pius);
-		} else {
-			gCFG->useAio = false;
-			deliver(Notitia::SET_TBUF);
-		}
+			gCFG->use_epoll = true;
+		else 
+			gCFG->use_epoll = false;
+
+		deliver(Notitia::SET_TBUF);
 		if ( gCFG->on_start )
 			init();
 
@@ -787,7 +823,7 @@ OPEN_PRO:
 
 	case Notitia::CLONE_ALL_READY:
 		WBUG("facio CLONE_ALL_READY");
-		if (!gCFG->useAio )
+		if (!gCFG->use_epoll )
 		{
 			deliver(Notitia::SET_TBUF);
 		}
@@ -904,6 +940,16 @@ bool TTY::sponte( Amor::Pius *pius)
 
 TTY::TTY()
 {
+	pollor.pupa = this;
+	pollor.type = DPoll::Sock;
+	epl_clr_ps.ordo = Notitia::CLR_EPOLL;
+	epl_clr_ps.indic = &pollor;
+	epl_set_ps.ordo = Notitia::SET_EPOLL;
+	epl_set_ps.indic = &pollor;
+#if  defined(__linux__)
+	pollor.ev.data.ptr = &pollor;
+#endif
+
 	mytor.pupa = this;
 	local_pius.ordo = Notitia::TEXTUS_RESERVED;
 	local_pius.indic = &mytor;
@@ -935,16 +981,19 @@ TTY::~TTY()
 
 TINLINE bool TTY::recito()
 {
-	int len;
-
-	rcv_buf->grant(512);	//保证有足够空间
+	int len,nlen=0;
+#define RCV_SIZE 512
+	rcv_buf->grant(RCV_SIZE);	//保证有足够空间
 ReadAgain:
-	if( (len = read(ttyfd, (char *)rcv_buf->point, 512)) == 0) /* (char*) for WIN32 */
+	if( (len = read(ttyfd, (void *)rcv_buf->point, RCV_SIZE)) == 0) 
 	{	//对方关闭套接字
-		TEXTUS_SNPRINTF(errMsg, ERRSTR_LEN, "recv 0, disconnected");
+		TEXTUS_SNPRINTF(errMsg, ERRSTR_LEN, "read 0, disconnected");
 		SLOG(INFO)
 		end();
-		return false;
+		if ( nlen ==0 )
+			return false;
+		else
+			return true;
 	} else if ( len == -1 )
 	{ 
 		int error = errno;
@@ -955,17 +1004,72 @@ ReadAgain:
 		{	//还在进行中, 回去再等.
 			ERROR_PRO("read encounter EAGAIN")
 			SLOG(NOTICE)
-			return false;
+			if ( nlen ==0 )
+				return false;
+			else
+				return true;
 		} else	
 		{	//的确有错误
 			ERROR_PRO("read")
 			SLOG(ERR)
-			return false;
+			if ( nlen ==0 )
+				return false;
+			else
+				return true;
 		}
 	} 
 
 	rcv_buf->commit(len);	/* 指针向后移 */
+	nlen += len;
+	if ( len == RCV_SIZE )
+		goto ReadAgain;
 	return true;
+}
+
+void TTY::set_wr(bool putin)
+{
+	if ( gCFG->use_epoll)
+	{
+		if (putin ) 
+		{
+		#if  defined(__linux__)
+			pollor.ev.events |= EPOLLOUT;
+		#endif	//for linux
+
+		#if  defined(__sun)
+			pollor.events |= POLLOUT;
+		#endif	//for sun
+
+		#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
+			pollor.events[1].flags = EV_ADD | EV_ONESHOT;
+		#endif	//for bsd
+
+			gCFG->sch->sponte(&epl_set_ps);	//向tpoll, 以设置kqueue等
+		} else {	//取消
+		#if  defined(__linux__)
+			pollor.ev.events &= ~EPOLLOUT;	//等下一次设置POLLIN时不再设
+		#endif	//for linux
+
+		#if  defined(__sun)
+			pollor.events &= ~POLLOUT;	//等下一次设置POLLIN时不再设
+		#endif	//for sun
+
+		#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
+			pollor.events[1].flags = EV_ADD | EV_DISABLE;	//等下一次设置时不再设
+		#endif	//for bsd
+		}
+	} else {
+		if (putin ) 
+		{
+			//向Sched, 以设置wrSet.
+			local_pius.ordo =Notitia::FD_SETWR;
+			aptus->sponte(&local_pius);
+		} else {
+			local_pius.ordo =Notitia::FD_CLRWR;
+			//向Sched, 以设置wrSet.
+			aptus->sponte(&local_pius);	
+		}
+	}
 }
 
 TINLINE void TTY::transmit()
@@ -981,26 +1085,24 @@ SendAgain:
 		printf("%02x ", snd_buf->base[i]);
 	printf("\n");
 	*/
-	len = write(ttyfd, (char *)snd_buf->base, snd_len); /* (char*) for WIN32 */
+	len = write(ttyfd, (void *)snd_buf->base, snd_len);
 	if( len == -1 )
 	{ 
 		int error = errno;
 		if (error == EINTR)	
 		{	//有信号而已,再试
 			goto SendAgain;
-
 		} else if (error == EWOULDBLOCK || error == EAGAIN)
 		{	//回去再试, 用select, 要设wrSet
 			if ( wr_blocked ) 	//最近一次阻塞
 			{
+				set_wr(true);	
 				return ;
 			} else {	//刚发生的阻塞
 				ERROR_PRO("write encounter EAGAIN")
 				SLOG(NOTICE)
 				wr_blocked = true;
-				//向Sched, 以设置wrSet.
-				local_pius.ordo =Notitia::FD_SETWR;
-				aptus->sponte(&local_pius);
+				set_wr(true);	
 			}
 		} else {
 			ERROR_PRO("write")
@@ -1014,29 +1116,25 @@ SendAgain:
 	{	
 		if ( wr_blocked ) 	//最近一次还是阻塞
 		{
+			set_wr(true);	
 			return ;
 		} else {	//刚发生的阻塞
 			TEXTUS_SNPRINTF(errMsg, ERRSTR_LEN, "sending not completed.");
 			SLOG(NOTICE)
 			wr_blocked = true;
-			//向Sched, 以设置wrSet.
-			local_pius.ordo =Notitia::FD_SETWR;
-			aptus->sponte(&local_pius);
+			set_wr(true);	
 		}
 	} else 
 	{	//不发生阻塞了
 		if ( wr_blocked ) 	//最近一次阻塞
 		{
 			wr_blocked = false;
-			local_pius.ordo =Notitia::FD_CLRWR;
-			//向Sched, 以设置wrSet.
-			aptus->sponte(&local_pius);	
+			set_wr(false);	
 		} else
 		{	//一直没有阻塞
 			return ; //发送完成
 		}
 	}
-
 	return ;
 }
 
@@ -1045,7 +1143,7 @@ TINLINE void TTY::end()
 	WBUG("end().....");
 	if ( ttyfd == -1 ) 
 		return;	/* 不重复关闭 */
-	if ( !gCFG->useAio )
+	if ( !gCFG->use_epoll )
 	{
 		deliver(Notitia::FD_CLRWR);
 		deliver(Notitia::FD_CLREX);
@@ -1111,16 +1209,19 @@ TINLINE void TTY::deliver(Notitia::HERE_ORDO aordo)
 
 bool TTY::init()
 {
-	if ( !gCFG->file_flg )
-		ttyfd=open(ttyname,O_RDWR);
-	else
-		ttyfd=open(ttyname, gCFG->file_flg);
+	int flag;
+	flag = gCFG->file_flg;
+	if ( !flag )
+		flag = O_RDWR;
+	if ( gCFG->use_epoll)
+		flag |= O_NDELAY;
+
+	ttyfd=open(ttyname, flag);
 	if ( ttyfd < 0 )
 	{
 		WLOG_OSERR("open tty");
 		return false;
 	}
-
     	if( !setup_com() )
 	{
 		WLOG_OSERR("set tty");
@@ -1128,134 +1229,133 @@ bool TTY::init()
 		ttyfd = -1;
 		return false;
 	}
-	if ( !gCFG->useAio )
+
+	if ( gCFG->use_epoll )
 	{
+		pollor.pro_ps.ordo = Notitia::RD_EPOLL;
+#if  defined(__linux__)
+		pollor.fd = ttyfd;
+		pollor.ev.events = EPOLLIN | EPOLLET |EPOLLONESHOT | EPOLLRDHUP ;
+		pollor.op = EPOLL_CTL_ADD;
+#endif	//for linux
+
+#if  defined(__sun)
+		pollor.fd = ttyfd;
+		pollor.events = POLLIN;
+#endif	//for sun
+
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
+		EV_SET(&(pollor.events[0]), ttyfd, EVFILT_READ, EV_ADD | EV_ONESHOT, 0, 0, &pollor);
+		EV_SET(&(pollor.events[1]), tcpcli->connfd, EVFILT_WRITE, EV_ADD | EV_DISABLE, 0, 0, &pollor);
+#endif	//for bsd
+
+		gCFG->sch->sponte(&epl_set_ps);	//向tpoll
+
+#if  defined(__linux__)
+		pollor.op = EPOLL_CTL_MOD; //以后操作就是修改了。
+#endif	//for linux
+	} else {
 		mytor.scanfd = ttyfd;
 		deliver(Notitia::FD_SETRD);
 		deliver(Notitia::FD_CLRWR);
 		deliver(Notitia::FD_CLREX);
-
-		/* 接收(发送)缓冲区清空 */
-		if ( rcv_buf) rcv_buf->reset();	
-		if ( snd_buf) snd_buf->reset();
 	}
+
+	/* 接收(发送)缓冲区清空 */
+	if ( rcv_buf) rcv_buf->reset();	
+	if ( snd_buf) snd_buf->reset();
 	deliver(Notitia::START_SESSION); //向接力者发出通知, 本对象开始
-	return true;
-}
-#if 0
-bool TTY::set()
-{
-	if ( ioctl(ttyfd,TCGETA,&ttyold) == -1 )
-        	return false;
-
-	if ( ioctl(ttyfd,TCGETA,&ttynew) == -1 )
-		return false;
-
-	ttynew.c_lflag &= ~ICANON ;
-
-	ttynew.c_cc[VMIN] = 1 ;
-	ttynew.c_cc[VTIME] = 0 ;
-
-	ttynew.c_iflag = 0 ;
-	ttynew.c_oflag = 0 ;
-
-	ttynew.c_cflag = (gCFG->baud_rate | gCFG->data_size | CREAD) ;
-
-	if ( gCFG->parity == 1)
-	{
-		ttynew.c_cflag &= ~PARENB ;
-		ttynew.c_cflag |= PARODD ;
-
-	} else if ( gCFG->parity == 2) 
-	{
-		ttynew.c_cflag |= PARENB ;
-		ttynew.c_cflag &= ~PARODD ;
-
-        } else if ( gCFG->parity == 0)
-	{
-                ttynew.c_cflag &= ~PARENB ;
-                ttynew.c_cflag &= ~PARODD ;
-	}
-
-	if (gCFG->stop_bit == 2) 
-		ttynew.c_cflag |= CSTOPB ;
-	else
-		ttynew.c_cflag &= ~CSTOPB ;
-
-#if defined(__linux__)
-	ttynew.c_line=0;    /* line discipline */
-#endif
-
-	if ( ioctl(ttyfd,TCSETAF,&ttynew) == -1 )
-		return false;
 
 	return true;
 }
-#endif
 
 bool TTY:: setup_com(){
 	struct termios options; 
 	unsigned int i;
+	tcflush(ttyfd, 2);
 	if ( tcgetattr(ttyfd, &options) != 0 ) 
 		return false;
 
-	/* Set the baud rates to gCFG->baud_rate ...*/
-	if ( cfsetispeed(&options, gCFG->baud_rate) != 0 ) 
-		return false;
-	if ( cfsetospeed(&options, gCFG->baud_rate) != 0 ) 
-		return false;
-
 	/* Enable the receiver and set local mode...*/
-	options.c_cflag |= (CLOCAL | CREAD);
-
-	/* Set parity options.*/
-	if ( gCFG->parity == 1)
-	{
-		options.c_cflag |= (PARODD | PARENB); /* 设置为奇效验*/  
-		options.c_iflag |= INPCK;
-
-	} else if ( gCFG->parity == 2) 
-	{
-		options.c_cflag |= PARENB;
-		options.c_cflag &= ~PARODD;
-		options.c_iflag |= INPCK;
-
-        } else if ( gCFG->parity == 0)
-	{
-		options.c_cflag &= ~PARENB;
-		options.c_iflag &= ~INPCK; 
-	}
-
+	options.c_cflag = CREAD | CLOCAL | HUPCL |gCFG->baud_rate;
+	options.c_cflag &= ~CSIZE;
+	options.c_cflag |= gCFG->data_size;    
 	if (gCFG->stop_bit == 2) 
 		options.c_cflag |= CSTOPB;
 	else
 		options.c_cflag &= ~CSTOPB;
 
-	options.c_cflag &= ~CSIZE;
-	options.c_cflag |= gCFG->data_size;    
+	/* Set parity options.*/
+	switch ( gCFG->parity ) {
+	case 1:
+		options.c_cflag |= (PARODD | PARENB); /* 设置为奇效验*/  
+		options.c_iflag |= INPCK;
+		break;
+
+	case 2:
+		options.c_cflag |= PARENB;
+		options.c_cflag &= ~PARODD;
+		options.c_iflag |= INPCK;
+		break;
+
+	case 0:
+		options.c_cflag &= ~PARENB;
+		options.c_iflag &= ~INPCK; 
+		break;
+#ifdef CMSPAR
+	case 3: /* mark */
+		options.c_cflag |= PARENB | CMSPAR | PARODD;
+		options.c_iflag |= INPCK;
+		break;
+
+	case 4: /* space */
+		options.c_cflag |= PARENB | CMSPAR;
+		options.c_iflag |= INPCK;
+		break;
+#endif
+	}
+
+	switch ( gCFG->xflow ) {
+	case 0:
+		options.c_cflag |= CRTSCTS;
+		options.c_iflag &= ~(IXON | IXOFF);
+		break;
+	case 1:
+		options.c_iflag |= IXON | IXOFF;
+		options.c_cflag &= (~CRTSCTS);
+		break;
+	case 2:
+		options.c_iflag |= IXON | IXOFF;
+		options.c_cflag |= CRTSCTS;
+		break;
+	case 3:
+		options.c_iflag &=~(IXON | IXOFF | IXANY);
+		options.c_cflag &= ~(CRTSCTS);
+		break;
+	}
+	options.c_oflag = 0;
+	/* Set the timeout options */
+	options.c_cc[VMIN]  = 1;
+	options.c_cc[VTIME] = 0;
+	if ( gCFG->canon )  {
+		options.c_lflag |= (ICANON | ECHO | ECHOE );
+	} else {
+		/* Set c_iflag input options */
+		options.c_iflag &=~(INLCR | IGNCR | ICRNL |ISTRIP);
+		options.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+		/* Set c_oflag output options */
+		options.c_oflag &= ~OPOST;   
+	}
+
+#if defined(__linux__)
+	options.c_line= gCFG->c_line;    /* line discipline */
+#endif
 	options.c_cflag |= gCFG->c_cflag;
 	options.c_cflag &= gCFG->un_cflag;
 	options.c_iflag |= gCFG->c_iflag;
 	options.c_oflag |= gCFG->c_oflag;
 	options.c_iflag &= gCFG->un_iflag;
 	options.c_oflag &= gCFG->un_oflag;
-	if ( gCFG->wmode  == 1 )  {
-		/* Set c_iflag input options */
-		options.c_iflag &=~(IXON | IXOFF | IXANY);
-		options.c_iflag &=~(INLCR | IGNCR | ICRNL);
-		options.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
-		/* Set c_oflag output options */
-		options.c_oflag &= ~OPOST;   
-	} else if ( gCFG->wmode  == 2 ) {
-		options.c_lflag |= (ICANON | ECHO | ECHOE );
-	}
-
-#if defined(__linux__)
-	options.c_line= gCFG->c_line;    /* line discipline */
-#endif
-	/* Set the timeout options */
-	options.c_cc[VMIN]  = 0;
-	options.c_cc[VTIME] = 10;
 	for ( i = 0 ; i < NCCS; i++ ) 
 	{
 		if ( gCFG->c_cc[i] > 0 ) 
@@ -1264,6 +1364,7 @@ bool TTY:: setup_com(){
 
 	if ( tcsetattr(ttyfd, TCSANOW, &options) != 0 ) 
 		return false;
+        tcgetattr(ttyfd, &options);
 	return true;
 }
 /* https://www.cmrr.umn.edu/~strupp/serial.html#3_1_1 */
