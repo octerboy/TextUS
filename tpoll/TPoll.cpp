@@ -509,7 +509,7 @@ bool TPoll::sponte( Amor::Pius *apius)
 #endif
 
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
-		WBUG("%p %s(fd=%d) events(%d)", ppo->pupa, "sponte SET_EPOLL", ppo->fd, ppo->events );
+		WBUG("%p %s(fd=%d) events(%p)", ppo->pupa, "sponte SET_EPOLL", ppo->fd, ppo->events);
 		if( kevent(kq, &(ppo->events[0]), 2, NULL, 0, NULL) == - 1 )
 		{
 			ERROR_PRO("kevent(SET_EPOLL) failed");

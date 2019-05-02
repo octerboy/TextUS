@@ -460,7 +460,7 @@ void Aio::ignite(TiXmlElement *cfg)
 	}
 	comm_str = cfg->Attribute("file");
 	if ( comm_str ) 
-		TEXTUS_SPRINTF(file_name, comm_str);
+		TEXTUS_SPRINTF(file_name, "%s", comm_str);
 	block_size = gCFG->block_size;
 }
 

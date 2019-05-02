@@ -1246,7 +1246,7 @@ bool TTY::init()
 
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
 		EV_SET(&(pollor.events[0]), ttyfd, EVFILT_READ, EV_ADD | EV_ONESHOT, 0, 0, &pollor);
-		EV_SET(&(pollor.events[1]), tcpcli->connfd, EVFILT_WRITE, EV_ADD | EV_DISABLE, 0, 0, &pollor);
+		EV_SET(&(pollor.events[1]), ttyfd, EVFILT_WRITE, EV_ADD | EV_DISABLE, 0, 0, &pollor);
 #endif	//for bsd
 
 		gCFG->sch->sponte(&epl_set_ps);	//Ïòtpoll
