@@ -986,8 +986,8 @@ LOOP:
 #endif
 
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
-	ret = kevent(kq, NULL, 0, kev, max_evs, NULL);
-	if ( ret != 0 ) 
+	nget = kevent(kq, NULL, 0, kev, max_evs, NULL);
+	if ( nget == -1 ) 
 	{
 		ERROR_PRO("kevent");
 		WLOG(ERR,errMsg);
