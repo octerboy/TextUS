@@ -49,8 +49,8 @@
 #endif
 
 #define BZERO(X) memset(X, 0 ,sizeof(X))
-#define ROW_SPACE 5
-#define ROW_SIZE (65+ROW_SPACE)
+//#define ROW_SPACE 5
+//#define ROW_SIZE (65+row_space)
 #define FACIO 0
 #define SPONTE 1
 
@@ -105,6 +105,9 @@ private:
 
 		int fileD;
 		int last_day;	//当日志按日期写时，这里记一下当时的日子数。
+		int disp_len;
+		int row_space;
+		int row_size;
 #if !defined (_WIN32)
 		struct flock lock, unlock;
 #endif
@@ -121,6 +124,7 @@ private:
 			toClear = true;
 
 			fileD = -1;
+			disp_len = 16;
 #if !defined (_WIN32)
 			lock.l_type = F_WRLCK;
 			lock.l_start = 0;
@@ -224,6 +228,9 @@ void Bu2File::ignite(TiXmlElement *prop)
 		if (strcmp( comm_str, "debugx") == 0 )
 			gCFG->form = DEBUG_VIEW; 
 	}
+	prop->QueryIntAttribute("line", &gCFG->disp_len);
+	gCFG->row_space = gCFG->disp_len/8 + 3;
+	gCFG->row_size = gCFG->disp_len*4 +1+ gCFG->row_space + 2*((gCFG->disp_len-16)/16);
 
 	return ;
 }
@@ -360,28 +367,30 @@ bool Bu2File::sponte( Amor::Pius *pius)
 	return true;
 }
 
-int Bu2File::bug_view(TBuffer *tbuf, char *str )
+int Bu2File::bug_view(TBuffer *tbuf, char *str)
 {
 	int i,ri, len, rows, rest;
 	unsigned char *p = tbuf->base;
 	len = tbuf->point - tbuf->base;
-	rows = len/16;
-	rest = len - rows*16;
+	rows = len/gCFG->disp_len;
+	rest = len - rows*gCFG->disp_len;
 
 	int offset = 0;
 
-	for ( ri = 0 ; ri < rows+1 ; ri++, offset += ROW_SIZE)
+	for ( ri = 0 ; ri < rows+1 ; ri++, offset += gCFG->row_size)
 	{
 		char *rstr = &str[offset];
-		int left = (ri == rows ? rest : 16) ;
+		int left = (ri == rows ? rest : gCFG->disp_len) ;
 
-		memset (rstr, ' ', ROW_SIZE);
-		rstr[ROW_SIZE-1] =  '\n';
+		memset (rstr, ' ', gCFG->row_size);
+		rstr[gCFG->row_size-1] =  '\n';
 		for ( i = 0 ; i < left; i++)
 		{
-			unsigned char c = p[ri*16+i];
+			unsigned char e;
+			unsigned char c = p[ri*gCFG->disp_len+i];
 			int o = i*3;
-			if ( i >= 8 )  o++; 	//中间加一空格
+			for ( e = 1; e <= i/8; e++) o++;  //中间加一空格
+			//	if ( i >= e*o )  o++; 	//中间加一空格
 			if ( gCFG->form == DEBUG_VIEW_X )
 			{
 				rstr[o++] = ObtainX((c & 0xF0 ) >> 4 );
@@ -391,10 +400,12 @@ int Bu2File::bug_view(TBuffer *tbuf, char *str )
 				rstr[o++] = Obtainx(c & 0x0F );
 			}
 
+			o = gCFG->disp_len*3+gCFG->row_space+i;
+			for ( e = 1; e <= i/16; e++) {o++; o++; }
 			if ( c >= 0x20 && c <= 0x7e )
-				rstr[48+ROW_SPACE+i] =  c;
+				rstr[o] =  c;
 			else
-				rstr[48+ROW_SPACE+i] =  '.';
+				rstr[o] =  '.';
 		}
 	}
 	return offset;
@@ -453,7 +464,7 @@ bool Bu2File::get_file_name()
 	return true;
 }
 
-void Bu2File::output(TBuffer *tbuf, int direct )
+void Bu2File::output(TBuffer *tbuf, int direct)
 {
 	int wLen, w2Len;
 	char *w_buf;
@@ -461,7 +472,7 @@ void Bu2File::output(TBuffer *tbuf, int direct )
 	assert(gCFG);
 	if ( gCFG->form != DIRECT_VIEW )
 	{ 
-		int needl = (( tbuf->point - tbuf->base )/16+2)*ROW_SIZE + 1;
+		int needl = (( tbuf->point - tbuf->base )/gCFG->disp_len+2)*gCFG->row_size + 15;
 		if (out_len < needl )
 		{
 			delete []out_buf;
@@ -470,7 +481,7 @@ void Bu2File::output(TBuffer *tbuf, int direct )
 		}
 
 		memset(out_buf, 0, out_len);
-		memset(out_buf, ' ', ROW_SIZE);
+		memset(out_buf, ' ', gCFG->row_size);
 		if ( direct == FACIO )
 		{
 			memcpy(out_buf,	 "\nFACIO-", 7);
@@ -480,8 +491,8 @@ void Bu2File::output(TBuffer *tbuf, int direct )
 			memcpy(&out_buf[8], id_str, strlen(id_str));
 		}
 
-		out_buf[ROW_SIZE-1] = '\n';
-		w2Len = ROW_SIZE + bug_view(tbuf, &out_buf[ROW_SIZE] ) ;
+		out_buf[gCFG->row_size-1] = '\n';
+		w2Len = gCFG->row_size + bug_view(tbuf, &out_buf[gCFG->row_size]) ;
 		w_buf = out_buf;
 
 	} else {
