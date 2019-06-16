@@ -268,6 +268,7 @@ void TPoll::ignite(TiXmlElement *cfg)
 	timer_nsec = (timer_milli % 1000) * 1000000;
 #if defined (_WIN32)
 	ULONG timer_resolution;
+	int timer_res;
 	timer_resolution = 0;
 	timer_res = 0;
 	cfg->QueryIntAttribute("timer_resolution", &timer_res);
