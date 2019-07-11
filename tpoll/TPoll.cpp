@@ -268,9 +268,8 @@ void TPoll::ignite(TiXmlElement *cfg)
 	timer_nsec = (timer_milli % 1000) * 1000000;
 #if defined (_WIN32)
 	ULONG timer_resolution;
-	int timer_res;
+	int timer_res = 0;
 	timer_resolution = 0;
-	timer_res = 0;
 	cfg->QueryIntAttribute("timer_resolution", &timer_res);
 	timer_resolution = timer_res;
 	cur_time_res  =0;
@@ -591,21 +590,19 @@ bool TPoll::sponte( Amor::Pius *apius)
 		/* Setup the port notification structure */
 		pnotif.portnfy_user = (void *)aor;
 		/* Create a timer using the realtime clock */
-		if (!timer_create(CLOCK_REALTIME, &sigev, &aor->timerid))
+		if (timer_create(CLOCK_REALTIME, &sigev, &aor->timerid) != 0)
 		{
-			ERROR_PRO("timer_create failed");
-			WLOG(WARNING, errMsg);
+			WLOG(WARNING, "timer_create failed errno=%d (%s) when %p DMD_SET_TIMER", errno, strerror(errno), ask_pu);
 			goto END_TIMER_PRO;
 		}
 
-		if (!timer_settime(aor->timerid, 0, &itimeout, NULL))
+		if (!timer_settime(aor->timerid, 0, &itimeout, NULL) !=0)
 		{
-			ERROR_PRO("timer_settime");
-			WLOG(WARNING, errMsg);
+			WLOG(WARNING, "timer_settime failed errno=%d (%s) when %p DMD_SET_TIMER", errno, strerror(errno), ask_pu);
 			goto END_TIMER_PRO;
 		}
-
 #endif
+
 #if defined (_WIN32)
 		if (!CreateTimerQueueTimer( &aor->timer_hnd, timer_queue, (WAITORTIMERCALLBACK)timer_routine, 
 						aor, timer_milli, timer_milli, WT_EXECUTEINTIMERTHREAD))
@@ -619,7 +616,9 @@ bool TPoll::sponte( Amor::Pius *apius)
 		break;
 
 END_TIMER_PRO:
-			put_timor(aor);//发生错误而回收
+		tm_hd_ps.indic = 0;
+		((Amor*) (apius->indic))->facio(&tm_hd_ps);
+		put_timor(aor);//发生错误而回收
 		break;
 
 	case Notitia::DMD_SET_ALARM :	/* 置超时通知对象 */
@@ -679,10 +678,9 @@ END_TIMER_PRO:
 		/* Setup the port notification structure */
 		pnotif.portnfy_user = (void *)aor;
 		/* Create a timer using the realtime clock */
-		if (timer_create(CLOCK_REALTIME, &sigev, &(aor->timerid))!=0)
+		if ( timer_create(CLOCK_REALTIME, &sigev, &(aor->timerid)) !=0 )
 		{
-			ERROR_PRO("timer_create failed");
-			WLOG(WARNING, errMsg);
+			WLOG(WARNING, "timer_create failed errno=%d (%s) when %p DMD_SET_ALARM", errno, strerror(errno), ask_pu);
 			goto END_ALARM_PRO;
 		}
 		tmp_timeout.it_value.tv_sec = interval/1000;
@@ -692,8 +690,7 @@ END_TIMER_PRO:
 
 		if (timer_settime (aor->timerid, 0, &tmp_timeout, NULL) != 0 )
 		{
-			ERROR_PRO("timer_settime");
-			WLOG(WARNING, errMsg);
+			WLOG(WARNING, "timer_settime failed errno=%d (%s) when %p DMD_SET_ALARM", errno, strerror(errno), ask_pu);
 			goto END_ALARM_PRO;
 		}
 #endif
@@ -717,7 +714,9 @@ END_TIMER_PRO:
 		break;
 
 END_ALARM_PRO:
-			put_timor(aor); //发生错误而回收
+		tm_hd_ps.indic = 0;
+		aor->pupa->facio(&tm_hd_ps);
+		put_timor(aor); //发生错误而回收
 		break;
 
 	case Notitia::DMD_CLR_TIMER :	/* 清定时通知对象 */
