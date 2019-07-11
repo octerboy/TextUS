@@ -590,13 +590,13 @@ bool TPoll::sponte( Amor::Pius *apius)
 		/* Setup the port notification structure */
 		pnotif.portnfy_user = (void *)aor;
 		/* Create a timer using the realtime clock */
-		if (timer_create(CLOCK_REALTIME, &sigev, &aor->timerid) != 0)
+		if ( timer_create(CLOCK_REALTIME, &sigev, &aor->timerid) != 0 )
 		{
 			WLOG(WARNING, "timer_create failed errno=%d (%s) when %p DMD_SET_TIMER", errno, strerror(errno), ask_pu);
 			goto END_TIMER_PRO;
 		}
 
-		if (!timer_settime(aor->timerid, 0, &itimeout, NULL) !=0)
+		if ( timer_settime(aor->timerid, 0, &itimeout, NULL) !=0 )
 		{
 			WLOG(WARNING, "timer_settime failed errno=%d (%s) when %p DMD_SET_TIMER", errno, strerror(errno), ask_pu);
 			goto END_TIMER_PRO;
