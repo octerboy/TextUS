@@ -304,10 +304,10 @@ LOOP:
 		tmp_p.ordo = Notitia::CMD_ALLOC_IDLE;
 		tmp_p.indic = this;
 		aptus->sponte(&tmp_p);
-		/* 请求空闲的子实例, 将刚建立了连接的信息传过去, 然后由它工作 */
+		/* 请求空闲的子实例, 新服务 */
 		if ( !(tmp_p.indic) || this == ( Amor* ) (tmp_p.indic) )
 		{	/* 实例没有增加, 已经到达最大连接数，故关闭刚才的连接 */
-			WLOG(NOTICE, "limited connections, to max");
+			WLOG(NOTICE, "limited connections for neo_service, to max");
 		} else {
 			const char *port_str, *ip_str, *eth_str;
 			Tcpsrvuna *neo = (Tcpsrvuna*)(tmp_p.indic);
@@ -685,7 +685,7 @@ inline void Tcpsrvuna::new_conn_pro()
 	/* 请求空闲的子实例, 将刚建立了连接的信息传过去, 然后由它工作 */
 	if ( !(tmp_p.indic) || this == ( Amor* ) (tmp_p.indic) )
 	{	/* 实例没有增加, 已经到达最大连接数，故关闭刚才的连接 */
-		WLOG(NOTICE, "limited connections, to max");
+		WLOG(NOTICE, "limited connections for neo_conn, to max");
 		tcpsrv->end();	/* tcpsrv刚建立新连接, 其connfd保存最近值, 第一次调用不关闭listenfd */
 	} else {
 		last_child = (Tcpsrvuna*)(tmp_p.indic);
