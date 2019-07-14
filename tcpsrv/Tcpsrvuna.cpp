@@ -348,6 +348,12 @@ LOOP:
 			child_transmit();
 		break;
 		
+	case Notitia::FD_PROEX:
+		WBUG("facio FD_PROEX");	
+		if (!isListener)	 /* 子实例, 应当是写 */
+			end();
+		break;
+		
 	case Notitia::IGNITE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY");		
 		tmp_p.ordo = Notitia::CMD_GET_SCHED;
@@ -653,6 +659,8 @@ TINLNE void Tcpsrvuna::child_begin()
 		my_tor.scanfd = tcpsrv->connfd;
 		local_pius.ordo = Notitia::FD_SETRD;
 		gCFG->sch->sponte(&local_pius);	//向Sched, 以设置rdSet.
+		local_pius.ordo = Notitia::FD_SETEX;
+		gCFG->sch->sponte(&local_pius);	//向Sched, 以设置rdSet.
 	}
 
 	deliver(Notitia::START_SESSION); //向接力者发出通知, 本对象开始会话
@@ -831,6 +839,9 @@ TINLNE void Tcpsrvuna::end(bool down)
 	
 		local_pius.ordo = Notitia::FD_CLRWR;
 		gCFG->sch->sponte(&local_pius);	//向Sched, 以清wrSet.
+	
+		local_pius.ordo = Notitia::FD_CLREX;
+		gCFG->sch->sponte(&local_pius);	//向Sched, 以清exSet.
 	} 
 	// else gCFG->sch->sponte(&epl_clr_ps);	//向tpoll,  注销
 	/* just close for all kinds of system ?  */
