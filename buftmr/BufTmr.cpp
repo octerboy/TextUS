@@ -328,6 +328,7 @@ bool BufTmr::facio( Amor::Pius *pius)
 	case Notitia::START_SESSION:	/* channel is alive */
 		WBUG("facio DMD_END_SESSION/START_SESSION");
 		framing = false;
+		gCFG->sch->sponte(&clr_timer_pius); /* 清除定时, 刚开始为0, 不起作用 */
 		break;
 
 	case Notitia::TIMER:	/* 连接超时 */
@@ -408,7 +409,7 @@ BufTmr::BufTmr()
 	gCFG = 0;
 	has_config = false ;
 	clr_timer_pius.ordo = Notitia::DMD_CLR_TIMER;
-	clr_timer_pius.indic = this;	/* 预设为this,  用于sched模块, 被更新则用于tpoll模块 */
+	clr_timer_pius.indic = 0;	/* 预设改为0,  sched模块也更新, 被更新则用于tpoll模块 */
 
 	alarm_pius.ordo = Notitia::DMD_SET_ALARM;
 	alarm_pius.indic = &arr[0];
