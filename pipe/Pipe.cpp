@@ -95,7 +95,7 @@ AppcData * DataStack::pop()// 出栈
 		for(int i = old; i < max; i++)
 		{
 			appcDataArray[i] = new AppcData;
-			assert(appcDataArray[i] > 0);
+			assert(appcDataArray[i] != (AppcData *) 0);
  		}
 		delete[] o_arr;
 	}
@@ -263,7 +263,7 @@ Pipe::Pipe()
 	dmd_start.ordo = Notitia::DMD_START_SESSION;
 
 	clr_timer_pius.ordo = Notitia::DMD_CLR_TIMER;
-	clr_timer_pius.indic = this;
+	clr_timer_pius.indic = 0;
 
 	alarm_pius.ordo = Notitia::DMD_SET_ALARM;
 	alarm_pius.indic = &arr[0];
@@ -387,7 +387,7 @@ bool Pipe::facio( Amor::Pius *pius)
 		if ( demanding)
 		{
 			WLOG(WARNING, "channel time out");
-			aptus->sponte(&clr_timer_pius);	/* 清除定时 */
+			//aptus->sponte(&clr_timer_pius);	/* tpoll先前已经清了, 清除定时 */
 			aptus->sponte(&chn_timeout);	/* 向左通知 */
 		}
 		break;
@@ -510,11 +510,14 @@ bool Pipe::sponte( Amor::Pius *pius)
 	case Notitia::START_SESSION:	/* channel is alive */
 		WBUG("sponte START_SESSION");
 
+		aptus->sponte(&clr_timer_pius);	/* 清除定时, 初始为0,  */
+		/* 以下就不必要
 		if ( demanding )
 		{
 			if ( gcfg->expired > 0 )
-				aptus->sponte(&clr_timer_pius);	/* 清除定时 */
+				aptus->sponte(&clr_timer_pius);	
 		} 
+		*/
 		alive = true;
 		demanding = false;
 		worker_begin_trans();
@@ -524,10 +527,13 @@ bool Pipe::sponte( Amor::Pius *pius)
 		alive = false;
 		demanding = false;
 
+		aptus->sponte(&clr_timer_pius);	/* 清除定时, 初始为0,  */
+		/* 以下就不必要
 		if ( demanding && gcfg->expired > 0 )
 		{
-			aptus->sponte(&clr_timer_pius);	/* 清除定时 */
+			aptus->sponte(&clr_timer_pius);
 		}
+		*/
 
 		for ( ne = que.remove(); ne; ne=que.remove())
 		{
