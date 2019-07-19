@@ -313,6 +313,7 @@ LOOP:
 
 	case Notitia::DMD_END_SESSION:
 		WBUG("facio DMD_END_SESSION");
+		gCFG->sch->sponte(&clr_timer_pius); /* 清除定时 */
 		end(true);
 		break;
 
@@ -400,6 +401,7 @@ LOOP:
 
 	case Notitia::DMD_START_SESSION:
 		WBUG("facio DMD_START_SESSION");
+		gCFG->sch->sponte(&clr_timer_pius); /* 清除定时 */
 		establish();		//开始建立连接
 		break;
 
@@ -460,6 +462,7 @@ bool Tcpcliuna::sponte( Amor::Pius *pius)
 	{
 	case Notitia::DMD_END_SESSION:
 		WBUG("facio DMD_END_SESSION");
+		gCFG->sch->sponte(&clr_timer_pius); /* 清除定时 */
 		end(true);
 		break;
 
@@ -497,7 +500,7 @@ Tcpcliuna::Tcpcliuna()
 	gCFG = 0;
 	has_config = false;
 	clr_timer_pius.ordo = Notitia::DMD_CLR_TIMER;
-	clr_timer_pius.indic = this;
+	clr_timer_pius.indic = 0;
 
 	alarm_pius.ordo = Notitia::DMD_SET_ALARM;
 	alarm_pius.indic = &arr[0];
