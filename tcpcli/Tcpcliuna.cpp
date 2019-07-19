@@ -130,8 +130,22 @@ void Tcpcliuna::ignite(TiXmlElement *cfg)
 	if ( (on_start_str = cfg->Attribute("start_poineer") ) && strcasecmp(on_start_str, "no") ==0 )
 		gCFG->on_start_poineer = false;	/* 并非一开始就启动 */
 
-	if( (try_str = cfg->Attribute("try")) && atoi(try_str) > 0 )
-		gCFG->try_interval = atoi(try_str);
+	if( (try_str = cfg->Attribute("try")) )
+	{
+		size_t alen = strlen(try_str) ;
+		if ( alen <= 30 && try_str[alen-1] == 'm' ) //最后以m字符结尾，表示毫秒，否则为秒
+		{
+			char a_str[32];
+			memcpy(a_str, try_str, alen);	//最后一个m也拷贝
+			a_str[alen-1] = 0;	//将m处置成null
+			if ( atoi(a_str) > 0 )
+				gCFG->try_interval = atoi(a_str);
+			
+		} else {
+			if ( atoi(try_str) > 0 )
+				gCFG->try_interval = 1000*atoi(try_str);
+		}
+	}
 
 	if ( (comm_str = cfg->Attribute("block") ) && strcasecmp(comm_str, "yes") ==0 )
 		gCFG->block_mode = true;	/* 并非一开始就启动 */
@@ -760,11 +774,13 @@ TINLINE void Tcpcliuna::end(bool outer)
 	}
 	
 	tcpcli->end();		//Tcpcli也关闭
-	if (outer )
-	{
-		gCFG->sch->sponte(&clr_timer_pius); /* 清除定时, 不再重连服务端 */
-	} else {
-		gCFG->sch->sponte(&alarm_pius); /* 这将使得重连服务端 */
+	if (gCFG->try_interval > 0 ) {	//时间值大于0时, 才有是否重连的考虑
+		if (outer )
+		{
+			gCFG->sch->sponte(&clr_timer_pius); /* 清除定时, 不再重连服务端 */
+		} else {
+			gCFG->sch->sponte(&alarm_pius); /* 这将使得重连服务端 */
+		}
 	}
 
 	deliver(Notitia::END_SESSION);/* 向左、右传递本类的会话关闭信号 */
