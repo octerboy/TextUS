@@ -206,6 +206,7 @@ bool TBufChan::facio( Amor::Pius *pius)
 
 	case Notitia::DMD_START_SESSION:	
 		WBUG("facio DMD_START_SESSION alive=%d", alive);
+		aptus->sponte(&clr_timer_pius); /* 清除定时,初为 0*/
 		if (!alive)
 			goto Demand;
 		break;
@@ -291,6 +292,7 @@ bool TBufChan::facio( Amor::Pius *pius)
 
 	case Notitia::DMD_END_SESSION:	/* channel to closed */
 		WBUG("facio DMD_END_SESSION");
+		aptus->sponte(&clr_timer_pius); /* 清除定时,初为 0*/
 		house.reset();	/* 仅仅是把已经收到的数据清空, 右节点不作处理 */
 		break;
 
@@ -300,7 +302,7 @@ bool TBufChan::facio( Amor::Pius *pius)
 		{
 			WLOG(WARNING, "channel time out");
 			right_reset();	/* 右边节点的数据与状态全部复位 */
-			aptus->sponte(&clr_timer_pius); /* 清除定时 */
+			//aptus->sponte(&clr_timer_pius); /* 清除定时, tpoll先清了 */
 			aptus->sponte(&(gCFG->chn_timeout));	/* 向左通知 */
 		}
 		break;
@@ -361,6 +363,7 @@ bool TBufChan::sponte( Amor::Pius *pius)
 
 	case Notitia::START_SESSION:	/* channel is alive */
 		WBUG("sponte START_SESSION");
+		aptus->sponte(&clr_timer_pius); /* 清除定时,初为 0*/
 
 		if ( demanding )
 		{
@@ -381,6 +384,7 @@ bool TBufChan::sponte( Amor::Pius *pius)
 
 	case Notitia::DMD_END_SESSION:	/* channel closed */
 		WBUG("sponte DMD_END_SESSION");
+		aptus->sponte(&clr_timer_pius); /* 清除定时,初为 0*/
 		if ( demanding && gCFG->expired > 0 )
 		{
 			aptus->sponte(&clr_timer_pius); /* 清除定时 */
@@ -416,7 +420,7 @@ TBufChan::TBufChan():right_rcv(8192), right_snd(8192)
 	has_config = false ;
 	has_buffered_num = 0;
 	clr_timer_pius.ordo = Notitia::DMD_CLR_TIMER;
-	clr_timer_pius.indic = this;
+	clr_timer_pius.indic = 0;
 
 	alarm_pius.ordo = Notitia::DMD_SET_ALARM;
 	alarm_pius.indic = &arr[0];
