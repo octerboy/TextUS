@@ -287,7 +287,7 @@ bool Slice::facio( Amor::Pius *pius)
 
 	case Notitia::DMD_END_SESSION:	
 		WBUG("facio DMD_END_SESSION");
-		//reset();
+		reset();
 		break;
 
 	case Notitia::IGNITE_ALL_READY:
@@ -374,7 +374,7 @@ bool Slice::sponte( Amor::Pius *pius)
 
 	case Notitia::DMD_END_SESSION:	/* 高级会话关闭了 */
 		WBUG("sponte DMD_END_SESSION" );
-		//reset();
+		reset();
 		break;
 
 	default:
@@ -398,7 +398,7 @@ Slice::Slice()
 	ask_pa = &r1st;
 	res_pa = &r2nd;
 	clr_timer_pius.ordo = Notitia::DMD_CLR_TIMER;
-	clr_timer_pius.indic = this;
+	clr_timer_pius.indic = 0;
 
 	alarm_pius.ordo = Notitia::DMD_SET_TIMER;
 	alarm_pius.indic = this;
@@ -685,6 +685,7 @@ INLINE void Slice::reset()
 	ask_pa->reset();
 	res_pa->reset();
 	isFraming = false;
+	aptus->sponte(&clr_timer_pius);	/* 初始为0 */
 }
 
 #include "hook.c"
