@@ -488,7 +488,7 @@ HttpSrvHead::HttpSrvHead():req_head_dup(512), res_entity(8192),
 	memset(server_name, 0, sizeof(server_name));
 
 	clr_timer_pius.ordo = Notitia::DMD_CLR_TIMER;
-	clr_timer_pius.indic = this;
+	clr_timer_pius.indic = 0;	/* shed or tpoll give*/
 
 	alarm_pius.ordo = Notitia::DMD_SET_ALARM;
 	alarm_pius.indic = &tarr[0];
@@ -530,6 +530,7 @@ void HttpSrvHead::reset()
 	res_head_buf = (TBuffer*) 0;
 	body_sent_len = 0;
 	session = false;
+	aptus->sponte(&clr_timer_pius);
 }
 
 HttpSrvHead::~HttpSrvHead() {
