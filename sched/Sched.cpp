@@ -119,6 +119,7 @@ private:
 	int pendor_size;
 	int pendor_top;
 	void run_pendors();
+	Amor::Pius tm_hd_ps;
 #include "wlog.h"
 };
 
@@ -271,10 +272,13 @@ bool Sched::sponte( Amor::Pius *apius)
 		timer_infor[i].status = tmp_type;	
 		ftime(&(timer_infor[i].since));
 		timer_infor[i].interval = interval;	
+		tm_hd_ps.indic = ask_pu;
+		ask_pu->facio(&tm_hd_ps);
 		break;
 
 	case Notitia::DMD_CLR_TIMER :	/* 清定时通知对象 */
 		WBUG("%p sponte DMD_CLR_TIMER", apius->indic);
+		if ( apius->indic == 0  ) break;
 		for( i = 0 ;i < infor_size; i++)
 		{
 			int j;
@@ -288,6 +292,8 @@ bool Sched::sponte( Amor::Pius *apius)
 			}
 
 			timer_infor[j].clear();
+			tm_hd_ps.indic = 0;
+			((Amor*)(apius->indic))->facio(&tm_hd_ps);
 			break;
 		}
 		break;
@@ -419,6 +425,7 @@ Sched::Sched()
 	pendors = 0;
 	pendor_top = -1;
 	pendor_size = 16;
+	tm_hd_ps.ordo = Notitia::TIMER_HANDLE;	
 }
 
 void Sched::run_pendors()
