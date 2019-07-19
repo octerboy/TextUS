@@ -169,7 +169,7 @@ bool SSLcliuna::facio( Amor::Pius *pius)
 		if ( demanding)
 		{
 			WLOG(WARNING, "channel time out");
-			aptus->sponte(&clr_timer_pius);	/* 清除定时 */
+			//aptus->sponte(&clr_timer_pius);	/* 清除定时, tpoll 先清了 */
 			aptus->sponte(&(gCFG->chn_timeout));	/* 向左通知 */
 			demanding = false;
 		}
@@ -204,6 +204,7 @@ bool SSLcliuna::facio( Amor::Pius *pius)
 
 	case Notitia::DMD_END_SESSION:	
 		WBUG("facio DMD_END_SESSION");
+		aptus->sponte(&clr_timer_pius);	/* 清除定时 */
 		end();
 		break;
 
@@ -250,6 +251,7 @@ bool SSLcliuna::sponte( Amor::Pius *pius)
 
 	case Notitia::DMD_END_SESSION:	/* 底层会话关闭了 */
 		WBUG("sponte DMD_END_SESSION");
+		aptus->sponte(&clr_timer_pius);	/* 清除定时 */
 		if ( demanding )
 		{
 			demanding = false;
@@ -262,6 +264,7 @@ bool SSLcliuna::sponte( Amor::Pius *pius)
 
 	case Notitia::START_SESSION:	/* 底层通讯建立, 阻止其传递 */
 		WBUG("sponte START_SESSION");
+		aptus->sponte(&clr_timer_pius);	/* 清除定时 */
 		alive = true;
 		if ( demanding )
 		{
@@ -307,7 +310,7 @@ SSLcliuna::SSLcliuna()
 	has_config = false;
 	gCFG = 0;
 	clr_timer_pius.ordo = Notitia::DMD_CLR_TIMER;
-	clr_timer_pius.indic = this;
+	clr_timer_pius.indic = 0;
 
 	alarm_pius.ordo = Notitia::DMD_SET_ALARM;
 	alarm_pius.indic = &arr[0];
