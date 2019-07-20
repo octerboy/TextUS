@@ -53,6 +53,7 @@ void get_req_pac( PacketObj *req_pac, struct DyVarBase **psnap, struct InsData *
 	unsigned long t_len;
 	t_len = 0;
 
+	//printf("insd->snd_num %d\n", insd->snd_num);
 	for ( i = 0 ; i < insd->snd_num; i++ ) 
 	{
 		if ( insd->snd_lst[i].dy_num ==0 ) 
@@ -71,6 +72,7 @@ void get_req_pac( PacketObj *req_pac, struct DyVarBase **psnap, struct InsData *
 	for ( i = 0 ; i < insd->snd_num; i++ ) 
 	{
 		t_len = 0;
+		//printf("insd->snd_lst[%d].dy_num %d\n", i, insd->snd_lst[i].dy_num);
 		if ( insd->snd_lst[i].dy_num ==0 )
 		{	/* 这是在pacdef中send元素定义的一个域的内容 */
 			memcpy(req_pac->buf.point, insd->snd_lst[i].cmd_buf, insd->snd_lst[i].cmd_len);
@@ -91,7 +93,8 @@ void get_req_pac( PacketObj *req_pac, struct DyVarBase **psnap, struct InsData *
 				}
 			}
 		}
-		req_pac->commit(insd->snd_lst[i].fld_no, t_len);	//域的确认
+		//printf("t_len %d\n", t_len);
+		if ( t_len > 0 ) req_pac->commit(insd->snd_lst[i].fld_no, t_len);	//域的确认
 	}
 	return ;
 };
@@ -108,6 +111,7 @@ struct PacInsData {
 	enum PAC_MODE pac_mode;	/* 报文模式, 一般不交换 */
 	bool pac_cross;	/* 是否交叉, 如第一个换到第二个 */
 	enum PAC_LOG pac_log;
+	bool clear;	//报文赋值前清空, 默认为true;
 
 	PacInsData() 
 	{
@@ -120,6 +124,7 @@ struct PacInsData {
 		dbface_name = 0;
 		dbface = 0;
 		ordo = Notitia::TEXTUS_RESERVED;
+		clear =true;
 	};
 
 	void set_def(TiXmlElement *def_ele, struct InsData *insd) 
@@ -165,6 +170,15 @@ struct PacInsData {
 				fac_spo = FACIO;
 			else if ( strcasecmp( p, "sponte") ==0 )
 				fac_spo = SPONTE;
+		}
+	
+		p = def_ele->Attribute("clear");	
+		if ( p ) 
+		{
+			if ( strcasecmp( p, "no") ==0 )
+				clear = false;
+			if ( strcasecmp( p, "yes") ==0 )
+				clear = true;
 		}
 	
 		p = def_ele->Attribute("type");	
@@ -755,8 +769,9 @@ void PacIns::pro_ins ()
 	//if ( strcmp(cur_insway->dat->ins_tag, "InitPac") == 0 )
 	//	{int *a =0 ; *a = 0; };
 		
-	hi_req_p->reset();	//请求复位
 	paci->pac_cross_before(hi_req_p, hi_reply_p, rcv_pac, snd_pac);
+	if ( paci->clear)
+		hi_req_p->reset();	//请求复位
 	loc_pro_pac.subor = paci->subor;
 	get_req_pac(hi_req_p, cur_insway->psnap, cur_insway->dat);
 

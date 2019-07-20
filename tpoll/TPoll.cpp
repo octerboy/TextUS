@@ -612,11 +612,13 @@ bool TPoll::sponte( Amor::Pius *apius)
 			goto END_TIMER_PRO;
 		} 
 #endif
+		//printf(" aor->pupa %p hand\n", aor->pupa);
 		aor->pupa->facio(&tm_hd_ps);
 		break;
 
 END_TIMER_PRO:
 		tm_hd_ps.indic = 0;
+		//printf(" error aor->pupa %p hand\n", ((Amor*) (apius->indic)));
 		((Amor*) (apius->indic))->facio(&tm_hd_ps);
 		put_timor(aor);//发生错误而回收
 		break;
@@ -710,18 +712,20 @@ END_TIMER_PRO:
 			aor->type = DPoll::Timer;
 		else
 			aor->type = DPoll::Alarm;
+		//printf(" set_alarm aor->pupa %p hand\n", aor->pupa);
 		aor->pupa->facio(&tm_hd_ps);
 		break;
 
 END_ALARM_PRO:
 		tm_hd_ps.indic = 0;
+		//printf(" error set_alarm aor->pupa %p hand\n", aor->pupa);
 		aor->pupa->facio(&tm_hd_ps);
 		put_timor(aor); //发生错误而回收
 		break;
 
 	case Notitia::DMD_CLR_TIMER :	/* 清定时通知对象 */
 		WBUG("%p sponte DMD_CLR_TIMER", apius->indic);
-		aor = (struct Timor *)tm_hd_ps.indic;
+		aor = (struct Timor *)apius->indic;
 		if ( !aor ) break;
 #if defined(__linux__)
 		if ( -1 == close(aor->fd) )
@@ -756,6 +760,7 @@ END_ALARM_PRO:
 		}
 #endif
 		tm_hd_ps.indic = 0;
+		//printf("%d clear_timer  aor->pupa %p hand\n", __LINE__, aor->pupa);
 		aor->pupa->facio(&tm_hd_ps);
 		aor->pupa = 0;
 #if defined (_WIN32)
@@ -1098,6 +1103,7 @@ LOOP:
 #endif
 			put_timor(TOR);
 			tm_hd_ps.indic = 0;
+			//printf(" timer_alarm  pupa %p hand\n", pupa);
 			pupa->facio(&tm_hd_ps);		//clear timer_handle 
 			pupa->facio(&timer_pius);	//TIMER
 			break;

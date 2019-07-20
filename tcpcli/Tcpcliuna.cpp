@@ -350,6 +350,7 @@ LOOP:
 		}
 #endif
 		tmp_p.ordo = Notitia::CMD_GET_SCHED;
+		tmp_p.indic = 0;
 		aptus->sponte(&tmp_p);	//Ïòtpoll, È¡µÃsched
 		gCFG->sch = (Amor*)tmp_p.indic;
 		if ( !gCFG->sch ) 
