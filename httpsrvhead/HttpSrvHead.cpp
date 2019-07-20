@@ -254,11 +254,14 @@ END:
 		
 	case Notitia::DMD_END_SESSION:
 		WBUG("facio DMD_END_SESSION");
+		aptus->sponte(&clr_timer_pius);
 		channel_isAlive = false;
 		reset();
 		break;
 
 	case Notitia::START_SESSION:	/* 底层通信初始 */
+		WBUG("facio START_SESSION");
+		aptus->sponte(&clr_timer_pius);
 		channel_isAlive = true;
 		reset();
 		WBUG("facio START_SESSION");
@@ -435,6 +438,7 @@ bool HttpSrvHead::sponte( Amor::Pius *pius)
 
 	case Notitia::DMD_END_SESSION:	/* 强制关闭 */
 		WBUG("sponte DMD_END_SESSION");
+		aptus->sponte(&clr_timer_pius);
 		end(true);
 		break;
 		
@@ -530,7 +534,6 @@ void HttpSrvHead::reset()
 	res_head_buf = (TBuffer*) 0;
 	body_sent_len = 0;
 	session = false;
-	aptus->sponte(&clr_timer_pius);
 }
 
 HttpSrvHead::~HttpSrvHead() {
