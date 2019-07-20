@@ -132,19 +132,8 @@ void Tcpcliuna::ignite(TiXmlElement *cfg)
 
 	if( (try_str = cfg->Attribute("try")) )
 	{
-		size_t alen = strlen(try_str) ;
-		if ( alen <= 30 && try_str[alen-1] == 'm' ) //最后以m字符结尾，表示毫秒，否则为秒
-		{
-			char a_str[32];
-			memcpy(a_str, try_str, alen);	//最后一个m也拷贝
-			a_str[alen-1] = 0;	//将m处置成null
-			if ( atoi(a_str) > 0 )
-				gCFG->try_interval = atoi(a_str);
-			
-		} else {
-			if ( atoi(try_str) > 0 )
-				gCFG->try_interval = 1000*atoi(try_str);
-		}
+		if ( atoi(try_str) > 0 )
+			gCFG->try_interval = 1000*atoi(try_str);
 	}
 
 	if ( (comm_str = cfg->Attribute("block") ) && strcasecmp(comm_str, "yes") ==0 )
