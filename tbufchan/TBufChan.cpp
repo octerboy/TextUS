@@ -430,8 +430,7 @@ TBufChan::TBufChan():right_rcv(8192), right_snd(8192)
 
 TBufChan::~TBufChan() 
 {
-	if ( demanding && gCFG->expired > 0 )
-		deliver(Notitia::DMD_CLR_TIMER);
+	aptus->sponte(&clr_timer_pius); /* 清除定时,初为 0*/
 	if ( has_config && gCFG)
 		delete gCFG;
 }
