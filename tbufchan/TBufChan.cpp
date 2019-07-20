@@ -365,11 +365,11 @@ bool TBufChan::sponte( Amor::Pius *pius)
 		WBUG("sponte START_SESSION");
 		aptus->sponte(&clr_timer_pius); /* 清除定时,初为 0*/
 
-		if ( demanding )
-		{
-			if ( gCFG->expired > 0 )
-				aptus->sponte(&clr_timer_pius); /* 清除定时 */
-		} 
+//		if ( demanding )
+//		{
+//			if ( gCFG->expired > 0 )
+//				aptus->sponte(&clr_timer_pius); 
+//		} 
 		
 		right_reset();	//在这里，alive, demanding%都false了
 		has_buffered_num = 0;
@@ -385,11 +385,13 @@ bool TBufChan::sponte( Amor::Pius *pius)
 	case Notitia::DMD_END_SESSION:	/* channel closed */
 		WBUG("sponte DMD_END_SESSION");
 		aptus->sponte(&clr_timer_pius); /* 清除定时,初为 0*/
-		if ( demanding && gCFG->expired > 0 )
-		{
-			aptus->sponte(&clr_timer_pius); /* 清除定时 */
+	
+	//	if ( demanding && gCFG->expired > 0 )
+	//	{
+	//		aptus->sponte(&clr_timer_pius); /* 清除定时 */
 			//aptus->sponte(&(gCFG->chn_timeout));	/* 向左通知通道超时?, 不必吧, 因为END_SESSION会通知处理 */
-		}
+	//	}
+	
 		right_reset();
 		break;
 
