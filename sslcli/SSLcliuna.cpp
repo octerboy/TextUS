@@ -255,8 +255,8 @@ bool SSLcliuna::sponte( Amor::Pius *pius)
 		if ( demanding )
 		{
 			demanding = false;
-			if( gCFG->expired > 0 )			/* 如果设了超时 */
-				aptus->sponte(&clr_timer_pius);	/* 清除定时 */
+		//	if( gCFG->expired > 0 )			不必要了
+		//		aptus->sponte(&clr_timer_pius);
 		}
 		end();
 		alive = false;
@@ -269,8 +269,8 @@ bool SSLcliuna::sponte( Amor::Pius *pius)
 		if ( demanding )
 		{
 			demanding = false;
-			if( gCFG->expired > 0 )			/* 如果设了超时 */
-				aptus->sponte(&clr_timer_pius);	/* 清除定时 */
+		//	if( gCFG->expired > 0 )			不必要了
+		//		aptus->sponte(&clr_timer_pius);
 		}
 		letgo();	 //即使没有明文数据,也建立SSL连接
 		break;
