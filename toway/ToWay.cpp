@@ -269,7 +269,7 @@ bool ToWay::facio( Amor::Pius *pius)
 		WBUG("facio WeBSock_Start %s", pius->indic == 0 ? "null": (const char*)pius->indic);
 		if ( gCFG->work_mode != ToReader )
 		{
-			WLOG(ERR,"Not ToReader for PRO_WEBSock_HEAD");
+			WLOG(ERR,"Not ToReader for WebSock_Start");
 			break;
 		}
 		aone = gCFG->idle.fetch(); //在ignite时，idle就预置了充分的数量
@@ -315,6 +315,7 @@ bool ToWay::facio( Amor::Pius *pius)
 			else {
 				WLOG(ERR, "This reader is down.");
 				way_down();
+				return false;	//未处理, 由aptus继续向下一级传送
 			}
 		}
 		break;
