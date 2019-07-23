@@ -29,9 +29,10 @@
 #include <time.h>
 #include <sys/timeb.h>
 #include <assert.h>
+#define TOKEN_SIZE 32
 class ToWay;
 	struct TokenList {
-		char token[32];
+		char token[TOKEN_SIZE];
 		ToWay *reader;	//指向ToReader
 		ToWay *control;	//控制者, 最初为0, WebSock_Start时设置. 如果还在pools，没有连到指令服务器, 终端中断就以此为据从队列中取出.
 		struct TokenList *prev, *next;
@@ -121,6 +122,7 @@ public:
 
 	TBuffer *rcv_buf;	/* 在http头完成后，这将是http体的内容 */
 	TBuffer *snd_buf;
+	char reader_token[TOKEN_SIZE];
 
 private:
 	Amor::Pius local_pius;
@@ -167,6 +169,7 @@ private:
 	bool has_config;
 	inline void ins_cross(TBuffer *ans);
 	inline void way_down();
+	void reader_to_home( ToWay *rdr);
 
 	#include "wlog.h"
 };
@@ -246,6 +249,14 @@ bool ToWay::facio( Amor::Pius *pius)
 				break;
 			}
 			TEXTUS_SPRINTF(msg, "%s:%s", cfg->Attribute("ip"),  cfg->Attribute("port"));
+			WLOG(INFO, "facio CMD_SET_PEER, %s", msg);
+			if ( to_reader ) {
+				if (strcmp(to_reader->reader_token, msg) == 0 ) {	//已有, 相同, 可直接用
+					break;
+				} else {	//回收	
+					reader_to_home( to_reader);
+				}
+			}
 
 			found = pools->fetch(msg);
 			//{int *a =0 ; *a = 0; };	
@@ -261,6 +272,8 @@ bool ToWay::facio( Amor::Pius *pius)
 					found->control = 0;
 					gCFG->idle.put(found);
 				}
+			} else {
+				to_reader = (ToWay *) 0;
 			}
 		}
 		break;
@@ -269,7 +282,7 @@ bool ToWay::facio( Amor::Pius *pius)
 		WBUG("facio WeBSock_Start %s", pius->indic == 0 ? "null": (const char*)pius->indic);
 		if ( gCFG->work_mode != ToReader )
 		{
-			WLOG(ERR,"Not ToReader for WebSock_Start");
+			WLOG(ERR,"Not ToReader for PRO_WEBSock_HEAD");
 			break;
 		}
 		aone = gCFG->idle.fetch(); //在ignite时，idle就预置了充分的数量
@@ -295,6 +308,7 @@ bool ToWay::facio( Amor::Pius *pius)
 		pools->put(aone);	//放进pools，等着指令服务器连接时从中找出来, 按token
 		aone->reader = this; //这就是reader了
 		aone->control = this;	//如果还在pools，insway没有来连接, 而这个reader断了, 就以此从pools中取出来, 还到idle中。
+		memcpy(this->reader_token, aone->token, TOKEN_SIZE);
 
 		break;
 
@@ -313,9 +327,9 @@ bool ToWay::facio( Amor::Pius *pius)
 			if ( to_reader)
 				to_reader->ins_cross(rcv_buf);
 			else {
-				WLOG(ERR, "This reader is down.");
+				WLOG(NOTICE, "This reader is down.");
 				way_down();
-				return false;	//未处理, 由aptus继续向下一级传送
+				return false;
 			}
 		}
 		break;
@@ -367,10 +381,10 @@ bool ToWay::facio( Amor::Pius *pius)
 		{
 			if (to_reader )
 			{
-				to_reader->from_way = 0;
+				reader_to_home( to_reader);
 				//to_reader->way_down();
 			}
-			to_reader = 0;
+			//to_reader = 0;
 		}
 		break;
 
@@ -378,6 +392,16 @@ bool ToWay::facio( Amor::Pius *pius)
 		return false;
 	}
 	return true;
+}
+
+void ToWay::reader_to_home( ToWay *rdr)
+{
+	aone = gCFG->idle.fetch(); //取一个空的,
+	pools->put(aone);	//放进pools，等着指令服务器连接时从中找出来, 按token
+	aone->reader = rdr; //这就是reader了
+	aone->control = rdr;//如果还在pools，insway没有来连接, 而这个reader断了, 就以此从pools中取出来, 还到idle中。
+	memcpy(aone->token, rdr->reader_token, TOKEN_SIZE);
+	rdr->from_way = 0;
 }
 
 bool ToWay::sponte( Amor::Pius *pius)
