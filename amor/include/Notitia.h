@@ -225,6 +225,7 @@ enum HERE_ORDO {
 	Pro_TranWay		=213,	//要求处理TranWay
 	Ans_TranWay		=214,	//应答处理TranWay
 	Log_InsWay		=215,	//日志记录InsWay结构数据， 用于事务出现错误时的日志
+	Re_TranWay		=216,	//重走TranWay, 当前的中断
 	
 	Comm_Recv_Timeout	=280,	/* recv time out */
 	Comm_Event_Break	=281,	/* Communication Serial Event */

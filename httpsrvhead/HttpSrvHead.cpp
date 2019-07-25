@@ -45,7 +45,7 @@ private:
 	bool isPoineer;
 	bool session;
 	bool channel_isAlive;
-	int head_time_out;	/* 接收head的超时秒数 */
+	int head_time_out;	/* 接收head的超时毫秒数 */
 	void *tarr[3];
 	Amor::Pius alarm_pius;	/* 设置超时 */
 	bool hasTimer;	/* 已设定时否? */
@@ -97,7 +97,7 @@ void HttpSrvHead::ignite(TiXmlElement *cfg)
 		TEXTUS_STRNCPY(server_name, svr_str, sizeof(server_name));
 
 	if ( (time_str = cfg->Attribute("time_out")) &&  atoi(time_str) > 0 )
-		head_time_out = atoi(time_str)*1000;
+		head_time_out = atoi(time_str);
 
 	if (ext_method)
 		delete[] (char*) ext_method;

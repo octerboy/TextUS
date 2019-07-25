@@ -133,7 +133,7 @@ void Tcpcliuna::ignite(TiXmlElement *cfg)
 	if( (try_str = cfg->Attribute("try")) )
 	{
 		if ( atoi(try_str) > 0 )
-			gCFG->try_interval = 1000*atoi(try_str);
+			gCFG->try_interval = atoi(try_str);
 	}
 
 	if ( (comm_str = cfg->Attribute("block") ) && strcasecmp(comm_str, "yes") ==0 )
@@ -342,7 +342,8 @@ LOOP:
 		WBUG("facio IGNITE_ALL_READY");
 		arr[0] = this;
 		arr[1] = &(gCFG->try_interval);
-		arr[2] = &(gCFG->try_interval);
+		//arr[2] = &(gCFG->try_interval);
+		arr[2] = 0;
 #if defined (_WIN32)
 		if ( !tcpcli->sock_start() ) 
 		{
@@ -378,7 +379,8 @@ LOOP:
 		WBUG("facio CLONE_ALL_READY");
 		arr[0] = this;
 		arr[1] = &(gCFG->try_interval);
-		arr[2] = &(gCFG->try_interval);
+		//arr[2] = &(gCFG->try_interval);
+		arr[2] = 0;
 		if ( gCFG->on_start )
 			establish();		//开始建立连接
 

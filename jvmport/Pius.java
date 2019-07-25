@@ -214,6 +214,7 @@ public class Pius {
 	public static final long Pro_TranWay=213;	
 	public static final long Ans_TranWay=214;	
 	public static final long Log_InsWay=215;	
+	public static final long Re_InsWay=216;	
 
 	public static final long Comm_Recv_Timeout=280;	
 	public static final long Comm_Event_Break=281;	

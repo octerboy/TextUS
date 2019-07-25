@@ -66,7 +66,7 @@ private:
 	TBuffer r1st, r2nd;		//下一级的数据缓冲区, 可能是帧分析区或是原始数据区
 
 	bool isFraming;			/* 是否在一帧的分析正在进行 */
-	time_t when_frame_start;		/* 某一帧的开始时间 */
+	void *arr[3];
 
 	struct G_CFG { 
 		bool onlyOnce;	/* 有多个数据包只分析第一个 */
@@ -292,21 +292,24 @@ bool Slice::facio( Amor::Pius *pius)
 
 	case Notitia::IGNITE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY");
-		deliver(Notitia::SET_TBUF);//向后一级传递本类的TBUFFER对象地址
+		goto ALL_READY;
 		break;
 
 	case Notitia::CLONE_ALL_READY:
 		WBUG("facio CLONE_ALL_READY");
+ALL_READY:
+		arr[0] = this;
+		arr[1] = &(gCFG->timeout);
+		arr[2] = 0;
 		deliver(Notitia::SET_TBUF);//向后一级传递本类的TBUFFER对象地址
 		break;
 
-	case Notitia::TIMER:	/* 定时信号 */
+	case Notitia::TIMER:	/* 超时信号 */
 		WBUG("facio TIMER" );
 		if ( isFraming)
-		if ( time(0) - when_frame_start > gCFG->timeout )
 		{
-			deliver(Notitia::ERR_FRAME_TIMEOUT, gCFG->inverse);
 			WLOG(WARNING, "facio encounter time out");
+			deliver(Notitia::ERR_FRAME_TIMEOUT, gCFG->inverse);
 			reset();
 		}
 		break;
@@ -463,8 +466,7 @@ INLINE bool Slice::analyze(TBuffer *raw, TBuffer *plain)
 	if ( len < gCFG->offset + gCFG->len_size )
 	{ 		
 		if (!isFraming)
-		{	//这第一次开始, 计一下开始时间
-			time(&when_frame_start);
+		{	//这第一次开始
 			isFraming = true;
 			aptus->sponte(&alarm_pius);
 		}
@@ -474,6 +476,8 @@ INLINE bool Slice::analyze(TBuffer *raw, TBuffer *plain)
 	if ( gCFG->offset > 0 ) {
 		if ( memcmp(raw->base, gCFG->pre_ana_str, gCFG->pre_ana_len ) != 0 ) 
 		{
+			WLOG(WARNING, "analyze encounter invalid string");
+			aptus->sponte(&clr_timer_pius);	//可能已经定时
 			reset();
 			return false;
 		}
@@ -482,8 +486,9 @@ INLINE bool Slice::analyze(TBuffer *raw, TBuffer *plain)
 	//帧的大小检查
 	if ( frameLen < gCFG->min_len || frameLen > gCFG->max_len )
 	{	//异常数据, 丢弃而已
-		deliver(Notitia::ERR_FRAME_LENGTH, gCFG->inverse);
 		WLOG(WARNING, "analyze encounter too large/small frame, the length is %lu", frameLen);
+		aptus->sponte(&clr_timer_pius);	//可能已经定时
+		deliver(Notitia::ERR_FRAME_LENGTH, gCFG->inverse);
 		reset();
 		return false;
 	}
@@ -500,8 +505,7 @@ INLINE bool Slice::analyze(TBuffer *raw, TBuffer *plain)
 	} else
 	{	//数据头有了, 但还未完成
 		if (!isFraming)
-		{	//这第一次开始, 设一下定时, 计一下开始时间
-			time(&when_frame_start);
+		{	//这第一次开始, 设一下定时
 			isFraming = true;
 			aptus->sponte(&alarm_pius);
 		}
@@ -640,8 +644,7 @@ INLINE bool Slice::analyze_term(TBuffer *raw, TBuffer *plain)
 	if ( frameLen == -1 )
 	{	/* 一帧正在进行中 */
 		if (!isFraming)
-		{	//这第一次开始, 计一下开始时间
-			time(&when_frame_start);
+		{	//这第一次开始, 定时
 			isFraming = true;
 			aptus->sponte(&alarm_pius);
 		}

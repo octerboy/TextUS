@@ -1272,6 +1272,7 @@ unsigned long Notitia::get_ordo(const char *comm_str)
 	WHAT_ORDO(Pro_TranWay,Y); \
 	WHAT_ORDO(Ans_TranWay,Y); \
 	WHAT_ORDO(Log_InsWay,Y); \
+	WHAT_ORDO(Re_TranWay,Y); \
 	WHAT_ORDO(Comm_Recv_Timeout,Y); \
 	WHAT_ORDO(Comm_Event_Break,Y); \
 	WHAT_ORDO(Comm_Event_CTS,Y); \

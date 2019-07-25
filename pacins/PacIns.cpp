@@ -163,15 +163,6 @@ struct PacInsData {
 				pac_log = PAC_LOG_BOTH_ERR;
 		}
 	
-		p = def_ele->Attribute("dir");	
-		if ( p ) 
-		{
-			if ( strcasecmp( p, "facio") ==0 )
-				fac_spo = FACIO;
-			else if ( strcasecmp( p, "sponte") ==0 )
-				fac_spo = SPONTE;
-		}
-	
 		p = def_ele->Attribute("clear");	
 		if ( p ) 
 		{
@@ -207,6 +198,15 @@ struct PacInsData {
 			type =  INS_Cmd_Ordo;
 			fac_spo = FACIO;
 			ordo = Notitia::get_ordo(p);
+		}
+	
+		p = def_ele->Attribute("dir");	
+		if ( p ) 
+		{
+			if ( strcasecmp( p, "facio") ==0 )
+				fac_spo = FACIO;
+			else if ( strcasecmp( p, "sponte") ==0 )
+				fac_spo = SPONTE;
 		}
 	
 		subor=Amor::CAN_ALL; 

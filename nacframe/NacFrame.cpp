@@ -47,7 +47,7 @@ private:
 	TBuffer r1st, r2nd;		//下一级的数据缓冲区, 可能是帧分析区或是原始数据区
 
 	bool isFraming;			/* 是否在一帧的分析正在进行 */
-	time_t when_frame_start;		/* 某一帧的开始时间 */
+	void *arr[3];
 
 	struct G_CFG { 
 		bool inverse;	/* 是否反向分析 */
@@ -170,20 +170,22 @@ bool NacFrame::facio( Amor::Pius *pius)
 
 	case Notitia::IGNITE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY");
-		deliver(Notitia::SET_TBUF);//向后一级传递本类的TBUFFER对象地址
+		goto ALL_READY;
 		break;
 
 	case Notitia::CLONE_ALL_READY:
 		WBUG("facio CLONE_ALL_READY");
+ALL_READY:
+		arr[0] = this;
+		arr[1] = &(gCFG->timeout);
+		arr[2] = 0;
 		deliver(Notitia::SET_TBUF);//向后一级传递本类的TBUFFER对象地址
 		break;
 
-	case Notitia::TIMER:	/* 定时信号 */
+	case Notitia::TIMER:	/* 超时信号, 不用清了 */
 		WBUG("facio TIMER" );
 		if ( isFraming)
-		if ( time(0) - when_frame_start > gCFG->timeout )
 		{
-			deliver(Notitia::DMD_CLR_TIMER);
 			deliver(Notitia::ERR_FRAME_TIMEOUT, gCFG->inverse);
 			WLOG(WARNING, "facio encounter time out");
 			reset();
@@ -279,8 +281,8 @@ NacFrame::NacFrame()
 	clr_timer_pius.ordo = Notitia::DMD_CLR_TIMER;
 	clr_timer_pius.indic = 0;
 
-	alarm_pius.ordo = Notitia::DMD_SET_TIMER;
-	alarm_pius.indic = this;
+	alarm_pius.ordo = Notitia::DMD_SET_ALARM;
+	alarm_pius.indic = arr;
 }
 
 NacFrame::~NacFrame()
@@ -343,7 +345,7 @@ INLINE bool NacFrame::analyze(TBuffer *raw, TBuffer *plain)
 	if ( !isFraming && len >=1 && raw->base[0] == STX )
 	{
 		isFraming = true;
-		shouldTiming = true;	/* 有可能没有一次收完, 需要设定超时 */
+		shouldTiming = true;
 	} 
 
 	if ( !isFraming)
@@ -359,46 +361,42 @@ INLINE bool NacFrame::analyze(TBuffer *raw, TBuffer *plain)
 		ilen = getl(&raw->base[1]);	/* ilen指有效数据长度 */
 
 		//帧的大小检查
-		if ( ilen < gCFG->min_len || frameLen > gCFG->max_len )
+		if ( ilen < gCFG->min_len || ilen > gCFG->max_len )
 		{	//异常数据, 丢弃而已
+			aptus->sponte(&clr_timer_pius);	//可能已经定时
+			WLOG(WARNING, "analyze encounter too large/small frame, the length is %lu", ilen);
 			deliver(Notitia::ERR_FRAME_LENGTH, gCFG->inverse);
-			WLOG(WARNING, "analyze encounter too large/small frame, the length is %lu", frameLen);
 			reset();
 			return false;
 		}
 		frameLen = ilen + 5;	/* frameLen包括STX ETX等5字节 */
+		if ( len < frameLen )
+			goto ING_PRO;
+	} else {
+		goto ING_PRO;
 	}
 
-	if ( len < 3 || len < frameLen )
-	{ 		
-		if ( shouldTiming )
-		{	//这第一次开始, 计一下开始时间
-			time(&when_frame_start);
-			isFraming = true;
-			aptus->sponte(&alarm_pius);
-		}
-		return false;		//不够头长度
+	/* 至此, 已经收到一帧数据 len >= frameLen */
+	aptus->sponte(&clr_timer_pius);
+	if ( raw->base[frameLen-1] != checkSum(&raw->base[1], frameLen-2) )	/* 检查数据帧 */
+	{
+		WLOG(WARNING, "analyze encounter checksum error frame");
+		deliver(Notitia::ERR_FRAME_LENGTH, gCFG->inverse);
+		reset();
+		return false;
 	}
+	TBuffer::pour(*plain, *raw, frameLen-2); /* 倒入 */
+	if ( isFraming ) 
+	{
+		isFraming = false;	//即使一帧开始了, 这里都结束了
+	}
+	plain->commit(-3); /* 移走STX及长度头 */
+	raw->commit(-2);   /* 移走ETX及LRC */
+	return true;
 
-	if  ( len >= frameLen ) 
-	{	/* 收到一帧数据 */
-		if ( raw->base[frameLen-1] != checkSum(&raw->base[1], frameLen-2) )	/* 检查数据帧 */
-		{
-			deliver(Notitia::ERR_FRAME_LENGTH, gCFG->inverse);
-			WLOG(WARNING, "analyze encounter checksum error frame");
-			reset();
-			return false;
-		}
-		TBuffer::pour(*plain, *raw, frameLen-2); /* 倒入 */
-		if ( isFraming ) 
-		{
-			isFraming = false;	//即使一帧开始了, 这里都结束了
-			deliver(Notitia::DMD_CLR_TIMER);
-		}
-		plain->commit(-3); /* 移走STX及长度头 */
-		raw->commit(-2);   /* 移走ETX及LRC */
-		return true;
-	}
+ING_PRO:
+	if ( shouldTiming)	//帧刚刚开始
+		aptus->sponte(&alarm_pius);
 	return false;
 }
 
@@ -485,7 +483,6 @@ INLINE void NacFrame::reset()
 	ask_pa->reset();
 	res_pa->reset();
 	isFraming = false;
-	aptus->sponte(&clr_timer_pius);
 }
 
 #include "hook.c"

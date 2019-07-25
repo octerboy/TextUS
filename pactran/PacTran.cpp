@@ -28,7 +28,8 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdarg.h>
-#include "BTool.h"
+//#include "BTool.h"
+#include "Describo.h"
 #define NOT_LOAD_XML 1
 #include "WayData.h"
 
@@ -49,9 +50,11 @@ private:
 	enum LEFT_STATUS left_status;	
 	struct G_CFG { 	//全局定义
 		int flowID_fld_no;	//流标识域, 业务代码域, 
+		Amor *sch;
 
 		inline G_CFG() {
 			flowID_fld_no = 3;
+			sch = 0;
 		};	
 	};
 
@@ -61,6 +64,9 @@ private:
 
 	struct G_CFG *gCFG;     /* 全局共享参数 */
 	bool has_config;
+	int holding_back;
+	void get_sch();
+	void put_sch();
 	#include "wlog.h"
 };
 
@@ -141,6 +147,7 @@ bool PacTran::facio( Amor::Pius *pius)
 			{
 				WBUG("business code field null");
 			} else {
+				left_status =  LT_Working;	
 				loc_pro_tran.indic = &fl;
 				aptus->facio(&loc_pro_tran);
 			}
@@ -151,6 +158,7 @@ bool PacTran::facio( Amor::Pius *pius)
 
 	case Notitia::IGNITE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY" );
+		get_sch();
 		break;
 
 	case Notitia::CLONE_ALL_READY:
@@ -160,11 +168,13 @@ bool PacTran::facio( Amor::Pius *pius)
 	case Notitia::START_SESSION:
 		WBUG("facio START_SESSION" );
 		left_status = LT_Idle;	
+		holding_back = 0;
 		break;
 
 	case Notitia::DMD_END_SESSION:
 		WBUG("facio DMD_END_SESSION" );
 		left_status = LT_Idle;	
+		holding_back = 0;
 		break;
 
 	default:
@@ -173,16 +183,55 @@ bool PacTran::facio( Amor::Pius *pius)
 	return true;
 }
 
+void PacTran::get_sch()
+{
+	Amor::Pius get;
+	get.ordo = Notitia::CMD_GET_SCHED;
+	get.indic = 0;
+	aptus->sponte(&get);
+	gCFG->sch = (Amor*)get.indic;
+	if ( !gCFG->sch ) 
+	{
+		WLOG(ERR, "no sched or tpoll");
+	}
+}
+void PacTran::put_sch()
+{
+	Amor::Pius put;
+	struct Describo::Pendor por;
+	put.ordo = Notitia::CMD_PUT_PENDOR;
+	put.indic = &por;
+	por.pupa = this;
+	por.dir = 0;
+	por.from = 0;
+	por.pius = &loc_pro_pac;
+	if ( gCFG->sch)
+		gCFG->sch->sponte(&put);
+}
 bool PacTran::sponte( Amor::Pius *pius) 
 {
 	assert(pius);
-	if (!gCFG ) return false;
+	struct FlowStr fl;
 
 	switch ( pius->ordo ) {
 	case Notitia::Ans_TranWay:
 		WBUG("sponte Ans_TranWay");
-		left_status = LT_Idle;	
+		if ( pius->indic ) 	/* indic will be null when just sponte and not end the trans */
+		{
+			left_status = LT_Idle;	
+			if ( holding_back > 0 ) 
+			{
+				holding_back--;
+				put_sch();	//wait tpoll (sched) to call this->facio()
+				break;		//will not send answer unipac
+			}
+		}
 		aptus->sponte(&loc_pro_pac);
+		break;
+
+	case Notitia::Re_TranWay:
+		WBUG("sponte Re_TranWay");
+		holding_back++;
 		break;
 
 	default:

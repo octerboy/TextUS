@@ -1768,7 +1768,7 @@ TranWay::TranWay() {
 	loc_pro_ins.indic = &cur_insway;
 	loc_pro_ins.subor = Amor::CAN_ALL;
 	loc_ans_tran.ordo = Notitia::Ans_TranWay;
-	loc_ans_tran.indic = 0;
+	loc_ans_tran.indic = this;
 	loc_ans_tran.subor = Amor::CAN_ALL;
 	log_ps.ordo = Notitia::Log_InsWay;
 }
@@ -1981,7 +1981,9 @@ SUB_INS_PRO:
 		break;
 
 	case INS_Respond:
+		loc_ans_tran.indic = 0;
 		aptus->sponte(&loc_ans_tran);    //暂回应前端, 但整个业务不结束
+		loc_ans_tran.indic = this;
 		command_wt.tran_step = Tran_End;
 		break;
 
