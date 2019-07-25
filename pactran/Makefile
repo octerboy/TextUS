@@ -3,7 +3,7 @@
 # Build:
 #	B01:created by octerboy 2018/03/18, Panyu
 include ../Rules.basemod
-INCLUDE_DIR  += -I../baselib/include -I../logdata/include -I../unipac/include  -I../tranway/include
+INCLUDE_DIR  += -I../baselib/include -I../logdata/include -I../unipac/include  -I../tranway/include -I../sched/include
 
 all:pactran.so
 

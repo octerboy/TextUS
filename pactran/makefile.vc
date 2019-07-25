@@ -3,7 +3,7 @@
 # Build: B01:created by octerboy 2016/08/15, Gaungzhou
 
 include ..\Rules.basemod.vc
-CFLAGS  =  $(CFLAGS) -I..\baselib\include -I..\unipac\include -I..\logdata\include  -I..\tranway\include
+CFLAGS  =  $(CFLAGS) -I..\baselib\include -I..\unipac\include -I..\logdata\include  -I..\tranway\include -I..\sched\include
 LDLIB = $(LDLIB) ..\baselib\libbase.lib 
 AMOROBJS=PacTran.obj 
 
