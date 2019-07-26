@@ -177,7 +177,14 @@ bool PacTran::facio( Amor::Pius *pius)
 		holding_back = 0;
 		break;
 
+	case Notitia::DMD_SCHED_RUN:
+		WBUG("facio DMD_SCHED_RUN");
+#define POR ((struct Describo::Pendor*)pius->indic)
+		this->facio(POR->pius);
+		break;
+	
 	default:
+	//	printf("ordo %d\n",  pius->ordo);
 		return false;
 	}
 	return true;

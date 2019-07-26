@@ -175,7 +175,14 @@ struct PacInsData {
 		p = def_ele->Attribute("type");	
 		if ( !p ) 
 		{
-			type = INS_Normal;
+			if ( (p = def_ele->Attribute("ordo")) )
+			{
+				type =  INS_Cmd_Ordo;
+				fac_spo = FACIO;
+				ordo = Notitia::get_ordo(p);
+			} else {
+				type = INS_Normal;
+			}
 		} else if ( strcasecmp( p, "GetPeer") ==0 )
 		{
 			type =  INS_GetPeer;
@@ -193,13 +200,8 @@ struct PacInsData {
 			type =  INS_Pro_DBFace;
 			fac_spo = FACIO;
 			dbface_name = def_ele->Attribute("dbface");
-		} else if ( (p = def_ele->Attribute("ordo")) )
-		{
-			type =  INS_Cmd_Ordo;
-			fac_spo = FACIO;
-			ordo = Notitia::get_ordo(p);
 		}
-	
+
 		p = def_ele->Attribute("dir");	
 		if ( p ) 
 		{
@@ -433,7 +435,7 @@ bool PacIns::facio( Amor::Pius *pius) {
 		break;
 
 	case Notitia::Set_InsWay:    /* ÉèÖÃ */
-		WBUG("facio Set_InsWay, InsData %p, tag %s", pius->indic, ((struct InsData*)pius->indic)->ins_tag);
+		WLOG(NOTICE, "facio Set_InsWay, InsData %p, tag %s", pius->indic, ((struct InsData*)pius->indic)->ins_tag);
 		set_ins((struct InsData*)pius->indic);
 		break;
 
@@ -818,21 +820,25 @@ END_PRO:
 		break;
 
 	case INS_SetPeer:
+		WBUG("paci->type SetPeer");
 		set_peer(hi_req_p, loc_pro_pac.subor);
 		ans_ins(false);
 		break;
 
 	case INS_GetPeer:
+		WBUG("paci->type GetPeer");
 		get_peer(hi_reply_p, paci->subor);
 		ans_ins(false);
 		break;
 
 	case INS_Get_CertNo:
+		WBUG("paci->type Get_CertNo");
 		get_cert(hi_reply_p, paci->subor);
 		ans_ins(false);
 		break;
 
 	case INS_Cmd_Ordo:
+		WBUG("paci->type Cmd_Ordo");
 		other_ps.indic = 0;
 		other_ps.ordo = paci->ordo;
 		other_ps.subor = paci->subor;
