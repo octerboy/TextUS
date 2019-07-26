@@ -218,7 +218,6 @@ void PacTran::put_sch()
 bool PacTran::sponte( Amor::Pius *pius) 
 {
 	assert(pius);
-	struct FlowStr fl;
 
 	switch ( pius->ordo ) {
 	case Notitia::Ans_TranWay:
