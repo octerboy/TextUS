@@ -840,10 +840,12 @@ bool Animus::to_dextra(Amor::Pius *pius, unsigned int from)
 	if ( from < duco_num )
 	for (i= from,tor = &compactor[from], aptus = (Aptus *)0; i < duco_num; i++, tor++)
 	{
-		(*tor)->dextra(pius, 0);
+		if ( ((Animus*)(*tor))->unique_sub > Amor::CAN_ALL && pius->subor > Amor::CAN_ALL &&  ((Animus*)(*tor))->unique_sub !=  Amor::CAN_ALL && pius->subor ) continue;	//tor has a unique_sub? ok, subor will match it. tor is ignored if pius->subor does not matcht it.
+		(*tor)->dextra(pius, 0);	//subor may be let a value 
 		if ( pius->subor > Amor::CAN_ALL )
 		{
-			if ( pius->subor < unisub_max && unisub_branch[pius->subor] != 0 ) 
+			//printf("pius.subor %d, unisub_max %d, unisub_branch[%d] %p\n", pius->subor, unisub_max, pius->subor, unisub_branch[pius->subor]);
+			if ( (pius->subor < unisub_max) && unisub_branch[pius->subor] != 0 ) 	//Now, subor switch the right node
 				return (unisub_branch[pius->subor]->dextra(pius,0));
 		}
 		if (aptus != (Aptus *)0 ) 

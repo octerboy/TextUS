@@ -240,6 +240,7 @@ bool ToWay::facio( Amor::Pius *pius)
 	switch ( pius->ordo )
 	{
 	case Notitia::CMD_SET_PEER:
+		WBUG("facio CMD_SET_PEER");
 		if ( gCFG->work_mode == FromWay )	/* 指令服务器要求 */
 		{
 			cfg = (TiXmlElement *)(pius->indic);
@@ -304,6 +305,20 @@ bool ToWay::facio( Amor::Pius *pius)
 		} else {
 			WLOG(ERR,"get_peer return null");
 			break;
+		}
+		found = pools->fetch(aone->token);	 //看看以前的有没有,有的话取出来, 消灭之, 还给idle
+			//{int *a =0 ; *a = 0; };	
+		if ( found )
+		{
+			WBUG("previous found %s", aone->token);
+			to_reader = found->reader ;
+			if ( to_reader ) 
+			{
+				found->reader = 0;
+				found->control = 0;
+				gCFG->idle.put(found);
+				to_reader->way_down();
+			}
 		}
 		pools->put(aone);	//放进pools，等着指令服务器连接时从中找出来, 按token
 		aone->reader = this; //这就是reader了
