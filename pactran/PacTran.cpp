@@ -19,6 +19,7 @@
 #include "Amor.h"
 #include "Notitia.h"
 #include "PacData.h"
+#include "BTool.h"
 #include "casecmp.h"
 #include "textus_string.h"
 #include <stdlib.h>
@@ -51,11 +52,51 @@ private:
 	struct G_CFG { 	//全局定义
 		int flowID_fld_no;	//流标识域, 业务代码域, 
 		Amor *sch;
+		bool auto_self;
+		struct PacketObj self_pac;
 
 		inline G_CFG() {
 			flowID_fld_no = 3;
 			sch = 0;
+			auto_self = false;
 		};	
+
+		void set_self(TiXmlElement *au)
+		{
+			TiXmlElement *var_ele;
+			const char *p, *esc;
+			const char *vn = "field";
+			int max_no, fldno;
+			size_t len;
+			max_no = -1;
+			len = 0;
+			if ( !au ) return;
+			for (var_ele = au->FirstChildElement(vn); var_ele; var_ele = var_ele->NextSiblingElement(vn) ) 
+			{
+				fldno = -1;
+				var_ele->QueryIntAttribute( "no", &fldno );	
+				p = var_ele->GetText();
+				if ( p ) len += strlen(p);
+				if ( fldno > max_no )
+					max_no = fldno;
+			}
+			if ( max_no < 0 ) return ;
+			auto_self = true;
+			self_pac.produce(max_no);
+			self_pac.grant( len+1);
+			for (var_ele = au->FirstChildElement(vn); var_ele; var_ele = var_ele->NextSiblingElement(vn) ) 
+			{
+				fldno = -1;
+				var_ele->QueryIntAttribute( "no", &fldno );	
+				if ( fldno >= 0)
+				{
+					p = var_ele->GetText();
+					if ( !p) continue;
+					len = BTool::unescape(p, self_pac.buf.point);
+					self_pac.commit(fldno, len);
+				}
+			}
+		};
 	};
 
 	PacketObj *rcv_pac;	/* 来自左节点的PacketObj */
@@ -67,6 +108,7 @@ private:
 	int holding_back;
 	void get_sch();
 	void put_sch();
+	void auto_pro();
 	#include "wlog.h"
 };
 
@@ -80,6 +122,7 @@ void PacTran::ignite(TiXmlElement *prop) {
 	if ( (comm_str = prop->Attribute("flow_fld")) )
 		gCFG->flowID_fld_no = atoi(comm_str);
 
+	gCFG->set_self(prop->FirstChildElement("auto"));
 	return;
 }
 
@@ -110,6 +153,19 @@ Amor* PacTran::clone()
 	PacTran *child = new PacTran();
 	child->gCFG = gCFG;
 	return (Amor*) child;
+}
+
+void PacTran::auto_pro()
+{
+	int i;
+	FieldObj  *fld=gCFG->self_pac.fld;
+	for ( i = 0 ; i < gCFG->self_pac.max; i++, fld++ ) 
+	{
+		if ( fld->no == i ) {
+			rcv_pac->input(i, fld->val, fld->range);
+		}
+	}
+	put_sch();	//wait tpoll (sched) to call this->facio()
 }
 
 bool PacTran::facio( Amor::Pius *pius) 
@@ -169,12 +225,18 @@ bool PacTran::facio( Amor::Pius *pius)
 		WBUG("facio START_SESSION" );
 		left_status = LT_Idle;	
 		holding_back = 0;
+		rcv_pac->reset();
+		snd_pac->reset();
+		if ( gCFG->auto_self ) { auto_pro();
+		}
 		break;
 
 	case Notitia::DMD_END_SESSION:
 		WBUG("facio DMD_END_SESSION" );
 		left_status = LT_Idle;	
 		holding_back = 0;
+		rcv_pac->reset();
+		snd_pac->reset();
 		break;
 
 	case Notitia::DMD_SCHED_RUN:
@@ -221,7 +283,7 @@ bool PacTran::sponte( Amor::Pius *pius)
 
 	switch ( pius->ordo ) {
 	case Notitia::Ans_TranWay:
-		WBUG("sponte Ans_TranWay");
+		WBUG("sponte Ans_TranWay holding_back=%d auto_self=%s", holding_back, gCFG->auto_self ? "true":"false")
 		if ( pius->indic ) 	/* indic will be null when just sponte and not end the trans */
 		{
 			left_status = LT_Idle;	
@@ -229,6 +291,10 @@ bool PacTran::sponte( Amor::Pius *pius)
 			{
 				holding_back--;
 				put_sch();	//wait tpoll (sched) to call this->facio()
+				break;		//will not send answer unipac
+			}
+			if ( gCFG->auto_self ) {
+				auto_pro();	//set init pac
 				break;		//will not send answer unipac
 			}
 		}
