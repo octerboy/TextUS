@@ -6,7 +6,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 
- Title:PacWay
+ Title:TCrypt
  Build: created by octerboy, 2017/05/03 Guangzhou
  $Id$
 */
@@ -33,6 +33,7 @@
 #if defined(__APPLE__)
 #define COMMON_DIGEST_FOR_OPENSSL
 #include <CommonCrypto/CommonDigest.h>
+#include <CommonCrypto/CommonCryptor.h>
 #else
 #include <openssl/md5.h>
 #include <openssl/des.h>
@@ -198,6 +199,27 @@ static void encrypt(char in[], int len, char k_buf[], char out[] )
 {
 	int i;
 	int chunk = len/16;
+
+#if defined(__APPLE__)
+	unsigned char key[24], in_blk[8], out_blk[8];
+	CCCryptorRef ref;
+	CCCryptorStatus st;
+	size_t o_len = 0;
+
+	hex2byte(key, 8, k_buf);
+	hex2byte(&key[8], 8, &k_buf[16]);
+	memcpy(&key[16], key, 8);
+	st = CCCryptorCreateWithMode(kCCEncrypt, kCCModeECB, kCCAlgorithm3DES, ccNoPadding, 0, (const void *)key, kCCKeySize3DES, 0,0,0,0, &ref);
+	if ( st != kCCSuccess )  { printf("CCCryptorCreateWithMode failed!\n"); return ; }
+	for ( i = 0 ; i < chunk; i++)
+	{
+		hex2byte(in_blk, 8, &in[i*16]);
+		st = CCCryptorUpdate(ref, (const void *)in_blk, 8, out_blk, 8, &o_len);
+		if ( st != kCCSuccess ) printf("CCCryptorUpdate ok out %lu bytes\n", o_len);
+		byte2hex(out_blk, 8, &out[i*16]);	
+	}
+	st =CCCryptorRelease(ref);	
+#else
 	DES_key_schedule kLeft, kRight;
 	DES_cblock lkey,rkey, in_blk, out_blk;
 	hex2byte(lkey, 8, k_buf);
@@ -214,12 +236,38 @@ static void encrypt(char in[], int len, char k_buf[], char out[] )
 		DES_ecb2_encrypt(&in_blk, &out_blk, &kLeft, &kRight, DES_ENCRYPT);
 		byte2hex(out_blk, 8, &out[i*16]);	
 	}
+#endif
 }
 
 static void encrypt_cbc(char in[], int len, char k_buf[], char out[] )
 {
 	unsigned char *indata, in_buf[256], *outdata, out_buf[256];
 
+#if defined(__APPLE__)
+	unsigned char key[24], in_blk[8], out_blk[8], iv[8];
+	CCCryptorRef ref;
+	CCCryptorStatus st;
+	size_t o_len = 0;
+
+	hex2byte(key, 8, k_buf);
+	hex2byte(&key[8], 8, &k_buf[16]);
+	memcpy(&key[16], key, 8);
+	memset(iv, 0, 8);
+	st = CCCryptorCreateWithMode(kCCEncrypt, kCCModeCBC, kCCAlgorithm3DES, ccNoPadding, iv, (const void *)key, kCCKeySize3DES, 0,0,0,0, &ref);
+	if ( st != kCCSuccess )  { printf("CCCryptorCreateWithMode failed!\n"); return ; }
+	if (  len > 500 ) 
+	{
+		indata = (unsigned char*)malloc(len);
+		outdata = (unsigned char*)malloc(len);
+	} else {
+		indata = &in_buf[0];
+		outdata = &out_buf[0];
+	}
+	hex2byte(indata, len/2, &in[0]);
+	st = CCCryptorUpdate(ref, indata, len/2, outdata, len/2, &o_len);
+	byte2hex(outdata, len/2, &out[0]);	
+	st =CCCryptorRelease(ref);	
+#else
 	DES_key_schedule kLeft, kRight;
 	DES_cblock lkey,rkey ,ivec;
 
@@ -244,6 +292,7 @@ static void encrypt_cbc(char in[], int len, char k_buf[], char out[] )
 	memset(&ivec, 0, sizeof(ivec));
 	DES_ede2_cbc_encrypt(indata, outdata, len/2, &kLeft, &kRight, &ivec, DES_ENCRYPT);
 	byte2hex(outdata, len/2, &out[0]);	
+#endif
 
 	if (  len > 500 ) 
 	{
@@ -252,6 +301,93 @@ static void encrypt_cbc(char in[], int len, char k_buf[], char out[] )
 	}
 }
 
+#if defined(__APPLE__)
+static void singleMAC(const unsigned char *input, size_t len, unsigned char *mac, 
+			   const unsigned char *key, const unsigned char *ivec)
+{
+	unsigned char blk[8];
+	size_t offset=0,i;
+	CCCryptorRef ref;
+	CCCryptorStatus st;
+	size_t o_len = 0;
+
+	memcpy(mac, ivec, 8);
+
+	st = CCCryptorCreateWithMode(kCCEncrypt, kCCModeECB, kCCAlgorithmDES, ccNoPadding, 0, key, kCCKeySizeDES, 0,0,0,0, &ref);
+	while ( offset < len ) 
+	{
+		for ( i =0 ; i < 8 ; i++ ) 
+		{ 
+			blk[i] =  mac[i] ^ input[offset]; 
+			offset++;
+		}
+		st = CCCryptorUpdate(ref, blk, 8, mac, 8, &o_len);
+	}
+	st =CCCryptorRelease(ref);	
+}
+
+static void doubleMAC(const unsigned char *input, size_t len, unsigned char *mac, const unsigned char*key, unsigned char *ivec)
+{
+	unsigned char blk[8];
+	CCCryptorRef ref;
+	CCCryptorStatus st;
+	size_t o_len;
+
+	singleMAC (input, len, mac, key, ivec);
+
+	st = CCCryptorCreateWithMode(kCCDecrypt, kCCModeECB, kCCAlgorithmDES, ccNoPadding, 0, &key[8], kCCKeySizeDES, 0,0,0,0, &ref);
+	st = CCCryptorUpdate(ref, blk, 8, mac, 8, &o_len);
+	st =CCCryptorRelease(ref);	
+	//DES_ecb_encrypt (mac, &blk, keyR, DES_DECRYPT);
+	st = CCCryptorCreateWithMode(kCCEncrypt, kCCModeECB, kCCAlgorithmDES, ccNoPadding, 0, key, kCCKeySizeDES, 0,0,0,0, &ref);
+	st = CCCryptorUpdate(ref, blk, 8, mac, 8, &o_len);
+	st =CCCryptorRelease(ref);	
+	//DES_ecb_encrypt (&blk, mac,  keyL, DES_ENCRYPT);
+}
+
+static void TDesMac(char data[], int d_len,  char k_buf[], char vec[], char mac[])
+{
+	unsigned char key[24], in_blk[8], out_blk[8], vector[8], c_code[8];
+	unsigned char *buf;
+
+	hex2byte(key, 8, k_buf);
+	hex2byte(&key[8], 8, &k_buf[16]);
+	memcpy(&key[16], key, 8);
+	hex2byte(vector, 8, vec);	//准备好向量
+
+	d_len = d_len/2;	//先算成字节数, 准备好数据
+	buf = new unsigned char[d_len + 32];
+	hex2byte(buf, d_len, data);
+
+	buf[d_len] = 0x80;
+	memset(&buf[d_len+1], 0x00, 7-d_len%8);	//补齐80 00
+	d_len += (8-d_len%8);
+	doubleMAC (buf, d_len, c_code, key, vector);
+
+	byte2hex(c_code, 8, mac);
+	delete[] buf;
+}
+
+static void SDesMac(char data[], int d_len,  char k_buf[], char vec[], char mac[])
+{
+	unsigned char vector[8], c_code[8], lkey[16];
+	unsigned char *buf;
+
+	hex2byte(lkey, 8, k_buf);
+	hex2byte(vector, 8, vec);	//准备好向量
+
+	d_len = d_len/2;	//先算成字节数, 准备好数据
+	buf = new unsigned char[d_len+24];
+	hex2byte(buf, d_len, data);
+
+	buf[d_len] = 0x80;
+	memset(&buf[d_len+1], 0x00, 7-d_len%8);	//补齐80 00
+	d_len += (8-d_len%8);
+	singleMAC (buf, d_len, c_code, lkey, vector);
+	delete [] buf;
+	byte2hex(c_code, 8, mac);
+}
+#else
 static void singleMAC(const unsigned char *input, size_t len, DES_cblock *mac, 
 			   DES_key_schedule *key, DES_cblock *ivec)
 {
@@ -312,6 +448,69 @@ static void TDesMac(char data[], int d_len,  char k_buf[], char vec[], char mac[
 	byte2hex(c_code, 8, mac);
 }
 
+static void SDesMac(char data[], int d_len,  char k_buf[], char vec[], char mac[])
+{
+	DES_cblock vector;
+	unsigned char buf[1024];
+	DES_cblock c_code;
+
+	DES_key_schedule kLeft;
+	DES_cblock lkey;
+	hex2byte(lkey, 8, k_buf);
+
+	DES_set_odd_parity(&lkey);
+
+	DES_set_key(&lkey, &kLeft);
+
+	hex2byte(vector, 8, vec);	//准备好向量
+
+	d_len = d_len/2;	//先算成字节数, 准备好数据
+	hex2byte(buf, d_len, data);
+
+	buf[d_len] = 0x80;
+	memset(&buf[d_len+1], 0x00, 7-d_len%8);	//补齐80 00
+	d_len += (8-d_len%8);
+	singleMAC (buf, d_len, &c_code, &kLeft, &vector);
+
+	byte2hex(c_code, 8, mac);
+}
+#endif
+
+struct List {
+	const char *a_str; 
+	List *prev;
+	List *next;
+	inline List ()
+	{
+		a_str = 0;
+		prev = 0;
+		next = 0;
+	};
+	inline void put ( struct List *neo ) 
+	{
+		if( !neo ) return;
+		neo->next = next;
+		neo->prev = this;
+		if ( next != 0 )
+			next->prev = neo;
+		next = neo;
+	};
+
+	inline struct List *fetch() 
+	{
+		struct List *obj = 0;
+
+		obj = next;
+
+		if ( !obj ) return 0;	/* 没有一个有这样的 */
+		/* 至此, 一个obj, 该符合条件, 这个obj要去掉  */
+		obj->prev->next = obj->next; 
+		if ( obj->next )
+			obj->next->prev  =  obj->prev;
+		return obj;
+	};
+};
+
 class TCrypt: public Amor
 {
 public:
@@ -324,36 +523,78 @@ public:
 	TCrypt();
 	~TCrypt();
 private:
+	bool back_i();
+	bool fetch_i();
 	bool gm_cipher();
 	bool jt_gm_auth();
 	bool gm_cipher_mac();
 	bool gm_mac();
 	bool tdes_mac();
+	bool sdes_mac();
 	bool tdes_cipher_mac();
 	bool tdes_cipher();
 	bool tdes_cbc();
 	bool diversify();
 	PacketObj *rcv_pac;	/* 来自左节点的PacketObj */
 	PacketObj *snd_pac;
+
+	struct G_CFG
+	{
+		List pool;
+		inline ~G_CFG() { 
+		};
+
+		inline G_CFG(TiXmlElement *cfg) 
+		{
+			List *a_l;
+			TiXmlElement *var_ele;
+			const char *vn="index";
+			for (var_ele = cfg->FirstChildElement(vn); var_ele; var_ele = var_ele->NextSiblingElement(vn) ) 
+			{
+				a_l = new List;
+				a_l->a_str = var_ele->GetText();
+				pool.put(a_l);
+			}
+		};
+	};
+
+	List *me_l;
+	struct G_CFG *gcfg;  
+	bool has_config;
 #include "wlog.h"
 	
 };
 
-void TCrypt::ignite(TiXmlElement *prop)
+void TCrypt::ignite(TiXmlElement *cfg)
 {
+	if (!cfg) return;
+
+	if ( !gcfg ) 
+	{
+		gcfg = new struct G_CFG(cfg);
+		has_config = true;
+	}
 }
 
 TCrypt::TCrypt()
 {
+	gcfg = 0;
+	has_config = false;
+	me_l = 0;
 }
 
 TCrypt::~TCrypt()
 {
+	if ( has_config  )
+	{	
+		if(gcfg) delete gcfg;
+	}
 }
 
 Amor* TCrypt::clone()
 {
 	TCrypt *child = new TCrypt();
+	child->gcfg = gcfg;
 	return (Amor*) child;
 }
 
@@ -432,6 +673,18 @@ bool TCrypt::facio( Amor::Pius *pius)
 		case 'C':
 			if (tdes_mac())
 				snd_pac->input(1,'l');
+			break;
+		case 'E':
+			if ( fetch_i() )
+				snd_pac->input(1,'o');
+			break;
+		case 'F':
+			if ( back_i() )
+				snd_pac->input(1,'p');
+			break;
+		case 'G':
+			if (sdes_mac())
+				snd_pac->input(1,'q');
 			break;
 		default:
 			return false;
@@ -603,6 +856,30 @@ bool TCrypt::tdes_mac()
 	return true;
 }
 
+bool TCrypt::sdes_mac()
+{
+	const char *patch ="80000000000000000000000000000000";
+	const char *zero ="00000000000000000000000000000000";
+	char mac[64], k_buf[64], rnd[64];
+	unsigned char *h_val;
+	unsigned long h_len;
+
+	h_val=rcv_pac->getfld(4, &h_len);	//protect key
+	memcpy(k_buf, h_val, h_len);	
+
+	h_val=rcv_pac->getfld(5, &h_len);	//rnd
+	memcpy(rnd, h_val, h_len);
+	memcpy(&rnd[h_len], zero, 32-h_len);
+
+	h_val=rcv_pac->getfld(2, &h_len);	//head
+
+	SDesMac((char*)h_val, h_len,  (char*)k_buf, rnd, mac);
+	mac[16] = '\0';
+	snd_pac->input(2, mac, 16);
+	//{int *a= 0 ; *a=0;}
+	return true;
+}
+
 bool TCrypt::tdes_cipher_mac()
 {
 	const char *patch ="80000000000000000000000000000000";
@@ -707,7 +984,7 @@ bool TCrypt::diversify()
 	h_val=rcv_pac->getfld(2, &h_len);	//分散因子
 	if ( h_len %16 !=0) 
 	{
-		WBUG("factor len %16 !=0");
+		WBUG("factor len %%16 !=0");
 		return false;
 	}
 	div_num = h_len/16;
@@ -742,4 +1019,23 @@ bool TCrypt::diversify()
 	return true;
 }
 		
+bool TCrypt::fetch_i()
+{
+	me_l = gcfg->pool.fetch();
+	if ( !me_l ) 
+		return false;
+	snd_pac->input(2, me_l->a_str, strlen(me_l->a_str));
+	return true;
+}
+
+bool TCrypt::back_i()
+{
+	if ( me_l ) 
+	{
+		gcfg->pool.put(me_l);
+		me_l = 0;
+	} 
+	return true;
+}
+
 #include "hook.c"
