@@ -78,7 +78,7 @@ class ToWay;
 	
 			for ( obj = next; obj; obj = obj->next )
 			{
-				if ( control == me )
+				if ( obj->control == me )
 					break;
 			}
 			if ( !obj ) return 0;	/* 没有一个有这样的 */
@@ -373,14 +373,14 @@ bool ToWay::facio( Amor::Pius *pius)
 		break;
 
 	case Notitia::DMD_END_SESSION:  /* 强制关闭 */
-		WBUG("facio DMD_END_SESSION");
+		WBUG("facio DMD_END_SESSION mode=%d", gCFG->work_mode);
 		if ( gCFG->work_mode == ToReader )
 		{
 			while ( true)
 			{
 				aone = pools->fetch(this);
-				if ( !aone) 
-					break;
+				if ( !aone) break;
+				WBUG("found one alive, to idle.");
 				aone->reader = 0;
 				aone->control = 0;
 				gCFG->idle.put(aone);
