@@ -129,6 +129,7 @@ private:
 	struct TokenList *aone;
 
 	struct G_CFG {
+		bool no_reader_down;
 		struct TokenList idle;
 		long token_num ;
 
@@ -140,6 +141,7 @@ private:
 			work_mode = NoWhere;
 			token_db = 0;
 			token_many = 0;
+			no_reader_down = true;
 		};
 
 		inline void prop(TiXmlElement *cfg)
@@ -157,6 +159,12 @@ private:
 			token_many = 1000;
 			cfg->QueryIntAttribute("token_max", &(token_many));
 			token_db = new struct TokenList[token_many];
+			
+			if( (wk_str = cfg->Attribute("no_reader")) )
+			{
+				if ( strcasecmp(wk_str, "pass") == 0)
+					no_reader_down = false;
+			}
 		};
 		
 
@@ -342,8 +350,10 @@ bool ToWay::facio( Amor::Pius *pius)
 			if ( to_reader)
 				to_reader->ins_cross(rcv_buf);
 			else {
-				WLOG(NOTICE, "This reader is down.");
-				way_down();
+				if (gCFG->no_reader_down) {
+					WLOG(NOTICE, "This reader is down.");
+					way_down();
+				}
 				return false;
 			}
 		}
