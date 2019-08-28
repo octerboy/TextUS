@@ -49,10 +49,11 @@ public class Pius {
 	public static final long FAC_LOG_DEBUG	=27;
 
 	public static final long CMD_GET_VERSION=30;	//取得版本信息		
-	public static final long SET_DEXTRA_SKIP=31;	//设置忽略dextra时辅助处理的ordo, indic指向一个整数
-	public static final long SET_LAEVE_SKIP	=32;	//设置忽略laeve时辅助处理的ordo, indic指向一个整数
-	public static final long SET_FACIO_SKIP	=33;	//设置忽略facio时辅助处理的ordo, indic指向一个整数
-	public static final long SET_SPONTE_SKIP=34;	//设置忽略sponte时辅助处理的ordo, indic指向一个整数
+	public static final long CMD_ZERO_FILE	=31;	//
+	public static final long CMD_CLOSE_FILE	=32;	//
+	public static final long CMD_GET_SCHED	=33;	//取得调度者的指针
+	public static final long CMD_PUT_PENDOR	=34;	//向调度者设置
+	public static final long DMD_SCHED_RUN	=35;	//向调度者设置
 
 	public static final long CMD_GET_PIUS	=41;	/* get pius from a keeper */
 	public static final long DMD_CONTINUE_SELF	=42;	//继续下本接力者
@@ -155,7 +156,10 @@ public class Pius {
 	public static final long SET_COOKIE 	=142;	/* 设置某个cookie */ 
 	public static final long GET_DOMAIN 	=143;	/* 获取domain */ 
 	public static final long HTTP_ASKING 	=144;	/* HTTP请求中, head已OK, 报文未完整 */
-	public static final long WebSock_Start	=145;	/* 处理http的websocket报文头 */
+	public static final long WebSock_Start	=145;	/* websocket握手完成, indic指向char *协议名称 */
+	public static final long WebSock_End	=146;	/* websocket结束 */
+	public static final long Get_WS_MsgType	=147;	/* 获取WebSock中的OPCODE, indic指向一个unsigned char */
+	public static final long Set_WS_MsgType	=148;	/* 设置WebSock中的OPCODE, indic指向一个unsigned char */
 
 	public static final long SET_TINY_XML 	=151;
 	public static final long PRO_TINY_XML	=152; 
@@ -208,13 +212,13 @@ public class Pius {
 	public static final long ERR_UNIPAC_INFO	=204;	/* 这里来的packetobj要对应到SOAP响应的fault中去 */
 	public static final long MULTI_UNIPAC_END	=205;	/* 多个PACKETOBJ结束 */
 
-	public static final long Set_InsWay=210;	
-	public static final long Pro_InsWay=211;	
-	public static final long Ans_InsWay=212;	
-	public static final long Pro_TranWay=213;	
-	public static final long Ans_TranWay=214;	
-	public static final long Log_InsWay=215;	
-	public static final long Re_InsWay=216;	
+	public static final long Set_InsWay	=210;	
+	public static final long Pro_InsWay	=211;	
+	public static final long Ans_InsWay	=212;	
+	public static final long Pro_TranWay	=213;	
+	public static final long Ans_TranWay	=214;	
+	public static final long Log_InsWay	=215;	
+	public static final long Re_TranWay	=216;	
 
 	public static final long Comm_Recv_Timeout=280;	
 	public static final long Comm_Event_Break=281;	
