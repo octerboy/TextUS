@@ -336,7 +336,7 @@ static void doubleMAC(const unsigned char *input, size_t len, unsigned char *mac
 	singleMAC (input, len, mac, key, ivec);
 
 	st = CCCryptorCreateWithMode(kCCDecrypt, kCCModeECB, kCCAlgorithmDES, ccNoPadding, 0, &key[8], kCCKeySizeDES, 0,0,0,0, &ref);
-	st = CCCryptorUpdate(ref, blk, 8, mac, 8, &o_len);
+	st = CCCryptorUpdate(ref, mac, 8, blk, 8, &o_len);
 	st =CCCryptorRelease(ref);	
 	//DES_ecb_encrypt (mac, &blk, keyR, DES_DECRYPT);
 	st = CCCryptorCreateWithMode(kCCEncrypt, kCCModeECB, kCCAlgorithmDES, ccNoPadding, 0, key, kCCKeySizeDES, 0,0,0,0, &ref);
