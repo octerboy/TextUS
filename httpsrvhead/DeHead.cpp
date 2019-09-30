@@ -757,12 +757,12 @@ int DeHead::getContent (char *out_buf, long _size)
 			status == 0 ? 200 : status, 
 			title == (char*) 0 ? "OK":title );
 	} else {
-		ADD_TO_HEAD6("%s %s %s%s%s\r\n", 
+		ADD_TO_HEAD6("%s %s%s%s %s\r\n", 
 			method == (char*) 0 ? "GET" : method, 
 			path == 0 ? "/": path, 
-			protocol == (char*) 0 ? "HTTP/1.1" : protocol, 
 			query == (char*) 0 ? "": "?",
-			query == (char*) 0 ? "": query);
+			query == (char*) 0 ? "": query,
+			protocol == (char*) 0 ? "HTTP/1.1" : protocol);
 	}
     	
 	fld = &field_values[0];
