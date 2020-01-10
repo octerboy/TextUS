@@ -99,7 +99,7 @@ void get_req_pac( PacketObj *req_pac, struct DyVarBase **psnap, struct InsData *
 	return ;
 };
 
-struct PacInsData {
+struct PacInsData : ExtInsBase {
 	PacIns_Type type;
 	int subor;	//指示指令报文送给哪一个下级模块
 
@@ -125,6 +125,7 @@ struct PacInsData {
 		dbface = 0;
 		ordo = Notitia::TEXTUS_RESERVED;
 		clear =true;
+		me = 0;
 	};
 
 	void set_def(TiXmlElement *def_ele, struct InsData *insd) 
@@ -759,6 +760,7 @@ RCV_PRO:
 	}	/* 结束返回元素的定义*/
 
 LAST_CON:
+	paci->me = this->gCFG;
 	return ;
 }
 
@@ -767,6 +769,7 @@ void PacIns::pro_ins ()
 	struct PacInsData *paci;
 	struct InsReply *rep;
 	paci = (struct PacInsData *)cur_insway->dat->ext_ins;
+	if ( paci->me != this->gCFG ) return;	//不是本模块定义的, 不作处理
 	rep = (struct InsReply *)cur_insway->reply;
 	//if ( strcmp(cur_insway->dat->ins_tag, "InitPac") == 0 )
 	//	{int *a =0 ; *a = 0; };
@@ -846,7 +849,7 @@ END_PRO:
 			aptus->facio(&other_ps);     //向右发出指令, 右节点不再sponte
 		else
 			aptus->sponte(&other_ps);     //向左发出指令, 
-		return ;
+		ans_ins(false);
 		break;
 
 	default :
@@ -884,6 +887,9 @@ void PacIns::ans_ins (bool should_spo)
 
 void PacIns::log_ins ()
 {
+	struct PacInsData *paci;
+	paci = (struct PacInsData *)cur_insway->dat->ext_ins;
+	if ( paci->me != this->gCFG ) return;	//不是本模块定义的, 不作处理
 	log_pac(hi_req_p, "Request", PAC_LOG_BOTH);
 	log_pac(last_ans_pac,"Reply", PAC_LOG_BOTH);
 }

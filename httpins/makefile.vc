@@ -1,0 +1,27 @@
+# Title: Makefile(VC)
+# ID: Textus-httpins-Makefile-vc
+# Build: 
+#	B01:created by octerboy 2019/09/19, Gaungzhou
+include ..\Rules.basemod.vc
+CFLAGS = $(CFLAGS) -I..\logdata\include -I..\baselib\include -I..\httpsrvhead\include -I..\httpsrvhead -I$(OPENSSL_DIR)\include -I..\tranway\include
+AMOROBJS=httpins.obj  DeHead.obj
+LDLIB = $(LDLIB) ..\baselib\libbase.lib $(OPENSSL_DIR)\lib\libeay32.lib
+
+all: httpins.dll
+
+DeHead.obj: ..\httpsrvhead\DeHead.cpp ..\httpsrvhead\tdate_parse.c
+	$(CC) $(CFLAGS)  -DDEBUG ..\httpsrvhead\DeHead.cpp
+
+HttpIns.obj: HttpIns.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=HttpIns HttpIns.cpp
+
+httpins.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib

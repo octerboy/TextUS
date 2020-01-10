@@ -83,6 +83,10 @@ struct CmdRcv {
 	};
 };
 
+struct ExtInsBase {
+	void *me;
+};
+
 struct InsData {
 	const char *ins_tag;//比如： CMac等
 	int up_subor;	//指示指令报文送给哪一个下级模块
