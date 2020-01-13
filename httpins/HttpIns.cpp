@@ -565,7 +565,9 @@ RCV_PRO:
 		{
 			h_fld->head = Head_Parameter;
 			h_fld->name = p_ele->Attribute("name");
-		} else if ( p_ele->Attribute("head")) 
+		} else if ( strcasecmp(p, "Content-Length") == 0 ) 
+			h_fld->head = Head_Content_Length;
+ 		else if ( p_ele->Attribute("head")) 
 		{
 			h_fld->head = Head_Name;
 			h_fld->name = p_ele->Attribute("name");
