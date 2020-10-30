@@ -38,11 +38,12 @@
 #include <openssl/md5.h>
 #endif
 #include "WayData.h"
+#include "get_chunk_size.c"
 
-#define HTTPINLINE inline
+#define FLD_NO_VALUE -9
 /* 命令分几种，INS_Normal：标准， */
 enum HIns_Type { INS_None = 0, INS_FromRequest=1,  INS_ToResponse=3, INS_ToRequest=5,  INS_FromResponse=6};
-enum Head_Type { Head_None = 0, Head_Title=1, Head_Method=2, Head_Path=3, Head_Status=4, Head_Protocol=5, Head_Parameter=6, Head_Name=7, Head_Body=8, Head_Query=9, Head_Content_Length=10, Head_Content_Type=11};
+enum Head_Type { Head_None = 0, Head_Title=1, Head_Method=2, Head_Path=3, Head_Status=4, Head_Protocol=5, Head_Parameter=6, Head_Name=7, Head_Body=8, Head_Query=9, Head_Content_Length=10, Head_Content_Type=11, Head_Now};
 enum HIns_LOG { HI_LOG_NONE = 0, HI_LOG_STR =0x11, HI_LOG_HEX =0x12, HI_LOG_BOTH = 0x13, HI_LOG_STR_ERR = 0x21, HI_LOG_HEX_ERR = 0x22, HI_LOG_BOTH_ERR = 0x23};
 
 struct HFld {
@@ -71,13 +72,14 @@ struct HInsData : ExtInsBase {
 	{
 		const char *p;
 		p = def_ele->Attribute("type");	
+		if ( !p) return false;
 		if ( strcasecmp( p, "FromBrowser") ==0 )
 		{
 			type =  INS_FromRequest;
-		} else if ( strcasecmp( p, "Request") ==0 )
+		} else if ( strcasecmp( p, "HttpRequest") ==0 )
 		{
 			type =  INS_ToRequest;
-		} else if ( strcasecmp( p, "Response") ==0 )
+		} else if ( strcasecmp( p, "HttpResponse") ==0 )
 		{
 			type =  INS_FromResponse;
 		} else if ( strcasecmp( p, "ToBrowser") ==0 )
@@ -150,12 +152,13 @@ private:
 	char my_err_str[1024];
 	struct InsWay *cur_insway;
 	TBuffer *rcv_buf;	/* 在http头完成后，这将是http体的内容 */
-	TBuffer *snd_buf;	
+	TBuffer *ans_body_buf;	
 
 	TBuffer house;		/* 暂存 */
 	TBuffer cli_rcv;	/* 从右节点接收的数据缓冲 */
 	TBuffer cli_snd;	/* 向右节点发送的数据缓冲 */
-	TBuffer browser_ans_buf, request_body_buf;
+	TBuffer *hitb[3];
+	TBuffer ans_head_buf, request_body_buf;
 
 	Amor::Pius fac_tbuf;
 	Amor::Pius spo_body;
@@ -163,10 +166,36 @@ private:
 	Amor::Pius pro_hd_ps, other_ps,ans_ins_ps;
 
 	long ans_body_length,req_body_length;
+	long chunk_offset;	/* 当前分析位置, 即rcv_buf中相对于base的偏移量 */
 	DeHead response, request, *browser_req, browser_ans;
 	char response_status[64], browser_status[64];
-	bool left_head_ok, left_body_ok, right_body_ok, right_head_ok, req_sent, ans_sent;
+	bool left_head_ok, left_body_ok, right_body_ok, right_head_ok, req_head_sent, req_sent, ans_head_sent, ans_sent;
+	void stat_reset() {
+		req_head_sent = false;
+		ans_head_sent = false;
+		left_head_ok = false;
+		left_body_ok = false;
+		right_body_ok = false;
+		right_head_ok = false;
+	};
+
+	void left_reset() {
+		left_head_ok = false;
+		left_body_ok = false;
+		browser_ans.reset();
+		chunko.reset();
+		chunk_offset = 0;
+	};
 	
+	void right_reset() {
+		response.reset();
+		request.reset();
+		chunko.reset();
+		right_body_ok = false;
+		right_head_ok = false;
+		chunk_offset = 0;
+	};
+
 	struct G_CFG {
 		TiXmlDocument doc_h_def;	//pacdef：报文定义
 		TiXmlElement *h_def_root;
@@ -184,6 +213,25 @@ private:
 		};
 	};
 
+	typedef struct _Chunko {
+					/* 很多情况下, 一个chunk一次读完, 所以都处于初始值 */
+		bool started ;		/* false: 还没有读完chunk头, true: chunk数据正在读 */
+		long body_len;	/* 正在读chunk的长度, len_to_read 不包括CRLF这两个字 */
+		long head_len;		/* head的长度， 包括CRLF */
+		inline _Chunko ()
+		{
+			reset();
+		};
+
+		inline void reset ()
+		{
+			started = false;
+			body_len = -1;
+		};
+	} Chunko;
+	Chunko chunko;
+	bool chunk_all(TBuffer *bo_buf);
+
 	void set_ins(struct InsData *insd);
 	void pro_ins();
 	void load_def();
@@ -192,7 +240,8 @@ private:
 	bool has_config;
 	const char* pro_rply(struct DyVarBase **psnap, struct InsData *insd, DeHead *headp, bool &has_head, TBuffer *&body_buf);
 	void get_snd_buf(struct DyVarBase **psnap, struct InsData *insd, DeHead *headp);
-	void ans_ins(bool should_spo);
+	//void ans_ins(bool should_spo);
+	void inline ans_ins();
 	void log_ht(DeHead *headp, const char *prompt, const char *err, bool has_head, bool force=false);
 	void log_ht(TBuffer *tbuf, const char *prompt);
 
@@ -233,6 +282,7 @@ void HttpIns::ignite(TiXmlElement *cfg)
 bool HttpIns::facio( Amor::Pius *pius)
 {
 	TBuffer **tb = 0;
+	Amor::Pius tmp_pius;
 
 	switch ( pius->ordo )
 	{
@@ -256,15 +306,14 @@ bool HttpIns::facio( Amor::Pius *pius)
 		assert(rcv_buf);
 		if ( !left_head_ok ) break;
 CLI_PRO:
-		left_body_ok = false;
-		if ( rcv_buf->point - rcv_buf->base >= browser_req->content_length ) 
+		if ( browser_req->content_length  == -1 )
+		{	/* Transfer-Encoding */
+			left_body_ok = chunk_all(&cli_rcv);
+		} if ( browser_req->content_length  > 0  && ( rcv_buf->point - rcv_buf->base >= browser_req->content_length ) ) {
 			left_body_ok = true;
-		pro_ins();
-		if ( left_body_ok )
-		{
-			left_head_ok = false;
+		} else 
 			left_body_ok = false;
-		}
+		pro_ins();
 		break;
 
 	case Notitia::SET_TBUF:	/* 取得输入TBuffer地址 */
@@ -275,25 +324,21 @@ CLI_PRO:
 			else
 				WLOG(WARNING, "facio SET_TBUF rcv_buf null");
 			tb++;
-			if ( *tb) snd_buf = *tb;
+			if ( *tb) ans_body_buf = *tb;
 			else
-				WLOG(WARNING, "facio SET_TBUF snd_buf null");
+				WLOG(WARNING, "facio SET_TBUF ans_body_buf null");
 		} else 
 			WLOG(WARNING, "facio SET_TBUF null");
 		break;
 
 	case Notitia::DMD_END_SESSION:	/* channel is not alive */
 		WBUG("facio DMD_END_SESSION");
-		left_head_ok = false;
-		left_body_ok = false;
-		browser_ans.reset();
+		left_reset();
 		break;
 
 	case Notitia::START_SESSION:	/* channel is alive */
 		WBUG("facio START_SESSION");
-		left_head_ok = false;
-		left_body_ok = false;
-		browser_ans.reset();
+		left_reset();
 		break;
 
 	case Notitia::Set_InsWay:    /* 设置 */
@@ -308,6 +353,7 @@ CLI_PRO:
 	case Notitia::Pro_InsWay:    /* 处理 */
 		WBUG("facio Pro_InsWay, tag %s", ((struct InsWay*)pius->indic)->dat->ins_tag);
 		cur_insway = (struct InsWay*)pius->indic;
+		stat_reset();
 		pro_ins();
 		break;
 
@@ -319,10 +365,16 @@ CLI_PRO:
 	case Notitia::IGNITE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY" );
 		load_def();
+		tmp_pius.ordo = Notitia::SET_TBUF;
+		tmp_pius.indic = &hitb[0];
+		aptus->facio(&tmp_pius);
 		break;
 
 	case Notitia::CLONE_ALL_READY:
 		WBUG("facio CLONE_ALL_READY" );
+		tmp_pius.ordo = Notitia::SET_TBUF;
+		tmp_pius.indic = &hitb[0];
+		aptus->facio(&tmp_pius);
 		break;
 
 	default:
@@ -340,12 +392,7 @@ bool HttpIns::sponte( Amor::Pius *pius)
 	{
 	case Notitia::PRO_TBUF:	/* 置HTTP响应数据 */
 		WBUG("sponte PRO_TBUF");
-		if ( !snd_buf)	
-		{
-			WLOG(WARNING, "snd_buf is null!");
-			break;
-		}
-		WBUG("request %s  ResStat %d", req_sent? "sent": "not sent", response.state);
+		WBUG("Client request %s  ResStat %d", req_sent? "sent": "not sent", response.state);
 		if ( !req_sent ) { 
 			cli_rcv.reset();
 			break;	//未发出请求，则不接响应
@@ -354,14 +401,12 @@ J_AGAIN:
 		if ( response.state == DeHead::HeadOK ) 
 		{
 			right_head_ok = true;
-			if ( (cli_rcv.point - cli_rcv.base) >= response.content_length )
+			if ( response.content_length  == -1 )
+			{	/* Transfer-Encoding */
+				right_body_ok = chunk_all(&cli_rcv);
+			} if ( response.content_length  > 0  && (cli_rcv.point - cli_rcv.base) >= response.content_length )
 				right_body_ok = true;
 			pro_ins();
-			if ( left_body_ok )
-			{
-				left_head_ok = false;
-				left_body_ok = false;
-			}
 		} else if ( (len = cli_rcv.point - cli_rcv.base) > 0 )
 		{	/* feed data into the object of response */
 			long fed_len;
@@ -373,18 +418,12 @@ J_AGAIN:
 
 	case Notitia::START_SESSION:	/* channel is alive */
 		WBUG("sponte START_SESSION");
-		response.reset();
-		request.reset();
-		left_head_ok = false;
-		left_body_ok = false;
+		right_reset();
 		break;
 
 	case Notitia::DMD_END_SESSION:	/* channel is not alive */
 		WBUG("sponte DMD_END_SESSION");
-		response.reset();
-		request.reset();
-		left_head_ok = false;
-		left_body_ok = false;
+		right_reset();
 		break;
 	default:
 		return false;
@@ -394,7 +433,7 @@ J_AGAIN:
 
 void HttpIns::set_ins (struct InsData *insd)
 {
-	TiXmlElement *p_ele, *def_ele, *sub_def_ele = 0;
+	TiXmlElement *p_ele, *def_ele = 0;
 	const char *p=0; 
 
 	int i = 0,a_num;
@@ -423,7 +462,7 @@ void HttpIns::set_ins (struct InsData *insd)
 
 	/* 先预置发送的每个域 */
 	a_num = 0;
-	if ( hti->type != INS_ToRequest || hti->type != INS_ToResponse ) {
+	if ( hti->type != INS_ToRequest && hti->type != INS_ToResponse ) {
 		goto RCV_PRO;	
 	}
 
@@ -451,6 +490,8 @@ void HttpIns::set_ins (struct InsData *insd)
 			a_num++;
 		else if ( strcasecmp(p, "head") == 0 ) 
 			a_num++;
+		else if ( strcasecmp(p, "headNow") == 0 ) 
+			a_num++;
 		else if ( strcasecmp(p, "body") == 0 ) 
 			a_num++;
 	}
@@ -459,7 +500,7 @@ void HttpIns::set_ins (struct InsData *insd)
 	insd->snd_lst  = new struct CmdSnd[a_num];
 	hti->snd_fld_buf  = new struct HFld[a_num];
 
-	for (p_ele= sub_def_ele->FirstChildElement(),i = 0; p_ele; p_ele = p_ele->NextSiblingElement())
+	for (p_ele= def_ele->FirstChildElement(),i = 0; p_ele; p_ele = p_ele->NextSiblingElement())
 	{
 		p = p_ele->Value();
 		if ( !p ) continue;
@@ -489,7 +530,11 @@ void HttpIns::set_ins (struct InsData *insd)
 		//	h_fld->head = Head_Parameter;
 		//	h_fld->name = p_ele->Attribute("name");
 		//}
-		else if ( p_ele->Attribute("head")) 
+		else if ( strcasecmp(p, "headNow") == 0 ) 
+		{
+			h_fld->head = Head_Now;
+			h_fld->name = p_ele->Attribute("name");
+		} else if ( strcasecmp(p, "head") == 0 ) 
 		{
 			h_fld->head = Head_Name;
 			h_fld->name = p_ele->Attribute("name");
@@ -509,7 +554,7 @@ void HttpIns::set_ins (struct InsData *insd)
 	/* 预置接收的每个域 */
 RCV_PRO:
 	insd->rcv_num = 0;
-	if ( hti->type != INS_FromRequest || hti->type != INS_FromResponse ) {
+	if ( hti->type != INS_FromRequest && hti->type != INS_FromResponse ) {
 		goto LAST_CON;	
 	}
 
@@ -534,6 +579,8 @@ RCV_PRO:
 			a_num++;
 		else if ( strcasecmp(p, "head") == 0 ) 
 			a_num++;
+		else if ( strcasecmp(p, "headNow") == 0 ) 
+			a_num++;
 		else if ( strcasecmp(p, "body") == 0 ) 
 			a_num++;
 	}
@@ -542,7 +589,7 @@ RCV_PRO:
 	insd->rcv_lst = new struct CmdRcv[a_num];
 	hti->rcv_fld_buf  = new struct HFld[a_num];
 
-	for (p_ele= sub_def_ele->FirstChildElement(),i = 0; p_ele; p_ele = p_ele->NextSiblingElement())
+	for (p_ele= def_ele->FirstChildElement(),i = 0; p_ele; p_ele = p_ele->NextSiblingElement())
 	{
 		p = p_ele->Value();
 		if ( !p ) continue;
@@ -567,9 +614,13 @@ RCV_PRO:
 			h_fld->name = p_ele->Attribute("name");
 		} else if ( strcasecmp(p, "Content-Length") == 0 ) 
 			h_fld->head = Head_Content_Length;
- 		else if ( p_ele->Attribute("head")) 
+		else if ( strcasecmp(p, "head") == 0 ) 
 		{
 			h_fld->head = Head_Name;
+			h_fld->name = p_ele->Attribute("name");
+		} else if ( strcasecmp(p, "headNow") == 0 ) 
+		{
+			h_fld->head = Head_Now;
 			h_fld->name = p_ele->Attribute("name");
 		} else if ( strcasecmp(p, "body") == 0 ) 
 			h_fld->head = Head_Body;
@@ -601,11 +652,16 @@ void HttpIns::get_snd_buf(struct DyVarBase **psnap, struct InsData *insd, DeHead
 	unsigned long t_len;
 	struct HInsData *hti;
 	struct HFld *h_fld;
+#if defined(_WIN32) && (_MSC_VER < 1400 )
+	struct _timeb now;
+#else
+	struct timeb now;
+#endif
 
 	hti = (struct HInsData *)insd->ext_ins;
 	t_len = 0;
 
-	//printf("insd->snd_num %d\n", insd->snd_num);
+	//printf("get snd insd->snd_num %d\n", insd->snd_num);
 	house.reset();
 	for ( i = 0 ; i < insd->snd_num; i++ ) 
 	{
@@ -669,7 +725,10 @@ void HttpIns::get_snd_buf(struct DyVarBase **psnap, struct InsData *insd, DeHead
 			headp->setStatus(atoi((const char*)house.base));
 			break;
 		case Head_Content_Length:
-			headp->content_length = atoi((const char*)house.base);
+			if ( house.base[0] == 0 ) 
+				headp->setHead("Content-Length", FLD_NO_VALUE); //有域无值
+			else 
+				headp->setHead("Content-Length", atoi((const char*)house.base));
 			break;
 		case Head_Content_Type:
 			headp->setField("Content-Type", (const char*)house.base, 0, 0, 0);
@@ -682,16 +741,28 @@ void HttpIns::get_snd_buf(struct DyVarBase **psnap, struct InsData *insd, DeHead
 			//request.setParameter(h_fld->name, house.base); 待实现
 		//	break;
 		case Head_Name:
+			//printf("name ------- %s\n", h_fld->name);
 			headp->setField(h_fld->name, (const char*)house.base, 0, 0, 0);
+			break;
+		case Head_Now:
+			//printf("Now name ------- %s\n", h_fld->name);
+			headp->setField(h_fld->name, 0, 0, 0, 2);
+#if defined(_WIN32) && (_MSC_VER < 1400 )
+			_ftime(&now);
+#else
+			ftime(&now);
+#endif
+			headp->setHeadTime(h_fld->name, now.time);
 			break;
 		case Head_Body:
 			switch ( hti->type )
 			{
 			case INS_ToRequest:
+				request_body_buf.reset();
 				TBuffer::pour(request_body_buf, house);
 				break;
 			case INS_ToResponse:
-				TBuffer::pour(*snd_buf, house);
+				TBuffer::pour(*ans_body_buf, house);
 				break;
 			default:
 				break;
@@ -702,7 +773,7 @@ void HttpIns::get_snd_buf(struct DyVarBase **psnap, struct InsData *insd, DeHead
 		}
 	}
 	return ;
-};
+}
 
 void HttpIns::pro_ins ()
 {
@@ -710,7 +781,7 @@ void HttpIns::pro_ins ()
 	struct InsReply *rep;
 	const char *err;
 	bool has_head;
-	TBuffer *body_buf;
+	TBuffer *body_buf =0;
 	hti = (struct HInsData *) cur_insway->dat->ext_ins;
 	if ( hti->me != this->gCFG ) return;	//不是本模块定义的, 不作处理
 	rep = (struct InsReply *)cur_insway->reply;
@@ -723,90 +794,177 @@ void HttpIns::pro_ins ()
 	case INS_FromRequest:
 		if ( hti->wait_left_body && !left_body_ok ) return ;
 		err = pro_rply(cur_insway->psnap, cur_insway->dat, browser_req, has_head, body_buf);
-		log_ht(browser_req, "Browser Request Head", err, has_head);
+		log_ht(browser_req, "Browser request head", err, has_head);
 		if ( body_buf )
-			log_ht(body_buf, "Browser Request Body");
-		ans_ins(hti->subor >= Amor::CAN_ALL);
+			log_ht(body_buf, "Browser request body");
+		//ans_ins(hti->subor >= Amor::CAN_ALL);
+		ans_ins();
 		break;
 
 	case INS_ToResponse:
-		get_snd_buf(cur_insway->psnap, cur_insway->dat, &browser_ans);
-		if  ( !ans_sent )
+		if(!ans_head_sent)
 		{
-			ans_sent= true;
-			spo_sethead.indic = &browser_ans_buf;
-			aptus->sponte(&spo_sethead);
-			browser_ans_buf.reset();
-			if ( browser_ans.content_length < -1 )
+			browser_ans.reset();
+			get_snd_buf(cur_insway->psnap, cur_insway->dat, &browser_ans);
+			ans_body_buf->reset();
+			if (  browser_ans.content_length == FLD_NO_VALUE ) //有设置域,但无值
 			{
-				browser_ans.content_length = (snd_buf->point - snd_buf->base);
+				browser_ans.setHead("Content-Length", (ans_body_buf->point - ans_body_buf->base));
 			}
-			browser_ans_buf.commit(request.getContent((char*)browser_ans_buf.point, browser_ans_buf.limit - browser_ans_buf.point));
-			log_ht(&browser_ans_buf, "Browser Answer Head");
-			aptus->sponte(&pro_hd_ps);
-			spo_sethead.indic = 0;
+			spo_sethead.indic = &ans_head_buf;
 			aptus->sponte(&spo_sethead);
-			ans_body_length = 0;
-			ans_ins(hti->subor >= Amor::CAN_ALL);
+			ans_head_buf.reset();
+			ans_head_buf.commit(browser_ans.getContent((char*)ans_head_buf.point, ans_head_buf.limit - ans_head_buf.point));
+			log_ht(&ans_head_buf, "Browser answer head");
+			ans_body_length=0;
+			ans_sent=false;		//整个响应并未完成
+			ans_head_sent=true;
+			aptus->sponte(&pro_hd_ps);	//发送head
+			spo_sethead.indic = 0;
+			aptus->sponte(&spo_sethead);	//缓冲复原
 		}
 
 		//根据 browser_ans.content_length  判断是否结束
-		if ( snd_buf->point > snd_buf->base ) 
+		if( ans_head_sent && ans_body_buf->point > ans_body_buf->base ) 
 		{
-			ans_body_length += (snd_buf->point - snd_buf->base);
+			ans_body_length += (ans_body_buf->point - ans_body_buf->base);
 			if ( ans_body_length >= browser_ans.content_length )
 			{
-				ans_sent= false;	//等待一个新的开始
+				ans_sent= true;	//等待一个新的开始
 			}
-			log_ht(snd_buf, "Browser Answer Body");
+			log_ht(ans_body_buf, "Browser answer body");
 			aptus->sponte(&spo_body);	
-			ans_ins(hti->subor >= Amor::CAN_ALL);
-		}
+		} else
+			ans_sent= true;	//等待一个新的开始
+		if ( ans_sent)
+			ans_ins();
 		break;
 
 	case INS_FromResponse:
+		printf("from -- response\n");
 		if ( hti->wait_right_body && !right_body_ok ) return ;
 		err = pro_rply(cur_insway->psnap, cur_insway->dat, &response, has_head, body_buf);
-		log_ht(&response, "Client Reply Head", err, has_head);
+		log_ht(&response, "Client reply head", err, has_head);
 		if ( body_buf )
-			log_ht(body_buf, "Client Reply Body");
-		ans_ins(hti->subor >= Amor::CAN_ALL);
+			log_ht(body_buf, "Client reply body");
+		ans_ins();
 		break;
 
 	case INS_ToRequest:
-		get_snd_buf(cur_insway->psnap, cur_insway->dat, &request);
-		if ( !req_sent )
+		if( !req_head_sent )
 		{
-			if ( request.content_length < -1 )
+			request.reset();
+			request_body_buf.reset();
+			get_snd_buf(cur_insway->psnap, cur_insway->dat, &request);
+			if ( request.content_length == FLD_NO_VALUE ) //有设置域,但无值
 			{
-				request.content_length = (request_body_buf.point - request_body_buf.base);
+				request.setHead("Content-Length", (request_body_buf.point - request_body_buf.base));
 			}
 			cli_snd.reset();
 			cli_snd.commit(request.getContent((char*)cli_snd.point, cli_snd.limit- cli_snd.point));
-			log_ht(&cli_snd, "Client Request Head");
-			req_sent= true;
+			log_ht(&cli_snd, "Client request head");
+			req_sent= false;
 			req_body_length = 0;
+			req_head_sent = true;
 			aptus->facio(&fac_tbuf);
 		} 
 
 		//根据 request.content_length 判断是否结束
-		if ( request_body_buf.point > request_body_buf.base ) 
+		if ( req_head_sent && request_body_buf.point > request_body_buf.base ) 
 		{
 			req_body_length += (request_body_buf.point - request_body_buf.base);
-			log_ht(&cli_snd, "Client Request Body");
+			log_ht(&cli_snd, "Client request body");
 			if ( req_body_length >= request.content_length )
 			{
-				req_sent= false;	//等待一个新的开始
+				req_sent= true;	//等待一个新的开始
 			}
 			TBuffer::pour(cli_snd, request_body_buf);
 			aptus->facio(&fac_tbuf);
-		}
-		ans_ins(hti->subor >= Amor::CAN_ALL);
+		} else
+			req_sent= true;	//等待一个新的开始
+		if ( req_sent)
+			ans_ins();
 		break;
 
 	default :
 		break;
 	}
+}
+
+bool HttpIns::chunk_all(TBuffer *bo_buf)
+{
+	unsigned char *ptr, *c_base;	/* c_base指示在一个完整chunk之后, 或就是base */
+	WBUG("Transfer-Encoding...");
+	bool ret = false;
+
+	c_base = (unsigned char*) 0;	/* 0: 表示刚从PRO_TBUF来,  */
+HERE:
+	if ( c_base == (unsigned char*) 0 )
+		c_base = bo_buf->base + chunk_offset ; 
+
+	if ( !chunko.started )
+	{	/* 这一行应该是指示chunk长度 */
+		for (ptr = c_base ; ptr < bo_buf->point - 1; ptr++ )
+		{	/* 判断一行的CRLF */
+			if ( *ptr == '\r' && *(ptr+1) == '\n' )
+			{
+				chunko.body_len = get_chunk_size(c_base);
+				WBUG("A Chunk size %ld", chunko.body_len);
+				chunko.head_len = (ptr - c_base) + 2;	/* 包括CRLF */
+				break;
+			}
+		}
+		chunko.started =  ( chunko.body_len >= 0 );
+	}
+
+	if ( chunko.started )
+	{	/* 这里是数据了, 从ptr开始 */
+		if ( chunko.body_len == 0 )
+		{	/* 下面应该是footers, 扫描到CRLFCRLF为止 */
+			/* 一种情况是 0CRLFCRLF
+			   另一种是: 0.....CRLFCRLF 或 0....CRLF....CRLFCRLF
+			   所以, ptr倒回两个字节, 把chunk头的CRLF也算进去
+			*/
+			for (ptr = &c_base[chunko.head_len-2] ; ptr < bo_buf->point - 3; ptr++ )
+			{	/* 判断CRLFCRLF */
+				if ( *ptr == '\r' && *(ptr+1) == '\n' &&
+					*(ptr+2) == '\r' && *(ptr+3) == '\n' )
+				{
+					/* chunk传完了*/
+					WBUG("Chunk completed!");
+					ptr +=4 ;		/* ptr指向后面的数据, 另一个HTTP报文 */
+					memmove(c_base, ptr, bo_buf->point - ptr);	/* 数据前移,footers数据被盖 */
+					bo_buf->point -= (ptr - c_base);	
+					chunko.reset();
+					ret = true;
+				}
+			}
+				
+		} else if ( chunko.body_len > 0) {
+				/* 具体数据 */
+			long bz = chunko.body_len + chunko.head_len +2;	/* 整个Chunk长度, 2是因为包括CRLF */
+			if ( bo_buf->point - c_base >= bz ) 
+			{
+				/* 一个Chunk完整了 */
+				WBUG("A Chunk cut out");
+				/* 只留下data */
+				ptr = &(c_base[chunko.head_len]); /* 指向数据区 */
+				memmove(c_base, ptr, bo_buf->point - ptr);	/* body数据前移, head数据被盖 */
+				bo_buf->point -= chunko.head_len;	
+				c_base += chunko.body_len;	/* c_base指向了body结尾的CRLF */
+				ptr = c_base +2;	/* ptr指向了本chunk后面的数据 */
+				memmove(c_base, ptr, bo_buf->point - ptr);	/* 后数据前移, CRLF被挤掉 */
+				bo_buf->point -= 2;	
+
+				chunk_offset += chunko.body_len;
+				chunko.reset();
+
+				if ( c_base < bo_buf->point) /* 下面还有,再找下一个 */
+				goto HERE;
+			}
+		}
+	}
+	return ret;
 }
 
 const char* HttpIns::pro_rply(struct DyVarBase **psnap, struct InsData *insd, DeHead *headp, bool &has_head, TBuffer *&body_buf)
@@ -822,7 +980,6 @@ const char* HttpIns::pro_rply(struct DyVarBase **psnap, struct InsData *insd, De
 				
 	hti = (struct HInsData *)insd->ext_ins;
 	has_head = false;
-	body_buf = 0;
 	for (ii = 0; ii < insd->rcv_num; ii++)
 	{
 		rply = &insd->rcv_lst[ii];
@@ -877,12 +1034,12 @@ const char* HttpIns::pro_rply(struct DyVarBase **psnap, struct InsData *insd, De
 			switch ( hti->type )
 			{
 			case INS_FromRequest:
-				fc = (char*)rcv_buf->point;
+				fc = (char*)rcv_buf->base;
 				rlen = rcv_buf->point - rcv_buf->base;
 				body_buf = rcv_buf;
 				break;
 			case INS_FromResponse:
-				fc = (char*)cli_rcv.point;
+				fc = (char*)cli_rcv.base;
 				rlen = cli_rcv.point - cli_rcv.base;
 				body_buf = &cli_rcv;
 				break;
@@ -1042,7 +1199,7 @@ WRITE:
 	tbuf.point[0] = 0;
 	WLOG(INFO, (char*)tbuf.base);
 }
-
+/*
 void HttpIns::ans_ins (bool should_spo)
 {
 	if (should_spo )
@@ -1050,6 +1207,13 @@ void HttpIns::ans_ins (bool should_spo)
 		ans_ins_ps.indic = cur_insway->reply;
 		aptus->sponte(&ans_ins_ps);     //向左发出指令, 
 	}
+}
+*/
+
+void HttpIns::ans_ins ()
+{
+	ans_ins_ps.indic = cur_insway->reply;
+	aptus->sponte(&ans_ins_ps);     //向左发出指令, 
 }
 
 HttpIns::HttpIns():cli_rcv(8192), cli_snd(8192), response(DeHead::RESPONSE), request(DeHead::REQUEST), browser_ans(DeHead::RESPONSE)
@@ -1064,8 +1228,11 @@ HttpIns::HttpIns():cli_rcv(8192), cli_snd(8192), response(DeHead::RESPONSE), req
 
 	spo_sethead.ordo = Notitia::CMD_SET_HTTP_HEAD;
 
+	hitb[0] = &cli_snd;
+	hitb[1] = &cli_rcv;
+	hitb[2] = 0;
 	rcv_buf = 0;
-	snd_buf = 0;
+	ans_body_buf = 0;
 	pro_hd_ps.ordo = Notitia::PRO_HTTP_HEAD;
 	pro_hd_ps.indic = 0;
 	pro_hd_ps.subor = Amor::CAN_ALL;
@@ -1073,6 +1240,8 @@ HttpIns::HttpIns():cli_rcv(8192), cli_snd(8192), response(DeHead::RESPONSE), req
 	ans_ins_ps.ordo =  Notitia::Ans_InsWay;
 	ans_ins_ps.indic = 0;
 	ans_ins_ps.subor = Amor::CAN_ALL;
+
+	req_sent = false;
 }
 
 HttpIns::~HttpIns() {
