@@ -43,7 +43,7 @@
 #define FLD_NO_VALUE -9
 /* 命令分几种，INS_Normal：标准， */
 enum HIns_Type { INS_None = 0, INS_FromRequest=1,  INS_ToResponse=3, INS_ToRequest=5,  INS_FromResponse=6};
-enum Head_Type { Head_None = 0, Head_Title=1, Head_Method=2, Head_Path=3, Head_Status=4, Head_Protocol=5, Head_Parameter=6, Head_Name=7, Head_Body=8, Head_Query=9, Head_Content_Length=10, Head_Content_Type=11, Head_Now};
+enum Head_Type { Head_None = 0, Head_Title=1, Head_Method=2, Head_Path=3, Head_Status=4, Head_Protocol=5, Head_Parameter=6, Head_Name=7, Head_Body=8, Head_Query=9, Head_Content_Length=10, Head_Content_Type=11, Head_Now=12};
 enum HIns_LOG { HI_LOG_NONE = 0, HI_LOG_STR =0x11, HI_LOG_HEX =0x12, HI_LOG_BOTH = 0x13, HI_LOG_STR_ERR = 0x21, HI_LOG_HEX_ERR = 0x22, HI_LOG_BOTH_ERR = 0x23};
 
 struct HFld {
@@ -58,6 +58,9 @@ struct HInsData : ExtInsBase {
 	struct HFld *snd_fld_buf, *rcv_fld_buf;
 	enum HIns_LOG log;
 	bool wait_left_body, wait_right_body;	/*  针对body接收, 指明是否全部完成才能处理 */
+/*
+*/
+	bool pro_chunk;
 
 	HInsData() 
 	{
@@ -101,6 +104,10 @@ struct HInsData : ExtInsBase {
 			insd->isFunction = true;
 		else
 			insd->isFunction = false;
+
+		pro_chunk = true; /* 默认处理chunk */
+		if ((p = def_ele->Attribute("pro_chunk")) && ( *p == 'n' || *p == 'N') )	//不处理chunk
+			pro_chunk = false;
 
 		wait_left_body = true; /* 默认等全部body所有的内容 */
 		if ((p = def_ele->Attribute("all_left_body")) && ( *p == 'n' || *p == 'N') )	//不等全部的body
@@ -306,13 +313,15 @@ bool HttpIns::facio( Amor::Pius *pius)
 		assert(rcv_buf);
 		if ( !left_head_ok ) break;
 CLI_PRO:
-		if ( browser_req->content_length  == -1 )
+		if ( browser_req->content_length == -1 )
 		{	/* Transfer-Encoding */
-			left_body_ok = chunk_all(&cli_rcv);
-		} if ( browser_req->content_length  > 0  && ( rcv_buf->point - rcv_buf->base >= browser_req->content_length ) ) {
-			left_body_ok = true;
-		} else 
-			left_body_ok = false;
+			struct HInsData *hti;
+			hti = (struct HInsData *) cur_insway->dat->ext_ins;
+			if ( hti->pro_chunk);	
+				left_body_ok = chunk_all(rcv_buf);
+		} else {
+			left_body_ok = ( browser_req->content_length  > 0  && ( rcv_buf->point - rcv_buf->base >= browser_req->content_length ) );
+		}
 		pro_ins();
 		break;
 
@@ -401,11 +410,16 @@ J_AGAIN:
 		if ( response.state == DeHead::HeadOK ) 
 		{
 			right_head_ok = true;
-			if ( response.content_length  == -1 )
+			if ( response.content_length == -1 )
 			{	/* Transfer-Encoding */
-				right_body_ok = chunk_all(&cli_rcv);
-			} if ( response.content_length  > 0  && (cli_rcv.point - cli_rcv.base) >= response.content_length )
-				right_body_ok = true;
+				struct HInsData *hti;
+				hti = (struct HInsData *) cur_insway->dat->ext_ins;
+				if ( hti->pro_chunk) {
+					right_body_ok = chunk_all(&cli_rcv);
+				} else  {
+					right_body_ok = ( response.content_length  > 0  && (cli_rcv.point - cli_rcv.base) >= response.content_length );
+				}
+			}
 			pro_ins();
 		} else if ( (len = cli_rcv.point - cli_rcv.base) > 0 )
 		{	/* feed data into the object of response */
@@ -891,82 +905,6 @@ void HttpIns::pro_ins ()
 	}
 }
 
-bool HttpIns::chunk_all(TBuffer *bo_buf)
-{
-	unsigned char *ptr, *c_base;	/* c_base指示在一个完整chunk之后, 或就是base */
-	WBUG("Transfer-Encoding...");
-	bool ret = false;
-
-	c_base = (unsigned char*) 0;	/* 0: 表示刚从PRO_TBUF来,  */
-HERE:
-	if ( c_base == (unsigned char*) 0 )
-		c_base = bo_buf->base + chunk_offset ; 
-
-	if ( !chunko.started )
-	{	/* 这一行应该是指示chunk长度 */
-		for (ptr = c_base ; ptr < bo_buf->point - 1; ptr++ )
-		{	/* 判断一行的CRLF */
-			if ( *ptr == '\r' && *(ptr+1) == '\n' )
-			{
-				chunko.body_len = get_chunk_size(c_base);
-				WBUG("A Chunk size %ld", chunko.body_len);
-				chunko.head_len = (ptr - c_base) + 2;	/* 包括CRLF */
-				break;
-			}
-		}
-		chunko.started =  ( chunko.body_len >= 0 );
-	}
-
-	if ( chunko.started )
-	{	/* 这里是数据了, 从ptr开始 */
-		if ( chunko.body_len == 0 )
-		{	/* 下面应该是footers, 扫描到CRLFCRLF为止 */
-			/* 一种情况是 0CRLFCRLF
-			   另一种是: 0.....CRLFCRLF 或 0....CRLF....CRLFCRLF
-			   所以, ptr倒回两个字节, 把chunk头的CRLF也算进去
-			*/
-			for (ptr = &c_base[chunko.head_len-2] ; ptr < bo_buf->point - 3; ptr++ )
-			{	/* 判断CRLFCRLF */
-				if ( *ptr == '\r' && *(ptr+1) == '\n' &&
-					*(ptr+2) == '\r' && *(ptr+3) == '\n' )
-				{
-					/* chunk传完了*/
-					WBUG("Chunk completed!");
-					ptr +=4 ;		/* ptr指向后面的数据, 另一个HTTP报文 */
-					memmove(c_base, ptr, bo_buf->point - ptr);	/* 数据前移,footers数据被盖 */
-					bo_buf->point -= (ptr - c_base);	
-					chunko.reset();
-					ret = true;
-				}
-			}
-				
-		} else if ( chunko.body_len > 0) {
-				/* 具体数据 */
-			long bz = chunko.body_len + chunko.head_len +2;	/* 整个Chunk长度, 2是因为包括CRLF */
-			if ( bo_buf->point - c_base >= bz ) 
-			{
-				/* 一个Chunk完整了 */
-				WBUG("A Chunk cut out");
-				/* 只留下data */
-				ptr = &(c_base[chunko.head_len]); /* 指向数据区 */
-				memmove(c_base, ptr, bo_buf->point - ptr);	/* body数据前移, head数据被盖 */
-				bo_buf->point -= chunko.head_len;	
-				c_base += chunko.body_len;	/* c_base指向了body结尾的CRLF */
-				ptr = c_base +2;	/* ptr指向了本chunk后面的数据 */
-				memmove(c_base, ptr, bo_buf->point - ptr);	/* 后数据前移, CRLF被挤掉 */
-				bo_buf->point -= 2;	
-
-				chunk_offset += chunko.body_len;
-				chunko.reset();
-
-				if ( c_base < bo_buf->point) /* 下面还有,再找下一个 */
-				goto HERE;
-			}
-		}
-	}
-	return ret;
-}
-
 const char* HttpIns::pro_rply(struct DyVarBase **psnap, struct InsData *insd, DeHead *headp, bool &has_head, TBuffer *&body_buf)
 {
 	int ii;
@@ -1257,6 +1195,82 @@ Amor* HttpIns::clone()
 	child =  new HttpIns();
 	child->gCFG = gCFG;
 	return (Amor*) child;
+}
+
+bool HttpIns::chunk_all(TBuffer *bo_buf)
+{
+	unsigned char *ptr, *c_base;	/* c_base指示在一个完整chunk之后, 或就是base */
+	WBUG("Transfer-Encoding...");
+	bool ret = false;
+
+	c_base = (unsigned char*) 0;	/* 0: 表示刚从PRO_TBUF来,  */
+HERE:
+	if ( c_base == (unsigned char*) 0 )
+		c_base = bo_buf->base + chunk_offset ; 
+
+	if ( !chunko.started )
+	{	/* 这一行应该是指示chunk长度 */
+		for (ptr = c_base ; ptr < bo_buf->point - 1; ptr++ )
+		{	/* 判断一行的CRLF */
+			if ( *ptr == '\r' && *(ptr+1) == '\n' )
+			{
+				chunko.body_len = get_chunk_size(c_base);
+				WBUG("A Chunk size %ld", chunko.body_len);
+				chunko.head_len = (ptr - c_base) + 2;	/* 包括CRLF */
+				break;
+			}
+		}
+		chunko.started =  ( chunko.body_len >= 0 );
+	}
+
+	if ( chunko.started )
+	{	/* 这里是数据了, 从ptr开始 */
+		if ( chunko.body_len == 0 )
+		{	/* 下面应该是footers, 扫描到CRLFCRLF为止 */
+			/* 一种情况是 0CRLFCRLF
+			   另一种是: 0.....CRLFCRLF 或 0....CRLF....CRLFCRLF
+			   所以, ptr倒回两个字节, 把chunk头的CRLF也算进去
+			*/
+			for (ptr = &c_base[chunko.head_len-2] ; ptr < bo_buf->point - 3; ptr++ )
+			{	/* 判断CRLFCRLF */
+				if ( *ptr == '\r' && *(ptr+1) == '\n' &&
+					*(ptr+2) == '\r' && *(ptr+3) == '\n' )
+				{
+					/* chunk传完了*/
+					WBUG("Chunk completed!");
+					ptr +=4 ;		/* ptr指向后面的数据, 另一个HTTP报文 */
+					memmove(c_base, ptr, bo_buf->point - ptr);	/* 数据前移,footers数据被盖 */
+					bo_buf->point -= (ptr - c_base);	
+					chunko.reset();
+					ret = true;
+				}
+			}
+				
+		} else if ( chunko.body_len > 0) {
+				/* 具体数据 */
+			long bz = chunko.body_len + chunko.head_len +2;	/* 整个Chunk长度, 2是因为包括CRLF */
+			if ( bo_buf->point - c_base >= bz ) 
+			{
+				/* 一个Chunk完整了 */
+				WBUG("A Chunk cut out");
+				/* 只留下data */
+				ptr = &(c_base[chunko.head_len]); /* 指向数据区 */
+				memmove(c_base, ptr, bo_buf->point - ptr);	/* body数据前移, head数据被盖 */
+				bo_buf->point -= chunko.head_len;	
+				c_base += chunko.body_len;	/* c_base指向了body结尾的CRLF */
+				ptr = c_base +2;	/* ptr指向了本chunk后面的数据 */
+				memmove(c_base, ptr, bo_buf->point - ptr);	/* 后数据前移, CRLF被挤掉 */
+				bo_buf->point -= 2;	
+
+				chunk_offset += chunko.body_len;
+				chunko.reset();
+
+				if ( c_base < bo_buf->point) /* 下面还有,再找下一个 */
+				goto HERE;
+			}
+		}
+	}
+	return ret;
 }
 
 #include "hook.c"
