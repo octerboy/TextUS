@@ -43,12 +43,13 @@
 #define FLD_NO_VALUE -9
 /* 命令分几种，INS_Normal：标准， */
 enum HIns_Type { INS_None = 0, INS_FromRequest=1,  INS_ToResponse=3, INS_ToRequest=5,  INS_FromResponse=6};
-enum Head_Type { Head_None = 0, Head_Title=1, Head_Method=2, Head_Path=3, Head_Status=4, Head_Protocol=5, Head_Parameter=6, Head_Name=7, Head_Body=8, Head_Query=9, Head_Content_Length=10, Head_Content_Type=11, Head_Now=12};
+enum Head_Type { Head_None = 0, Head_Title=1, Head_Method=2, Head_Path=3, Head_Status=4, Head_Protocol=5, Head_Parameter=6, Head_Name=7, Head_Body=8, Head_Query=9, Head_Content_Length=10, Head_Content_Type=11, Head_Now=12, Head_Time=13};
 enum HIns_LOG { HI_LOG_NONE = 0, HI_LOG_STR =0x11, HI_LOG_HEX =0x12, HI_LOG_BOTH = 0x13, HI_LOG_STR_ERR = 0x21, HI_LOG_HEX_ERR = 0x22, HI_LOG_BOTH_ERR = 0x23};
 
 struct HFld {
 	Head_Type head;
 	const char *name;
+	const char *fmt;
 };
 
 struct HInsData : ExtInsBase {
@@ -361,6 +362,14 @@ CLI_PRO:
 
 	case Notitia::Pro_InsWay:    /* 处理 */
 		WBUG("facio Pro_InsWay, tag %s", ((struct InsWay*)pius->indic)->dat->ins_tag);
+		if ( !(((struct InsWay*)pius->indic)->dat->ext_ins) ) { 
+			WLOG(WARNING, "pro_insway.ext_ins is null !!");
+			break;	//不是本模块定义的, 不作处理
+		}
+		if ( ((struct HInsData *)((struct InsWay*)pius->indic)->dat->ext_ins)->me != this->gCFG ) { 
+			WBUG("%s is not for me.", ((struct InsWay*)pius->indic)->dat->ins_tag);
+			break;	//不是本模块定义的, 不作处理
+		}
 		cur_insway = (struct InsWay*)pius->indic;
 		stat_reset();
 		pro_ins();
@@ -401,7 +410,7 @@ bool HttpIns::sponte( Amor::Pius *pius)
 	{
 	case Notitia::PRO_TBUF:	/* 置HTTP响应数据 */
 		WBUG("sponte PRO_TBUF");
-		WBUG("Client request %s  ResStat %d", req_sent? "sent": "not sent", response.state);
+		WBUG("Client request %s  ResStat %s", req_sent? "sent": "not sent", response.state == 0 ? "HeadNothing" : ( response.state == 1 ? "Heading" :"HeadOK" ));
 		if ( !req_sent ) { 
 			cli_rcv.reset();
 			break;	//未发出请求，则不接响应
@@ -448,7 +457,7 @@ J_AGAIN:
 void HttpIns::set_ins (struct InsData *insd)
 {
 	TiXmlElement *p_ele, *def_ele = 0;
-	const char *p=0; 
+	const char *p=0, *q=0; 
 
 	int i = 0,a_num;
 	size_t lnn; 
@@ -502,12 +511,13 @@ void HttpIns::set_ins (struct InsData *insd)
 			a_num++;
 		else if ( strcasecmp(p, "Content-Length") == 0 ) 
 			a_num++;
-		else if ( strcasecmp(p, "head") == 0 ) 
-			a_num++;
-		else if ( strcasecmp(p, "headNow") == 0 ) 
-			a_num++;
 		else if ( strcasecmp(p, "body") == 0 ) 
 			a_num++;
+		else  { 
+			if ( p_ele->Attribute("head") ||  p_ele->Attribute("headNow") ||  p_ele->Attribute("headTime") )
+				a_num++;
+		}
+		
 	}
 
 	if ( a_num ==0 ) goto RCV_PRO;	
@@ -544,16 +554,28 @@ void HttpIns::set_ins (struct InsData *insd)
 		//	h_fld->head = Head_Parameter;
 		//	h_fld->name = p_ele->Attribute("name");
 		//}
-		else if ( strcasecmp(p, "headNow") == 0 ) 
-		{
-			h_fld->head = Head_Now;
-			h_fld->name = p_ele->Attribute("name");
-		} else if ( strcasecmp(p, "head") == 0 ) 
-		{
-			h_fld->head = Head_Name;
-			h_fld->name = p_ele->Attribute("name");
-		} else if ( strcasecmp(p, "body") == 0 ) 
+		else if ( strcasecmp(p, "body") == 0 ) 
 			h_fld->head = Head_Body;
+		else { 
+			if ( (q = p_ele->Attribute("head")) )
+			{
+				h_fld->head = Head_Name;
+			} else if ( (q = p_ele->Attribute("headNow")) )
+			{
+				h_fld->head = Head_Now;
+			} else if ( ( q = p_ele->Attribute("headTime") ) )
+			{
+				h_fld->head = Head_Time;
+				h_fld->fmt = p_ele->Attribute("fmt");
+			}
+
+			if ( q && strlen(q) > 0 ) 
+			{
+				h_fld->name = q;
+			} else {
+				h_fld->name = p;
+			}
+		}
 
 		p = p_ele->GetText();
 		if ( p ) {
@@ -591,12 +613,12 @@ RCV_PRO:
 			a_num++;
 		else if ( strcasecmp(p, "Content-Length") == 0 ) 
 			a_num++;
-		else if ( strcasecmp(p, "head") == 0 ) 
-			a_num++;
-		else if ( strcasecmp(p, "headNow") == 0 ) 
-			a_num++;
 		else if ( strcasecmp(p, "body") == 0 ) 
 			a_num++;
+		else  { 
+			if ( p_ele->Attribute("head") ||  p_ele->Attribute("headNow") ||  p_ele->Attribute("headTime") )
+				a_num++;
+		}
 	}
 
 	if ( a_num ==0 ) goto LAST_CON;	
@@ -628,16 +650,28 @@ RCV_PRO:
 			h_fld->name = p_ele->Attribute("name");
 		} else if ( strcasecmp(p, "Content-Length") == 0 ) 
 			h_fld->head = Head_Content_Length;
-		else if ( strcasecmp(p, "head") == 0 ) 
-		{
-			h_fld->head = Head_Name;
-			h_fld->name = p_ele->Attribute("name");
-		} else if ( strcasecmp(p, "headNow") == 0 ) 
-		{
-			h_fld->head = Head_Now;
-			h_fld->name = p_ele->Attribute("name");
-		} else if ( strcasecmp(p, "body") == 0 ) 
+		else if ( strcasecmp(p, "body") == 0 ) 
 			h_fld->head = Head_Body;
+		else { 
+			if ( (q = p_ele->Attribute("head")) )
+			{
+				h_fld->head = Head_Name;
+			} else if ( (q = p_ele->Attribute("headNow")) )
+			{
+				h_fld->head = Head_Now;
+			} else if ( ( q = p_ele->Attribute("headTime") ) )
+			{
+				h_fld->head = Head_Time;
+				h_fld->fmt = p_ele->Attribute("fmt");
+			}
+
+			if ( q && strlen(q) > 0 ) 
+			{
+				h_fld->name = q;
+			} else {
+				h_fld->name = p;
+			}
+		}
 
 		p = p_ele->GetText();
 		if ( p ) {
@@ -768,6 +802,9 @@ void HttpIns::get_snd_buf(struct DyVarBase **psnap, struct InsData *insd, DeHead
 #endif
 			headp->setHeadTime(h_fld->name, now.time);
 			break;
+		case Head_Time:
+			headp->setHeadTime (h_fld->name, atol((const char*)house.base));
+			break;
 		case Head_Body:
 			switch ( hti->type )
 			{
@@ -797,7 +834,6 @@ void HttpIns::pro_ins ()
 	bool has_head;
 	TBuffer *body_buf =0;
 	hti = (struct HInsData *) cur_insway->dat->ext_ins;
-	if ( hti->me != this->gCFG ) return;	//不是本模块定义的, 不作处理
 	rep = (struct InsReply *)cur_insway->reply;
 	//if ( strcmp(cur_insway->dat->ins_tag, "InitPac") == 0 )
 	//	{int *a =0 ; *a = 0; };
@@ -855,7 +891,7 @@ void HttpIns::pro_ins ()
 		break;
 
 	case INS_FromResponse:
-		printf("from -- response\n");
+		//printf("from -- response\n");
 		if ( hti->wait_right_body && !right_body_ok ) return ;
 		err = pro_rply(cur_insway->psnap, cur_insway->dat, &response, has_head, body_buf);
 		log_ht(&response, "Client reply head", err, has_head);
@@ -874,6 +910,7 @@ void HttpIns::pro_ins ()
 			{
 				request.setHead("Content-Length", (request_body_buf.point - request_body_buf.base));
 			}
+			cli_rcv.reset();
 			cli_snd.reset();
 			cli_snd.commit(request.getContent((char*)cli_snd.point, cli_snd.limit- cli_snd.point));
 			log_ht(&cli_snd, "Client request head");
@@ -913,6 +950,7 @@ const char* HttpIns::pro_rply(struct DyVarBase **psnap, struct InsData *insd, De
 	long llen;
 	struct CmdRcv *rply=0;
 	char con[512];
+    	char timebuf[100];
 	struct HInsData *hti;
 	struct HFld *h_fld;
 				
@@ -966,6 +1004,25 @@ const char* HttpIns::pro_rply(struct DyVarBase **psnap, struct InsData *insd, De
 			break;
 		case Head_Name:
 			fc = (char*)headp->getHead(h_fld->name);
+			has_head = true;
+			break;
+		case Head_Time:
+			{
+			long lval;
+		    	struct tm *tdatePtr;
+		 	struct tm tdate;
+    			const char* rfc1123_fmt = "%a, %d %b %Y %H:%M:%S GMT";
+
+			tdatePtr = &tdate;
+			lval = headp->getHeadInt(h_fld->name);
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+			gmtime_s(&tdate, &lval );
+#else
+			tdatePtr = gmtime( &lval );
+#endif
+    			(void) strftime( timebuf, sizeof(timebuf), h_fld->fmt ? h_fld->fmt: rfc1123_fmt, tdatePtr );
+			fc = &timebuf[0];
+			}
 			has_head = true;
 			break;
 		case Head_Body:
@@ -1252,7 +1309,7 @@ HERE:
 			if ( bo_buf->point - c_base >= bz ) 
 			{
 				/* 一个Chunk完整了 */
-				WBUG("A Chunk cut out");
+				WBUG("A Chunk cut out %d bytes", bz);
 				/* 只留下data */
 				ptr = &(c_base[chunko.head_len]); /* 指向数据区 */
 				memmove(c_base, ptr, bo_buf->point - ptr);	/* body数据前移, head数据被盖 */
