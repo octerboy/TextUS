@@ -59,8 +59,6 @@ struct HInsData : ExtInsBase {
 	struct HFld *snd_fld_buf, *rcv_fld_buf;
 	enum HIns_LOG log;
 	bool wait_left_body, wait_right_body;	/*  针对body接收, 指明是否全部完成才能处理 */
-/*
-*/
 	bool pro_chunk;
 
 	HInsData() 
@@ -178,14 +176,6 @@ private:
 	DeHead response, request, *browser_req, browser_ans;
 	char response_status[64], browser_status[64];
 	bool left_head_ok, left_body_ok, right_body_ok, right_head_ok, req_head_sent, req_sent, ans_head_sent, ans_sent;
-	void stat_reset() {
-		req_head_sent = false;
-		ans_head_sent = false;
-		left_head_ok = false;
-		left_body_ok = false;
-		right_body_ok = false;
-		right_head_ok = false;
-	};
 
 	void left_reset() {
 		left_head_ok = false;
@@ -198,7 +188,10 @@ private:
 	void right_reset() {
 		response.reset();
 		request.reset();
+		request_body_buf.reset();
 		chunko.reset();
+		cli_rcv.reset();
+		cli_snd.reset();
 		right_body_ok = false;
 		right_head_ok = false;
 		chunk_offset = 0;
@@ -241,7 +234,7 @@ private:
 	bool chunk_all(TBuffer *bo_buf);
 
 	void set_ins(struct InsData *insd);
-	void pro_ins();
+	void pro_ins( bool pro_start=false);
 	void load_def();
 	void log_ins ();
 	struct G_CFG *gCFG;	/* Shared for all objects in this node */
@@ -256,7 +249,6 @@ private:
 #include "httpsrv_obj.h"
 #include "wlog.h"
 };
-
 #include <assert.h>
 
 void HttpIns::load_def()
@@ -371,8 +363,7 @@ CLI_PRO:
 			break;	//不是本模块定义的, 不作处理
 		}
 		cur_insway = (struct InsWay*)pius->indic;
-		stat_reset();
-		pro_ins();
+		pro_ins(true);
 		break;
 
 	case Notitia::Log_InsWay:    /* 记录报文, 往往是在错误情况 */
@@ -826,7 +817,7 @@ void HttpIns::get_snd_buf(struct DyVarBase **psnap, struct InsData *insd, DeHead
 	return ;
 }
 
-void HttpIns::pro_ins ()
+void HttpIns::pro_ins (bool pro_start)
 {
 	struct HInsData *hti;
 	struct InsReply *rep;
@@ -847,6 +838,8 @@ void HttpIns::pro_ins ()
 		log_ht(browser_req, "Browser request head", err, has_head);
 		if ( body_buf )
 			log_ht(body_buf, "Browser request body");
+		else if (pro_start)	//对于接收head，应一个指令做完, 而接收body可以多个. 
+			ans_head_sent = false;
 		//ans_ins(hti->subor >= Amor::CAN_ALL);
 		ans_ins();
 		break;
@@ -883,7 +876,7 @@ void HttpIns::pro_ins ()
 				ans_sent= true;	//等待一个新的开始
 			}
 			log_ht(ans_body_buf, "Browser answer body");
-			aptus->sponte(&spo_body);	
+			aptus->sponte(&spo_body);
 		} else
 			ans_sent= true;	//等待一个新的开始
 		if ( ans_sent)
@@ -901,17 +894,15 @@ void HttpIns::pro_ins ()
 		break;
 
 	case INS_ToRequest:
+		if (pro_start) req_head_sent = false; //head应由一个指令做完
 		if( !req_head_sent )
 		{
-			request.reset();
-			request_body_buf.reset();
+			right_reset();
 			get_snd_buf(cur_insway->psnap, cur_insway->dat, &request);
 			if ( request.content_length == FLD_NO_VALUE ) //有设置域,但无值
 			{
 				request.setHead("Content-Length", (request_body_buf.point - request_body_buf.base));
 			}
-			cli_rcv.reset();
-			cli_snd.reset();
 			cli_snd.commit(request.getContent((char*)cli_snd.point, cli_snd.limit- cli_snd.point));
 			log_ht(&cli_snd, "Client request head");
 			req_sent= false;
@@ -1194,16 +1185,6 @@ WRITE:
 	tbuf.point[0] = 0;
 	WLOG(INFO, (char*)tbuf.base);
 }
-/*
-void HttpIns::ans_ins (bool should_spo)
-{
-	if (should_spo )
-	{
-		ans_ins_ps.indic = cur_insway->reply;
-		aptus->sponte(&ans_ins_ps);     //向左发出指令, 
-	}
-}
-*/
 
 void HttpIns::ans_ins ()
 {
