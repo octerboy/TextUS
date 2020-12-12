@@ -210,6 +210,7 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 		if ( aget->lpOverlapped == &(tcpcli->rcv_ovp) )
 		{	
 			tcpcli->wsa_rcv.len *= 2;
+			tcpcli->rcv_frame_size =  tcpcli->wsa_rcv.len;
 			tcpcli->rcv_buf->commit(aget->dwNumberOfBytesTransferred);
 			aptus->sponte(&pro_tbuf_ps);
 			if ( !tcpcli->recito_ex())
@@ -273,13 +274,15 @@ LOOP:
 
 		default:	
 			WBUG("client recv %ld bytes", len);
-			if ( len < RCV_FRAME_SIZE ) { 
+			if ( len <  tcpcli->rcv_frame_size ) { 
 				/* action flags and filter for event remain unchanged */
 				gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
 				aptus->sponte(&pro_tbuf_ps);
-			} else {
+			} else if (  len == tcpcli->rcv_frame_size ) {
 				aptus->sponte(&pro_tbuf_ps);
 				goto LOOP;
+			} else if (  len > tcpcli->rcv_frame_size ) {
+				WLOG(EMERG, "client recv %ld bytes > rcv_size %d", len, tcpcli->rcv_frame_size);
 			}
 			break;
 		}
@@ -756,7 +759,7 @@ inline void Tcpcliuna::transmit_ep()
 
 TINLINE void Tcpcliuna::end(bool outer)
 {
-	WBUG("end(%s).....", outer? "won't connect again" : "will connect again");
+	WBUG("end%s", outer? " (won't connect again)" : (gCFG->try_interval > 0 ? " (will connect again ...)" : "ed." ));
 	if ( tcpcli->connfd == -1 ) return;	/* 不重复关闭 */
 	if ( !gCFG->use_epoll ) 
 	{

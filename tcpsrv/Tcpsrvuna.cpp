@@ -210,6 +210,7 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 		WBUG("facio MORE_DATA_EPOLL");
 		WLOG(WARNING, (char*)pius->indic);	
 		tcpsrv->wsa_rcv.len *= 2;
+		tcpsrv->rcv_frame_size =  tcpsrv->wsa_rcv.len;
 		if ( !tcpsrv->recito_ex())
 		{
 			SLOG(ERR)
@@ -268,13 +269,15 @@ LOOP:
 
 		default:	
 			WBUG("child recv %ld bytes", len);
-			if ( len < RCV_FRAME_SIZE ) { 
+			if ( len <  tcpsrv->rcv_frame_size ) { 
 				/* action flags and filter for event remain unchanged */
 				gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
 				aptus->facio(&pro_tbuf_ps);
-			} else {
+			} else if (  len == tcpsrv->rcv_frame_size ) {
 				aptus->facio(&pro_tbuf_ps);
 				goto LOOP;
+			} else if (  len > tcpsrv->rcv_frame_size ) {
+				WLOG(EMERG, "child recv %ld bytes > rcv_size %d", len, tcpsrv->rcv_frame_size);
 			}
 			break;
 		}
