@@ -58,6 +58,7 @@ private:
 	TBuffer *req_body;	/* 请求体 */
 	TBuffer *res_entity;	/* 响应体 */
 	const char *file_name;
+	int get_file_bytes;
 
 	struct G_CFG {
 		char default_page[256];	/* 首页, 通常是index.html, default.htm 等 */
@@ -84,6 +85,7 @@ private:
 
 			cfg->QueryIntAttribute("block", &block_size);
 			if ( block_size < 0 ) block_size = 8;
+			block_size *= 1024;
 			if ( (page_str = cfg->Attribute("default")))
 				TEXTUS_STRNCPY(default_page, page_str, sizeof(default_page)-1);
 
@@ -120,7 +122,6 @@ private:
 
 	struct G_CFG *gCFG;     /* 全局共享参数 */
 	bool has_config;
-
 
 	/* false:未处理请求; true:已处理请求 */
 	void handle();
@@ -213,7 +214,7 @@ bool FileLet::sponte( Amor::Pius *pius)
 	default:
 		return false;
 	}
-		
+
 	return true; 
 }
 
@@ -226,7 +227,8 @@ FileLet::FileLet()
 	has_config = false;
 	file = &(path[1]);
 	get_file_ps.ordo = Notitia::GET_FILE;
-	get_file_ps.indic = 0;
+	get_file_bytes = -1;
+	get_file_ps.indic = &get_file_bytes;
 	pro_file_ps.ordo = Notitia::PRO_FILE;
 	pro_file_ps.indic = 0;
 	head_ps.ordo = Notitia::PRO_HTTP_HEAD;
@@ -250,17 +252,16 @@ FileLet::~FileLet() {
 void FileLet::to_response(char *ptr, size_t total)
 {
 	size_t wlen = total;
-	int cents,last_cents=100, j=0, to_times;
+	int cents,last_cents=100, j=1, to_times;
 	char *p = ptr;
-	unsigned long block, hsize; 
-	hsize = gCFG->block_size*1024;
-	res_entity->grant(hsize); 
-	
-	to_times = total / hsize; 
+	unsigned long block; 
+	res_entity->grant( gCFG->block_size); 
+
+	to_times = total/gCFG->block_size; 
 	if ( to_times < 1 ) to_times = 1;
 	while ( wlen > 0 )
 	{	
-		block = wlen > hsize ? hsize : wlen;
+		block = wlen > gCFG->block_size ? gCFG->block_size : wlen;
 		memcpy(res_entity->point, p, block ); 
 		res_entity->commit(block);		
 		local_pius.ordo = Notitia::PRO_TBUF ;
@@ -288,22 +289,17 @@ void FileLet::handle()
 	char fixed_type[500];
 
 #if defined(_WIN32)
-#if !defined(USE_TEXTUS_AIO)
 	HANDLE fd;
 	HANDLE hFileMapping;
-#endif
+
 	#define ISMYDIR(x) (_S_IFDIR & x)
 	#define ISMYREG(x) (_S_IFREG & x)
 #else
 	#define ISMYDIR(x) (S_ISDIR(x))	
 	#define ISMYREG(x) (S_ISREG(x))	
-#if !defined(USE_TEXTUS_AIO)
 	int fd;		/* 文件句柄 */
 #endif
-#endif
-#if !defined(USE_TEXTUS_AIO)
 	char* ptr;
-#endif
 
 	WBUG("Request path is %s", file_name);
 	if ( file_name[0] != '/')
@@ -352,7 +348,7 @@ PROAGAIN:
 			} else
 				file_found = false;
 		}
-			
+
 		if ( !file_found )
 		{
 			WLOG(INFO, "Not found the file of %s", file);
@@ -395,8 +391,7 @@ PROAGAIN:
 
 	time_t if_modified_since ;
 	if_modified_since = getHeadInt("If-Modified-Since");
-	if ( if_modified_since >0 &&
-		if_modified_since == sb.st_mtime )
+	if ( if_modified_since >0 && if_modified_since == sb.st_mtime )
 	{
 		setStatus(304);
 		setContentSize(0);
@@ -405,13 +400,16 @@ PROAGAIN:
 
 SEND_FILE:
 #ifdef USE_TEXTUS_AIO
-	pro_file_ps.indic = file;
-	setContentSize(sb.st_size);
-	aptus->facio(&pro_file_ps);
-#else
+	if ( sb.st_size > gCFG->block_size ) 	//较大文件才用AIO
+	{ 
+		pro_file_ps.indic = file;
+		setContentSize(sb.st_size);
+		aptus->facio(&pro_file_ps);
+		return ;
+	}
+#endif
 #if defined(_WIN32)
-	fd = CreateFile(file, GENERIC_READ, FILE_SHARE_READ, NULL, 
-		OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+	fd = CreateFile(file, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
 	if (fd == INVALID_HANDLE_VALUE )
 #else
     	fd = open( file, O_RDONLY );
@@ -419,7 +417,6 @@ SEND_FILE:
 #endif
 	{	
 		sendError(403);
-		//local_pius.ordo = Notitia::PRO_HTTP_HEAD ;
 		aptus->sponte(&head_ps);
 		return ;	/* 已经发现错误,返回内容已定,故返回真 */
     	}
@@ -428,12 +425,10 @@ SEND_FILE:
 	setContentSize(sb.st_size);
 	
 	/* 响应头已经准备完毕, 将此发送出去 */
-	//local_pius.ordo = Notitia::PRO_HTTP_HEAD ;	
 	aptus->sponte(&head_ps);
 
     	if ( sb.st_size > 0 )	/* avoid zero-length mmap */
 	{
-
 #if defined(_WIN32)
 		hFileMapping = CreateFileMapping(fd, NULL,PAGE_READONLY, 0,0, NULL);
 		ptr = (char*) MapViewOfFile(hFileMapping,FILE_MAP_READ,0, 0, sb.st_size);
@@ -460,9 +455,7 @@ SEND_FILE:
 
 	WBUG("has sent the file of %s", file);
 	return ;
-#endif
 Error:
-	//local_pius.ordo = Notitia::PRO_HTTP_HEAD ;	
 	aptus->sponte(&head_ps);
 }
 

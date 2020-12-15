@@ -520,7 +520,7 @@ bool Aio::facio( Amor::Pius *pius)
 #if defined(__linux__)
 		io_evp = (struct io_event*)pius->indic;
 		if ( (void*)io_evp->obj == (void*)aiocbp_R ) {
-			WBUG("io_submit(read) return %d", (int)io_evp->res);
+			WBUG("io_submit(read) return %d bytes", (int)io_evp->res);
 			switch ( io_evp->res) {
 			case 0:
 				WLOG(INFO, "end of file");
@@ -538,6 +538,7 @@ bool Aio::facio( Amor::Pius *pius)
 				break;
 			default:
 				rcv_buf->commit(io_evp->res);
+				aiocbp_R->aio_offset +=get_bytes ;
 				break;
 			}
 		} else if ( (void*)io_evp->obj == (void*)aiocbp_W ) {
@@ -558,6 +559,7 @@ bool Aio::facio( Amor::Pius *pius)
 #if defined(__sun) || defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
 		if (  (struct aiocb*)pius->indic == aiocbp_R) {
 			get_bytes = aio_return(aiocbp_R);
+			WBUG("aio_return(read) %d bytes", get_bytes);
 			switch ( get_bytes) {
 			case 0:
 				WLOG(INFO, "end of file");
@@ -575,6 +577,7 @@ bool Aio::facio( Amor::Pius *pius)
 				break;
 			default:
 				rcv_buf->commit(get_bytes);
+				aiocbp_R->aio_offset +=get_bytes ;
 				break;
 			}
 		} else if(  (struct aiocb*)pius->indic != aiocbp_W) {
@@ -709,7 +712,6 @@ A_OPEN_PRO:
 
 	case Notitia::GET_FILE :
 		WBUG("facio GET_FILE");
-/*
 		get_bytes = *(int*)pius->indic;
 		switch ( get_bytes) {
 		case 0:
@@ -729,8 +731,7 @@ A_OPEN_PRO:
 			recito_ex();
 			break;
 		}
-*/
-		recito_ex();
+		//recito_ex();
 		break;
 
 	case Notitia::Move_File_From_Begin :
