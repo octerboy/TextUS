@@ -150,7 +150,7 @@ public:
 	bool facio( Pius *);
 	bool sponte( Pius *);
 	Amor *clone();
-		
+
 	HttpIns();
 	~HttpIns();
 
@@ -184,7 +184,7 @@ private:
 		chunko.reset();
 		chunk_offset = 0;
 	};
-	
+
 	void right_reset() {
 		response.reset();
 		request.reset();
@@ -290,6 +290,10 @@ bool HttpIns::facio( Amor::Pius *pius)
 		WBUG("facio PRO_HTTP_REQUEST");
 		left_head_ok = true;
 		left_body_ok = true;
+		if ( ((struct HInsData *)cur_insway->dat->ext_ins)->me != this->gCFG ) { 
+			WBUG("%s is not for me %p %p.",(struct HInsData *)cur_insway->dat->ins_tag,  ((struct HInsData *)cur_insway->dat->ext_ins)->me,  this->gCFG );
+			break;	//不是本模块定义的, 不作处理
+		}
 		pro_ins();
 		left_head_ok = false;
 		left_body_ok = false;
@@ -305,6 +309,10 @@ bool HttpIns::facio( Amor::Pius *pius)
 		WBUG("facio PRO_TBUF (head_ok = %d)", left_head_ok);
 		assert(rcv_buf);
 		if ( !left_head_ok ) break;
+		if ( ((struct HInsData *)cur_insway->dat->ext_ins)->me != this->gCFG ) { 
+			WBUG("%s is not for me %p %p.",(struct HInsData *)cur_insway->dat->ins_tag,  ((struct HInsData *)cur_insway->dat->ext_ins)->me,  this->gCFG );
+			break;	//不是本模块定义的, 不作处理
+		}
 CLI_PRO:
 		if ( browser_req->content_length == -1 )
 		{	/* Transfer-Encoding */
@@ -331,6 +339,10 @@ CLI_PRO:
 				WLOG(WARNING, "facio SET_TBUF ans_body_buf null");
 		} else 
 			WLOG(WARNING, "facio SET_TBUF null");
+		other_ps.indic = 0;
+		other_ps.ordo = Notitia::CMD_GET_HTTP_HEADOBJ;
+		aptus->sponte(&other_ps);
+		browser_req = (DeHead*)other_ps.indic;
 		break;
 
 	case Notitia::DMD_END_SESSION:	/* channel is not alive */
@@ -358,16 +370,20 @@ CLI_PRO:
 			WLOG(WARNING, "pro_insway.ext_ins is null !!");
 			break;	//不是本模块定义的, 不作处理
 		}
-		if ( ((struct HInsData *)((struct InsWay*)pius->indic)->dat->ext_ins)->me != this->gCFG ) { 
-			WBUG("%s is not for me.", ((struct InsWay*)pius->indic)->dat->ins_tag);
+		cur_insway = (struct InsWay*)pius->indic;
+		if ( ((struct HInsData *)cur_insway->dat->ext_ins)->me != this->gCFG ) { 
+			WBUG("%s is not for me %p %p.",(struct HInsData *)cur_insway->dat->ins_tag,  ((struct HInsData *)cur_insway->dat->ext_ins)->me,  this->gCFG );
 			break;	//不是本模块定义的, 不作处理
 		}
-		cur_insway = (struct InsWay*)pius->indic;
 		pro_ins(true);
 		break;
 
 	case Notitia::Log_InsWay:    /* 记录报文, 往往是在错误情况 */
 		WBUG("facio Log_InsWay");
+		if ( ((struct HInsData *)cur_insway->dat)->me != this->gCFG ) { 
+			WBUG("%s is not for me.",(struct HInsData *)cur_insway->dat->ins_tag);
+			break;	//不是本模块定义的, 不作处理
+		}
 		log_ins();
 		break;
 
@@ -396,7 +412,7 @@ bool HttpIns::sponte( Amor::Pius *pius)
 {
 	long len;
 	assert(pius);
-	
+
 	switch ( pius->ordo )
 	{
 	case Notitia::PRO_TBUF:	/* 置HTTP响应数据 */
@@ -825,10 +841,10 @@ void HttpIns::pro_ins (bool pro_start)
 	bool has_head;
 	TBuffer *body_buf =0;
 	hti = (struct HInsData *) cur_insway->dat->ext_ins;
-	rep = (struct InsReply *)cur_insway->reply;
 	//if ( strcmp(cur_insway->dat->ins_tag, "InitPac") == 0 )
 	//	{int *a =0 ; *a = 0; };
 
+	rep = (struct InsReply *)cur_insway->reply;
 	pro_hd_ps.subor = hti->subor;
 
 	switch ( hti->type) {
