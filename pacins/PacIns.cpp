@@ -34,7 +34,7 @@
 #define COMMON_DIGEST_FOR_OPENSSL
 #include <CommonCrypto/CommonDigest.h>
 #else
-#include <openssl/md5.h>
+#include <openssl/sha.h>
 #endif
 #include "WayData.h"
 
@@ -338,7 +338,7 @@ void PacIns::load_pac_def()
 	{
 		if ( (nm = gCFG->prop->Attribute("pac"))) 
 		{
-			if (load_xml(nm,  gCFG->doc_pac_def,   gCFG->pac_def_root, gCFG->prop->Attribute("pac_md5"), my_err_str))
+			if (load_xml(nm,  gCFG->doc_pac_def,   gCFG->pac_def_root, gCFG->prop->Attribute("pac_sha"), my_err_str))
 			{
 				WLOG(WARNING, "%s", my_err_str);	
 			}
@@ -681,7 +681,7 @@ void PacIns::set_ins (struct InsData *insd)
 
 	insd->up_subor = gCFG->subor;
 	paci = (struct PacInsData *) new struct PacInsData;
-	insd->ext_ins = (void*)paci;
+	insd->ext_ins = (struct ExtInsBase*)paci;
 
 	paci->set_def(def_ele,insd);
 	/* 先预置发送的每个域，设定域号*/

@@ -35,7 +35,7 @@
 #define COMMON_DIGEST_FOR_OPENSSL
 #include <CommonCrypto/CommonDigest.h>
 #else
-#include <openssl/md5.h>
+#include <openssl/sha.h>
 #endif
 #include "WayData.h"
 #include "get_chunk_size.c"
@@ -258,7 +258,7 @@ void HttpIns::load_def()
 	{
 		if ( (nm = gCFG->prop->Attribute("http"))) 
 		{
-			if (load_xml(nm,  gCFG->doc_h_def,   gCFG->h_def_root, gCFG->prop->Attribute("http_md5"), my_err_str))
+			if (load_xml(nm,  gCFG->doc_h_def,   gCFG->h_def_root, gCFG->prop->Attribute("http_sha"), my_err_str))
 			{
 				WLOG(WARNING, "%s", my_err_str);	
 			}
@@ -488,7 +488,7 @@ void HttpIns::set_ins (struct InsData *insd)
 		delete hti;
 		return ;
 	}
-	insd->ext_ins = (void*)hti;
+	insd->ext_ins = (struct ExtInsBase *)hti;
 
 	/* 先预置发送的每个域 */
 	a_num = 0;

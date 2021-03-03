@@ -102,7 +102,7 @@ struct InsData {
 	bool isFunction;	//是否为函数方式
 	const char *log_str;	//这是直接从外部定义文件得到的内容，不作任何处理。
 
-	void *ext_ins;	//基础报文定义，下一级处理
+	struct ExtInsBase *ext_ins;	//基础报文定义，下一级处理
 	InsData() {
 		ins_tag = 0;
 		log_str = 0;
@@ -147,7 +147,8 @@ int load_xml(const char *f_name, TiXmlDocument &doc,  TiXmlElement *&root, const
 	} 
 	if ( md5_content) {
 		FILE *inFile;
-		MD5_CTX mdContext;
+		//MD5_CTX mdContext;
+		SHA256_CTX mdContext;
 		int bytes;
 		unsigned char data[1024];
 		char md_str[64];
@@ -160,17 +161,20 @@ int load_xml(const char *f_name, TiXmlDocument &doc,  TiXmlElement *&root, const
 		if ( !inFile ) 
 			return -2;
 
-		MD5_Init (&mdContext);
+		//MD5_Init (&mdContext);
+		SHA256_Init (&mdContext);
 		while ((bytes = fread (data, 1, 1024, inFile)) != 0)
-		MD5_Update (&mdContext, data, bytes);
+		//MD5_Update (&mdContext, data, bytes);
+		SHA256_Update (&mdContext, data, bytes);
 
-		MD5_Final (&md[0], &mdContext);
+		//MD5_Final (&md[0], &mdContext);
+		SHA256_Final (&md[0], &mdContext);
 		byte2hex(md, 16, md_str);
 		fclose (inFile);
 		md_str[32] = 0;
 		if ( strncasecmp(md_str, md5_content, 10) != 0) 
 		{
-			TEXTUS_SNPRINTF(err_str, 128, "Loading %s file failed in md5 error", f_name);
+			TEXTUS_SNPRINTF(err_str, 128, "Loading %s file failed in sha error", f_name);
 			return -3;
 		}
 		}

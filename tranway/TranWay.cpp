@@ -33,7 +33,7 @@
 #define COMMON_DIGEST_FOR_OPENSSL
 #include <CommonCrypto/CommonDigest.h>
 #else
-#include <openssl/md5.h>
+#include <openssl/sha.h>
 #endif
 #include "WayData.h"
 
@@ -61,7 +61,7 @@ char err_global_str[128]={0};
 /* 右边状态, 空闲, 发出报文等响应 */
 enum RIGHT_STATUS { RT_IDLE = 0, RT_OUT=7};
 enum TRAN_STEP {Tran_Idle = 0, Tran_Working = 1, Tran_End=2};
-enum SUB_RET {Sub_Working = 0, Sub_OK = 1, Sub_Rcv_Pac_Fail=-2, Sub_Soft_Fail=-1, Sub_Valid_Fail = -3};
+enum SUB_RET {Sub_Working = 0, Sub_OK = 1, Sub_Been_Working = 2, Sub_Rcv_Pac_Fail=-2, Sub_Soft_Fail=-1, Sub_Valid_Fail = -3};
 
 /* 包括SysTime这样的变量，都由外部函数计算，所以这里只保留脚本指纹数据 */	
 #define Pos_ErrCode 1 
@@ -75,7 +75,7 @@ enum SUB_RET {Sub_Working = 0, Sub_OK = 1, Sub_Rcv_Pac_Fail=-2, Sub_Soft_Fail=-1
 #define VARIABLE_TAG_NAME "Var"
 #define ME_VARIABLE_HEAD "me."
 
-enum TranIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Respond =8, INS_LetVar=10, INS_Null=99};
+enum TranIns_Type { INS_None = 0, INS_Normal=1, INS_Abort=2, INS_Respond =8, INS_LetVar=10, INS_Alarm=11, INS_Null=99};
 enum Var_Type {VAR_ErrCode=1, VAR_FlowPrint=2, VAR_TotalIns = 3, VAR_CurOrder=4, VAR_CurCent=5, VAR_ErrStr=6, VAR_FlowID=7, VAR_Dynamic_Global = 8, VAR_Dynamic_Link = 9, VAR_Dynamic = 10, VAR_Me=12, VAR_Constant=98,  VAR_None=99};
 struct PVar {
 	Var_Type kind;
@@ -1004,6 +1004,19 @@ ALL_STILL:
 			type = INS_Respond;
 		else if ( strcasecmp(ins_tag, "Let") ==0 )
 			type = INS_LetVar;
+		else if ( strcasecmp(ins_tag, "Alarm") ==0 )
+		{
+			int *val;
+			type = INS_Alarm;
+			this->snd_num = 1;
+			this->snd_lst = new struct CmdSnd;
+			this->snd_lst->ext_fld = new int[2];
+			val = (int*) this->snd_lst->ext_fld;
+			val[0] = val[1] = 0;
+			pac_ele->QueryIntAttribute("interval", &(val[0]));
+			pac_ele->QueryIntAttribute("interval2", &(val[1]));
+			//{ int *a =0 ; *a = 0; }
+		}
 
 		if ( type !=INS_None ) 
 			goto LAST_CON;
@@ -1560,15 +1573,15 @@ struct  Personal_Def	//个人化定义
 
 		if ( !(c_root = per_ele->FirstChildElement("Flow")))
 		{
-			nm =  per_ele->Attribute("md5");
+			nm =  per_ele->Attribute("sha");
 			if ( (ic_nm = per_ele->Attribute("file")))
 				load_xml(ic_nm, doc_c,  c_root, nm,err_global_str);
 			if ( nm)
 				squeeze(nm, (unsigned char*)&flow_md[0]);
 		}
-		GET_XML_DEF(k_root, doc_k, "Key",  "key", "key_md5")
+		GET_XML_DEF(k_root, doc_k, "Key",  "key", "key_sha")
 		k_name = nm;	//nm已经是key属性的内容了,即文件名
-		GET_XML_DEF(v_root, doc_v, "Var",  "var", "var_md5")
+		GET_XML_DEF(v_root, doc_v, "Var",  "var", "var_sha")
 		if ( !c_root || !k_root ) return false;
 		person_vars.defer_vars(k_root, c_root);	//变量定义, map文件优先
 		flow_id = c_root->Attribute("flow");
@@ -1653,6 +1666,7 @@ private:
 	void set_global_vars();
 
 	struct G_CFG { 	//全局定义
+		Amor *sch;
 		TBuffer *var_bufs;	//全局变量数据区
 		size_t bufs_num;
 		TiXmlElement *prop;
@@ -1660,6 +1674,7 @@ private:
 		struct Personal_Def null_icp_def;
 
 		inline G_CFG() {
+			sch = 0;
 			var_bufs = 0;
 			bufs_num = 0;
 		};	
@@ -1672,7 +1687,8 @@ private:
 		};
 	};
 
-	Amor::Pius loc_ans_tran, prodb_ps, other_ps, loc_pro_ins, log_ps;
+	Amor::Pius loc_ans_tran, prodb_ps, alarm_ps, clr_timer_ps, loc_pro_ins, log_ps;
+	void *arr[3];	//for alarm_ps
 
 	struct MK_Session mess;	//记录一个过程中的各种临时数据
 	struct Personal_Def *cur_def;	//当前定义
@@ -1771,6 +1787,13 @@ TranWay::TranWay() {
 	loc_ans_tran.indic = this;
 	loc_ans_tran.subor = Amor::CAN_ALL;
 	log_ps.ordo = Notitia::Log_InsWay;
+	
+	clr_timer_ps.ordo = Notitia::DMD_CLR_TIMER;
+	clr_timer_ps.indic = 0;
+
+	alarm_ps.ordo = Notitia::DMD_SET_ALARM;
+	alarm_ps.indic = &arr[0];
+	arr[0] = this;
 }
 
 TranWay::~TranWay() {
@@ -1801,6 +1824,15 @@ bool TranWay::facio( Amor::Pius *pius) {
 		cur_insway.psnap = mess.psnap;
 		cur_insway.snap_num = mess.snap_num;
 		cur_insway.reply = &cur_ins_reply;
+		tmp_pius.ordo = Notitia::CMD_GET_SCHED;
+		tmp_pius.indic = 0;
+		aptus->sponte(&tmp_pius);	//向tpoll, 取得sched
+		gCFG->sch = (Amor*)tmp_pius.indic;
+		if ( !gCFG->sch ) 
+		{
+			WLOG(ERR, "no sched or tpoll");
+		}
+		WBUG("get sched = %p", gCFG->sch);
 		break;
 
 	case Notitia::CLONE_ALL_READY:
@@ -1813,11 +1845,13 @@ bool TranWay::facio( Amor::Pius *pius) {
 
 	case Notitia::START_SESSION:
 		WBUG("facio START_SESSION" );
+		gCFG->sch->sponte(&clr_timer_ps); /* 清除定时 */
 		mess.reset(false);	//动态量硬复位
 		break;
 
 	case Notitia::DMD_END_SESSION:
 		WBUG("facio DMD_END_SESSION" );
+		gCFG->sch->sponte(&clr_timer_ps); /* 清除定时 */
 		mess.reset(false);	//动态量硬复位
 		break;
 
@@ -1825,6 +1859,22 @@ bool TranWay::facio( Amor::Pius *pius) {
 		WBUG("facio Pro_TranWay");
 		handle_tran((struct FlowStr*)pius->indic);
 		break;
+
+	case Notitia::TIMER:
+		WBUG("facio TIMER");
+		if ( mess.right_status != RT_OUT)	//表明是右端返回
+		{
+			WLOG(WARNING, "mess error right_status=RT_IDLE");
+		} else {
+			mk_hand();
+		}
+		break;
+
+	case Notitia::TIMER_HANDLE:
+		WBUG("facio TIMER_HANDLE");
+		clr_timer_ps.indic = pius->indic;
+		break;
+
 	default:
 		return false;
 	}
@@ -1992,6 +2042,28 @@ SUB_INS_PRO:
 		trani->set_rcv(&mess);
 		break;
 
+	case INS_Alarm:
+		switch ( command_wt.tran_step ) {
+		case Tran_Idle:
+			cur_insway.dat = trani;
+			cur_ins_reply.err_code = 0;
+			WBUG("will(Alarm) order=%d which=%d ", mess.pro_order, command_wt.pac_which);
+			this->arr[1] = &((int*)trani->snd_lst->ext_fld)[0];
+			this->arr[2] = &((int*)trani->snd_lst->ext_fld)[1];
+			//{ int *a =0 ; *a = 0; }
+			command_wt.tran_step = Tran_Working;
+			gCFG->sch->sponte(&alarm_ps);    //请求定时
+			return Sub_Been_Working; 	/* 正在进行, 而不需要facio */
+			break;
+
+		case Tran_Working:
+			command_wt.tran_step = Tran_End;
+			break;
+		default:
+			break;
+		}
+		break;
+
 	default:
 		switch ( command_wt.tran_step ) {
 		case Tran_Idle:
@@ -2135,6 +2207,10 @@ LOOP_PRI_TRY:
 		case Sub_Working: //正进行中
 			mess.right_status = RT_OUT;
 			aptus->facio(&loc_pro_ins);     //向右发出指令,aptus.facio的处理放在最后,很重要!! 因为这个调用中可能收到右节点的sponte. 注意!!,一定要注意.
+			break;
+
+		case Sub_Been_Working: //
+			mess.right_status = RT_OUT;
 			break;
 		}
 		break;
