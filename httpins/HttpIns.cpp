@@ -291,7 +291,7 @@ bool HttpIns::facio( Amor::Pius *pius)
 		left_head_ok = true;
 		left_body_ok = true;
 		if ( ((struct HInsData *)cur_insway->dat->ext_ins)->me != this->gCFG ) { 
-			WBUG("%s is not for me %p %p.",(struct HInsData *)cur_insway->dat->ins_tag,  ((struct HInsData *)cur_insway->dat->ext_ins)->me,  this->gCFG );
+			WBUG("%s is not for me %p %p.",cur_insway->dat->ins_tag,  ((struct HInsData *)cur_insway->dat->ext_ins)->me,  this->gCFG );
 			break;	//不是本模块定义的, 不作处理
 		}
 		pro_ins();
@@ -310,7 +310,7 @@ bool HttpIns::facio( Amor::Pius *pius)
 		assert(rcv_buf);
 		if ( !left_head_ok ) break;
 		if ( ((struct HInsData *)cur_insway->dat->ext_ins)->me != this->gCFG ) { 
-			WBUG("%s is not for me %p %p.",(struct HInsData *)cur_insway->dat->ins_tag,  ((struct HInsData *)cur_insway->dat->ext_ins)->me,  this->gCFG );
+			WBUG("%s is not for me %p %p.",cur_insway->dat->ins_tag,  ((struct HInsData *)cur_insway->dat->ext_ins)->me,  this->gCFG );
 			break;	//不是本模块定义的, 不作处理
 		}
 CLI_PRO:
@@ -318,7 +318,7 @@ CLI_PRO:
 		{	/* Transfer-Encoding */
 			struct HInsData *hti;
 			hti = (struct HInsData *) cur_insway->dat->ext_ins;
-			if ( hti->pro_chunk);	
+			if ( hti->pro_chunk)
 				left_body_ok = chunk_all(rcv_buf);
 		} else {
 			left_body_ok = ( browser_req->content_length  > 0  && ( rcv_buf->point - rcv_buf->base >= browser_req->content_length ) );
@@ -372,7 +372,7 @@ CLI_PRO:
 		}
 		cur_insway = (struct InsWay*)pius->indic;
 		if ( ((struct HInsData *)cur_insway->dat->ext_ins)->me != this->gCFG ) { 
-			WBUG("%s is not for me %p %p.",(struct HInsData *)cur_insway->dat->ins_tag,  ((struct HInsData *)cur_insway->dat->ext_ins)->me,  this->gCFG );
+			WBUG("%s is not for me %p %p.",cur_insway->dat->ins_tag,  ((struct HInsData *)cur_insway->dat->ext_ins)->me,  this->gCFG );
 			break;	//不是本模块定义的, 不作处理
 		}
 		pro_ins(true);
@@ -381,7 +381,7 @@ CLI_PRO:
 	case Notitia::Log_InsWay:    /* 记录报文, 往往是在错误情况 */
 		WBUG("facio Log_InsWay");
 		if ( ((struct HInsData *)cur_insway->dat)->me != this->gCFG ) { 
-			WBUG("%s is not for me.",(struct HInsData *)cur_insway->dat->ins_tag);
+			WBUG("%s is not for me.", cur_insway->dat->ins_tag);
 			break;	//不是本模块定义的, 不作处理
 		}
 		log_ins();
@@ -1015,10 +1015,10 @@ const char* HttpIns::pro_rply(struct DyVarBase **psnap, struct InsData *insd, De
 			break;
 		case Head_Time:
 			{
-			long lval;
-		    	struct tm *tdatePtr;
+			time_t lval;
+		    struct tm *tdatePtr;
 		 	struct tm tdate;
-    			const char* rfc1123_fmt = "%a, %d %b %Y %H:%M:%S GMT";
+			const char* rfc1123_fmt = "%a, %d %b %Y %H:%M:%S GMT";
 
 			tdatePtr = &tdate;
 			lval = headp->getHeadInt(h_fld->name);
@@ -1027,7 +1027,7 @@ const char* HttpIns::pro_rply(struct DyVarBase **psnap, struct InsData *insd, De
 #else
 			tdatePtr = gmtime( &lval );
 #endif
-    			(void) strftime( timebuf, sizeof(timebuf), h_fld->fmt ? h_fld->fmt: rfc1123_fmt, tdatePtr );
+			(void) strftime( timebuf, sizeof(timebuf), h_fld->fmt ? h_fld->fmt: rfc1123_fmt, tdatePtr );
 			fc = &timebuf[0];
 			}
 			has_head = true;
