@@ -6,7 +6,6 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  */
-
 /**
  Title:The public interface of textus module
  Build: Created by octerboy 2005/6/9
@@ -43,8 +42,7 @@ public:
 	/* Amor objects communicate by Pius object */
 	struct Pius {
 		 TEXTUS_ORDO ordo;	/* the type of inidc */
-		 int subor;		/* the sub type of inidc
-						此量区分不同的Module. */
+		 int subor;		/* the sub type of inidc, 以此区分要传递的下一级不同的Module. */
 						
 		 void *indic;		/* data pointer for any type */
 		Pius() { subor = CAN_ALL; indic=0;};	
