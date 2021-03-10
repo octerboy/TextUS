@@ -11,7 +11,7 @@
  Title:The common interface of textus module
  Build: Created by octerboy 2005/6/9
  $Id$
- $Date;$
+ $Date$
  $Revision$
 */
 /* $NoKeywords: $ */

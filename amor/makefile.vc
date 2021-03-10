@@ -21,7 +21,7 @@ ok.exe: toOK.obj
 	$(_VC_MANIFEST_PRO)
 
 libanimus.dll: $(AMOROBJS)
-	$(LD) /NODEFAULTLIB /NOLOGO /DEF:amor.def -dll -out:$@ $(AMOROBJS) msvcrt.lib kernel32.lib user32.lib
+	$(LD) $(LDFLAGS) /NOLOGO /DEF:amor.def -dll -out:$@ $(AMOROBJS) $(ALONE_LDLIB)
 	$(_VC_MANIFEST_PRO)
 	$(_POST_RPO_SUB)
     copy $@.* ..\
