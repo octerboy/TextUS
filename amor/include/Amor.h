@@ -6,13 +6,14 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  */
+
 /**
- Title:The public interface of textus module
+ Title:The common interface of textus module
  Build: Created by octerboy 2005/6/9
- $Date$
+ $Id$
+ $Date;$
  $Revision$
 */
-
 /* $NoKeywords: $ */
 
 #ifndef AMOR_H
@@ -39,10 +40,10 @@ public:
 	enum SUB_ORDO { CAN_ALL = -1 };
 	virtual void ignite(TiXmlElement *wood) {};
 
-	/* Amor objects communicate by Pius object */
+	/* Amor objects with communicate by Pius object */
 	struct Pius {
 		 TEXTUS_ORDO ordo;	/* the type of inidc */
-		 int subor;		/* the sub type of inidc, 以此区分要传递的下一级不同的Module. */
+		 int subor;			/* the sub type of inidc, 以此区分所要传递的下一层中不同的Module. */
 						
 		 void *indic;		/* data pointer for any type */
 		Pius() { subor = CAN_ALL; indic=0;};	
