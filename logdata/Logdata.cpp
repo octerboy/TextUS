@@ -154,7 +154,7 @@ void Logdata::ignite_t (TiXmlElement *cfg, TiXmlElement *log_ele)
 		TEXTUS_STRNCPY(md_magic, comm_str, sizeof(comm_str)-2);
 	} else 
 		TEXTUS_STRCPY(md_magic, MD_MAGIC);
-	md_magic_len = strlen(md_magic);
+	md_magic_len = (int)strlen(md_magic);
 
 	if ( (host_str = cfg->Attribute("host")) )
 	{
@@ -400,7 +400,7 @@ bool Logdata::sponte_n ( Amor::Pius *pius, unsigned int from)
 		char md_sum[16];
 		int i,l;
 		
-		l = strlen(log_ptr);
+		l = (int)strlen(log_ptr);
 
 		MD5Init (&Md5Ctx);
 		MD5Update (&Md5Ctx, last_md_sum, 8);

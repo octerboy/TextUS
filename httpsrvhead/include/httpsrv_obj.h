@@ -29,8 +29,8 @@ struct GetRequestCmd {
 			*/
 	const char *valStr;	/* 输出，用于fun=0,2~6,9~12，指向HTTP头内容、表单参数相应的内容、文件内容(char *) */
 	const char **valStrArr;	/* 输出，用于fun=0,2~6,9~12，指向HTTP头内容、表单参数相应的内容、文件内容(char *) */
-	long valInt;	/* 输出，用于fun=1，指向HTTP头内容  */	
-	long len;	/* 输出，用于fun=3,4,6,7，指向输出内容（表单相应参数的内容、文件内容）的长度，即字节数 */
+	TEXTUS_LONG valInt;	/* 输出，用于fun=1，指向HTTP头内容  */	
+	TEXTUS_LONG len;	/* 输出，用于fun=3,4,6,7，指向输出内容（表单相应参数的内容、文件内容）的长度，即字节数 */
 	char *filename;	/* 输出，用于fun=7，指向文件名（表单送上来的） */ 
 	char *type;	/* 输出，用于fun=7，指向文件类型（表单送上来的）*/ 
 	void *content;	/* 输出，用于fun=8,9，指向TiXmlDocument*或TiXmlElement*   */
@@ -59,10 +59,10 @@ struct SetResponseCmd {
 	const char *name;	/* 输入，用于fun=setHead, 指向HTTP报文头的名称name */
 	const char *valStr;	/* 输入，用于fun=setHead, sendError,output,setXMLComment,setContentType，
 				 指向value, err_title, value,type, str */
-	long valInt;	/* 输入，用于fun=setHead，指int value */
+	TEXTUS_LONG valInt;	/* 输入，用于fun=setHead，指int value */
 	time_t valTime;	/* 输入，用于fun=setHead，指int value */
 	int sc;		/* 输入，用于fun=setStatus,sendError，指sc */
-	long len;	/* 输入，用于fun=OutPut,SetLenOfContent, 指len */
+	TEXTUS_LONG len;	/* 输入，用于fun=OutPut,SetLenOfContent, 指len */
 	char type;	/* 输入，用于fun=setDataType，指dataType */
 	void *extend;	/* 用于扩展 */
 };
@@ -119,7 +119,7 @@ Amor::Pius cmd_pius;  /* 仅用于向httpsrv取得HTTP请求数据或设置HTTP响应数据 */
 		}
 		return false;
 	};
-	inline long getHeadInt(const char* name)
+	inline TEXTUS_LONG getHeadInt(const char* name)
 	{
 		REQ_CMD
 		request_cmd.fun = GetRequestCmd::GetHeadInt ;
@@ -138,7 +138,7 @@ Amor::Pius cmd_pius;  /* 仅用于向httpsrv取得HTTP请求数据或设置HTTP响应数据 */
 		return( request_cmd.valStr);		
 	};
 	
-	inline const char* getPara(const char* name, long *len)
+	inline const char* getPara(const char* name, TEXTUS_LONG *len)
 	{
 		REQ_CMD
 		request_cmd.fun = GetRequestCmd::GetParaLen ;
@@ -148,7 +148,7 @@ Amor::Pius cmd_pius;  /* 仅用于向httpsrv取得HTTP请求数据或设置HTTP响应数据 */
 		return( request_cmd.valStr);		
 	};
 	
-	inline long getContentSize()
+	inline TEXTUS_LONG getContentSize()
 	{
 		REQ_CMD
 		request_cmd.fun = GetRequestCmd::GetLenOfContent ;
@@ -165,7 +165,7 @@ Amor::Pius cmd_pius;  /* 仅用于向httpsrv取得HTTP请求数据或设置HTTP响应数据 */
 		return( request_cmd.valStr);				
 	};
 
-	inline const char* getFile(const char* name, long *len)
+	inline const char* getFile(const char* name, TEXTUS_LONG *len)
 	{
 		REQ_CMD
 		request_cmd.fun = GetRequestCmd::GetFileLen ;
@@ -175,7 +175,7 @@ Amor::Pius cmd_pius;  /* 仅用于向httpsrv取得HTTP请求数据或设置HTTP响应数据 */
 		return( request_cmd.valStr);						
 	};
 
-	inline const char* getFile(const char* name, long *len, char **filename, char** type)
+	inline const char* getFile(const char* name, TEXTUS_LONG *len, char **filename, char** type)
 	{
 		REQ_CMD
 		request_cmd.fun = GetRequestCmd::GetFileLenType ;
@@ -213,7 +213,7 @@ Amor::Pius cmd_pius;  /* 仅用于向httpsrv取得HTTP请求数据或设置HTTP响应数据 */
 		return( response_cmd.valStr);
 	}; 
 	
-	inline long getResHeadInt(const char* name)
+	inline TEXTUS_LONG getResHeadInt(const char* name)
 	{
 		RES_CMD
 		response_cmd.fun = SetResponseCmd::GetHeadInt ;
@@ -231,7 +231,7 @@ Amor::Pius cmd_pius;  /* 仅用于向httpsrv取得HTTP请求数据或设置HTTP响应数据 */
 		SponteSetCmd;
 	};
 
-	inline void setHead(const char* name, long value)
+	inline void setHead(const char* name, TEXTUS_LONG value)
 	{
 		RES_CMD
 		response_cmd.fun = SetResponseCmd::SetHeadInt;
@@ -258,7 +258,7 @@ Amor::Pius cmd_pius;  /* 仅用于向httpsrv取得HTTP请求数据或设置HTTP响应数据 */
 		SponteSetCmd;
 	};
 
-	inline void addHead(const char* name, long value)
+	inline void addHead(const char* name, TEXTUS_LONG value)
 	{
 		RES_CMD
 		response_cmd.fun = SetResponseCmd::AddHeadInt;
@@ -275,7 +275,7 @@ Amor::Pius cmd_pius;  /* 仅用于向httpsrv取得HTTP请求数据或设置HTTP响应数据 */
 		SponteSetCmd;				
 	};	
 
-	inline void setContentSize(long len)
+	inline void setContentSize(TEXTUS_LONG len)
 	{
 		RES_CMD
 		response_cmd.fun = SetResponseCmd::SetLenOfContent;
@@ -299,7 +299,7 @@ Amor::Pius cmd_pius;  /* 仅用于向httpsrv取得HTTP请求数据或设置HTTP响应数据 */
 		SponteSetCmd;				
 	};
 
-	inline void output(const char* str, long len)
+	inline void output(const char* str, TEXTUS_LONG len)
 	{
 		RES_CMD
 		response_cmd.fun = SetResponseCmd::OutPutLen;
@@ -316,7 +316,7 @@ Amor::Pius cmd_pius;  /* 仅用于向httpsrv取得HTTP请求数据或设置HTTP响应数据 */
 		SponteSetCmd;
 	};
 
-	inline long formatOutput(const char* format,...)
+	inline TEXTUS_LONG formatOutput(const char* format,...)
 	{
 		RES_CMD
 	 	va_list va;

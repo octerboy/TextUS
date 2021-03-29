@@ -41,20 +41,20 @@ void DigestCalcHA1(
       HASH HA1;
 
       MD5Init(&Md5Ctx);
-      MD5Update(&Md5Ctx, pszUserName, strlen(pszUserName));
+      MD5Update(&Md5Ctx, pszUserName, (unsigned int)strlen(pszUserName));
       MD5Update(&Md5Ctx, ":", 1);
-      MD5Update(&Md5Ctx, pszRealm, strlen(pszRealm));
+      MD5Update(&Md5Ctx, pszRealm,  (unsigned int)strlen(pszRealm));
       MD5Update(&Md5Ctx, ":", 1);
-      MD5Update(&Md5Ctx, pszPassword, strlen(pszPassword));
+      MD5Update(&Md5Ctx, pszPassword, (unsigned int)strlen(pszPassword));
       MD5Final(HA1, &Md5Ctx);
       if (strcasecmp(pszAlg, "md5-sess") == 0) {
 
             MD5Init(&Md5Ctx);
             MD5Update(&Md5Ctx, HA1, HASHLEN);
             MD5Update(&Md5Ctx, ":", 1);
-            MD5Update(&Md5Ctx, pszNonce, strlen(pszNonce));
+            MD5Update(&Md5Ctx, pszNonce, (unsigned int)strlen(pszNonce));
             MD5Update(&Md5Ctx, ":", 1);
-            MD5Update(&Md5Ctx, pszCNonce, strlen(pszCNonce));
+            MD5Update(&Md5Ctx, pszCNonce, (unsigned int)strlen(pszCNonce));
             MD5Final(HA1, &Md5Ctx);
       };
       CvtHex(HA1, SessionKey);
@@ -80,9 +80,9 @@ void DigestCalcResponse(
 
       // calculate H(A2)
       MD5Init(&Md5Ctx);
-      MD5Update(&Md5Ctx, pszMethod, strlen(pszMethod));
+      MD5Update(&Md5Ctx, pszMethod,  (unsigned int)strlen(pszMethod));
       MD5Update(&Md5Ctx, ":", 1);
-      MD5Update(&Md5Ctx, pszDigestUri, strlen(pszDigestUri));
+      MD5Update(&Md5Ctx, pszDigestUri, (unsigned int)strlen(pszDigestUri));
       if (strcasecmp(pszQop, "auth-int") == 0) {
             MD5Update(&Md5Ctx, ":", 1);
             MD5Update(&Md5Ctx, HEntity, HASHHEXLEN);
@@ -94,15 +94,15 @@ void DigestCalcResponse(
       MD5Init(&Md5Ctx);
       MD5Update(&Md5Ctx, HA1, HASHHEXLEN);
       MD5Update(&Md5Ctx, ":", 1);
-      MD5Update(&Md5Ctx, pszNonce, strlen(pszNonce));
+      MD5Update(&Md5Ctx, pszNonce, (unsigned int)strlen(pszNonce));
       MD5Update(&Md5Ctx, ":", 1);
       if (*pszQop) {
 
-          MD5Update(&Md5Ctx, pszNonceCount, strlen(pszNonceCount));
+          MD5Update(&Md5Ctx, pszNonceCount, (unsigned int)strlen(pszNonceCount));
           MD5Update(&Md5Ctx, ":", 1);
-          MD5Update(&Md5Ctx, pszCNonce, strlen(pszCNonce));
+          MD5Update(&Md5Ctx, pszCNonce, (unsigned int)strlen(pszCNonce));
           MD5Update(&Md5Ctx, ":", 1);
-          MD5Update(&Md5Ctx, pszQop, strlen(pszQop));
+          MD5Update(&Md5Ctx, pszQop, (unsigned int)strlen(pszQop));
           MD5Update(&Md5Ctx, ":", 1);
       };
       MD5Update(&Md5Ctx, HA2Hex, HASHHEXLEN);

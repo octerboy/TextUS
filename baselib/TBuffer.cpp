@@ -68,7 +68,7 @@ TEXTUS_AMOR_EXPORT HRESULT CALLBACK DllGetVersion( DLLVERSIONINFO *pdvi)
 #include <stdio.h>  
 #define MINIMUM_BUFFER_SIZE     128
 
-TBuffer::TBuffer(unsigned long size)
+TBuffer::TBuffer(unsigned TEXTUS_LONG size)
 {
 	if (size < MINIMUM_BUFFER_SIZE)
 		size = MINIMUM_BUFFER_SIZE;
@@ -84,9 +84,9 @@ TBuffer::~TBuffer()
 		delete[] base;
 }
 
-TBINLINE void TBuffer::expand(unsigned long extraSize)	//根据point扩充extraSize
+TBINLINE void TBuffer::expand(unsigned TEXTUS_LONG extraSize)	//根据point扩充extraSize
 {
-	unsigned long newSize, size, n, len;
+	unsigned TEXTUS_LONG newSize, size, n, len;
 
 	if (!base) //新建空间, base有可能被清了
 	{
@@ -130,12 +130,17 @@ TBINLINE void TBuffer::expand(unsigned long extraSize)	//根据point扩充extraSize
 	return;
 }
 
-TBINLINE int TBuffer::commit(long int len)
+TBINLINE TEXTUS_LONG TBuffer::commit(TEXTUS_LONG len)
 {
 	if( point + len > limit || point + len < base )
 	{
-		printf ( "space %ld, alloc %ld\n", (long)(limit - base), (long)(point - base));
+#if defined( _MSC_VER ) && (  defined(_M_X64)  ||  defined(_WIN64))
+		printf ( "space %lld, alloc %lld\n", (TEXTUS_LONG)(limit - base), (TEXTUS_LONG)(point - base));
+		printf ( "blen %lld\n", len);
+#else
+		printf ( "space %ld, alloc %ld\n", (TEXTUS_LONG)(limit - base), (TEXTUS_LONG)(point - base));
 		printf ( "blen %ld\n", len);
+#endif
 	}
 	point += len;
 
@@ -145,7 +150,7 @@ TBINLINE int TBuffer::commit(long int len)
 	return (limit - point);
 }
 
-TBINLINE void TBuffer::grant(unsigned long space)
+TBINLINE void TBuffer::grant(unsigned TEXTUS_LONG space)
 {
 	if ( point +space > limit )
 		expand(space);
@@ -174,7 +179,7 @@ void TBuffer::exchange(TBuffer &a, TBuffer &b)
 
 void TBuffer::pour(TBuffer &dst, TBuffer &src)
 {
-	long len;
+	TEXTUS_LONG len;
 	if ( dst.point == dst.base )	/* dst is empty */
 		TBuffer::exchange(src, dst);
 	else {
@@ -188,10 +193,10 @@ void TBuffer::pour(TBuffer &dst, TBuffer &src)
 	return ;
 }
 
-void TBuffer::pour(TBuffer &dst, TBuffer &src, unsigned long n)
+void TBuffer::pour(TBuffer &dst, TBuffer &src, unsigned TEXTUS_LONG n)
 {
-	unsigned long l;
-	long m;
+	unsigned TEXTUS_LONG l;
+	TEXTUS_LONG m;
 	l = src.point - src.base;
 	if ( dst.point == dst.base && l <= n ) /* dst is empty and src to be empty  */
 		TBuffer::exchange(src, dst);
@@ -206,7 +211,7 @@ void TBuffer::pour(TBuffer &dst, TBuffer &src, unsigned long n)
 	return ;
 }
 
-void TBuffer::input(unsigned char *p, unsigned long n)
+void TBuffer::input(unsigned char *p, unsigned TEXTUS_LONG n)
 {
 	grant(n);
 	memcpy(point, p, n);

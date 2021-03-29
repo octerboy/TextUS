@@ -40,9 +40,8 @@ public:
 	Amor::Pius local_pius;  //仅用于传回数据
 	Amor::Pius end_pius;  //仅用于传回数据
 	char service_name[256];
-//	struct DPoll::PollorBase lor; /* 探询 */
 	Amor *sch;
-	Amor::Pius epl_set_ps, epl_clr_ps, pro_tbuf_ps, tmp_ps;
+	Amor::Pius tmp_ps;
 
     void logEvent(WORD wType, DWORD dwID,
 		const char* pszS1 = NULL,const char* pszS2 = NULL,const char* pszS3 = NULL);
@@ -311,7 +310,7 @@ void NTSvc::my_handle(DWORD dwOpcode)
     }
 
     // Report current status
-	WBUG("Updating status (%lu, %lu)", m_hServiceStatus, m_Status.dwCurrentState);
+	WBUG("Updating status (%p, %d)", m_hServiceStatus, m_Status.dwCurrentState);
 	::SetServiceStatus(m_hServiceStatus, &m_Status);
 }
         

@@ -50,9 +50,9 @@ private:
 	Amor::Pius fac_tbuf;
 	Amor::Pius spo_body;
 	bool alive;	/* 向WEB服务端的通道是否打开 */
-	long sent_bl;
-	long recv_l;
-	long res_body_length;
+	TEXTUS_LONG sent_bl;
+	TEXTUS_LONG recv_l;
+	TEXTUS_LONG res_body_length;
 
 	bool sess;	/* HTTP请求应答开始 */
 	bool waitClose;	/* 等服务端结束信号 */
@@ -67,8 +67,8 @@ private:
 	typedef struct _Chunko {
 					/* 很多情况下, 一个chunk一次读完, 所以都处于初始值 */
 		bool started ;		/* false: 还没有读完chunk头, true: chunk数据正在读 */
-		long body_len;	/* 正在读chunk的长度, len_to_read 不包括CRLF这两个字 */
-		long head_len;		/* head的长度， 包括CRLF */
+		TEXTUS_LONG body_len;	/* 正在读chunk的长度, len_to_read 不包括CRLF这两个字 */
+		TEXTUS_LONG head_len;		/* head的长度， 包括CRLF */
 		inline _Chunko ()
 		{
 			reset();
@@ -132,7 +132,7 @@ bool HttpAgent::facio( Amor::Pius *pius)
 	Amor::Pius tp;
 	TBuffer **tb = 0;
 	TBuffer *to, *dst;
-	long c_sz, dl, rest;
+	TEXTUS_LONG c_sz, dl, rest;
 
 	const char *host;
 	switch ( pius->ordo )
@@ -147,7 +147,7 @@ bool HttpAgent::facio( Amor::Pius *pius)
 		if ( gCFG->showHead)
 		{
 			char buf[1024];
-			long len;
+			TEXTUS_LONG len;
 			memset(buf,0,1024);
 			len = to->point - to->base;
 			memcpy(buf, to->base, len > 1020 ? 1020:len);
@@ -212,7 +212,7 @@ CLI_PRO:
 		} else {
 			rest = c_sz - sent_bl;	/* 本HTTP报文还要发多少数据 */
 			sent_bl += rest < dl ? rest : dl;
-			WBUG ( "rest %ld, send_bl %ld, dl %ld c_sz %ld", rest, sent_bl, dl, c_sz);
+			WBUG ( "rest " TLONG_FMT " , send_bl " TLONG_FMT ", dl " TLONG_FMT " c_sz " TLONG_FMT , rest, sent_bl, dl, c_sz);
 			TBuffer::pour(*dst, *rcv_buf, rest);
 		}
 
@@ -255,7 +255,7 @@ CLI_PRO:
 bool HttpAgent::sponte( Amor::Pius *pius)
 {
 	Amor::Pius tp;
-	long len;
+	TEXTUS_LONG len;
 	bool sent_out = false; 
 	assert(pius);
 	
@@ -294,7 +294,6 @@ bool HttpAgent::sponte( Amor::Pius *pius)
 					aptus->sponte(&spo_body);
 					recv_l = 0;
 					return true;
-					break;
 				default:
 					res_body_length = response.getHeadInt("Content-Length");
 					setContentSize(res_body_length);
@@ -327,7 +326,7 @@ bool HttpAgent::sponte( Amor::Pius *pius)
 					aptus->sponte(&spo_prohead);	/* 把http头数据发出去 */ 
 					break;
 				}
-				WBUG("recv_l(Head len) %ld, content_len %ld", recv_l, res_body_length);
+				WBUG("recv_l(Head len) " TLONG_FMT ", content_len " TLONG_FMT , recv_l, res_body_length);
 				recv_l = res_body_length;
 			}
 		}
@@ -345,7 +344,7 @@ bool HttpAgent::sponte( Amor::Pius *pius)
 
 		if ( res_body_length >= 0 )
 		{
-			WBUG("recv_l should rceive  %ld bytes", recv_l);
+			WBUG("recv_l should rceive  " TLONG_FMT " bytes", recv_l);
 			if ( recv_l == 0 ) 
 			{
 				reset();
@@ -353,7 +352,7 @@ bool HttpAgent::sponte( Amor::Pius *pius)
 			}
 
 			recv_l -= ( cli_rcv.point - cli_rcv.base ); 
-			WBUG("recv_l still %ld", recv_l);
+			WBUG("recv_l still " TLONG_FMT , recv_l);
 			sent_out = ( recv_l <= 0 ) ;
 
 			TBuffer::pour(*snd_buf, cli_rcv);
@@ -379,7 +378,7 @@ bool HttpAgent::sponte( Amor::Pius *pius)
 					if ( *ptr == '\r' && *(ptr+1) == '\n' )
 					{
 						chunko.body_len = get_chunk_size(c_base);
-						WBUG("A Chunk size %ld", chunko.body_len);
+						WBUG("A Chunk size " TLONG_FMT , chunko.body_len);
 						chunko.head_len = (ptr - c_base) + 2;
 						break;
 					}
@@ -410,7 +409,7 @@ bool HttpAgent::sponte( Amor::Pius *pius)
 				
 				} else if ( chunko.body_len > 0) {
 					/* 具体数据 */
-					long bz = chunko.body_len + chunko.head_len +2;	/* 整个Chunk长度, 2是因为包括CRLF */
+					TEXTUS_LONG bz = chunko.body_len + chunko.head_len +2;	/* 整个Chunk长度, 2是因为包括CRLF */
 					if ( cli_rcv.point - c_base >= bz ) 
 					{
 						/* 一个Chunk完整了 */

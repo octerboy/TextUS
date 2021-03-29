@@ -21,7 +21,6 @@
 #include "casecmp.h"
 #include "TBuffer.h"
 #include "DeHead.h"
-//#include "textus_string.h"
 #include <sys/timeb.h>
 #include <stdarg.h>
 #ifndef TINLINE
@@ -51,8 +50,8 @@ private:
 	bool hasTimer;	/* 已设定时否? */
 	Amor::Pius clr_timer_pius;	/* 清超时 */
 		
-	long body_sent_len;	/* http体已发送字节数,以此决定是否结束当前session */
-	long content_length;	/* 请求http体的字节数, rcv_buf中可能没有这么多字节 */
+	TEXTUS_LONG body_sent_len;	/* http体已发送字节数,以此决定是否结束当前session */
+	TEXTUS_LONG content_length;	/* 请求http体的字节数, rcv_buf中可能没有这么多字节 */
 	
 	char **ext_method;	/* 扩展method */
 
@@ -86,7 +85,9 @@ void HttpSrvHead::ignite(TiXmlElement *cfg)
 {
 	const char *iscopy_str, *svr_str, *time_str, *name_str;
 	TiXmlElement *mth_ele;
-	int m, len, i=0;
+	int m;
+	size_t len;
+	TEXTUS_LONG i=0;
 	char *p=(char*)0, **q=(char**)0;
 	
 	iscopy_str = cfg->Attribute("agent");
@@ -142,7 +143,7 @@ void HttpSrvHead::ignite(TiXmlElement *cfg)
 bool HttpSrvHead::facio( Amor::Pius *pius)
 {
 	TBuffer **tb = 0;
-	long len = 0;
+	TEXTUS_LONG len = 0;
 	int pre_state; 
 	assert(pius);
 
@@ -167,7 +168,6 @@ HEADPRO:
 		{
 			deliver(Notitia::PRO_TBUF);
 			goto END;
-			break;
 		}
 		
 		pre_state = request.state;
@@ -175,7 +175,7 @@ HEADPRO:
 		WBUG("session %d, ReqStat %d", session, request.state);
 		if ( (len = rcv_buf->point - rcv_buf->base) > 0 )
 		{	/* feed data into the object of request */
-			long fed_len;
+			TEXTUS_LONG fed_len;
 			fed_len = request.feed((char*)rcv_buf->base, len);
 			if ( isAgent ) /* save the http head data */
 				req_head_dup.input(rcv_buf->base, fed_len);
@@ -225,7 +225,7 @@ HEADPRO:
 			}
 		}
 END:
-		WBUG("session %d, rest buf %ld bytes", session, rcv_buf->point - rcv_buf->base);
+		WBUG("session %d, rest buf " TLONG_FMT " bytes", session, rcv_buf->point - rcv_buf->base);
 		if ( !session && rcv_buf->point > rcv_buf->base)	/* support pipe */
 			goto HEADPRO;
 
@@ -308,12 +308,12 @@ bool HttpSrvHead::sponte( Amor::Pius *pius)
 						
 		case GetRequestCmd::GetHeadInt:
 			req_cmd->valInt = request.getHeadInt(req_cmd->name);
-			WBUG("sponte CMD_HTTP_GET GetHead(\"%s\")=%ld", req_cmd->name,req_cmd->valInt);
+			WBUG("sponte CMD_HTTP_GET GetHead(\"%s\")=" TLONG_FMT , req_cmd->name,req_cmd->valInt);
 			break;
 				
 		case GetRequestCmd::GetLenOfContent:
 			req_cmd->len = content_length ;
-			WBUG("sponte CMD_HTTP_GET GetLenOfContent=%ld",req_cmd->len);
+			WBUG("sponte CMD_HTTP_GET GetLenOfContent=" TLONG_FMT, req_cmd->len);
 			break;
 
 		case GetRequestCmd::GetQuery:
@@ -344,12 +344,12 @@ bool HttpSrvHead::sponte( Amor::Pius *pius)
 			break;
 
 		case SetResponseCmd::SetHeadInt :
-			WBUG("sponte CMD_HTTP_SET SetHeadInt(\"%s\")=%ld", res_cmd->name, res_cmd->valInt);
+			WBUG("sponte CMD_HTTP_SET SetHeadInt(\"%s\")=" TLONG_FMT, res_cmd->name, res_cmd->valInt);
 			response.setHead(res_cmd->name, res_cmd->valInt);
 			break;
 
 		case SetResponseCmd::SetHeadTime :
-			WBUG("sponte CMD_HTTP_SET SetHeadTime(\"%s\")=%lu", res_cmd->name, res_cmd->valTime);
+			WBUG("sponte CMD_HTTP_SET SetHeadTime(\"%s\")=" TLONG_FMTu , res_cmd->name, res_cmd->valTime);
 			response.setHeadTime(res_cmd->name, res_cmd->valTime);
 			break;
 
@@ -359,7 +359,7 @@ bool HttpSrvHead::sponte( Amor::Pius *pius)
 			break;
 
 		case SetResponseCmd::AddHeadInt :
-			WBUG("sponte CMD_HTTP_SET AddHead(\"%s\")=%ld", res_cmd->name, res_cmd->valInt);
+			WBUG("sponte CMD_HTTP_SET AddHead(\"%s\")=" TLONG_FMT, res_cmd->name, res_cmd->valInt);
 			response.addHead(res_cmd->name, res_cmd->valInt);
 			break;
 
@@ -371,7 +371,7 @@ bool HttpSrvHead::sponte( Amor::Pius *pius)
 
 		case SetResponseCmd::SetLenOfContent :
 			response.setHead("Content-Length", res_cmd->len);
-			WBUG("sponte CMD_HTTP_SET SetLenOfContent(%ld)", response.content_length);
+			WBUG("sponte CMD_HTTP_SET SetLenOfContent(" TLONG_FMT ")", response.content_length);
 			break;
 			
 		case SetResponseCmd::GetHead :
@@ -381,7 +381,7 @@ bool HttpSrvHead::sponte( Amor::Pius *pius)
 					
 		case SetResponseCmd::GetHeadInt:
 			res_cmd->valInt = response.getHeadInt(res_cmd->name);
-			WBUG("sponte CMD_HTTP_SET GetHead(\"%s\")=%ld", res_cmd->name, res_cmd->valInt);
+			WBUG("sponte CMD_HTTP_SET GetHead(\"%s\")=" TLONG_FMT, res_cmd->name, res_cmd->valInt);
 				break;
 		default:
 			WLOG(NOTICE, "sponte CMD_HTTP_SET %d (it's unknown fun)",res_cmd->fun);
@@ -400,7 +400,7 @@ bool HttpSrvHead::sponte( Amor::Pius *pius)
 					TBuffer::exchange(*res_head_buf, *snd_buf);
 				} else
 				{
-					long len = res_head_buf->point - res_head_buf->base;
+					TEXTUS_LONG len = res_head_buf->point - res_head_buf->base;
 					snd_buf->input(res_head_buf->base, len);
 					res_head_buf->commit(-len);
 				}
@@ -408,7 +408,7 @@ bool HttpSrvHead::sponte( Amor::Pius *pius)
 			{
 				if ( request.method_type == DeHead::HEAD )
 				{	/* 响应不包括message body */
-					response.setHead("Content-Length", (long)0);
+					response.setHead("Content-Length", (TEXTUS_LONG)0);
 				}
 				snd_buf->commit(
 				    response.getContent((char*)snd_buf->point, snd_buf->limit- snd_buf->point));
@@ -455,7 +455,7 @@ bool HttpSrvHead::sponte( Amor::Pius *pius)
 	case Notitia::HTTP_Request_Complete:
 		WBUG("sponte HTTP_Request_Complete");
 		if ( content_length < 0 && pius->indic )
-		content_length = *((long*)(pius->indic));
+		content_length = *((TEXTUS_LONG*)(pius->indic));
 		break;
 	
 	case Notitia::HTTP_Request_Cleaned:
@@ -513,7 +513,7 @@ void HttpSrvHead::clean_req()
 {
 	if ( !body_clean && content_length > 0 )
 	{	/* 清除已接收的HTTP体的数据 */
-		long out_len = rcv_buf->point - rcv_buf->base;
+		TEXTUS_LONG out_len = rcv_buf->point - rcv_buf->base;
 		rcv_buf->commit( content_length < out_len ? -content_length: -out_len);
 		body_clean = true;
 	}

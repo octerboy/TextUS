@@ -240,7 +240,7 @@ bool Digest::facio( Amor::Pius *pius)
 bool Digest::sponte( Amor::Pius *pius) 
 { 
 	Amor::Pius set_hold;
-	int len;
+	TEXTUS_LONG len;
 	int ind;
 	char pass[VAL_MAX];
 
@@ -348,7 +348,7 @@ inline bool Digest::parse()
 	while (strListGetItem(&authorization[7], ',', &item, &ilen, &pos)) 
 	{
 	if ((p = strchr(item, '=')) && (p - item < ilen))
-		ilen = p++ - item;
+		ilen = (int) (p++ - item);
 
 	if (!strncmp(item, "username", ilen)) {
 		/* white space */

@@ -3,7 +3,7 @@ DIRS= tinyxml amor baselib ajpfwd airline auxiliary \
 balance buftmr \
 dbport dummy formauth grate \
 holding htmlsift httpagent httpauth httpcookie \
-httpdigest httpdir httpfile httpform httpnourl \
+httpdigest httpdir httpfile httpform httpins httpnourl \
 httpsrvbody httpsrvhead httpupfile httpurlsw httpxml \
 induco jdbcli joint jvmport keep locker log2buff logdata \
 monip montcp \

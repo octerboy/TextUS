@@ -16,9 +16,10 @@
 
 /* $NoKeywords: $ */
 
+#include "textus_os.h"
 #ifndef DEHTTPHEAD_H
 #define DEHTTPHEAD_H
-#define HEAD_MAX_SIZE	8192
+#define HEAD_MAX_SIZE	81920
 #include <string.h>
 #include <time.h>
 #include "textus_string.h"
@@ -40,29 +41,29 @@ public:
 
 
 	/* HTTP报文数据分析相关 */
-	long feed(char *data, long len);	/*返回 true:未失败; false:解析失败 */
+	TEXTUS_LONG feed(char *data, TEXTUS_LONG len);	/*返回 true:未失败; false:解析失败 */
 
 	/* 取得HTTP头内容 */
 	const char* 	getHead(const char* name); 
 	const char** 	getHeadArray(const char* name);
-	long 	getHeadInt(const char* name); 
+	TEXTUS_LONG 	getHeadInt(const char* name); 
 	/* 设置HTTP头内容 */
 	void 	setHead (const char* name, const char* value);
-	void 	setHead (const char* name, long value);
+	void 	setHead (const char* name, TEXTUS_LONG value);
 	void 	setHeadTime (const char* name, time_t value);
 
-	void 	setField (const char* name, const char* v1, long v2, time_t v3, char which );
+	void 	setField (const char* name, const char* v1, TEXTUS_LONG v2, time_t v3, char which );
 
-	void 	addField (const char* name, const char* v1, long v2, time_t v3, char which );
+	void 	addField (const char* name, const char* v1, TEXTUS_LONG v2, time_t v3, char which );
 
 	void	addHead (const char* name, const char* value);
-	void	addHead (const char* name, long value);
+	void	addHead (const char* name, TEXTUS_LONG value);
 	void	addHeadTime (const char* name, time_t value);
 
 	void 	setStatus (int );
 
 	char 	buff[HEAD_MAX_SIZE];	/* 内部缓冲区 */
-	long	buff_size;	/* 内部缓冲区空间 */
+	TEXTUS_LONG	buff_size;	/* 内部缓冲区空间 */
 
 	char*	point; 	/* 分析起始位置 */
 	char*	valid;	/* 有效数据末位置 */
@@ -82,7 +83,7 @@ public:
 	char *title;
 	char _title[256]; 	/* 响应时有这内容 */
 
-	long content_length;
+	TEXTUS_LONG content_length;
 	char* content_type;
 
 	enum METHOD_TYPE { CONNECT = 0, OPTIONS = 1, GET = 2, HEAD = 3, POST=4, PUT=5, MDELETE=6, TRACE=7, PROPFIND=8, PROPPATCH=9, MKCOL=10, COPY=11, MOVE=12, LOCK=13, UNLOCK=14, ACL=15, REPORT=16, VERSION_CONTROL=17, CHECKIN = 18, CHECKOUT = 19, UNCHECKOUT = 20, SEARCH = 21, MKWORKSPACE =22, UPDATE =23, LABEL =24, MERGE =25, BASELINE_CONTROL= 26, MKACTIVITY=27, EXTENSION = 99, NONE= -1 };
@@ -97,7 +98,7 @@ public:
 		char *str;
 		const char *str_array[64];	//某些Head包含多个内容, 以逗号相隔. 这里假定最多63个。
 		char _str[1024];
-		long val;
+		TEXTUS_LONG val;
 		time_t when;
 		inline Field_Value()
 		{
@@ -128,7 +129,7 @@ public:
 			type = 0;	/* 字符串类型 */
 		};
 
-		inline void setv(int v)
+		inline void setv(TEXTUS_LONG v)
 		{
 			val = v;
 			type = 1;	/* 整型 */
@@ -145,7 +146,7 @@ public:
 	
 	char* get_line();
 	bool parse();
-	int getContent(char *out_buf, long out_buf_size);
+	int getContent(char *out_buf, TEXTUS_LONG out_buf_size);
 	void reset();	/* 复位，恢复到初始状态 */
 	void expand();
 	void get_method(const char *);

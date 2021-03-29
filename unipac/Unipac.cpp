@@ -382,8 +382,8 @@ private:
 	PACINLINE void deliver(Notitia::HERE_ORDO aordo, bool inver=false);
 	PACINLINE void reset();
 
-	PACINLINE bool unpack(unsigned char*, long int, PacketObj &, DIRECT direct );
-	PACINLINE int unfield(unsigned char*, long int, PacketObj &, FieldObj &, FldDef &, bool &);
+	PACINLINE bool unpack(unsigned char*, TEXTUS_LONG , PacketObj &, DIRECT direct );
+	PACINLINE TEXTUS_LONG unfield(unsigned char*, TEXTUS_LONG , PacketObj &, FieldObj &, FldDef &, bool &);
 	PACINLINE bool dopack(TBuffer *, PacketObj &, DIRECT direct );
 	PACINLINE void dobitmap(PacketObj &, FldDef &);
 	PACINLINE bool dofield(TBuffer &, FieldObj &, FldDef &);
@@ -527,7 +527,8 @@ void Unipac::ignite(TiXmlElement *cfg)
 			TiXmlElement *t_ele, *m_ele;
 			int no;	/* field no of definition */
 
-			unsigned int total_len, k;
+			unsigned int k;
+			size_t total_len;
 			no = -1;
 			comm_str = fld_ele->Attribute("no");
 			if ( comm_str )
@@ -1100,16 +1101,16 @@ PACINLINE void Unipac::reset()
 	un_pac.reset();
 }
 
-PACINLINE bool Unipac::unpack(unsigned char* raw, long length, PacketObj &packet, DIRECT direct)
+PACINLINE bool Unipac::unpack(unsigned char* raw, TEXTUS_LONG length, PacketObj &packet, DIRECT direct)
 {
-	int i,j, ret;
+	int i,j;
 	bool mapped ;
 	int mi, sub;	/* mi: 指示map_index中下一个域号
 			   sub: 指示pac_def中下一个fld定义 */
 	PacDef *pac_def;
 	FldDef *fld_def, *pri_fldDef = 0, *last_fldDef = 0;
 	unsigned char* base;
-	long limit;
+	TEXTUS_LONG limit,ret;
 	
 	int perhap_seg = 0, max_last = 0;
 	assert(packet.max >=0 );
@@ -1183,7 +1184,7 @@ PACINLINE bool Unipac::unpack(unsigned char* raw, long length, PacketObj &packet
 		}
 
 		ret = unfield(base, limit, packet, packet.fld[fld_def->no + gCFG->fldOffset], *fld_def, mapped);
-		WBUG("unfield packet.fld[%d] fld_def.no=%d base=%p mapped=%d ret=%d", \
+		WBUG("unfield packet.fld[%d] fld_def.no=%d base=%p mapped=%d ret=" TLONG_FMT, \
 			fld_def->no + gCFG->fldOffset, fld_def->no, base, mapped, ret);
 
 		if ( ret < 0 ) 		/* 此域解析失败 */
@@ -1196,7 +1197,7 @@ PACINLINE bool Unipac::unpack(unsigned char* raw, long length, PacketObj &packet
 		goto NEXTFLD;
 
 	RESET_NEXTPAC:	/* 如果解析失败, 则已设过的域都设为不可用 */
-		WBUG("unpack failed in seg %d, buffer left %ld bytes", i, limit);
+		WBUG("unpack failed in seg %d, buffer left " TLONG_FMT " bytes", i, limit);
 		last = mapped ? mi : sub;
 		if ( last >  max_last ) 
 		{
@@ -1227,13 +1228,13 @@ PACINLINE bool Unipac::unpack(unsigned char* raw, long length, PacketObj &packet
 }
 
 /* 返回为实际吃掉的长度, < 0 此域解析失败 */
-PACINLINE int Unipac::unfield(unsigned char* base, long range, PacketObj &packet, FieldObj &field, 
+PACINLINE TEXTUS_LONG Unipac::unfield(unsigned char* base, TEXTUS_LONG range, PacketObj &packet, FieldObj &field, 
 	FldDef &fld_def, bool &mapped)
 {
-	unsigned int i, j, array_num  /* AJP_HEAD或数据元之类的, 元素个数 */ ;
+	unsigned int i_count, j, array_num  /* AJP_HEAD或数据元之类的, 元素个数 */ ;
 	int k;
 	unsigned char *left = 0, *wp, twp;	/* 数据内容的起点, 不小于base */
-	long int len, 	/* 数据内容长度 */
+	TEXTUS_LONG len, 	/* 数据内容长度 */
 		post_len;	/* 后缀长度 */
 	char l_str[16]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 	LenPara *lpra = (LenPara *) fld_def.locator.para;
@@ -1502,17 +1503,17 @@ PACINLINE int Unipac::unfield(unsigned char* base, long range, PacketObj &packet
 
 		if (base[1] & 0x80) 
 		{
-			int i, sz;
+			int g, sz;
 
 			sz = base[1] & 0x7F;
 			if (sz == 0 || sz > (int) (sizeof(int)) || range < sz+2 ) 
 				return -1;
 
 			len = 0;
-			for (i = 0; i < sz; i++) 
-				len = len << 8 | (base[i+2] & 0xff);
+			for (g = 0; g < sz; g++) 
+				len = len << 8 | (base[g+2] & 0xff);
 
-			left = base+i+2;
+			left = base+g+2;
 		} else {
 			len    = (int) base[1];
 			left = base+2;
@@ -1528,7 +1529,7 @@ PACINLINE int Unipac::unfield(unsigned char* base, long range, PacketObj &packet
 
 		array_num = (base[0] << 8) + base[1];	/* 取得head个数 */
 		left = base;	/*就如RIGID方式 */
-		if ( jpra->head_num >0 && (long)array_num > jpra->head_num)
+		if ( jpra->head_num >0 && (TEXTUS_LONG)array_num > jpra->head_num)
 		{	
 			WBUG("head_num=%u too large for limit is %d", array_num, jpra->head_num);
 			return -1;
@@ -1546,7 +1547,7 @@ PACINLINE int Unipac::unfield(unsigned char* base, long range, PacketObj &packet
 
 		len = 2;
 		wp = &left[2];	/* wp就是下面的工作指针了, left就不变了 */
-		for ( i = 0 ; i < array_num; i++)
+		for ( i_count = 0 ; i_count < array_num; i_count++)
 		{
 			len +=2;
 			if ( range < len )	/* 原有的长度, 加上新两字节表示后续字节数或sc_name, 超范围了 */
@@ -1584,7 +1585,7 @@ PACINLINE int Unipac::unfield(unsigned char* base, long range, PacketObj &packet
 			ajp_dat->string = (char*)wp;
 			wp += ajp_dat->str_len;
 			
-			if ( i < (array_num-1) )
+			if ( i_count < (array_num-1) )
 				//ajp_dat->next = (struct AjpHeadAttrType*)&(field.other->value[(i+1)*sizeof(struct AjpHeadAttrType)]);
 				ajp_dat->next = &ajp_dat[1];
 			else
@@ -1593,7 +1594,7 @@ PACINLINE int Unipac::unfield(unsigned char* base, long range, PacketObj &packet
 			ajp_dat = ajp_dat->next;
 		}
 
-		if ( i != array_num ) /* 这表明没有分析到底, 所以失败 */
+		if ( i_count != array_num ) /* 这表明没有分析到底, 所以失败 */
 		{
 			packet.buf.point -= (array_num*sizeof(struct AjpHeadAttrType) + sizeof(struct ComplexType));	/* 空出原来占有的空间 */
 			return -1;
@@ -1618,7 +1619,7 @@ PACINLINE int Unipac::unfield(unsigned char* base, long range, PacketObj &packet
 		while ( twp != 0xFF) 
 		{
 			array_num++;
-			if ( jpra->head_num >0 && (long)array_num > jpra->head_num)
+			if ( jpra->head_num >0 && (TEXTUS_LONG)array_num > jpra->head_num)
 			{	
 				WBUG("attribu_num=%u too large for limit is %d", array_num, jpra->head_num);
 				break;
@@ -1690,17 +1691,17 @@ PACINLINE int Unipac::unfield(unsigned char* base, long range, PacketObj &packet
 	case LTERM:
 		WBUG("fld[%d] LTERM num %d", fld_def.no, tpra->num);
 		lpra = 0; 
-		for ( i = 0 ; i < tpra->num ; i++ )
+		for ( i_count = 0 ; i_count < tpra->num ; i_count++ )
 		{
 			register unsigned char *p, *q;
-			long int cmp;
-			cmp = tpra->len[i];
+			TEXTUS_LONG cmp;
+			cmp = tpra->len[i_count];
 			if ( cmp ==0 || range < cmp) continue;
 			p = base;
 			q = base + range -cmp;
 			while ( p <= q )
 			{
-				if (memcmp ( p, tpra->term[i],  cmp ) == 0 )
+				if (memcmp ( p, tpra->term[i_count],  cmp ) == 0 )
 					break;
 				p++;
 			}
@@ -1712,7 +1713,7 @@ PACINLINE int Unipac::unfield(unsigned char* base, long range, PacketObj &packet
 				break;
 			}
 		}
-		if ( i == tpra->num ) 
+		if ( i_count == tpra->num ) 
 		{
 			WBUG("fld[%d] LTERM no terminator", fld_def.no);
 			return -1;
@@ -1731,13 +1732,13 @@ PACINLINE int Unipac::unfield(unsigned char* base, long range, PacketObj &packet
 	}
 
 	/* lpra 在LTERM, WANTON 情况下又被置为 null */
-	if ( lpra && lpra->length > 0 && len > (long) lpra->length )
+	if ( lpra && lpra->length > 0 && len > (TEXTUS_LONG) lpra->length )
 	{
-		WBUG("len=%lu too large for limit is %d", len, lpra->length);
+		WBUG("len=" TLONG_FMT " too large for limit is %d", len, lpra->length);
 		return - 1;
 	}
 
-	WBUG("fld[%d].len=%lu", fld_def.no, len);
+	WBUG("fld[%d].len=" TLONG_FMT , fld_def.no, len);
 	field.len = len;	/* 名义长度 */
 	if ( lpra )
 	{
@@ -1777,7 +1778,7 @@ PACINLINE int Unipac::unfield(unsigned char* base, long range, PacketObj &packet
 	field.raw = base;
 	field.val = left;
 	field._rlen = field.range + ( left-base) + post_len; 
-	if ( (long ) field._rlen > range )	/* 实际上没有那么多字节数 */
+	if ( (TEXTUS_LONG ) field._rlen > range )	/* 实际上没有那么多字节数 */
 		return -1;
 
 	if ( !domatch(field, fld_def))
@@ -1827,7 +1828,7 @@ PACINLINE bool Unipac::dopack(TBuffer *totb, PacketObj &packet, DIRECT direct )
 	PacDef *pac_def;
 	FldDef *fld_def;
 	FldDef *pri_fldDef = 0, *last_fldDef = 0;
-	unsigned int oldOff;
+	TEXTUS_LONG oldOff;
 	TBuffer *tbuf;
 	unsigned char *old_base;
 
@@ -1874,7 +1875,7 @@ PACINLINE bool Unipac::dopack(TBuffer *totb, PacketObj &packet, DIRECT direct )
 				if ( packet.buf.point < packet.buf.limit )
 					*packet.buf.point = '\0';
 				if ( packet.fld[gCFG->fldOffset+j].val) {
-					WBUG("dofield failed while fld_def.no=%d, packet[%d]={no=%d, val=\"%s\", range=%ld}", \
+					WBUG("dofield failed while fld_def.no=%d, packet[%d]={no=%d, val=\"%s\", range=" TLONG_FMT "}", \
 					fld_def->no, gCFG->fldOffset+j, packet.fld[gCFG->fldOffset+j].no, \
 					packet.fld[gCFG->fldOffset+j].val, \
 					packet.fld[gCFG->fldOffset+j].range);
@@ -1925,7 +1926,7 @@ PACINLINE bool Unipac::dopack(TBuffer *totb, PacketObj &packet, DIRECT direct )
 			FieldObj *f = & (packet.fld[gCFG->pacWhat]);
 			TBuffer &pbuf = packet.buf;
 			/* 记录偏移量, 新的数据将在这之后 */
-			unsigned int o = packet.buf.point - packet.buf.base;
+			TEXTUS_LONG o = packet.buf.point - packet.buf.base;
 
 			old_base = packet.buf.base;
 			f->no = -1;
@@ -1997,7 +1998,7 @@ PACINLINE void Unipac::dobitmap(PacketObj &packet, FldDef &fld_def)
 PACINLINE bool Unipac::dofield(TBuffer &buf, FieldObj &field, FldDef &fld_def)
 {
 	unsigned int yaLen = 0;
-	unsigned int midLen = 0;
+	unsigned TEXTUS_LONG midLen = 0;
 	unsigned char* midPtr;
 	unsigned int postLen = 0;
 	unsigned char* postPtr = 0;
@@ -2009,7 +2010,7 @@ PACINLINE bool Unipac::dofield(TBuffer &buf, FieldObj &field, FldDef &fld_def)
 	TermPara *tpra = (TermPara *) fld_def.locator.para;
 	AjpHeadPara *jpra = (AjpHeadPara *) fld_def.locator.para;
 	
-	long nlen;
+	TEXTUS_LONG nlen;
 	short head_num;	/* AJP head */
 	int nbase = 0;
 	unsigned char zero = 0x0;
@@ -2533,31 +2534,32 @@ PACINLINE bool Unipac::domatch(FieldObj &field, FldDef &fld_def)
 			{
 			char fmsg[1024], smsg[1024];
 			char tmp[64];
-			int mlen,i;
+			int g;
+			TEXTUS_LONG mlen;
 
 			if ( 333 > field.range ) 
 				mlen = field.range ;
 			else 
 				mlen = 333;
-			for ( i = 0 ; i < mlen ; i++)
+			for ( g = 0 ; g < mlen ; g++)
 			{
-				TEXTUS_SPRINTF(tmp, "%02x ", field.val[i]);
-				memcpy(&fmsg[i*3], tmp, 3);
+				TEXTUS_SPRINTF(tmp, "%02x ", field.val[g]);
+				memcpy(&fmsg[g*3], tmp, 3);
 			}
-			fmsg[i*3] = 0;
+			fmsg[g*3] = 0;
 
 			if ( 333 > scan->len ) 
 				mlen = scan->len;
 			else 
 				mlen = 333;
-			for ( i = 0 ; i < mlen ; i++)
+			for ( g = 0 ; g < mlen ; g++)
 			{
-				TEXTUS_SPRINTF(tmp, "%02x ", scan->val[i]);
-				memcpy(&smsg[i*3], tmp, 3);
+				TEXTUS_SPRINTF(tmp, "%02x ", scan->val[g]);
+				memcpy(&smsg[g*3], tmp, 3);
 			}
-			smsg[i*3] = 0;
+			smsg[g*3] = 0;
 			
-			WBUG("CONSTANT field.no=%d, field.val(%ld)=%s, scan.val(%u)=%s, matched=%d", field.no, field.range, fmsg, scan->len, smsg, matched);
+			WBUG("CONSTANT field.no=%d, field.val(" TLONG_FMT "=%s, scan.val(%u)=%s, matched=%d", field.no, field.range, fmsg, scan->len, smsg, matched);
 			}
 #endif 
 			break;

@@ -43,7 +43,7 @@
 		int namelen;		/* 参数名称的长度 */
 		DataType type;		/* 数据类型 */
 		DIRECTION inout;	/* 定义参数方向, PARA_IN为输入, PARA_OUT为输出, PARA_INOUT输入与输出 */
-		unsigned long outlen;		/* 输出长度 */
+		unsigned int outlen;		/* 输出长度 */
 		unsigned char scale;		/* 对于Decimal等类型的输出定义 */
 		unsigned char precision;
 		inline Para () {
@@ -79,7 +79,7 @@
   	struct Para  *paras;		/* 参数定义数组 */
 
  	unsigned int outNum;		/* 输出(PARA_OUT)参数个数 */
-	unsigned int outSize;		/* 输出(PARA_OUT)参数所需空间 */
+	unsigned TEXTUS_LONG outSize;		/* 输出(PARA_OUT)参数所需空间 */
 
 	WHAT in, out;		/* 输入/输出所指的packet */
 	const char *sentence;	/* 描述sql语名, 存储过程名等 */

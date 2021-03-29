@@ -28,7 +28,7 @@ size_t xcountws(const char *str)
 
 int strListGetItem(const char * str, char del, const char **item, int *ilen, const char **pos)
 {
-    size_t len;
+    int len;
     static char delim[2][3] =
     {
 	{'"', 0, 0},

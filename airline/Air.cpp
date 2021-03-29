@@ -128,7 +128,7 @@ protected:
 			id_name[0] = '\0';
 			if ( nm )
 			{
-				int l = strlen(nm);
+				size_t l = strlen(nm);
 				memcpy(id_name, nm,  l > 254 ? 254: l+1);
 			}
 			h_causation = false;
@@ -139,7 +139,7 @@ protected:
 
 	Array ends; 	/* 航线终点, 仅对于航线起点的实例有意义. 有多个终点 */
 	char levelStr[256];	/* 层次标识, ignite的为"", clone时, child的为前者的levelStr+"-"+id  */
-	unsigned long serial_no;		/* 在同一个层次中的序列 */
+	unsigned TEXTUS_LONG serial_no;		/* 在同一个层次中的序列 */
 	List ele_r;	/* 一个单元,为加入roll */
 
 	bool isPoineer;
@@ -411,8 +411,7 @@ Amor *Air::clone()
 	}
 
 	TEXTUS_STRCPY(child->levelStr, levelStr);
-	TEXTUS_SPRINTF(idStr, "-%lx", serial_no);
-	TEXTUS_STRCAT(child->levelStr, idStr);	/* 子实例的层次标识为父实例的levelStr+"-"+serial_no */
+	TEXTUS_SPRINTF(idStr, "-" TLONG_FMTx, serial_no); /* 子实例的层次标识为父实例的levelStr+"-"+serial_no */
 	child->serial_no = ++(gcfg->child_num);	/* 这样, 第一个子实例的serial_no为1, 而父实例的为0 */
 	append(&gcfg->roll, &(child->ele_r));	/* 将子实例加入花名册, 不通过clone函数所得的新实例, 则不在册中 */
 	child->joint(here_grp);		/* 子实例作连接 */

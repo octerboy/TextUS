@@ -42,7 +42,7 @@ public:
 
 private:
 	int data_type;
-	int content_length;
+	TEXTUS_LONG content_length;
 	const char* content_type;	
 
 	TiXmlDocument req_doc;	

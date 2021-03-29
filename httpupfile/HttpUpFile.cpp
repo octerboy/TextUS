@@ -27,7 +27,6 @@
 #include <time.h>
 #include <stdarg.h>
 
-#define TINLINE inline
 class HttpUpFile: public Amor
 {
 public:
@@ -47,7 +46,7 @@ private:
 		char *name;
 		int  nameLen;
 		char *value;
-		int  valueLen;
+		size_t valueLen;
 	};
 	typedef struct subparameter SUBPARA;
 
@@ -69,9 +68,9 @@ private:
 	TBuffer *rcv_buf;	/* 在http头完成后，这将是http体的内容 */
 	TBuffer *snd_buf;
 
-	TINLINE void reset();
-	TINLINE int parse_multipart_form(const char* ,char *, int);
-	TINLINE void deliver(Notitia::HERE_ORDO aordo);
+	 void reset();
+	 short parse_multipart_form(const char* ,char *, TEXTUS_LONG);
+	 void deliver(Notitia::HERE_ORDO aordo);
 #include "httpsrv_obj.h"
 #include "wlog.h"
 };
@@ -91,7 +90,7 @@ void HttpUpFile::ignite(TiXmlElement *cfg) { }
 bool HttpUpFile::facio( Amor::Pius *pius)
 {
 	TBuffer **tb = 0;
-	int content_length;
+	TEXTUS_LONG content_length;
 	switch ( pius->ordo )
 	{
 	case Notitia::PRO_HTTP_REQUEST:	/* 等待整个文件内容已经上传完毕 */
@@ -226,7 +225,7 @@ Amor* HttpUpFile::clone()
 }
 
 /* 向接力者提交 */
-TINLINE void HttpUpFile::deliver(Notitia::HERE_ORDO aordo)
+ void HttpUpFile::deliver(Notitia::HERE_ORDO aordo)
 {
 	Amor::Pius tmp_pius;
 	tmp_pius.ordo = aordo;
@@ -247,7 +246,7 @@ TINLINE void HttpUpFile::deliver(Notitia::HERE_ORDO aordo)
    输出: *para 
    返回: -1: 失败, 0:成功
 */
-TINLINE int HttpUpFile::parse_multipart_form(const char* type,char *buf, int len)
+short HttpUpFile::parse_multipart_form(const char* type,char *buf, TEXTUS_LONG len)
 {
 	PARA *para=&form_some;	
 	char *boundary;
@@ -282,7 +281,7 @@ TINLINE int HttpUpFile::parse_multipart_form(const char* type,char *buf, int len
 	boundary = &boundary[7];
 	boundary[0] = '-';
 	boundary[1] = '-';
-	bdlen = strlen(boundary);
+	bdlen = (int)strlen(boundary);
 
 	WBUG("multipar/form-data boundary is %s",boundary);
 
@@ -371,7 +370,7 @@ TINLINE int HttpUpFile::parse_multipart_form(const char* type,char *buf, int len
 							for(;*scan != spara->name[0];scan++);
 							*scan++ = '\0';
 							spara->name++;
-							spara->nameLen = strlen(spara->name);
+							spara->nameLen = (int)strlen(spara->name);
 						}
 						if ( strncasecmp(scan,"filename=",9)== 0 )
 						{
@@ -380,7 +379,7 @@ TINLINE int HttpUpFile::parse_multipart_form(const char* type,char *buf, int len
 							for(;*scan != tpara->name[0];scan++);
 							*scan++ = '\0';
 							tpara->name++;
-							tpara->nameLen = strlen(tpara->name);
+							tpara->nameLen = (int)strlen(tpara->name);
 						}
 						scan++;
 					}	
@@ -428,7 +427,7 @@ TINLINE int HttpUpFile::parse_multipart_form(const char* type,char *buf, int len
 					}
 				}
 				
-				WBUG("\t--file content len is %d",spara->valueLen);
+				WBUG("\t--file content len is " TLONG_FMT, spara->valueLen);
 #ifndef NDEBUG
 				if( spara->valueLen < 70) 
 					WBUG("\t--file content is \n=====file begin====\n%s\n=====file end======",spara->value);

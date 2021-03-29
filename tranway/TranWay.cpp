@@ -147,7 +147,7 @@ struct PVar {
 		if ( !nm ) return 0;
 
 		name = nm;
-		n_len = strlen(name);
+		n_len = (int) strlen(name);
 
 		p = var_ele->GetText();
 		if ( p) {
@@ -230,11 +230,11 @@ struct PVar {
 			me_sub_name = strpbrk(&nm[sizeof(ME_VARIABLE_HEAD)-1], ".");	//从Me变量名后找第一个点，后面就作为后缀名.
 			if ( me_sub_name )	//如果存在后缀
 			{
-				me_nm_len = me_sub_name - &nm[sizeof(ME_VARIABLE_HEAD)-1];
+				me_nm_len = (int) (me_sub_name - &nm[sizeof(ME_VARIABLE_HEAD)-1] );
 				me_sub_name++;	//当然，这个点本身不是后缀名, 从后一个开始才是后缀名
-				me_sub_nm_len = strlen(me_sub_name);
+				me_sub_nm_len = (int) strlen(me_sub_name);
 			} else 		//如果不存在后缀
-				me_nm_len = strlen(&nm[sizeof(ME_VARIABLE_HEAD)-1]);
+				me_nm_len = (int) strlen(&nm[sizeof(ME_VARIABLE_HEAD)-1]);
 
 			if ( me_nm_len >= sizeof ( me_name))	//Me变量名空间有限, 64字节最大。
 				me_nm_len = sizeof ( me_name)-1;
@@ -478,7 +478,7 @@ struct PVar_Set {	/* 变量集合*/
 				return rvar;
 		}
 	
-		d_len = strlen(n);
+		d_len = (int) strlen(n);
 		for ( int i = 0 ; i < many; i++) {
 			if ( d_len == vars[i].n_len) {
 				if (memcmp(vars[i].name, n, d_len) == 0 ) 
@@ -1145,7 +1145,7 @@ struct ComplexSubSerial {
 	const char *pri_key ;	//子系列的primary属性值, 可能为null
 	const char *pri_var_nm;	//子系列的primary所指向的变量名或具体内容, 可能为null
 
-	long loop_n;	/* 本子序列循环次数: 0:无限, 直到某种失败, >0: 一定次数, 若失败则中止  */
+	TEXTUS_LONG loop_n;	/* 本子序列循环次数: 0:无限, 直到某种失败, >0: 一定次数, 若失败则中止  */
 	Amor *my_obj;
 
 	ComplexSubSerial() {
@@ -1285,7 +1285,7 @@ struct ComplexSubSerial {
 		struct PVar_Set tmp_sv;		//临时局域变量集
 		size_t tmplen;
 
-		if ( loop_str ) loop_n = atoi(loop_str);
+		if ( loop_str ) loop_n = atoll(loop_str);
 		if ( loop_n < 0 ) loop_n = 1;
 			
 		TEXTUS_SNPRINTF(pro_nm, sizeof(pro_nm), "%s", "Pro"); //先假定子序列是Pro element，如果有主参考变量，则找合成的
@@ -1702,7 +1702,7 @@ private:
 		int cur;
 		int pac_which;
 		TRAN_STEP tran_step;
-		long sub_loop;	//循环次数
+		TEXTUS_LONG sub_loop;	//循环次数
 	} command_wt;
 
 	enum SUB_RET sub_serial_pro(struct ComplexSubSerial *comp);
@@ -1924,7 +1924,6 @@ bool TranWay::sponte( Amor::Pius *pius) {
 
 	default:
 		return false;
-		break;
 	}
 	return true;
 }
@@ -2015,7 +2014,7 @@ SUB_INS_PRO:
 	case INS_Abort:
 		if (trani->err_code ) { 
 			mess.snap[Pos_ErrCode].input(trani->err_code);
-			TEXTUS_SPRINTF(mess.err_str,  "user abort(%ld) at %d of %s",  cur_def->ins_all.instructions[mess.ins_which].complex[command_wt.cur].loop_n - command_wt.sub_loop, mess.pro_order, cur_def->flow_id);
+			TEXTUS_SPRINTF(mess.err_str,  "user abort(" TLONG_FMT  ") at %d of %s",  cur_def->ins_all.instructions[mess.ins_which].complex[command_wt.cur].loop_n - command_wt.sub_loop, mess.pro_order, cur_def->flow_id);
 			mess.snap[Pos_ErrStr].input(mess.err_str);
 			WLOG(WARNING, "Error %s:  %s", mess.snap[Pos_ErrCode].val_p, mess.err_str);
 			command_wt.tran_step = Tran_End;
@@ -2024,7 +2023,6 @@ SUB_INS_PRO:
 			WBUG("user break at order=%d pac_which=%d of %s", mess.pro_order, command_wt.pac_which, cur_def->flow_id);
 			return Sub_OK;	//整个已经完成
 		}
-		break;
 
 	case INS_Null:
 		command_wt.tran_step =Tran_End;
@@ -2054,7 +2052,6 @@ SUB_INS_PRO:
 			command_wt.tran_step = Tran_Working;
 			gCFG->sch->sponte(&alarm_ps);    //请求定时
 			return Sub_Been_Working; 	/* 正在进行, 而不需要facio */
-			break;
 
 		case Tran_Working:
 			command_wt.tran_step = Tran_End;
@@ -2078,16 +2075,16 @@ SUB_INS_PRO:
 			command_wt.tran_step = Tran_Working;
 			mess.right_subor = trani->up_subor;
 			return Sub_Working; 	/* 正在进行 */
-			break;
+
 		case Tran_Working:
 			//if ( mess.pro_order == 49 &&  command_wt.pac_which == 1 ) {int *a=0; *a=0;}
 			TRAN_END:
 			command_wt.tran_step = Tran_End;
 			if ( cur_ins_reply.err_code) 
 			{
-				int count = cur_def->ins_all.instructions[mess.ins_which].complex[command_wt.cur].loop_n - command_wt.sub_loop ;
+				TEXTUS_LONG count = cur_def->ins_all.instructions[mess.ins_which].complex[command_wt.cur].loop_n - command_wt.sub_loop ;
 				char tmp[32];
-				TEXTUS_SPRINTF(tmp, "(%d)", count);
+				TEXTUS_SPRINTF(tmp, "(" TLONG_FMT ")", count);
 				TEXTUS_SPRINTF(mess.err_str, "fault%s at order=%d pac_which=%d of %s (%s)", count > 0 ? tmp:"", mess.pro_order, command_wt.pac_which, cur_def->flow_id,  cur_ins_reply.err_str);
 				mess.snap[Pos_ErrCode].input(cur_ins_reply.err_code);
 				mess.snap[Pos_ErrStr].input(mess.err_str);
@@ -2104,9 +2101,9 @@ SUB_INS_PRO:
 	assert( command_wt.tran_step == Tran_End );
 	if ( !trani->valid_result(&mess) )
 	{
-		int count = cur_def->ins_all.instructions[mess.ins_which].complex[command_wt.cur].loop_n - command_wt.sub_loop ;
+		TEXTUS_LONG count = cur_def->ins_all.instructions[mess.ins_which].complex[command_wt.cur].loop_n - command_wt.sub_loop ;
 		char tmp[32];
-		TEXTUS_SPRINTF(tmp, "(%d)", count);
+		TEXTUS_SPRINTF(tmp, "(" TLONG_FMT  ")", count);
 		TEXTUS_SPRINTF(mess.err_str, "result%s error at order=%d pac_which=%d of %s", count > 0 ? tmp:"", mess.pro_order, command_wt.pac_which, cur_def->flow_id);
 		if ( trani->err_code) mess.snap[Pos_ErrCode].input(trani->err_code);
 		mess.snap[Pos_ErrStr].input(mess.err_str);
@@ -2120,7 +2117,7 @@ SUB_INS_PRO:
 		else
 			goto SUB_INS_PRO;
 	}
-	return Sub_Working;
+	//return Sub_Working;  wunreachable
 }
 
 void TranWay::mk_hand()
@@ -2191,7 +2188,7 @@ LOOP_PRI_TRY:
 			} else {		//最后一条处理失败，定义出错值
 				ERR_TO_LAST_INS
 			}
-			break;
+			//break;  wunreachable
 
 		case Sub_OK: //完成
 			mess.right_status = RT_IDLE;	//右端闲
@@ -2202,7 +2199,7 @@ LOOP_PRI_TRY:
 		case Sub_Rcv_Pac_Fail: //接收响应失败
 		case Sub_Valid_Fail: //校验响应失败, 脚本控制或报文定义 的 错误
 			ERR_TO_LAST_INS
-			break;
+			// break;  wunreachable
 
 		case Sub_Working: //正进行中
 			mess.right_status = RT_OUT;

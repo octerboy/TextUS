@@ -65,7 +65,7 @@ private:
 #if defined(__linux__)
 	struct iocb *aiocbp_W, *aiocbp_R;
 	struct iocb **iocbp_W, **iocbp_R;
-	inline int io_submit(aio_context_t ctx, long nr,  struct iocb **iocbpp) 
+	inline int io_submit(aio_context_t ctx, TEXTUS_LONG nr,  struct iocb **iocbpp) 
 	{
 		return syscall(__NR_io_submit, ctx, nr, iocbpp);
 	}
@@ -475,6 +475,7 @@ bool Aio::facio( Amor::Pius *pius)
 #if defined(_WIN32)
 	OVERLAPPED_ENTRY *aget;
 	DWORD dwPtr;
+	int get_bytes;
 #else
 	off_t offset;
 #endif
@@ -743,7 +744,7 @@ A_OPEN_PRO:
 			WLOG_OSERR("SetFilePointer");
 		}
 #else
-		offset = lseek(fd, *(((long **)pius->indic)[0]), SEEK_SET);
+		offset = lseek(fd, *(((TEXTUS_LONG **)pius->indic)[0]), SEEK_SET);
 		if ( offset == -1 ) {
 			WLOG_OSERR("lseek");
 		}
@@ -760,7 +761,7 @@ A_OPEN_PRO:
 		}
 
 #else
-		offset = lseek(fd, *(((long **)pius->indic)[0]), SEEK_CUR);
+		offset = lseek(fd, *(((TEXTUS_LONG **)pius->indic)[0]), SEEK_CUR);
 		if ( offset == -1 ) {
 			WLOG_OSERR("lseek");
 		}
@@ -776,7 +777,7 @@ A_OPEN_PRO:
 			WLOG_OSERR("SetFilePointer");
 		}
 #else
-		offset = lseek(fd, *(((long **)pius->indic)[0]), SEEK_END);
+		offset = lseek(fd, *(((TEXTUS_LONG **)pius->indic)[0]), SEEK_END);
 		if ( offset == -1 ) {
 			WLOG_OSERR("lseek");
 		}
@@ -931,7 +932,7 @@ Aio::~Aio()
 void Aio::transmitto_ex()
 {
 #if defined(_WIN32)
-	DWORD snd_len = snd_buf->point - snd_buf->base;	//发送长度
+	DWORD snd_len = (DWORD)(snd_buf->point - snd_buf->base);	//发送长度
 	memset(&ovlpW, 0, sizeof(OVERLAPPED));
 	if ( !WriteFile(hdev, snd_buf->base, snd_len, NULL, &ovlpW) )
 	{
@@ -942,7 +943,7 @@ void Aio::transmitto_ex()
 		}
 	}
 #elif  defined(__linux__)
-	long snd_len = snd_buf->point - snd_buf->base;	//发送长度
+	TEXTUS_LONG snd_len = snd_buf->point - snd_buf->base;	//发送长度
 	aiocbp_W->aio_reqprio = 0;
 	aiocbp_W->aio_buf = (u_int64_t) snd_buf->base;
 	aiocbp_W->aio_nbytes = snd_len;
@@ -953,7 +954,7 @@ void Aio::transmitto_ex()
 		goto ERR_RET;
 	}
 #else
-	long snd_len = snd_buf->point - snd_buf->base;	//发送长度
+	TEXTUS_LONG snd_len = snd_buf->point - snd_buf->base;	//发送长度
 	aiocbp_W->aio_nbytes = snd_len;
         aiocbp_W->aio_buf = snd_buf->base;
 	if ( aio_write(aiocbp_W) == -1 )
@@ -963,7 +964,7 @@ void Aio::transmitto_ex()
 		goto ERR_RET;
 	}
 #endif
-	snd_buf->commit(-(long)snd_len);	//已经到了系统
+	snd_buf->commit(-(TEXTUS_LONG)snd_len);	//已经到了系统
 	return;
 ERR_RET:
 	tmp_ps.ordo = Notitia::Pro_File_Err;

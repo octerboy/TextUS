@@ -18,9 +18,9 @@
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
+#include "Amor.h"
 #include "BTool.h"
 #include "Notitia.h"
-#include "Amor.h"
 #include "TBuffer.h"
 #include "PacData.h"
 #include "casecmp.h"
@@ -170,7 +170,7 @@ void FormAuth::ignite(TiXmlElement *cfg)
 bool FormAuth::facio( Amor::Pius *pius)
 {
 	TBuffer **tb;
-	int ulen;
+	size_t ulen;
 	const char *usr;
 	assert(pius);
 
@@ -252,12 +252,13 @@ bool FormAuth::facio( Amor::Pius *pius)
 bool FormAuth::sponte( Amor::Pius *pius) 
 { 
 	Amor::Pius set_hold;
-	int len;
+	TEXTUS_LONG len;
 	int ind;
 	char pass[VAL_MAX];
 	const char *uri;
 	char *p;
-	int lenu, lens, i;
+	int i;
+	size_t lenu, lens;
 
 	set_hold.ordo = Notitia::CMD_SET_HOLDING;
 	switch ( pius->ordo )

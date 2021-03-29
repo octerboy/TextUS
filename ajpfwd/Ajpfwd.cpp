@@ -7,7 +7,7 @@
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  */
 /**
- Title: HTTP Agent
+ Title: AJP forward
  Build: created by octerboy, 2006/09/13, Guangzhou
  $Id$
 */
@@ -421,10 +421,10 @@ HTTPINLINE void Ajpfwd::head_to_con()
 	pac_1st.input(gCFG->method_fld, meth);
 
 	if ( req->protocol)
-		pac_1st.input(gCFG->protocol_fld, req->protocol, strlen(req->protocol));
+		pac_1st.input(gCFG->protocol_fld, (unsigned char*) req->protocol, (unsigned TEXTUS_LONG)strlen(req->protocol));
 
 	if ( req->path)
-		pac_1st.input(gCFG->req_uri_fld, req->path, strlen(req->path));	
+		pac_1st.input(gCFG->req_uri_fld, (unsigned char*) req->path, (unsigned TEXTUS_LONG)strlen(req->path));	
 
 	if ( req->query)
 		pac_1st.inputAJP(gCFG->attributes_fld, 0x05, (unsigned short)(strlen(req->query) & 0xffff), req->query);
@@ -433,9 +433,9 @@ HTTPINLINE void Ajpfwd::head_to_con()
 	{
 		const char *rm_prt="AJP_REMOTE_PORT";
 		const char *lc_addr="AJP_LOCAL_ADDR";
-		pac_1st.input(gCFG->remote_addr_fld, peer->Attribute("cliip"), strlen(peer->Attribute("cliip")));
+		pac_1st.input(gCFG->remote_addr_fld, (unsigned char*) peer->Attribute("cliip"), (unsigned TEXTUS_LONG)strlen(peer->Attribute("cliip")));
 		pac_1st.input(gCFG->remote_host_fld, &meth, 0);	/* &meth无用, 只是 */
-		pac_1st.input(gCFG->server_name_fld, peer->Attribute("srvip"), strlen(peer->Attribute("srvip")));
+		pac_1st.input(gCFG->server_name_fld, (unsigned char*) peer->Attribute("srvip"), (unsigned TEXTUS_LONG)strlen(peer->Attribute("srvip")));
 		peer->QueryIntAttribute("srvport", &port);
 		buf[0] = (port >> 8) & 0xff;
 		buf[1] = port & 0xff;
@@ -454,7 +454,7 @@ HTTPINLINE void Ajpfwd::head_to_con()
 	{
     		char *p;
 		unsigned short sc_name;
-		int nm_len;
+		size_t nm_len;
 
 		head_fld = &req->field_values[i];
 
@@ -563,7 +563,7 @@ HTTPINLINE void Ajpfwd::head_to_con()
 HTTPINLINE void Ajpfwd::body_to_con()
 {
 #define AJP_FRAME_MAX 8180
-	long len, len2;
+	TEXTUS_LONG len, len2;
 	unsigned char *p;
 
 	len2 = len = rcv_buf->point - rcv_buf->base;

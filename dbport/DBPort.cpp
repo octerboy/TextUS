@@ -357,7 +357,7 @@ void DBPort::getDef(struct DBFace *face, TiXmlElement *cfg, DBFace::WHAT gin, DB
 		if ( comm_str)
 		{
 			par->name = comm_str;
-			par->namelen = strlen(comm_str);
+			par->namelen = (int)strlen(comm_str);
 		}
 
 #define WHATCODE(X)	if ( (comm_str = fld_ele->Attribute("type") ) && strcasecmp(comm_str, #X) ==0 ) \
@@ -638,7 +638,7 @@ RET:
 
 bool DBPort::sponte( Amor::Pius *pius)
 {
-	WBUG("sponte %lu, indic %p", pius->ordo, pius->indic);
+	WBUG("sponte " TLONG_FMT ", indic %p", pius->ordo, pius->indic);
 	return false;
 }
 

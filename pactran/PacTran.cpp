@@ -64,7 +64,7 @@ private:
 		void set_self(TiXmlElement *au)
 		{
 			TiXmlElement *var_ele;
-			const char *p, *esc;
+			const char *p;
 			const char *vn = "field";
 			int max_no, fldno;
 			size_t len;
@@ -198,7 +198,7 @@ bool PacTran::facio( Amor::Pius *pius)
 		WBUG("facio PRO_UNIPAC");
 		if ( left_status ==  LT_Idle )
 		{
-			fl.flow_str=rcv_pac->getfld(gCFG->flowID_fld_no, (unsigned long*)&fl.len);		//取得业务代码, 即流标识
+			fl.flow_str=rcv_pac->getfld(gCFG->flowID_fld_no, &fl.len);		//取得业务代码, 即流标识
 			if ( !fl.flow_str) 
 			{
 				WBUG("business code field null");
@@ -308,7 +308,6 @@ bool PacTran::sponte( Amor::Pius *pius)
 
 	default:
 		return false;
-		break;
 	}
 	return true;
 }

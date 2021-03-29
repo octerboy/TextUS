@@ -1,0 +1,29 @@
+# Title: Makefile
+# ID: Textus-PyPort-makefile-vc
+# Build:
+#	B01:created by octerboy 2021/03/29, Guangzhou
+
+include ..\Rules.basemod.vc
+AMOROBJS=PyPort.obj 
+include ..\Rules.python.win
+LDLIBS2 = ..\baselib\libbase.lib $(LDLIB) $(PYTHON_LIB)
+
+INCLUDE_DIR = $(INCLUDE_DIR)  -I..\logdata\include -I..\baselib\include  -I..\unipac\include -I..\dbport\include -I$(PYTHON_INC)
+all:pyport.dll
+
+PyPort.obj: PyPort.cpp
+	$(CC) $(CFLAGS) $(INCLUDE_DIR) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=PyPort PyPort.cpp
+
+pyport.dll: PyPort.obj
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIBS2)
+	$(_POST_RPO_SUB)
+
+py.exe:py.cpp
+	$(CC) -I$(PYTHON_INC) py.cpp $(PYTHON_LIB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib
+

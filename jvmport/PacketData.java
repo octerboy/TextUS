@@ -30,7 +30,7 @@ public class PacketData {
 	public native void produce(int max_index) ;
 	public native void reset();
 	public native void free();
-	public native void grant(int space);
+	public native void grant(long space);
 	public native byte[] getfld(int no);
 	public native String getString(int no);
 	public native String getString(int no, String decoding);

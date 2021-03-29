@@ -74,7 +74,7 @@ bool Muto::dextra(Amor::Pius *pius, unsigned int from)
 	Amor::Pius another;
 	if (pius->ordo == mordo)
 	{
-		WBUG("Muto dextra Notitia::%d owner is %p", pius->ordo, owner);
+		WBUG("Muto dextra Notitia::" TLONG_FMT " owner is %p", pius->ordo, owner);
 		another.ordo = mordo;
 		another.indic = tb;
 		tb[2] = 0;

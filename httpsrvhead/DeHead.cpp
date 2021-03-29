@@ -34,6 +34,7 @@ static const char*method_string[] = { "CONNECT", "OPTIONS", "GET", "HEAD", "POST
 "COPY", "MOVE", "LOCK", "UNLOCK", "ACL", "REPORT", "VERSION-CONTROL", "CHECKIN", "CHECKOUT", "UNCHECKOUT", "SEARCH", "MKWORKSPACE", 
 "UPDATE", "LABEL", "MERGE", "BASELINE_CONTROL", "MKACTIVITY" };
 
+#include "textus_string.h"
 #include "tdate_parse.c"
 
 #define Obtainc(s)   (s >= 'A' && s <='F' ? s-'A'+10 :(s >= 'a' && s <='f' ? s-'a'+10 : s-'0' ) )
@@ -136,7 +137,7 @@ data: 输入数据指针
 len:  输入 数据长度
 返回：实际接收的数据长度, < 0表示发生错误
 */
-long DeHead::feed(char *data, long len)
+TEXTUS_LONG DeHead::feed(char *data, TEXTUS_LONG len)
 {
 	char *start_pos, *end_tail4 = 0, *end_tail2 =0;
 	
@@ -324,7 +325,7 @@ bool DeHead::parse()
 	return true;
 }
 
-long DeHead::getHeadInt(const char* name)
+TEXTUS_LONG DeHead::getHeadInt(const char* name)
 {
 	int i;
 	if (strcasecmp(name, "Method") ==0 )
@@ -343,7 +344,6 @@ long DeHead::getHeadInt(const char* name)
 				return (int)field_values[i].when;
 			else
 				return atol(field_values[i].str);
-			break;
 		}		
 	}
 	return 0; 			  	
@@ -451,7 +451,7 @@ void DeHead::setHead(const char* name, const char* value)
 		setField(name, value, 0, 0, 0);
 }
 
-void DeHead::setField(const char* name, const char* strv, long lv, time_t tv, char which )
+void DeHead::setField(const char* name, const char* strv, TEXTUS_LONG lv, time_t tv, char which )
 {
 	Field_Value *fld = (Field_Value *)0;
 	int i = 0;
@@ -492,10 +492,10 @@ void DeHead::setField(const char* name, const char* strv, long lv, time_t tv, ch
 	return ; 			  			
 }
 
-void DeHead::setHead(const char* name, long value)
+void DeHead::setHead(const char* name, TEXTUS_LONG value)
 {
 	if (strcasecmp(name,"Status")==0)
-		setStatus(value);
+		setStatus((int)value);
 	else
 		setField(name, 0, value, 0, 1);
 
@@ -511,7 +511,7 @@ void DeHead::setHeadTime(const char* name, time_t value)
 	return ; 			  			
 }
 
-void DeHead::addField(const char* name, const char* strv, long lv, time_t tv, char which)
+void DeHead::addField(const char* name, const char* strv, TEXTUS_LONG lv, time_t tv, char which)
 {
 	Field_Value *fld;
 	int i;
@@ -545,7 +545,7 @@ void DeHead::addHead(const char* name, const char* value)
 	addField(name, value, 0, 0, 0);
 }
 
-void DeHead::addHead(const char* name, long value)
+void DeHead::addHead(const char* name, TEXTUS_LONG value)
 {
 	addField(name, 0, value, 0, 1);
 }
@@ -729,7 +729,7 @@ void DeHead::expand()
 	delete[] p;
 }
 
-int DeHead::getContent (char *out_buf, long _size)
+int DeHead::getContent (char *out_buf, TEXTUS_LONG _size)
 {
 	Field_Value *fld;
     	char timebuf[100];
@@ -738,7 +738,7 @@ int DeHead::getContent (char *out_buf, long _size)
     	const char* rfc1123_fmt = "%a, %d %b %Y %H:%M:%S GMT";
 
 	unsigned int res_head_len = 0;
-	int out_buf_size =  _size > 65536 ?  65536 : _size;
+	TEXTUS_LONG out_buf_size =  _size > 65536 ?  65536 : _size;
 	
 	tdatePtr = &tdate;
 #define ADD_TO_HEAD(X) \
@@ -775,7 +775,7 @@ int DeHead::getContent (char *out_buf, long _size)
 			break;
 					
 		case 1: /* 整型量处理 */
-			ADD_TO_HEAD3( "%s: %ld\r\n", fld->name, fld->val);
+			ADD_TO_HEAD3( "%s: " TLONG_FMT "\r\n", fld->name, fld->val);
 			break;
 
 		case 2:	/* 时间值 */

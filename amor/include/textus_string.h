@@ -11,7 +11,7 @@
 */
 
 /* $NoKeywords: $ */
-
+#include "textus_os.h"
 #ifndef TEXTUS_STRING
 #define TEXTUS_STRING
 #if defined(_MSC_VER) && (_MSC_VER >= 1400 )
@@ -55,7 +55,7 @@
 static unsigned char* hex2byte(unsigned char *byte, unsigned long blen, const char *hex) __attribute__ ((unused));
 static char* byte2hex(const unsigned char *byte, unsigned long blen, char *hex) __attribute__ ((unused));
 #endif
-static char* byte2hex(const unsigned char *byte, unsigned long blen, char *hex)
+static char* byte2hex(const unsigned char *byte, unsigned TEXTUS_LONG blen, char *hex)
 {
 	unsigned long i;
 	for ( i = 0 ; i < blen ; i++ )
@@ -66,7 +66,7 @@ static char* byte2hex(const unsigned char *byte, unsigned long blen, char *hex)
 	return hex;
 }
 
-static unsigned char* hex2byte(unsigned char *byte, unsigned long blen, const char *hex)
+static unsigned char* hex2byte(unsigned char *byte, unsigned TEXTUS_LONG blen, const char *hex)
 {
 	unsigned long i;
 	const char *p ;	

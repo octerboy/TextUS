@@ -17,8 +17,8 @@
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
-#include "SetCookie.h"
 #include "Amor.h"
+#include "SetCookie.h"
 #include "Notitia.h"
 #include "casecmp.h"
 #include "textus_string.h"
@@ -100,7 +100,7 @@ private:
 
 			path = cfg->Attribute("path");
 			sname = cfg->Attribute("name");
-			if ( sname ) snlen = strlen(sname);
+			if ( sname ) snlen = (int)strlen(sname);
 
 			comm_str = cfg->Attribute("expired");
 			if (  comm_str && atoi(comm_str) > 1 )
@@ -214,7 +214,7 @@ Amor* Hold::clone()
 
 bool Hold::facio( Amor::Pius *pius)
 {
-	int i;
+	int j_count;
 	char cienm[VAL_MAX+10];
 	char *name = 0, *val =0 , *domain = 0;
 	Amor::Pius new_hold, auth_hold, has_hold, clr_hold, ck, dm;
@@ -232,7 +232,7 @@ bool Hold::facio( Amor::Pius *pius)
 
 	if ( pius->ordo == gCFG->event_do)
 	{
-		WBUG("facio Notitia::%lu", gCFG->event_do);
+		WBUG("facio Notitia::" TLONG_FMT , gCFG->event_do);
 		if ( !gCFG->sname )
 			goto END;
 
@@ -241,13 +241,13 @@ bool Hold::facio( Amor::Pius *pius)
 		if ( !domain )	/* 得不到域名 */
 			goto END;
 
-		for ( i = 0; i < gCFG->check_num; i++)
+		for ( j_count = 0; j_count < gCFG->check_num; j_count++)
 		{
-			if (strcasecmp(domain, gCFG->check_domains[i]) == 0 )
+			if (strcasecmp(domain, gCFG->check_domains[j_count]) == 0 )
 				break;
 		}
 
-		if ( gCFG->check_num > 0 && i == gCFG->check_num )	/* 什么都未定义, 则都作认证 */
+		if ( gCFG->check_num > 0 && j_count == gCFG->check_num )	/* 什么都未定义, 则都作认证 */
 			goto END;
 
 		/* 根据已设的session名称找某个cookie内容 */
@@ -266,27 +266,27 @@ bool Hold::facio( Amor::Pius *pius)
 			name = (char*) info[0];
 			val = (char*) info[1];
 			
-			for ( i = 0; i < gCFG->seNum; i++)
+			for ( j_count = 0; j_count < gCFG->seNum; j_count++)
 			{
-				struct Sess &t = gCFG->sess[i];
+				struct Sess &t = gCFG->sess[j_count];
 				//printf("domain %s, name %s, val %s, t.value %s\n", domain, name, val, t.value);
 				if ( t.status != IDLE && strcmp(val, t.value) ==0 && strcmp(domain, t.domain) ==0 && strcmp(name, t.name) == 0 )
 					break;
 			}
 
-			if ( i == gCFG->seNum )
+			if ( j_count == gCFG->seNum )
 			{	/* session名有, 但不是当前会话表的, 重新设 */
 				new_hold.indic = addSession(domain);
 				aptus->facio(&new_hold);
 
-			} else if ( gCFG->sess[i].status == INVALID ) {
-				auth_hold.indic = &(gCFG->sess[i].id);
+			} else if ( gCFG->sess[j_count].status == INVALID ) {
+				auth_hold.indic = &(gCFG->sess[j_count].id);
 				aptus->facio(&auth_hold);
 
-			} else if ( gCFG->sess[i].status == VALID ) {
-				if ( !gCFG->sess[i].matched )
-					gCFG->sess[i].matched = true;
-				has_hold.indic = &(gCFG->sess[i].id);
+			} else if ( gCFG->sess[j_count].status == VALID ) {
+				if ( !gCFG->sess[j_count].matched )
+					gCFG->sess[j_count].matched = true;
+				has_hold.indic = &(gCFG->sess[j_count].id);
 				aptus->facio(&has_hold);
 			}
 		} 
@@ -299,9 +299,9 @@ bool Hold::facio( Amor::Pius *pius)
 	case Notitia::TIMER:
 		WBUG("facio TIMER");
 		time(&now);
-		for ( int i = 0; i < gCFG->seNum; i++)
+		for ( int ik = 0; ik < gCFG->seNum; ik++)
 		{
-			struct Sess &t = gCFG->sess[i];
+			struct Sess &t = gCFG->sess[ik];
 			if ( t.status != IDLE  && t.when_create + gCFG->expired >= now)
 			{
 				t.status = IDLE;

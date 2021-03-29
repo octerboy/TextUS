@@ -64,7 +64,7 @@ public:
 	INLINE void myalloc();
 	INLINE bool hasError(sword status);
 	INLINE ub2 getdty(DBFace::DataType type);
-	INLINE long getRowsetSize();
+	INLINE TEXTUS_LONG getRowsetSize();
 	INLINE void setRowsCount();
 
 	char conn_str[BUFF_SIZE];
@@ -88,8 +88,8 @@ public:
 
 	OCIStmt *stmthp;
 	
-	long	cRowsObtained;	/* 结果集返回记录数 */
-	long	cRowsLeft;	/* 行集中还有多少记录未取 */
+	TEXTUS_LONG	cRowsObtained;	/* 结果集返回记录数 */
+	TEXTUS_LONG	cRowsLeft;	/* 行集中还有多少记录未取 */
 #define STMT_MAX	1024
 #define PARA_MAX 	256
 	char proc_stmt[STMT_MAX];
@@ -287,7 +287,7 @@ LAST:
 		break;
 
 	default:
-		WBUG("facio Notitia::%lu", pius->ordo);
+		WBUG("facio Notitia::" TLONG_FMT, pius->ordo);
 		return false;
 	}
 
@@ -389,11 +389,12 @@ INLINE int OraCli::handle()
 {
 	int retnum, m_chunk;
 	unsigned int slen = 0;
-	unsigned oTotal;
+	unsigned TEXTUS_LONG oTotal;
 	sword status;
 	unsigned int i;
 	unsigned int outNum;	/* 输出参数个数, 对于DBPROC、FUNC, 如果本身没有输出参数, 则NO_DATA不算错 */
 	ub4 execute_mode;	/* 执行模式 */
+	sb4 blen ;
 
 	unsigned int defNum, bindNum;
 
@@ -454,7 +455,6 @@ INLINE int OraCli::handle()
 		oTotal = 0, outNum = 0;
 		for ( i = 0; i < face->num && i < PARA_MAX; ++i )
 		{	
-			unsigned long blen = 0;
 			DBFace::Para &para = face->paras[i];
 			int rNo = para.fld + face->offset;
 	
@@ -469,7 +469,7 @@ INLINE int OraCli::handle()
 
 			case DBFace::PARA_INOUT:
 				assert(rNo <= snd_pac->max );
-				blen = para.outlen == 0 ? rcv_pac->fld[rNo].range : para.outlen ;
+				blen = para.outlen == 0 ? (sb4)rcv_pac->fld[rNo].range : para.outlen ;
 				outNum++;
 				break;
 
@@ -485,7 +485,6 @@ INLINE int OraCli::handle()
 		for ( i = 0; i < face->num && i < PARA_MAX; i++ )
 		{
 			unsigned char *buf = (unsigned char*) 0;
-			unsigned long blen = 0;
 			ub2 dty;
 			ub2 *alenp = (ub2*) 0; /* actual length  */
 			DBFace::Para &para = face->paras[i];
@@ -497,9 +496,15 @@ INLINE int OraCli::handle()
 			case DBFace::PARA_IN:
 				assert(rNo <= rcv_pac->max );
 				buf = rcv_pac->fld[rNo].val;
-				blen = rcv_pac->fld[rNo].range;
-				alenp = (ub2*) &(rcv_pac->fld[rNo].range);	/* 这是有问题的, 从一个ulong 到 ushort, 
-										对于高位在前，低位在后的机器会有问题 */
+				blen = (sb4) rcv_pac->fld[rNo].range;
+#if TEXTUS_BIG_ENDIAN
+				alenp = sizeof(rcv_pac->fld[rNo].range) -2 + (ub2*) &(rcv_pac->fld[rNo].range);	//定位到第7或3个字节,
+#elif TEXTUS_LITTLE_ENDIAN
+				alenp = (ub2*) &(rcv_pac->fld[rNo].range);
+#else
+#  error "Cannot determine endianness"
+#endif
+
 				WBUG("in parameter");
 				break;
 
@@ -511,18 +516,28 @@ INLINE int OraCli::handle()
 				WBUG("out snd_pac commit");
 				snd_pac->commit(rNo, blen);
 				memset(buf, 0, blen);
-				alenp = (ub2*) &(snd_pac->fld[rNo].range); /* 这是有问题的, 从一个ulong 到 ushort, 
-										对于高位在前，低位在后的机器会有问题 */
+#if TEXTUS_BIG_ENDIAN
+				alenp = sizeof(snd_pac->fld[rNo].range) -2 + (ub2*) &(snd_pac->fld[rNo].range);	//定位到第7或3个字节,
+#elif TEXTUS_LITTLE_ENDIAN
+				alenp = (ub2*) &(snd_pac->fld[rNo].range);
+#else
+#  error "Cannot determine endianness"
+#endif
 				break;
 
 			case DBFace::PARA_INOUT:
 				assert(rNo <= snd_pac->max );
-				blen = para.outlen == 0 ? rcv_pac->fld[rNo].range : para.outlen ;
-				WBUG("inout snd_pac input blen %ld, fld[%d].range %ld, outlen %ld", blen, rNo, rcv_pac->fld[rNo].range, para.outlen);
+				blen = para.outlen == 0 ? (sb4)rcv_pac->fld[rNo].range : para.outlen ;
+				WBUG("inout snd_pac input blen %d, fld[%d].range " TLONG_FMT ", outlen %d" , blen, rNo, rcv_pac->fld[rNo].range, para.outlen);
 				snd_pac->input(rNo, rcv_pac->fld[rNo].val, blen);
 				buf = snd_pac->fld[rNo].val;
-				alenp = (ub2*) &(snd_pac->fld[rNo].range); /* 这是有问题的, 从一个ulong 到 ushort, 
-										对于高位在前，低位在后的机器会有问题 */
+#if TEXTUS_BIG_ENDIAN
+				alenp = sizeof(snd_pac->fld[rNo].range) -2 + (ub2*) &(snd_pac->fld[rNo].range);	//定位到第7或3个字节,
+#elif TEXTUS_LITTLE_ENDIAN
+				alenp = (ub2*) &(snd_pac->fld[rNo].range);
+#else
+#  error "Cannot determine endianness"
+#endif
 				break;
 
 			default:
@@ -618,11 +633,10 @@ INLINE int OraCli::handle()
 		for ( i = 0; i < face->num && i < PARA_MAX; i++ )
 		{
 			unsigned char *buf = (unsigned char*) 0;
-			unsigned int blen = 0;
 			ub2 dty;
 			ub2 *alenp; /* actual length  */
 			DBFace::Para &para = face->paras[i];
-			long rNo = para.fld + face->offset;
+			int rNo = para.fld + face->offset;
 	
 			assert(para.pos == (unsigned int)i );
 			switch ( para.inout )
@@ -630,9 +644,14 @@ INLINE int OraCli::handle()
 			case DBFace::PARA_IN:
 				assert(rNo <= rcv_pac->max );
 				buf = rcv_pac->fld[rNo].val;
-				blen = rcv_pac->fld[rNo].range;
-				alenp = (ub2*) &(rcv_pac->fld[rNo].range); /* 这是有问题的, 从一个ulong 到 ushort, 
-										对于高位在前，低位在后的机器会有问题 */
+				blen = (sb4) rcv_pac->fld[rNo].range;
+#if TEXTUS_BIG_ENDIAN
+				alenp = sizeof(rcv_pac->fld[rNo].range) -2 + (ub2*) &(rcv_pac->fld[rNo].range);	//定位到第7或3个字节,
+#elif TEXTUS_LITTLE_ENDIAN
+				alenp = (ub2*) &(rcv_pac->fld[rNo].range);
+#else
+#  error "Cannot determine endianness"
+#endif
 
 				bindNum++;
 				break;
@@ -641,7 +660,7 @@ INLINE int OraCli::handle()
 				assert(rNo <= snd_pac->max );
 				blen = para.outlen;
 				buf = rowset_pac.buf.point;
-				WBUG("rowset_pac rNo %ld, blen %d", rNo, blen);
+				WBUG("rowset_pac rNo %d, blen %d", rNo, blen);
 				rowset_pac.commit(rNo, blen*m_chunk);
 				memset(buf, 0, blen*m_chunk);
 
@@ -712,10 +731,9 @@ INLINE int OraCli::handle()
 		for ( i = 0; i < face->num && i < PARA_MAX; i++ )
 		{
 			unsigned char *buf;
-			unsigned int blen;
 			ub2 dty;
 			DBFace::Para &para = face->paras[i];
-			long rNo = para.fld + face->offset;
+			int rNo = para.fld + face->offset;
 	
 			assert(para.pos == (unsigned int)i );
 			switch ( para.inout )
@@ -723,7 +741,7 @@ INLINE int OraCli::handle()
 			case DBFace::PARA_IN:
 				assert(rNo <= rcv_pac->max );
 				buf = rcv_pac->fld[rNo].val;
-				blen = rcv_pac->fld[rNo].range;
+				blen = (sb4)rcv_pac->fld[rNo].range;
 				break;
 
 			default:
@@ -882,7 +900,7 @@ void OraCli::logout()
 void OraCli::logon()
 {
 	
-	if ( hasError(OCIServerAttach( srvhp, errhp, (text *)conn_str, strlen(conn_str), 0)))  
+	if ( hasError(OCIServerAttach( srvhp, errhp, (text *)conn_str, (sb4)strlen(conn_str), 0)))  
 		return;
 
 	WBUG("OCIServerAttach successfully!");
@@ -955,9 +973,9 @@ INLINE ub2 OraCli::getdty(DBFace::DataType type)
 	return dty;
 }
 
-long OraCli::getRowsetSize()
+TEXTUS_LONG OraCli::getRowsetSize()
 {
-	long position;
+	TEXTUS_LONG position;
 	if ( hasError( OCIStmtFetch2(stmthp, errhp, (ub4) 1, OCI_FETCH_LAST, (sb4) 0, OCI_DEFAULT) ) )
 		return 0;
 
@@ -965,18 +983,18 @@ long OraCli::getRowsetSize()
 		&position, NULL, OCI_ATTR_CURRENT_POSITION, errhp)) )
 		return 0;
 
-	WBUG("the Rowset size is %ld", position);
+	WBUG("the Rowset size is " TLONG_FMT, position);
 	return position;
 }
 
 void OraCli::setRowsCount()
 {
-	long count;
+	TEXTUS_LONG count;
 
 	if (hasError(OCIAttrGet(stmthp, OCI_HTYPE_STMT, (dvoid*)&count, (ub4 *)0, OCI_ATTR_ROW_COUNT, errhp)))
 		return ;
 
-	WBUG("get OCI_ATTR_ROW_COUNT is %ld", count);
+	WBUG("get OCI_ATTR_ROW_COUNT is " TLONG_FMT, count);
 	PUT_FSND (cRows_field, &count, sizeof(count));
 }
 
@@ -1013,7 +1031,7 @@ bool OraCli::hasError(sword status)
 	case OCI_ERROR:
 		(void) OCIErrorGet((dvoid *)errhp, (ub4) 1, (text *) NULL, &errcode,
 				errbuf, (ub4) sizeof(errbuf), OCI_HTYPE_ERROR);
-		len = strlen((char*)errbuf);
+		len = (int) strlen((char*)errbuf);
 		if ( errbuf[len-1] == '\r' || errbuf[len-1] == '\n' )
 		{
 			len--;

@@ -8,42 +8,35 @@
  */
 
 /**
- Title:The common interface of textus module
+ Title:The public interface of textus module
  Build: Created by octerboy 2005/6/9
- $Id$
  $Date$
  $Revision$
 */
+
 /* $NoKeywords: $ */
 
+#include "textus_os.h"
 #ifndef AMOR_H
 #define AMOR_H
 #if defined(_WIN32) 
 #include <windows.h>
 #endif 
 
-#if !defined(TEXTUS_AMOR_STORAGE)
-#if defined(_WIN32) 
-#define TEXTUS_AMOR_STORAGE __declspec(dllimport) 
-#else
-#define TEXTUS_AMOR_STORAGE
-#endif
-#endif
-
 #include "tinyxml.h"
-
-typedef unsigned long TEXTUS_ORDO;
+typedef unsigned TEXTUS_LONG TEXTUS_ORDO;
 
 class TEXTUS_AMOR_STORAGE Amor {
 public:
 	Amor *aptus;
 	enum SUB_ORDO { CAN_ALL = -1 };
 	virtual void ignite(TiXmlElement *wood) {};
+	//virtual void ignite(void *wood) ;
 
-	/* Amor objects with communicate by Pius object */
+	/* Amor objects communicate by Pius object */
 	struct Pius {
 		 TEXTUS_ORDO ordo;	/* the type of inidc */
-		 int subor;			/* the sub type of inidc, 浠ユ鍖哄垎鎵�瑕佷紶閫掔殑涓嬩竴灞備腑涓嶅悓鐨凪odule. */
+		 int subor;		/* the sub type of inidc, 此量区分不同的Module. */
 						
 		 void *indic;		/* data pointer for any type */
 		Pius() { subor = CAN_ALL; indic=0;};	

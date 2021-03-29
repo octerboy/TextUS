@@ -109,19 +109,19 @@ private:
 			opt = 0;
 			str = cfg->Attribute("tag");
 			if ( str ) {
-				tag_len = strlen(str);
+				tag_len = (unsigned short)strlen(str);
 				tag = new unsigned char[tag_len];
 				tag_len = BTool::unescape(str, tag);
 			}
 			str = cfg->Attribute("seq");
 			if ( str ) {
-				seq_len = strlen(str);
+				seq_len = (unsigned short)strlen(str);
 				seq = new unsigned char[seq_len];
 				seq_len = BTool::unescape(str, seq);
 			}
 			str = cfg->Attribute("opt");
 			if ( str ) {
-				opt_len = strlen(str);
+				opt_len = (unsigned short)strlen(str);
 				opt = new unsigned char[opt_len];
 				opt_len = BTool::unescape(str, opt);
 			}
@@ -201,12 +201,12 @@ void BufTmr::ignite(TiXmlElement *cfg)
 		has_config = true;
 	}
 	TEXTUS_STRCPY(md_magic, MD_MAGIC);
-	md_magic_len = strlen(md_magic);
+	md_magic_len = (int)strlen(md_magic);
 }
 
 void BufTmr::stamp()
 {
-	unsigned long interval, nlen, start_sec, start_milli_l;
+	unsigned TEXTUS_LONG interval, nlen, start_sec, start_milli_l;
 	unsigned char offset;
 	MD5_CTX Md5Ctx;
 	unsigned char yaBuf[16];
@@ -217,9 +217,9 @@ void BufTmr::stamp()
 	etik = (unsigned __int64)end_tm.dwLowDateTime + (((unsigned __int64)end_tm.dwHighDateTime) << 32);
 	stik = (unsigned __int64)start_tm.dwLowDateTime + (((unsigned __int64)start_tm.dwHighDateTime) << 32);
 	intv = (etik-stik)/1000;
-	interval = (long) intv;
-	start_sec =  (long) ((stik - t2k)/10000000);
-	start_milli_l =  (long) ((stik - t2k)/1000 - start_sec*10000);
+	interval = (TEXTUS_LONG) intv;
+	start_sec =  (TEXTUS_LONG) ((stik - t2k)/10000000);
+	start_milli_l =  (TEXTUS_LONG) ((stik - t2k)/1000 - start_sec*10000);
 #else
 	interval = 1000* (end_tp.tv_sec - start_tp.tv_sec) + (end_tp.tv_nsec - start_tp.tv_nsec)/1000000;
 	start_sec =  start_tp.tv_sec - t2k;
@@ -268,7 +268,7 @@ void BufTmr::stamp()
 		nlen += gCFG->opt_len;
 	}
 
-	MD5Update (&Md5Ctx, (char*)rcv_buf->base, nlen);
+	MD5Update (&Md5Ctx, (char*)rcv_buf->base, (int)nlen);
 	MD5Final ((char *) &yaBuf[0], &Md5Ctx);
 
 	tmr_pac.input(MSG_SUM_FLD, yaBuf, MD_SUM_LEN);
@@ -389,7 +389,6 @@ ALL_READY:
 			WLOG(NOTICE,"facio PRO_TBUF null.");
 		}
 		return false; /* 可以续传 */
-		break;
 
 	default:
 		return false;

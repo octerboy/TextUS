@@ -101,7 +101,7 @@ protected:
 	char idStr[256];	/* 层次标识, ignite的为"", clone时, child的为前者的idStr+"-"+id 
 				如："1-1-22"等 */
 	int child_num;		/* clone时加一传递到子实例的serial_no */
-	unsigned long serial_no;		/* 在同一个层次中的序列 */
+	unsigned TEXTUS_LONG serial_no;		/* 在同一个层次中的序列 */
 
 	unsigned int depth;	/* 深度,如果设定深度2,则深度3及以上的都共享深度2的那个锁 */
 
@@ -233,7 +233,7 @@ Amor *Locker::clone()
 	child->serial_no = ++child_num;	/* 这样, 第一个子实例serial_no为1, ignite的实例为0 */
 	if ( deep(idStr) < depth )
 	{	/* 深度未到限 */
-		TEXTUS_SPRINTF(tmpStr, "-%lx", child->serial_no);
+		TEXTUS_SPRINTF(tmpStr, "-" TLONG_FMTx, child->serial_no);
 		TEXTUS_STRCAT(child->idStr, tmpStr);	/* 子实例的层次标识为父实例的idStr+"-"+子实例的serial_no */
 	}
 	child->joint();	/* 挂上全局的互斥量 */

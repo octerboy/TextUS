@@ -39,7 +39,7 @@ public:
 
 private:
 	int data_type;
-	int content_length;
+	TEXTUS_LONG content_length;
 	const char* content_type;	
 
 	TBuffer *rcv_buf;
@@ -52,7 +52,7 @@ private:
 		char *name;
 		int  nameLen;
 		char *value;
-		long  valueLen;
+		TEXTUS_LONG  valueLen;
 	};
 	typedef struct subparameter SUBPARA;
 
@@ -69,12 +69,12 @@ private:
 	typedef struct transpara PARA;
 	
 	PARA form_some;
-	TINLINE int _parse_para(const char *buf, int len);
+	TEXTUS_LONG _parse_para(const char *buf, TEXTUS_LONG len);
 	TINLINE void reset();
 
 	/* 取表单内容 */
 	TINLINE const char* _getPara(const char* name);
-	TINLINE const char* _getPara(const char* name, long *len);
+	TINLINE const char* _getPara(const char* name, TEXTUS_LONG *len);
 #include "httpsrv_obj.h"
 #include "wlog.h"
 };
@@ -113,20 +113,21 @@ bool HttpForm::facio( Amor::Pius *pius)
 {
 	TBuffer **tb = 0;
 	const char *query;
-	int q_len, method;
+	TEXTUS_LONG q_len;
+	int method;
 	switch ( pius->ordo )
 	{
 	case Notitia::PRO_HTTP_REQUEST:
 		WBUG("facio PRO_HTTP_REQUEST");
 		reset();
 
-		method  = getHeadInt("Method");	
+		method  = (int)getHeadInt("Method");	
 		query = (char*) 0;
 		q_len = 0;
 		if (  method == 2  || method == 3) /* GET or HEAD method */
 		{
 			query = getHead("Query");	
-			if ( query) q_len = strlen(query);
+			if ( query) q_len =strlen(query);
 		} else if ( (content_length=getContentSize()) > 0 && 
 			    (content_type= getHead("Content-Type")) )
 		{
@@ -261,7 +262,7 @@ TINLINE const char* HttpForm::_getPara(const char* name)
 	return (char*)0;
 }
 
-TINLINE const char* HttpForm::_getPara(const char* name,long *len)
+TINLINE const char* HttpForm::_getPara(const char* name,TEXTUS_LONG *len)
 {
 	int i = 0;
 
@@ -288,10 +289,11 @@ TINLINE const char* HttpForm::_getPara(const char* name,long *len)
    输出: *para 
    返回: -1: 失败, 0:成功
 */
-int HttpForm::_parse_para(const char *buf, int len)
+TEXTUS_LONG HttpForm::_parse_para(const char *buf, TEXTUS_LONG len)
 {
 	PARA *para=&form_some;
-	int i,count,itemLen,cDataLen;
+	int i,count, itemLen;
+	TEXTUS_LONG cDataLen;
 	char *dPtr,*tmpbuf;
 	const char *ptr;
 	SUBPARA *spara;
@@ -340,7 +342,7 @@ int HttpForm::_parse_para(const char *buf, int len)
 		{
 			tmpbuf[itemLen] = '\0';
 			convert(tmpbuf,tmpbuf);
-			itemLen = strlen(tmpbuf);
+			itemLen = (int)strlen(tmpbuf);
 			spara[i].name = dPtr + cDataLen;
 			spara[i].name[itemLen] = '\0';
 			spara[i].nameLen = itemLen;
@@ -355,7 +357,7 @@ int HttpForm::_parse_para(const char *buf, int len)
 			tmpbuf[itemLen] = '\0';
 			convert(tmpbuf,tmpbuf);
 			spara[i].value = dPtr + cDataLen;
-			itemLen = strlen(tmpbuf);
+			itemLen = (int)strlen(tmpbuf);
 			spara[i].value[itemLen] = '\0';
 			spara[i].valueLen = itemLen;
 			cDataLen += (itemLen+1);
@@ -374,7 +376,7 @@ int HttpForm::_parse_para(const char *buf, int len)
 	{
 		tmpbuf[itemLen] = '\0';
 		convert(tmpbuf,tmpbuf);
-		itemLen = strlen(tmpbuf);
+		itemLen = (int)strlen(tmpbuf);
 		spara[i].value = dPtr + cDataLen;
 		spara[i].value[itemLen] = '\0';
 		spara[i].valueLen = itemLen;

@@ -78,7 +78,7 @@ bool Sift::facio( Amor::Pius *pius)
 		break;
 
 	default:
-		WBUG("facio Notitia::%lu", pius->ordo);
+		WBUG("facio Notitia::" TLONG_FMTu, pius->ordo);
 		return false;
 	}
 
@@ -115,7 +115,7 @@ Amor* Sift::clone()
 HTTPSRVINLINE void Sift::handle()
 {
 	register unsigned char *p, *q;
-	long len;
+	TEXTUS_LONG len;
 	int slen;
 	unsigned char src[128];
 	unsigned char dst[128];
@@ -136,7 +136,7 @@ HTTPSRVINLINE void Sift::handle()
 		|| strncasecmp( mime, "text/html;", 10)== 0 ) )
 	{
 		int alen;
-		slen = strlen(host);
+		slen = (int)strlen(host);
 		if ( slen > 110 )
 			slen = 110;
 		memcpy(src, "http://", 7);
@@ -147,7 +147,7 @@ HTTPSRVINLINE void Sift::handle()
 
 		memset(dst, ' ', slen+7);
 		memcpy(dst, "https://", 8);
-		alen = strlen("192.168.3.2");
+		alen = (int)strlen("192.168.3.2");
 		memcpy(&dst[8], "192.168.3.2", alen);
 		dst[alen+8] = '\0';
 		alen += 8;

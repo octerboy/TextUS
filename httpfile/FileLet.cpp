@@ -175,8 +175,6 @@ bool FileLet::facio( Amor::Pius *pius)
 #ifdef USE_TEXTUS_AIO
 		return false;	//aptus continues to deliver SET_TBUF
 #endif
-		break;
-		
 	default:
 		return false;
 	}
@@ -252,9 +250,10 @@ FileLet::~FileLet() {
 void FileLet::to_response(char *ptr, size_t total)
 {
 	size_t wlen = total;
-	int cents,last_cents=100, j=1, to_times;
+	int cents,last_cents=100, j=1;
+	size_t to_times;
 	char *p = ptr;
-	unsigned long block; 
+	unsigned TEXTUS_LONG block; 
 	res_entity->grant( gCFG->block_size); 
 
 	to_times = total/gCFG->block_size; 
@@ -268,7 +267,7 @@ void FileLet::to_response(char *ptr, size_t total)
 		aptus->sponte(&local_pius);
 		wlen -= block;
 		p += block;
-		cents = j*100/to_times;
+		cents =(int)(j*100/to_times);
 		if ( cents % 10 == 0 && cents !=last_cents)
 		{
 			WLOG(INFO, "sent %d%% of the file", cents);
@@ -588,12 +587,12 @@ const char* get_mime_type( char* name )
 		{ ".wmlsc", "application/vnd.wap.wmlscriptc" },
 		{ ".wbmp", "image/vnd.wap.wbmp" },
 	};
-    	int fl = strlen( name );
+    	int fl = (int)strlen( name );
     	unsigned int i;
 
     	for ( i = 0; i < sizeof(table) / sizeof(*table); ++i )
 	{
-		int el = strlen( table[i].ext );
+		int el = (int)strlen( table[i].ext );
 		if ( strcasecmp( &(name[fl - el]), table[i].ext ) == 0 )
 	    		return table[i].type;
 	}

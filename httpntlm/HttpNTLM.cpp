@@ -18,21 +18,26 @@
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
+#include "Amor.h"
 #include "BTool.h"
 #include "Notitia.h"
-#include "Amor.h"
 #include "TBuffer.h"
 #include <time.h>
+#include "casecmp.h"
+#include "textus_string.h"
+#include <string.h>
+#include <assert.h>
+#include <stdarg.h>
+
 class HttpNTLM :public Amor
 {
 public:
 	void ignite(TiXmlElement *cfg);	
 	bool facio( Pius *);
-	bool sponte( Pius *);
+	bool sponte( Pius *){ return false;};
 	Amor *clone();
 
 	HttpNTLM();
-	~HttpNTLM();
 
 private:
 #include "httpsrv_obj.h"
@@ -49,16 +54,10 @@ private:
 	static int user_num;
 	static char valid_user[1024][256];
 	static char valid_pwd[1024][256];
-	inline bool authenticate();
+	bool authenticate();
 	void prompt();
 #include "wlog.h"
 };
-
-#include "casecmp.h"
-#include "textus_string.h"
-
-#include <string.h>
-#include <assert.h>
 
 void HttpNTLM::ignite(TiXmlElement *cfg)
 {
@@ -76,24 +75,25 @@ void HttpNTLM::ignite(TiXmlElement *cfg)
 bool HttpNTLM::facio( Amor::Pius *pius)
 {
 	TBuffer **tb;
-	int ind;
+	int *ind;
 	assert(pius);
-	Amor::Pius set_hold = {Notitia::CMD_SET_HOLDING, 0};
+	Amor::Pius set_hold; //{Notitia::CMD_SET_HOLDING, 0};
+	set_hold.ordo = Notitia::CMD_SET_HOLDING;
 
 	switch ( pius->ordo )
 	{
 	case Notitia::HAS_HOLDING:	/* 已认证 */
-		WBUG("facio HAS_HOLDING, %d", (int) pius->indic);
+		WBUG("facio HAS_HOLDING, %d", *(int*) pius->indic);
 		break;
 
 	case Notitia::NEW_HOLDING:	/* 已认证 */
-		WBUG("facio NEW_HOLDING, %d", (int) pius->indic);
+		WBUG("facio NEW_HOLDING, %d", *(int*) pius->indic);
 		prompt();
 		break;
 
 	case Notitia::AUTH_HOLDING:	/* 未认证 */
-		WBUG("facio NO_HOLDING, %d", (int) pius->indic);
-		ind = (int ) pius->indic;
+		WBUG("facio NO_HOLDING, %d", *(int*) pius->indic);
+		ind = (int*) pius->indic;
 		/*
 		if ( strcasecmp(getHead("host"), "orahttp2.you.com") == 0 )
 			break;
@@ -129,8 +129,6 @@ bool HttpNTLM::facio( Amor::Pius *pius)
 	return true;
 }
 
-bool HttpNTLM::sponte( Amor::Pius *pius) { return false;}
-
 HttpNTLM::HttpNTLM()
 {
 	local_pius.ordo = Notitia::PRO_HTTP_HEAD;
@@ -153,9 +151,6 @@ Amor* HttpNTLM::clone()
 	TEXTUS_STRCPY(child->realm, realm);
 	return (Amor*)child;
 }
-
-HttpNTLM::~HttpNTLM()
-{ }
 
 int HttpNTLM::user_num = 0;
 char HttpNTLM::valid_user[1024][256] = {""};
@@ -185,15 +180,12 @@ void HttpNTLM::prompt()
 	aptus->sponte(&local_pius);
 }
 
-inline bool HttpNTLM::authenticate()
+bool HttpNTLM::authenticate()
 {
 	unsigned char authinfo[500];
-    	char* authpass;
-    	char *authorization;
+    	const char *authorization;
 	int l,i;
-	char* colon;
-	char* pwd_yes;
-	 
+ 
 	if (!should_authen ) return true;
     	if ( !(authorization = getHead("Authorization")) )
 	 	return false;

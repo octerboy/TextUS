@@ -27,7 +27,6 @@
 #include <time.h>
 #include <stdarg.h>
 
-#define INLINE inline
 class NacFrame: public Amor
 {
 public:
@@ -82,13 +81,18 @@ private:
 	struct G_CFG *gCFG;     /* 全局共享参数 */
 	bool has_config;
 
-	INLINE void deliver(Notitia::HERE_ORDO aordo, bool inver=false);
-	INLINE bool analyze(TBuffer *raw, TBuffer *plain);
-	INLINE bool compose(TBuffer *raw, TBuffer *plain);
-	INLINE long int getl(unsigned char *);
-	INLINE void putl(long int, unsigned char *);
-	INLINE unsigned char checkSum( unsigned char *buf, int len );
-	INLINE void reset();
+	void deliver(Notitia::HERE_ORDO aordo, bool inver=false);
+	bool analyze(TBuffer *raw, TBuffer *plain);
+	bool compose(TBuffer *raw, TBuffer *plain);
+	TEXTUS_LONG getl(unsigned char *);
+	void putl(TEXTUS_LONG , unsigned char *);
+	unsigned char checkSum( unsigned char *buf, TEXTUS_LONG);
+	void reset()
+	{
+		ask_pa->reset();
+		res_pa->reset();
+		isFraming = false;
+	}
 #include "wlog.h"
 };
 
@@ -143,7 +147,6 @@ bool NacFrame::facio( Amor::Pius *pius)
 			if ( pro_end )
 				aptus->facio(&local_p);
 		}
-				break;
 		break;
 
 	case Notitia::SET_TBUF:	/* 取得TBuffer地址 */
@@ -171,7 +174,7 @@ bool NacFrame::facio( Amor::Pius *pius)
 	case Notitia::IGNITE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY");
 		goto ALL_READY;
-		break;
+		//break;
 
 	case Notitia::CLONE_ALL_READY:
 		WBUG("facio CLONE_ALL_READY");
@@ -293,7 +296,7 @@ NacFrame::~NacFrame()
 }
 
 /* 向接力者提交 */
-INLINE void NacFrame::deliver(Notitia::HERE_ORDO aordo, bool _inver)
+void NacFrame::deliver(Notitia::HERE_ORDO aordo, bool _inver)
 {
 	Amor::Pius tmp_pius;
 	TBuffer *pn[3];
@@ -334,14 +337,14 @@ Amor* NacFrame::clone()
 
 #define STX 0x02
 #define ETX 0x03
-INLINE bool NacFrame::analyze(TBuffer *raw, TBuffer *plain)
+bool NacFrame::analyze(TBuffer *raw, TBuffer *plain)
 {
 	/* 两字节表示后续数据的长度 */
 	bool shouldTiming = false;
-	long int frameLen = 0;
-	long int len = raw->point - raw->base;	/* 已收数据长度, 如果是多次接收, 则是收的总长度 */
+	TEXTUS_LONG frameLen = 0;
+	TEXTUS_LONG len = raw->point - raw->base;	/* 已收数据长度, 如果是多次接收, 则是收的总长度 */
 
-	WBUG("analyze raw length is %lu ", len);
+	WBUG("analyze raw length is " TLONG_FMTu, len);
 	if ( !isFraming && len >=1 && raw->base[0] == STX )
 	{
 		isFraming = true;
@@ -357,7 +360,7 @@ INLINE bool NacFrame::analyze(TBuffer *raw, TBuffer *plain)
 
 	if ( len >=3 )
 	{
-		int ilen;
+		TEXTUS_LONG ilen;
 		ilen = getl(&raw->base[1]);	/* ilen指有效数据长度 */
 
 		//帧的大小检查
@@ -400,14 +403,14 @@ ING_PRO:
 	return false;
 }
 
-INLINE bool NacFrame::compose(TBuffer *raw, TBuffer *plain)
+bool NacFrame::compose(TBuffer *raw, TBuffer *plain)
 {
 	unsigned char *where;
 	unsigned char tmp[2];
-	long int len = plain->point - plain->base;	/* 应用数据长度 */
-	long int hasLen = raw->point - raw->base;	/* 原有数据长度 */
+	TEXTUS_LONG len = plain->point - plain->base;	/* 应用数据长度 */
+	TEXTUS_LONG hasLen = raw->point - raw->base;	/* 原有数据长度 */
 
-	WBUG("compose all length is %lu ", len);
+	WBUG("compose all length is " TLONG_FMTu, len);
 	if ( len<=0 ) 
 		WLOG(NOTICE, "compose zero length");
 
@@ -436,9 +439,9 @@ INLINE bool NacFrame::compose(TBuffer *raw, TBuffer *plain)
 	return true;
 }
 
-INLINE  long int NacFrame::getl(unsigned char *base)
+TEXTUS_LONG NacFrame::getl(unsigned char *base)
 {
-	long int len = 0;
+	unsigned TEXTUS_LONG len = 0;
 	
 	len = base[1] & 0x0F;	
 	if ( len > 9 ) 
@@ -456,33 +459,26 @@ INLINE  long int NacFrame::getl(unsigned char *base)
 	if ( len > 9999 )
 		return -1;
 
-	WBUG("getl length is %lu from frame", len);
+	WBUG("getl length is " TLONG_FMTu" from frame", len);
 	return len;
 }
 
-INLINE unsigned char  NacFrame::checkSum( unsigned char *buf, int len )
+unsigned char  NacFrame::checkSum( unsigned char *buf, TEXTUS_LONG len)
 {
-	int i;
+	TEXTUS_LONG i;
 	unsigned char lrc = 0x00;
 	for ( i=0; i<len; i++)
 		lrc ^= buf[i];
 	return lrc;
 }
  
-INLINE void NacFrame::putl(long int nlen, unsigned char *yaBuf)
+void NacFrame::putl(TEXTUS_LONG nlen, unsigned char *yaBuf)
 {
-	WBUG("putl length is %lu to frame", nlen);
+	WBUG("putl length is " TLONG_FMT " to frame", nlen);
 
 	yaBuf[1] = (unsigned char) ((nlen%10) | ((nlen%100)/10) << 4);
 	nlen /= 100;
 	yaBuf[0] = (unsigned char) ((nlen%10) | (nlen/10) << 4);	
-}
-
-INLINE void NacFrame::reset()
-{
-	ask_pa->reset();
-	res_pa->reset();
-	isFraming = false;
 }
 
 #include "hook.c"

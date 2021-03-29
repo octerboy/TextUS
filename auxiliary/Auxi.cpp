@@ -42,7 +42,7 @@ protected:
 	bool bcall( Amor::Pius *pius, unsigned int from, const char *);
 	Animus *assist;		/* assistant */
 	struct Oes  {
-		unsigned long ordo;	/* laeve时需要catch的ordo */
+		unsigned TEXTUS_LONG ordo;	/* laeve时需要catch的ordo */
 		bool all_over;		/* true: laeve(或sponte)时逆向遍历每个compactor, 否则只对第一个作laeve, 默认false */
 		inline Oes () {
 			ordo = Notitia::TEXTUS_RESERVED;

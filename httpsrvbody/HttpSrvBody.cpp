@@ -33,7 +33,6 @@
 #include <openssl/sha.h>
 #endif
 
-#define HTTPSRVINLINE inline
 #define Sock_Framing_Start	1 
 #define Sock_Framing_Head	2 
 #define Sock_Framing_Data	4 
@@ -59,8 +58,8 @@ public:
 	~HttpSrvBody();
 
 private:
-	long content_length;
-	long proxy_out_bytes;
+	TEXTUS_LONG content_length;
+	TEXTUS_LONG proxy_out_bytes;
 
 	Amor::Pius local_pius;		//仅用于向左边传回数据
 	Amor::Pius set_buf_pius;	//仅用于向右边设置socket中的BUFFER
@@ -78,7 +77,7 @@ private:
 	bool lastSocket;	//如果前一次为websocket, 那么本次就不要再传SET-TUBFFER了. 通常, 配置一个特别的路径给websocket, 就传一次
 	bool lookSocket();
 	void rcvSocket();
-	void sndSocket(unsigned char msg_type, unsigned char *c, unsigned long l);
+	void sndSocket(unsigned char msg_type, unsigned char *c, unsigned TEXTUS_LONG l);
 	void sndSocket(unsigned char msg_type);
 
 	struct  SockFrame 
@@ -86,8 +85,8 @@ private:
 		unsigned char fin;
 		unsigned char opcode;
 
-		long int start_pos;
-		long payload_length;
+		TEXTUS_LONG start_pos;
+		TEXTUS_LONG payload_length;
 		int ext_len_head;
 		int mask_bit;
 		unsigned char mask[4];
@@ -101,7 +100,7 @@ private:
 
 	struct G_CFG
 	{
-		long max_sock_len;
+		TEXTUS_LONG max_sock_len;
 
 		int sock_num;	//WebSocket协议的数目
 		struct Sock_Pro_Def *sock_pro_def;
@@ -149,8 +148,7 @@ private:
 		TBuffer *hitb[3];	/* for websocket, send to client */
 
 		int framing;
-		unsigned long should_len;	
-		int pos;
+		unsigned TEXTUS_LONG should_len, pos;
 
 		unsigned char opcode;
 		struct SockFrame frm;
@@ -198,8 +196,8 @@ private:
 	typedef struct _Chunko {
 					/* 很多情况下, 一个chunk一次读完, 所以都处于初始值 */
 		bool started ;		/* false: 还没有读完chunk头, true: chunk数据正在读 */
-		long body_len;		/* 正在读chunk的长度, len_to_read 不包括CRLF这两个字 */
-		long head_len;		/* head的长度， 包括CRLF */
+		TEXTUS_LONG body_len;		/* 正在读chunk的长度, len_to_read 不包括CRLF这两个字 */
+		TEXTUS_LONG head_len;		/* head的长度， 包括CRLF */
 		inline _Chunko ()
 		{
 			reset();
@@ -213,14 +211,14 @@ private:
 	} Chunko;
 	Chunko chunko;
 
-	long chunk_offset;	/* 当前分析位置, 即rcv_buf中相对于base的偏移量 */
+	TEXTUS_LONG chunk_offset;	/* 当前分析位置, 即rcv_buf中相对于base的偏移量 */
 #include "get_chunk_size.c"
 	bool chunk_all();
 
-	HTTPSRVINLINE void end();
-	HTTPSRVINLINE void reset();
-	HTTPSRVINLINE void outjs(const char* );
-	HTTPSRVINLINE void deliver(Notitia::HERE_ORDO aordo, void* indic=0);
+	 void end();
+	 void reset();
+	 void outjs(const char* );
+	 void deliver(Notitia::HERE_ORDO aordo, void* indic=0);
 
 #include "httpsrv_obj.h"
 #include "wlog.h"
@@ -254,7 +252,7 @@ bool HttpSrvBody::facio( Amor::Pius *pius)
 		chunko.reset();
 		session = true;
 
-		mth =  getHeadInt("method");
+		mth = (int)getHeadInt("method");
 		content_length = getContentSize();
 		if ( mth ==  2 ) //GET
 		{
@@ -355,7 +353,7 @@ BODYOK:
 
 bool HttpSrvBody::sponte( Amor::Pius *pius)
 {
-	long len;
+	TEXTUS_LONG len;
 	assert(pius);
 	struct SetResponseCmd *res_cmd = 0;
 	
@@ -498,13 +496,13 @@ Amor* HttpSrvBody::clone()
 	return (Amor*)child;
 }
 
-HTTPSRVINLINE void HttpSrvBody::end()
+ void HttpSrvBody::end()
 {
 	if (session )
 		reset();
 }
 
-HTTPSRVINLINE void HttpSrvBody::deliver(Notitia::HERE_ORDO aordo, void *indic)
+ void HttpSrvBody::deliver(Notitia::HERE_ORDO aordo, void *indic)
 {
 	Amor::Pius tmp_pius;
 	tmp_pius.ordo = aordo;
@@ -553,7 +551,7 @@ HERE:
 			if ( *ptr == '\r' && *(ptr+1) == '\n' )
 			{
 				chunko.body_len = get_chunk_size(c_base);
-				WBUG("A Chunk size %ld", chunko.body_len);
+				WBUG("A Chunk size " TLONG_FMT, chunko.body_len);
 				chunko.head_len = (ptr - c_base) + 2;	/* 包括CRLF */
 				break;
 			}
@@ -586,7 +584,7 @@ HERE:
 				
 		} else if ( chunko.body_len > 0) {
 				/* 具体数据 */
-			long bz = chunko.body_len + chunko.head_len +2;	/* 整个Chunk长度, 2是因为包括CRLF */
+			TEXTUS_LONG bz = chunko.body_len + chunko.head_len +2;	/* 整个Chunk长度, 2是因为包括CRLF */
 			if ( rcv_buf->point - c_base >= bz ) 
 			{
 				/* 一个Chunk完整了 */
@@ -613,15 +611,15 @@ HERE:
 	return ret;
 }
 
-HTTPSRVINLINE void HttpSrvBody::outjs(const char *in)
+void HttpSrvBody::outjs(const char *in)
 {
 	char *outPtr;
 	const char *inPtr;
 	char *out;
-	int outLen;
+	size_t outLen;
 	int usedLen;
 	int i;
-	int inlen = strlen(in);
+	size_t inlen = strlen(in);
 
 	outLen = 2*inlen;
 	out = new char [outLen+1];
@@ -691,7 +689,7 @@ HTTPSRVINLINE void HttpSrvBody::outjs(const char *in)
 #define WEBSOCKET_GUID_LEN 36 
 
 
-HTTPSRVINLINE bool HttpSrvBody::lookSocket()
+bool HttpSrvBody::lookSocket()
 {
 	const char *upg, *socKey;
 	const char **protocol;
@@ -712,7 +710,7 @@ HTTPSRVINLINE bool HttpSrvBody::lookSocket()
 			unsigned char md[SHA_DIGEST_LENGTH];
 			char md2[40];
 
-			sock.version = getHeadInt("Sec-WebSocket-Version");
+			sock.version = (int)getHeadInt("Sec-WebSocket-Version");
 			if ( sock.version != 13 ) 
 			{
 				setStatus(426);
@@ -805,19 +803,19 @@ S_END:
 #define STATUS_CODE_MESSAGE_TOO_LARGE 1009 
 #define STATUS_CODE_INTERNAL_ERROR    1011 
 
-HTTPSRVINLINE void HttpSrvBody::rcvSocket()
+void HttpSrvBody::rcvSocket()
 {
 	unsigned char*p = rcv_buf->base;
 	unsigned char *q;
-	unsigned long len;
-	long i,j;
+	unsigned TEXTUS_LONG len;
+	TEXTUS_LONG i,j;
 	/* 在176版本有调试代码 */	
 Ana_Begin:
 	len = rcv_buf->point - rcv_buf->base;
 	switch (sock.framing) 
 	{ 
 	case Sock_Framing_Start:
-		WBUG("Sock_Framing_Start buf_len(%ld), should_len(%ld), pos(%d)", len, sock.should_len, sock.pos);
+		WBUG("Sock_Framing_Start buf_len(" TLONG_FMT "), should_len(" TLONG_FMT "), pos(" TLONG_FMT ")", len, sock.should_len, sock.pos);
 		if ( len < sock.should_len) break;
 		sock.frm.fin = (p[sock.pos]) & 0x80; 
 		sock.frm.start_pos = sock.pos;
@@ -860,7 +858,7 @@ Ana_Begin:
 			sock.continued = (sock.frm.fin == 0);	//要不要后续, 这里就记下来, 控制帧就不记
 		}
 
-		sock.frm.payload_length = (long)FRAME_GET_PAYLOAD_LEN(p[sock.pos]); 
+		sock.frm.payload_length = (TEXTUS_LONG)FRAME_GET_PAYLOAD_LEN(p[sock.pos]); 
 		sock.frm.mask_bit = FRAME_GET_MASK(p[sock.pos++]);
 
 		if (sock.frm.payload_length == 126) 
@@ -899,7 +897,7 @@ Ana_Begin:
 		break;
 
 	case Sock_Framing_Head:
-		WBUG("Sock_Framing_Head buf_len(%ld), should_len(%ld)", len, sock.should_len);
+		WBUG("Sock_Framing_Head buf_len(" TLONG_FMT "), should_len(" TLONG_FMT ")", len, sock.should_len);
 		if ( len < sock.should_len) break;
 Pro_FRM_HEAD:
 		for ( i = 0; i < sock.frm.ext_len_head; i++)
@@ -929,7 +927,7 @@ Pro_FRM_HEAD:
 		break;
 
 	case Sock_Framing_Data: 
-		WBUG("Sock_Framing_Data buf_len(%ld), should_len(%ld)", len, sock.should_len);
+		WBUG("Sock_Framing_Data buf_len(" TLONG_FMT "), should_len(" TLONG_FMT ")", len, sock.should_len);
 		if ( len < sock.should_len) break;
 Pro_FRM_DATA:
 		if (sock.frm.opcode >= 0x8) /* 当前收了一个控制帧, 放在本地 */ 
@@ -1001,13 +999,12 @@ Pro_FRM_DATA:
 				/* 这里要做UTF8转换, 以后再做 */
 				WBUG("recv a frame of OPCODE_TEXT");
 				goto DELIVER;
-				break;
 	
 			case OPCODE_BINARY: 
 				WBUG("recv a frame of OPCODE_BINARY");
 				sock.stat_code = Sock_Status_OK; 
 		DELIVER:
-				rcv_buf->commit(-sock.pos);
+				rcv_buf->commit(-(TEXTUS_LONG)sock.pos);
 				sock.neo_frame();
 				deliver(Notitia::PRO_TBUF);	//数据向右传
 				break; 
@@ -1056,18 +1053,18 @@ Pro_FRM_DATA:
 			break;
 		}
 		sock.reset();
-		sndSocket(OPCODE_CLOSE, msg, (unsigned long)(2 + strlen((const char*)&msg[2])));
+		sndSocket(OPCODE_CLOSE, msg, (unsigned TEXTUS_LONG)(2 + strlen((const char*)&msg[2])));
 		WBUG("will terminate websocket");
 		tmp_pius.ordo = Notitia::WebSock_End;
 		tmp_pius.indic = 0;
 		tmp_pius.subor = Amor::CAN_ALL;
 		aptus->facio(&tmp_pius);
 	}
-	if ( sock.framing ==  Sock_Framing_Start && (unsigned long)(rcv_buf->point - rcv_buf->base) > sock.should_len && sock.pos == 0 ) 
+	if ( sock.framing ==  Sock_Framing_Start && (unsigned TEXTUS_LONG)(rcv_buf->point - rcv_buf->base) > sock.should_len && sock.pos == 0 ) 
 		goto Ana_Begin;
 }
 
-HTTPSRVINLINE void HttpSrvBody::sndSocket(unsigned char op_code, unsigned char *msg_data, unsigned long msg_length)
+void HttpSrvBody::sndSocket(unsigned char op_code, unsigned char *msg_data, unsigned TEXTUS_LONG msg_length)
 {
 	unsigned char*p = snd_buf->point;
 	snd_buf->grant(msg_length +16 );
@@ -1100,19 +1097,19 @@ HTTPSRVINLINE void HttpSrvBody::sndSocket(unsigned char op_code, unsigned char *
 		*p++ = (msg_length >> 8)  & 0xFF;
 		*p++ = msg_length & 0xFF;
 	} 
-	snd_buf->commit((unsigned long)(p - snd_buf->point));
-	snd_buf->input(msg_data, (unsigned long)msg_length);
+	snd_buf->commit((unsigned TEXTUS_LONG)(p - snd_buf->point));
+	snd_buf->input(msg_data, (unsigned TEXTUS_LONG)msg_length);
 
 	/* 最后, 提交数据 */
 	local_pius.ordo = Notitia::PRO_TBUF;
 	aptus->sponte(&local_pius);
 }
 
-HTTPSRVINLINE void HttpSrvBody::sndSocket(unsigned char op_code)
+void HttpSrvBody::sndSocket(unsigned char op_code)
 {
 /* 数据都在sock.buf_2nd中 */
 	unsigned char*p = sock.buf_2nd.base;
-	unsigned long len = sock.buf_2nd.point - sock.buf_2nd.base;
+	unsigned TEXTUS_LONG len = sock.buf_2nd.point - sock.buf_2nd.base;
 	
 	sndSocket(op_code, p, len);
 }

@@ -24,20 +24,20 @@ public class TBuffer {
 	public  static final int DEFAULT_TBUFFER_SIZE = 4096;
 	static  { System.loadLibrary("jvmport"); } 
 
-        public  byte[] portPtr;	/*  C++ PacketData 的指针, 以字节数组方式表达 */
+        public  byte[] portPtr;	/* c++ pointer of  TBuffer */
 
-	public native void grant(int space) ;
+	public native void grant(long space) ;
 	public native void input(byte[] val) ;
-	public native int commit(int len) ;
+	public native long commit(long len) ;
 	public native void reset();
 	public  static native void exchange( TBuffer a, TBuffer b);
 	public native byte[] getBytes();
 
 	public  static native void pour( TBuffer a, TBuffer b);
-	public  static native void pour( TBuffer a, TBuffer b, int len);
+	public  static native void pour( TBuffer a, TBuffer b, long len);
 
 	public TBuffer() { }
-	public native void alloc(int size) ;
+	public native void alloc(long size) ;
 	public void alloc() { alloc( DEFAULT_TBUFFER_SIZE); }
 	public native void free() ;
 }

@@ -171,18 +171,22 @@ static time_t tdate_parse( char* str )
     /* Initialize. */
     memset( (char*) &tm, 0, sizeof(struct tm) );
 
-    /* Skip initial whitespace ourselves - sscanf is clumsy at this. */
+    /* Skip initial whitespace ourselves - TEXTUS_SSCANF is clumsy at this. */
     for ( cp = str; *cp == ' ' || *cp == '\t'; ++cp )
 	continue;
 
-    /* And do the sscanfs.  WARNING: you can add more formats here,
+    /* And do the TEXTUS_SSCANFs.  WARNING: you can add more formats here,
     ** but be careful!  You can easily screw up the parsing of existing
     ** formats when you add new ones.  The order is important.
     */
 
     /* DD-mth-YY HH:MM:SS GMT */
-    if ( sscanf( cp, "%d-%400[a-zA-Z]-%d %d:%d:%d GMT",
-		&tm_mday, str_mon, &tm_year, &tm_hour, &tm_min,
+    if ( TEXTUS_SSCANF( cp, "%d-%400[a-zA-Z]-%d %d:%d:%d GMT",
+		&tm_mday, str_mon
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+		,500
+#endif
+		, &tm_year, &tm_hour, &tm_min,
 		&tm_sec ) == 6 &&
 	    scan_mon( str_mon, &tm_mon ) )
 	{
@@ -195,8 +199,12 @@ static time_t tdate_parse( char* str )
 	}
 
     /* DD mth YY HH:MM:SS GMT */
-    else if ( sscanf( cp, "%d %400[a-zA-Z] %d %d:%d:%d GMT",
-		&tm_mday, str_mon, &tm_year, &tm_hour, &tm_min,
+    else if ( TEXTUS_SSCANF( cp, "%d %400[a-zA-Z] %d %d:%d:%d GMT",
+		&tm_mday, str_mon
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+		,500
+#endif
+		, &tm_year, &tm_hour, &tm_min,
 		&tm_sec) == 6 &&
 	    scan_mon( str_mon, &tm_mon ) )
 	{
@@ -209,8 +217,11 @@ static time_t tdate_parse( char* str )
 	}
 
     /* HH:MM:SS GMT DD-mth-YY */
-    else if ( sscanf( cp, "%d:%d:%d GMT %d-%400[a-zA-Z]-%d",
+    else if ( TEXTUS_SSCANF( cp, "%d:%d:%d GMT %d-%400[a-zA-Z]-%d",
 		&tm_hour, &tm_min, &tm_sec, &tm_mday, str_mon,
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+		500,
+#endif
 		&tm_year ) == 6 &&
 	    scan_mon( str_mon, &tm_mon ) )
 	{
@@ -223,8 +234,11 @@ static time_t tdate_parse( char* str )
 	}
 
     /* HH:MM:SS GMT DD mth YY */
-    else if ( sscanf( cp, "%d:%d:%d GMT %d %400[a-zA-Z] %d",
+    else if ( TEXTUS_SSCANF( cp, "%d:%d:%d GMT %d %400[a-zA-Z] %d",
 		&tm_hour, &tm_min, &tm_sec, &tm_mday, str_mon,
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+		500,
+#endif
 		&tm_year ) == 6 &&
 	    scan_mon( str_mon, &tm_mon ) )
 	{
@@ -237,8 +251,16 @@ static time_t tdate_parse( char* str )
 	}
 
     /* wdy, DD-mth-YY HH:MM:SS GMT */
-    else if ( sscanf( cp, "%400[a-zA-Z], %d-%400[a-zA-Z]-%d %d:%d:%d GMT",
-		str_wday, &tm_mday, str_mon, &tm_year, &tm_hour, &tm_min,
+    else if ( TEXTUS_SSCANF( cp, "%400[a-zA-Z], %d-%400[a-zA-Z]-%d %d:%d:%d GMT",
+		str_wday, 
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+		500,
+#endif
+		&tm_mday, str_mon, 
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+		500,
+#endif
+		&tm_year, &tm_hour, &tm_min,
 		&tm_sec ) == 7 &&
 	    scan_wday( str_wday, &tm_wday ) &&
 	    scan_mon( str_mon, &tm_mon ) )
@@ -253,8 +275,16 @@ static time_t tdate_parse( char* str )
 	}
 
     /* wdy, DD mth YY HH:MM:SS GMT */
-    else if ( sscanf( cp, "%400[a-zA-Z], %d %400[a-zA-Z] %d %d:%d:%d GMT",
-		str_wday, &tm_mday, str_mon, &tm_year, &tm_hour, &tm_min,
+    else if ( TEXTUS_SSCANF( cp, "%400[a-zA-Z], %d %400[a-zA-Z] %d %d:%d:%d GMT",
+		str_wday, 
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+		500,
+#endif
+		&tm_mday, str_mon, 
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+		500,
+#endif
+		&tm_year, &tm_hour, &tm_min,
 		&tm_sec ) == 7 &&
 	    scan_wday( str_wday, &tm_wday ) &&
 	    scan_mon( str_mon, &tm_mon ) )
@@ -269,8 +299,16 @@ static time_t tdate_parse( char* str )
 	}
 
     /* wdy mth DD HH:MM:SS GMT YY */
-    else if ( sscanf( cp, "%400[a-zA-Z] %400[a-zA-Z] %d %d:%d:%d GMT %d",
-		str_wday, str_mon, &tm_mday, &tm_hour, &tm_min, &tm_sec,
+    else if ( TEXTUS_SSCANF( cp, "%400[a-zA-Z] %400[a-zA-Z] %d %d:%d:%d GMT %d",
+		str_wday, 
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+		500,
+#endif
+		str_mon, 
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+		500,
+#endif
+		&tm_mday, &tm_hour, &tm_min, &tm_sec,
 		&tm_year ) == 7 &&
 	    scan_wday( str_wday, &tm_wday ) &&
 	    scan_mon( str_mon, &tm_mon ) )

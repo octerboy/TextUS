@@ -60,8 +60,6 @@ Ponder::Ponder()
 
 void Ponder::ignite_t (TiXmlElement *cfg, TiXmlElement *cf_ele)
 {
-	const char *comm_str;
-
 	WBUG("this %p, prius %p, aptus %p, cfg %p", this, prius, aptus, cfg);
 	if ( !cf_ele) return;
 

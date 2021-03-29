@@ -302,7 +302,7 @@ unsigned int BTool::unescape( const char *s, unsigned char *t)
 	}
 
 	*p = '\0';
-	return ( p-t);
+	return (int)( p-t);
 }
 
 /* base64 program  
@@ -350,7 +350,7 @@ int BTool::base64_encode(char *encoded, const unsigned char *string, int len)
       }
   
       *p++ = '\0';
-      return p - encoded;
+      return (int) (p - encoded);
 }
 
 /* Base-64 decoding.  This represents binary data as printable ASCII

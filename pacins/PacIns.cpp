@@ -50,7 +50,7 @@ enum ACT_DIR { FACIO=0, SPONTE=1 };
 void get_req_pac( PacketObj *req_pac, struct DyVarBase **psnap, struct InsData *insd)
 {
 	int i,j;
-	unsigned long t_len;
+	unsigned TEXTUS_LONG t_len;
 	t_len = 0;
 
 	//printf("insd->snd_num %d\n", insd->snd_num);
@@ -535,7 +535,6 @@ bool PacIns::sponte( Amor::Pius *pius) {
 
 	default:
 		return false;
-		break;
 	}
 	return true;
 }
@@ -559,7 +558,7 @@ void PacIns::set_peer(PacketObj *pac, int sub)
 	Amor::Pius peer_ps;
 	char ip[64], port[32];
 	unsigned char *p;
-	unsigned long rlen=0;
+	unsigned TEXTUS_LONG rlen=0;
 
 	/* 外部配置文件中, 必须将ip设置1域, port设置为2域 */
 	p = pac->getfld(1, &rlen);
@@ -592,13 +591,13 @@ void PacIns::get_peer(PacketObj *pac, int sub)
 	peer = (TiXmlElement *) g_peer.indic;
 	if ( peer ) {
 		p = peer->Attribute("cliip");
-		pac->input(1, p, strlen(p));
+		pac->input(1, (unsigned char*)p, strlen(p));
 		p = peer->Attribute("cliport");
-		pac->input(2, p, strlen(p));
+		pac->input(2, (unsigned char*)p, strlen(p));
 		p = peer->Attribute("srvip");
-		pac->input(3, p, strlen(p));
+		pac->input(3, (unsigned char*)p, strlen(p));
 		p = peer->Attribute("srvport");
-		pac->input(4, p, strlen(p));
+		pac->input(4, (unsigned char*)p, strlen(p));
 	} else {
 		WBUG("get_peer return null");
 	}
@@ -907,7 +906,7 @@ const char* PacIns::pro_rply_pac(PacketObj *rply_pac, struct DyVarBase **psnap, 
 	for (ii = 0; ii < insd->rcv_num; ii++)
 	{
 		rply = &insd->rcv_lst[ii];
-		fc = n_pac->getfld(rply->fld_no, (unsigned long *)&rlen);
+		fc = n_pac->getfld(rply->fld_no, (unsigned TEXTUS_LONG *)&rlen);
 		if (rply->must_con ) 
 		{
 			if ( !fc ) 

@@ -31,7 +31,6 @@
 #include <oledberr.h>
 #include <msdasc.h>        // OLE DB Service Component header
 
-#define INLINE inline
 #define BUFF_SIZE 1024
 #define BUFF_SIZE_2 2048
 
@@ -54,11 +53,11 @@ public:
 	Amor::Pius dopac_pius, end_ps;	//仅用于向左边传回数据
 	bool inThread;
 	
-	INLINE ULONG handle();	/* 0:需要向左dopac_pius; > 0, 不管, 对于有行集返回时用 */
-	INLINE void start_session();
-	INLINE void end_session();
-	INLINE DBTYPE getdty(DBFace::DataType type);
-	INLINE	DBFace::Para *findDefOut(int &from );
+	unsigned TEXTUS_LONG handle();	/* 0:需要向左dopac_pius; > 0, 不管, 对于有行集返回时用 */
+	void start_session();
+	void end_session();
+	DBTYPE getdty(DBFace::DataType type);
+	DBFace::Para *findDefOut(int &from );
 
 	WCHAR connect_wstr[BUFF_SIZE_2];
 	const char *conn_str;
@@ -113,9 +112,9 @@ public:
 	HROW		*rghRows; // Row handles
 	ULONG 		ghrow_sz;	/* how many Row handles */
 
-	INLINE bool getQueryInfo(int para_offset);
-	INLINE ULONG fetch(int para_offset); 	/* 0, 发生错误, > 0, 有行返回 */
-	INLINE void showStatus(ULONG row, ULONG col, DBSTATUS st);
+	bool getQueryInfo(int para_offset);
+	DBCOUNTITEM fetch(int para_offset); 	/* 0, 发生错误, > 0, 有行返回 */
+	void showStatus(DBCOUNTITEM row, DBCOUNTITEM col, DBSTATUS st);
 
 //Error Handle
 	bool hasError(const char* msg, HRESULT hr);
@@ -150,7 +149,7 @@ bool Consumer::facio( Amor::Pius *pius)
 {
 	PacketObj **tmp;
 	HRESULT rc=S_OK;
-	ULONG retnum;
+	TEXTUS_LONG retnum;
 
 	switch ( pius->ordo )
 	{
@@ -172,7 +171,7 @@ bool Consumer::facio( Amor::Pius *pius)
 		}
 
 		retnum = handle();
-		WBUG("handle end %d", retnum);
+		WBUG("handle end " TLONG_FMT, retnum);
 		if ( retnum == 0 ) 
 			aptus->sponte(&dopac_pius);
 
@@ -273,7 +272,7 @@ bool Consumer::facio( Amor::Pius *pius)
 		break;
 
 	default:
-		WBUG("facio Notitia::%d", pius->ordo);
+		WBUG("facio Notitia::" TLONG_FMT, pius->ordo);
 		return false;
 	}
 
@@ -354,12 +353,13 @@ Amor* Consumer::clone()
 	return (Amor*)child;
 }
 
-INLINE ULONG Consumer::handle()
+unsigned TEXTUS_LONG Consumer::handle()
 {
 	HRESULT rc=S_OK;
 	DBCOUNTITEM  cBindings, cBindOut;
 
-	ULONG i, j, ulOffset = 0, retnum=0;
+	ULONG i, j, ulOffset = 0;
+	unsigned TEXTUS_LONG retnum=0;
 
 	int len ;
 	IDBCreateCommand	*pIDBSession;
@@ -430,11 +430,12 @@ INLINE ULONG Consumer::handle()
 		for ( i = 0; i < dbface->num && i < PARA_MAX; i++ )
 		{	
 			unsigned char *buf;
-			ULONG 	gap, blen, space;
+			ULONG 	blen, space;
 			DBTYPE	dty;
+			size_t 	gap;
 
 			DBFace::Para &para = dbface->paras[i];
-			long rNo = para.fld + dbface->offset;
+			int rNo = para.fld + dbface->offset;
 			DBSTATUS dbStatus;
 	
 			assert(para.pos == (unsigned int)i );
@@ -469,10 +470,10 @@ INLINE ULONG Consumer::handle()
 				if ( para.inout == DBFace::PARA_IN )
 				{
 					bnds[cBindings].eParamIO	= DBPARAMIO_INPUT;
-					space = rcv_pac->fld[rNo].range ;
+					space = (ULONG) rcv_pac->fld[rNo].range ;
 				} else {
 					bnds[cBindings].eParamIO	= DBPARAMIO_INPUT | DBPARAMIO_OUTPUT;
-					space = para.outlen == 0 ? rcv_pac->fld[rNo].range : para.outlen ;
+					space =(ULONG) (para.outlen == 0 ? rcv_pac->fld[rNo].range : para.outlen) ;
 				}
 
 				if ( rcv_pac->fld[rNo].no < 0 )
@@ -480,7 +481,7 @@ INLINE ULONG Consumer::handle()
 					dbStatus = DBSTATUS_S_ISNULL;
 				} else {
 					dbStatus = DBSTATUS_S_OK;
-					blen = rcv_pac->fld[rNo].range;
+					blen = (ULONG) rcv_pac->fld[rNo].range;
 					buf = rcv_pac->fld[rNo].val;
 				}
 
@@ -541,7 +542,7 @@ INLINE ULONG Consumer::handle()
 			&cRowsAffected, (IUnknown**)&pIRowset)))
 			break;
 
-		WBUG("cRowsAffected %d, pIRowset 0x%lx", cRowsAffected, pIRowset);
+		WBUG("cRowsAffected " TLONG_FMT ", pIRowset %p", cRowsAffected, pIRowset);
 
 		if ( snd_pac && dbface->cRows_field >= 0
 			&& snd_pac->max >= dbface->cRows_field) 
@@ -579,7 +580,7 @@ INLINE ULONG Consumer::handle()
 
 	    CASE_DBPROC:
 		memcpy(&tmp_str[len], dbface->sentence, strlen(dbface->sentence));
-		len += strlen(dbface->sentence);
+		len += (int)strlen(dbface->sentence);
 		memcpy(&tmp_str[len], "(", 1);
 		len++;
 		for ( i = j; (i+1) < dbface->num && (i+1) < PARA_MAX; i++ )
@@ -631,11 +632,12 @@ INLINE ULONG Consumer::handle()
 		for ( i = 0; i < dbface->num && i < PARA_MAX; i++ )
 		{	
 			unsigned char *buf;
-			ULONG 	gap, blen, space;
+			ULONG 	blen, space;
+			size_t 	gap;
 			DBTYPE	dty;
 
 			DBFace::Para &para = dbface->paras[i];
-			long rNo = para.fld + dbface->offset;
+			int rNo = para.fld + dbface->offset;
 			DBSTATUS dbStatus;
 	
 			assert(para.pos == (unsigned int)i );
@@ -671,10 +673,10 @@ INLINE ULONG Consumer::handle()
 				if ( para.inout == DBFace::PARA_IN )
 				{
 					bnds[cBindings].eParamIO	= DBPARAMIO_INPUT;
-					space = rcv_pac->fld[rNo].range ;
+					space = (ULONG)rcv_pac->fld[rNo].range ;
 				} else {
 					bnds[cBindings].eParamIO	= DBPARAMIO_INPUT | DBPARAMIO_OUTPUT;
-					space = para.outlen == 0 ? rcv_pac->fld[rNo].range : para.outlen ;
+					space = (ULONG) (para.outlen == 0 ? rcv_pac->fld[rNo].range : para.outlen) ;
 				}
 
 				if ( rcv_pac->fld[rNo].no < 0 )
@@ -682,7 +684,7 @@ INLINE ULONG Consumer::handle()
 					dbStatus = DBSTATUS_S_ISNULL;
 				} else {
 					dbStatus = DBSTATUS_S_OK;
-					blen = rcv_pac->fld[rNo].range;
+					blen = (ULONG) rcv_pac->fld[rNo].range;
 					buf = rcv_pac->fld[rNo].val;
 				}
 
@@ -754,7 +756,7 @@ INLINE ULONG Consumer::handle()
   			cBindings > 0 ? &dbParams:NULL, &cRowsAffected, (IUnknown**)&pIRowset)))
 			break;
 
-		WBUG("cRowsAffected %d, pIRowset 0x%lx", cRowsAffected, pIRowset);
+		WBUG("cRowsAffected " TLONG_FMT ", pIRowset %p", cRowsAffected, pIRowset);
 
 		if ( snd_pac && dbface->cRows_field >= 0
 			&& snd_pac->max >= dbface->cRows_field) 
@@ -770,7 +772,7 @@ INLINE ULONG Consumer::handle()
 			DBSTATUS dbStatus;
 
 			DBFace::Para &para = dbface->paras[i];
-			long rNo = para.fld + dbface->offset;
+			int rNo = para.fld + dbface->offset;
 	
 			assert(para.pos == (unsigned int)i );
 
@@ -868,7 +870,7 @@ void Consumer::start_session()
 	WBUG("connected to a server successfully!");
 }
 
-INLINE DBTYPE Consumer::getdty(DBFace::DataType type)
+DBTYPE Consumer::getdty(DBFace::DataType type)
 {
 	DBTYPE dty;
 	switch ( type )
@@ -913,8 +915,8 @@ bool Consumer::getQueryInfo(int para_offset)
 	DBCOLUMNINFO* pColumnsInfo = NULL;
 	OLECHAR* pColumnStrings = NULL;
 
-	ULONG nCols;
-	ULONG j;
+	DBORDINAL nCols;
+	unsigned TEXTUS_LONG j;
 	int k;
 	ULONG ulOffset = 0;
 
@@ -939,7 +941,7 @@ bool Consumer::getQueryInfo(int para_offset)
 	//创建绑定
 	rowData.reset();	/* 行结果集输出区清空 */
 	k = para_offset; defNum = 0;
-	WBUG("nCols %d, para_offset %d, PARA_MAX %d", nCols, para_offset, PARA_MAX);
+	WBUG("nCols " TLONG_FMT ", para_offset %d, PARA_MAX %d", nCols, para_offset, PARA_MAX);
 	for (j = 0 ; j < nCols && defNum + para_offset < PARA_MAX; j++)
 	{
 		DBFace::Para *para;
@@ -1023,11 +1025,11 @@ CLEAN:
 }
 
 /* 返回实际取得的行数 */
-ULONG Consumer::fetch(int para_offset)
+DBCOUNTITEM Consumer::fetch(int para_offset)
 {
 	int k;
-	ULONG cRowsObtained = 0; // Count of rows
-	ULONG iRow, j; // Row count
+	DBCOUNTITEM cRowsObtained = 0, iRow; // Count of rows,  Row count
+	ULONG j;
 	HRESULT hr;
 	ULONG chunk_rows;
 
@@ -1039,7 +1041,7 @@ ULONG Consumer::fetch(int para_offset)
 
 	hr = pIRowset->GetNextRows( 0, 0, chunk_rows, &cRowsObtained, &rghRows ) ;
 
-	WBUG("get %d row(s)", cRowsObtained);
+	WBUG("get " TLONG_FMT " row(s)", cRowsObtained);
 	// All done; there are no more rows left to get.
 	if ( snd_pac && dbface->cRowsObt_fld >= 0
 		&& snd_pac->max >= dbface->cRowsObt_fld) 
@@ -1064,7 +1066,7 @@ ULONG Consumer::fetch(int para_offset)
 		for (j = 0; j < defNum; j++)
 		{
 			DBFace::Para *para;
-			long rNo ;
+			int rNo ;
 
 			unsigned char *buf;
 			ULONG 	blen;
@@ -1104,23 +1106,23 @@ DBFace::Para *Consumer::findDefOut(int &from )
 	int k = from;
 	DBFace::Para *pa = 0;
 
-	for (; k < PARA_MAX && k < (long) dbface->num ;k++ )
+	for (; k < PARA_MAX && k < (TEXTUS_LONG) dbface->num ;k++ )
 	{
 		pa = & (dbface->paras[k]);
 		if (  pa->inout == DBFace::PARA_OUT )
 			break;
 	}
 
-	if ( k == PARA_MAX || k == (long) dbface->num ) 	/* 没有找到相应的定义 */
+	if ( k == PARA_MAX || k == (TEXTUS_LONG) dbface->num ) 	/* 没有找到相应的定义 */
 		pa = 0;
 
 	from = k+1;	/* 下一个 */
 	return pa;
 }
 
-void Consumer::showStatus( ULONG row, ULONG col, DBSTATUS st)
+void Consumer::showStatus( DBCOUNTITEM row, DBCOUNTITEM col, DBSTATUS st)
 {
-#define PRINT(X) if ( st == X ) { WLOG(ERR, "GetData row %d, column %d, status is  %s\n", row, col, #X); return; }
+#define PRINT(X) if ( st == X ) { WLOG(ERR, "GetData row " TLONG_FMT ", column " TLONG_FMT ", status is  %s\n", row, col, #X); return; }
 	PRINT( DBSTATUS_S_OK );
 	PRINT( DBSTATUS_E_BADACCESSOR );
 	PRINT( DBSTATUS_E_CANTCONVERTVALUE );

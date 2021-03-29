@@ -149,7 +149,7 @@ int load_xml(const char *f_name, TiXmlDocument &doc,  TiXmlElement *&root, const
 		FILE *inFile;
 		//MD5_CTX mdContext;
 		SHA256_CTX mdContext;
-		int bytes;
+		size_t bytes;
 		unsigned char data[1024];
 		char md_str[64];
 		unsigned char md[16];

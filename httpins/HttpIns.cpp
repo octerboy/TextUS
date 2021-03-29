@@ -171,8 +171,8 @@ private:
 	Amor::Pius spo_sethead;
 	Amor::Pius pro_hd_ps, other_ps,ans_ins_ps;
 
-	long ans_body_length,req_body_length;
-	long chunk_offset;	/* 当前分析位置, 即rcv_buf中相对于base的偏移量 */
+	TEXTUS_LONG ans_body_length,req_body_length;
+	TEXTUS_LONG chunk_offset;	/* 当前分析位置, 即rcv_buf中相对于base的偏移量 */
 	DeHead response, request, *browser_req, browser_ans;
 	char response_status[64], browser_status[64];
 	bool left_head_ok, left_body_ok, right_body_ok, right_head_ok, req_head_sent, req_sent, ans_head_sent, ans_sent;
@@ -217,8 +217,8 @@ private:
 	typedef struct _Chunko {
 					/* 很多情况下, 一个chunk一次读完, 所以都处于初始值 */
 		bool started ;		/* false: 还没有读完chunk头, true: chunk数据正在读 */
-		long body_len;	/* 正在读chunk的长度, len_to_read 不包括CRLF这两个字 */
-		long head_len;		/* head的长度， 包括CRLF */
+		TEXTUS_LONG body_len;	/* 正在读chunk的长度, len_to_read 不包括CRLF这两个字 */
+		TEXTUS_LONG head_len;		/* head的长度， 包括CRLF */
 		inline _Chunko ()
 		{
 			reset();
@@ -303,7 +303,6 @@ bool HttpIns::facio( Amor::Pius *pius)
 		WBUG("facio PRO_HTTP_HEAD");
 		left_head_ok = true;
 		goto CLI_PRO;
-		break;
 
 	case Notitia::PRO_TBUF:	/* HTTP body data */
 		WBUG("facio PRO_TBUF (head_ok = %d)", left_head_ok);
@@ -410,7 +409,7 @@ CLI_PRO:
 
 bool HttpIns::sponte( Amor::Pius *pius)
 {
-	long len;
+	TEXTUS_LONG len;
 	assert(pius);
 
 	switch ( pius->ordo )
@@ -439,7 +438,7 @@ J_AGAIN:
 			pro_ins();
 		} else if ( (len = cli_rcv.point - cli_rcv.base) > 0 )
 		{	/* feed data into the object of response */
-			long fed_len;
+			TEXTUS_LONG fed_len;
 			fed_len = response.feed((char*)cli_rcv.base, len);
 			cli_rcv.commit(-fed_len); /* clear the head data  */
 			goto J_AGAIN;
@@ -704,7 +703,7 @@ LAST_CON:
 void HttpIns::get_snd_buf(struct DyVarBase **psnap, struct InsData *insd, DeHead *headp)
 {
 	int i,j;
-	unsigned long t_len;
+	unsigned TEXTUS_LONG t_len;
 	struct HInsData *hti;
 	struct HFld *h_fld;
 #if defined(_WIN32) && (_MSC_VER < 1400 )
@@ -954,7 +953,7 @@ const char* HttpIns::pro_rply(struct DyVarBase **psnap, struct InsData *insd, De
 	int ii;
 	char *fc;
 	size_t rlen, mlen;
-	long llen;
+	TEXTUS_LONG llen;
 	struct CmdRcv *rply=0;
 	char con[512];
     	char timebuf[100];
@@ -1269,7 +1268,7 @@ HERE:
 			if ( *ptr == '\r' && *(ptr+1) == '\n' )
 			{
 				chunko.body_len = get_chunk_size(c_base);
-				WBUG("A Chunk size %ld", chunko.body_len);
+				WBUG("A Chunk size " TLONG_FMT, chunko.body_len);
 				chunko.head_len = (ptr - c_base) + 2;	/* 包括CRLF */
 				break;
 			}
@@ -1302,11 +1301,11 @@ HERE:
 				
 		} else if ( chunko.body_len > 0) {
 				/* 具体数据 */
-			long bz = chunko.body_len + chunko.head_len +2;	/* 整个Chunk长度, 2是因为包括CRLF */
+			TEXTUS_LONG bz = chunko.body_len + chunko.head_len +2;	/* 整个Chunk长度, 2是因为包括CRLF */
 			if ( bo_buf->point - c_base >= bz ) 
 			{
 				/* 一个Chunk完整了 */
-				WBUG("A Chunk cut out %d bytes", bz);
+				WBUG("A Chunk cut out " TLONG_FMT " bytes", bz);
 				/* 只留下data */
 				ptr = &(c_base[chunko.head_len]); /* 指向数据区 */
 				memmove(c_base, ptr, bo_buf->point - ptr);	/* body数据前移, head数据被盖 */

@@ -441,7 +441,7 @@ void Animus::ignite(TiXmlElement *cfg)
 	for ( i = 0; i < num_extension; i++ )
 	{	/* i is index of Aptus extension??j is index of the instances available really */
 		char apTagExtern[2048];
-		int tmpLen;
+		TEXTUS_LONG tmpLen;
 
 		tmpLen = strlen(positor[i].tag);
 		if ( tmpLen > 2000 ) tmpLen = 2000;
@@ -747,7 +747,6 @@ inline bool Animus::sponte( Amor::Pius *pius)
 		break;
 	default:
 		return sponte_n(pius, 0);
-		break;
 	}
 LAST:
 	return true;
@@ -1005,7 +1004,7 @@ extern "C" TEXTUS_AMOR_STORAGE int textus_animus_start(int argc, char *argv[])
 char* r_share(const char *so_file)
 {
 	static char r_file[1024];
-	int l = 0, n = 0;
+	TEXTUS_LONG l = 0, n = 0;
 	memset(r_file, 0, sizeof(r_file));
 	if ( ld_lib_path[0] && so_file[0] != '\\' && so_file[0] != '/' 
 		&& !( strlen(so_file) > 2 && so_file[1] == ':' && 
@@ -1094,9 +1093,9 @@ void error_pro (const char *so_file)
 }
 #endif
 
-unsigned long Notitia::get_ordo(const char *comm_str)
+unsigned TEXTUS_LONG Notitia::get_ordo(const char *comm_str)
 {
-	unsigned long ret_ordo;
+	unsigned TEXTUS_LONG ret_ordo;
 	if ( !comm_str  )
 		return TEXTUS_RESERVED;
 	

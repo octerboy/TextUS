@@ -29,8 +29,8 @@
 #include <string.h>
 #include <assert.h>
 #include <stdarg.h>
-#include <python2.7/Python.h>
-#include <python2.7/structmember.h>
+#include <Python.h>
+#include <structmember.h>
 
 class PyPort :public Amor
 {
@@ -612,7 +612,7 @@ static PyObject *py_pac_get(PyObject *self, PyObject *args)
 			return NULL;
 		}
 	} else return NULL;
-	return PyString_FromStringAndSize((const char*)p, (Py_ssize_t)0);
+	//return PyString_FromStringAndSize((const char*)p, (Py_ssize_t)0);
 }
 
 static PyObject *py_pac_getbytes(PyObject *self, PyObject *args)
@@ -621,7 +621,6 @@ static PyObject *py_pac_getbytes(PyObject *self, PyObject *args)
 	unsigned char*p = 0;
 	if (PyArg_ParseTuple(args, "i", &fld))
 	{
-		unsigned char*p = 0; 
 		p  = ((PyPacketObj*)self)->pac->getfld(fld, &len);
 		if ( p )
 			return PyByteArray_FromStringAndSize((const char*)p, (Py_ssize_t)len);
@@ -630,7 +629,7 @@ static PyObject *py_pac_getbytes(PyObject *self, PyObject *args)
 			return NULL;
 		}
 	} else return NULL;
-	return PyString_FromStringAndSize((const char*)p, (Py_ssize_t)0);
+	//return PyString_FromStringAndSize((const char*)p, (Py_ssize_t)0);
 }
 
 static PyMethodDef pypac_methods[] = {
@@ -1081,7 +1080,7 @@ bool PyPort::facio( Amor::Pius *pius)
 
 bool PyPort::sponte( Amor::Pius *pius) { 
 	assert(pius);
-	WBUG("sponte Notitia::%lu", pius->ordo);
+	WBUG("sponte Notitia::" TLONG_FMT, pius->ordo);
 	return false; 
 }
 
@@ -1559,7 +1558,7 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 			WLOG(WARNING, "PyList_New return NULL when %s MAIN_PARA", meth_str);
 			goto PFAIL1;
 		}
-		num_obj = PyInt_FromLong((long)num);
+		num_obj = PyInt_FromLong((TEXTUS_LONG)num);
 		if ( PyList_Append(obj_list, num_obj) == -1 ) 
 		{
 			goto QFAIL1;
@@ -1584,7 +1583,7 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 		/* 这些要转一个PyInt_Type, 这个不需要了 */
 		/*
 	case Notitia::TIMER:
-		ps_obj->indic = PyInt_FromLong((long)*((int*) (pius->indic)));
+		ps_obj->indic = PyInt_FromLong((TEXTUS_LONG)*((int*) (pius->indic)));
 		ret_obj = PyObject_CallMethod(pInstance, py_method, (char*)"O", ps_obj);
 		Py_DECREF(ps_obj->indic);
 		break;
