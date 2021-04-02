@@ -103,7 +103,7 @@ public class DBFace {
   	public Para[] paras;	/* 参数定义数组 */
 
  	public int outNum;	/* 输出(PARA_OUT)参数个数 */
-	public int outSize;	/* 输出(PARA_OUT)参数所需空间 */
+	public long outSize;	/* 输出(PARA_OUT)参数所需空间 */
 
 	public int in;
 	public int out;		/* 输入/输出所指的packet */

@@ -281,7 +281,7 @@ short HttpUpFile::parse_multipart_form(const char* type,char *buf, TEXTUS_LONG l
 	boundary = &boundary[7];
 	boundary[0] = '-';
 	boundary[1] = '-';
-	bdlen = (int)strlen(boundary);
+	bdlen = static_cast<int>(strlen(boundary));
 
 	WBUG("multipar/form-data boundary is %s",boundary);
 
@@ -370,7 +370,7 @@ short HttpUpFile::parse_multipart_form(const char* type,char *buf, TEXTUS_LONG l
 							for(;*scan != spara->name[0];scan++);
 							*scan++ = '\0';
 							spara->name++;
-							spara->nameLen = (int)strlen(spara->name);
+							spara->nameLen = static_cast<int>(strlen(spara->name));
 						}
 						if ( strncasecmp(scan,"filename=",9)== 0 )
 						{
@@ -379,7 +379,7 @@ short HttpUpFile::parse_multipart_form(const char* type,char *buf, TEXTUS_LONG l
 							for(;*scan != tpara->name[0];scan++);
 							*scan++ = '\0';
 							tpara->name++;
-							tpara->nameLen = (int)strlen(tpara->name);
+							tpara->nameLen = static_cast<int>(strlen(tpara->name));
 						}
 						scan++;
 					}	

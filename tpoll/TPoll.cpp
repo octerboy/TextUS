@@ -123,7 +123,7 @@ public:
 		return syscall(__NR_io_destroy, ctx);
 	}
 
-	inline int io_getevents(aio_context_t ctx, long min_nr, long max_nr,
+	inline int io_getevents(aio_context_t ctx, TEXTUS_LONG min_nr, TEXTUS_LONG max_nr,
 		struct io_event *events, struct timespec *timeout)
 	{
 		return syscall(__NR_io_getevents, ctx, min_nr, max_nr, events, timeout);
@@ -633,7 +633,7 @@ END_TIMER_PRO:
 			interval2 = *((int *)(*p));
 		else
 			interval2 = 0;
-		WBUG("%p sponte DMD_SET_ALARM, interval: %d", ask_pu, interval);
+		WBUG("%p sponte DMD_SET_ALARM, interval: %d, interval2: %d", ask_pu, interval, interval2);
 		aor = get_timor();
 		if ( !aor ) break;
 #if defined(__linux__)
@@ -718,7 +718,8 @@ END_TIMER_PRO:
 
 END_ALARM_PRO:
 		tm_hd_ps.indic = 0;
-		//printf(" error set_alarm aor->pupa %p hand\n", aor->pupa);
+		printf(" error set_alarm aor->pupa %p hand\n", aor->pupa);
+		WLOG(ERR,"error set_alarm aor->pupa %p hand", aor->pupa);
 		aor->pupa->facio(&tm_hd_ps);
 		put_timor(aor); //发生错误而回收
 		break;
@@ -834,7 +835,6 @@ bool TPoll::facio( Amor::Pius *pius)
 	case Notitia::WINMAIN_PARA:	/* 在整个系统中, 这应是最后被通知到的。 */
 		WBUG("facio Notitia::WINMAIN_PARA");
 		goto MainPro;
-		break;
 
 	case Notitia::MAIN_PARA:	/* 在整个系统中, 这应是最后被通知到的。 */
 		WBUG("facio Notitia::MAIN_PARA");
@@ -1123,7 +1123,7 @@ LOOP:
 				break;
 			}
 			while (obtain > 0) {
-				nget = io_getevents(aio_ctx, 1, obtain > NUM_EVENTS ? NUM_EVENTS: (long) obtain, io_evs, NULL);
+				nget = io_getevents(aio_ctx, 1, obtain > NUM_EVENTS ? NUM_EVENTS: (TEXTUS_LONG) obtain, io_evs, NULL);
 				if (nget > 0) {
 					for (geti = 0; geti < nget; geti++) {
 						switch ( io_evs[geti].res2 ) {
@@ -1134,15 +1134,15 @@ LOOP:
 							break;
 						case EINPROGRESS:
 						case EINVAL:
-							TEXTUS_SNPRINTF(errMsg, errstr_len, "errno %d, %s.", (int)io_evs[geti].res2, strerror(io_evs[geti].res2));
+							TEXTUS_SNPRINTF(errMsg, errstr_len, "errno %ld, %s.", io_evs[geti].res2, strerror(io_evs[geti].res2));
 							WLOG(WARNING, errMsg);
 							break;
 						default:
 							poll_ps.ordo = Notitia::ERR_EPOLL;
 							if ( (void*)(io_evs[geti].obj) == (void*)&(AIOR->aiocb_W))
-								TEXTUS_SNPRINTF(errMsg, errstr_len, "write errno %d, %s.", (int)io_evs[geti].res2, strerror(io_evs[geti].res2));
+								TEXTUS_SNPRINTF(errMsg, errstr_len, "write errno %ld, %s.", io_evs[geti].res2, strerror(io_evs[geti].res2));
 							else
-								TEXTUS_SNPRINTF(errMsg, errstr_len, "read errno %d, %s.", (int)io_evs[geti].res2, strerror(io_evs[geti].res2));
+								TEXTUS_SNPRINTF(errMsg, errstr_len, "read errno %ld, %s.", io_evs[geti].res2, strerror(io_evs[geti].res2));
 							poll_ps.indic = errMsg;
 							PPO->pupa->facio(&poll_ps);
 							poll_ps.indic = 0;

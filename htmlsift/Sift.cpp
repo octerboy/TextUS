@@ -136,7 +136,7 @@ HTTPSRVINLINE void Sift::handle()
 		|| strncasecmp( mime, "text/html;", 10)== 0 ) )
 	{
 		int alen;
-		slen = (int)strlen(host);
+		slen = static_cast<int>(strlen(host));
 		if ( slen > 110 )
 			slen = 110;
 		memcpy(src, "http://", 7);
@@ -147,7 +147,7 @@ HTTPSRVINLINE void Sift::handle()
 
 		memset(dst, ' ', slen+7);
 		memcpy(dst, "https://", 8);
-		alen = (int)strlen("192.168.3.2");
+		alen = static_cast<int>(strlen("192.168.3.2"));
 		memcpy(&dst[8], "192.168.3.2", alen);
 		dst[alen+8] = '\0';
 		alen += 8;

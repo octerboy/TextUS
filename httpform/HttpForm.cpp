@@ -121,7 +121,7 @@ bool HttpForm::facio( Amor::Pius *pius)
 		WBUG("facio PRO_HTTP_REQUEST");
 		reset();
 
-		method  = (int)getHeadInt("Method");	
+		method = static_cast<int>(getHeadInt("Method"));
 		query = (char*) 0;
 		q_len = 0;
 		if (  method == 2  || method == 3) /* GET or HEAD method */
@@ -342,7 +342,7 @@ TEXTUS_LONG HttpForm::_parse_para(const char *buf, TEXTUS_LONG len)
 		{
 			tmpbuf[itemLen] = '\0';
 			convert(tmpbuf,tmpbuf);
-			itemLen = (int)strlen(tmpbuf);
+			itemLen = static_cast<int>(strlen(tmpbuf));
 			spara[i].name = dPtr + cDataLen;
 			spara[i].name[itemLen] = '\0';
 			spara[i].nameLen = itemLen;
@@ -357,7 +357,7 @@ TEXTUS_LONG HttpForm::_parse_para(const char *buf, TEXTUS_LONG len)
 			tmpbuf[itemLen] = '\0';
 			convert(tmpbuf,tmpbuf);
 			spara[i].value = dPtr + cDataLen;
-			itemLen = (int)strlen(tmpbuf);
+			itemLen = static_cast<int>(strlen(tmpbuf));
 			spara[i].value[itemLen] = '\0';
 			spara[i].valueLen = itemLen;
 			cDataLen += (itemLen+1);
@@ -376,7 +376,7 @@ TEXTUS_LONG HttpForm::_parse_para(const char *buf, TEXTUS_LONG len)
 	{
 		tmpbuf[itemLen] = '\0';
 		convert(tmpbuf,tmpbuf);
-		itemLen = (int)strlen(tmpbuf);
+		itemLen = static_cast<int>(strlen(tmpbuf));
 		spara[i].value = dPtr + cDataLen;
 		spara[i].value[itemLen] = '\0';
 		spara[i].valueLen = itemLen;

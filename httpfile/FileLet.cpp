@@ -267,7 +267,7 @@ void FileLet::to_response(char *ptr, size_t total)
 		aptus->sponte(&local_pius);
 		wlen -= block;
 		p += block;
-		cents =(int)(j*100/to_times);
+		cents =static_cast<int>(j*100/to_times);
 		if ( cents % 10 == 0 && cents !=last_cents)
 		{
 			WLOG(INFO, "sent %d%% of the file", cents);
@@ -389,7 +389,7 @@ PROAGAIN:
 	setHeadTime("Last-Modified", sb.st_mtime);
 
 	time_t if_modified_since ;
-	if_modified_since = getHeadInt("If-Modified-Since");
+	if_modified_since = getHeadULong("If-Modified-Since");
 	if ( if_modified_since >0 && if_modified_since == sb.st_mtime )
 	{
 		setStatus(304);
@@ -587,12 +587,12 @@ const char* get_mime_type( char* name )
 		{ ".wmlsc", "application/vnd.wap.wmlscriptc" },
 		{ ".wbmp", "image/vnd.wap.wbmp" },
 	};
-    	int fl = (int)strlen( name );
+    	int fl = static_cast<int>(strlen( name ));
     	unsigned int i;
 
     	for ( i = 0; i < sizeof(table) / sizeof(*table); ++i )
 	{
-		int el = (int)strlen( table[i].ext );
+		int el = static_cast<int>(strlen(table[i].ext));
 		if ( strcasecmp( &(name[fl - el]), table[i].ext ) == 0 )
 	    		return table[i].type;
 	}

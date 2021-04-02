@@ -235,13 +235,13 @@ void DBPort::getDef(struct DBFace *face, TiXmlElement *cfg, DBFace::WHAT gin, DB
 		if  ( gtrace >= 0 )
 			face->rowset->trace_field = gtrace;
 
-		rs_ele->Attribute("param_pos", (int*)&(face->rowset->para_pos));
-		rs_ele->Attribute("trace", (int*)&(face->rowset->trace_field));
+		rs_ele->Attribute("param_pos", reinterpret_cast<int*>(&(face->rowset->para_pos)));
+		rs_ele->Attribute("trace", reinterpret_cast<int*>(&(face->rowset->trace_field)));
 
 		if ( rs_ele->QueryIntAttribute("chunk", &(m_chunk)) != TIXML_NO_ATTRIBUTE )
 		{
 			if ( m_chunk > 0 ) 
-				face->rowset->chunk = (unsigned int) m_chunk;
+				face->rowset->chunk = static_cast<unsigned int>(m_chunk);
 		}
 
 		face->rowset->useEnd =  ( (comm_str= rs_ele->Attribute("endQuery")) && strcasecmp(comm_str, "yes") == 0 );
@@ -357,7 +357,7 @@ void DBPort::getDef(struct DBFace *face, TiXmlElement *cfg, DBFace::WHAT gin, DB
 		if ( comm_str)
 		{
 			par->name = comm_str;
-			par->namelen = (int)strlen(comm_str);
+			par->namelen =  static_cast<int>(strlen(comm_str));
 		}
 
 #define WHATCODE(X)	if ( (comm_str = fld_ele->Attribute("type") ) && strcasecmp(comm_str, #X) ==0 ) \
@@ -695,8 +695,8 @@ void DBPort::passto(DBPort *here, DBFace *face)
 	aptus->sponte(&tmp_p);
 
 	//printf("here %p\n", here);
-	snd_pac->input((unsigned int) face->rowset->trace_field, 	/* 设定跟踪域 */
-		(unsigned char*) (&here), sizeof(here));
+	snd_pac->input( static_cast<unsigned int>(face->rowset->trace_field), 	/* 设定跟踪域 */
+		reinterpret_cast<unsigned char*>(&here), sizeof(here));
 }
 
 void DBPort::incrRef()

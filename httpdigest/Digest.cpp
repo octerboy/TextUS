@@ -187,18 +187,18 @@ bool Digest::facio( Amor::Pius *pius)
 		break;
 
 	case Notitia::HAS_HOLDING:	/* 刚认证 */
-		WBUG("facio HAS_HOLDING, %d", *((int*) pius->indic));
+		WBUG("facio HAS_HOLDING, %d", *(reinterpret_cast<int*>(pius->indic)));
 		break;
 
 	case Notitia::NEW_HOLDING:	/* 建立新会话 */
-		WBUG("facio NEW_HOLDING, %d", *((int*) pius->indic));
-		ind = *((int*) pius->indic);
+		WBUG("facio NEW_HOLDING, %d", *(reinterpret_cast<int*>(pius->indic)));
+		ind = *(reinterpret_cast<int*>(pius->indic));
 		prompt(ind);
 		break;
 
 	case Notitia::AUTH_HOLDING:	/* 未认证 */
-		WBUG("facio AUTH_HOLDING, %d", *((int*) pius->indic));
-		ind = *((int*) pius->indic);
+		WBUG("facio AUTH_HOLDING, %d", *(reinterpret_cast<int*>(pius->indic)));
+		ind = *(reinterpret_cast<int*>(pius->indic));
 		if ( !parse() )
 		{
 			prompt(ind);
@@ -208,7 +208,7 @@ bool Digest::facio( Amor::Pius *pius)
 		req_pac.reset();
 		ans_pac.reset();
 		if ( gCFG->sess_fld >=0 )
-			req_pac.input(gCFG->sess_fld, (unsigned char*)&ind, sizeof(ind));
+			req_pac.input(gCFG->sess_fld, reinterpret_cast<unsigned char*>(&ind), sizeof(ind));
 
 		if ( gCFG->domain_fld >=0  && gCFG->domain )
 			req_pac.input(gCFG->domain_fld, (unsigned char*)gCFG->domain, strlen(gCFG->domain));
@@ -253,7 +253,7 @@ bool Digest::sponte( Amor::Pius *pius)
 		memset(pass, 0, VAL_MAX);
 		len = ans_pac.fld[gCFG->pass_fld].range;
 		memcpy(pass, ans_pac.fld[gCFG->pass_fld].val, len >= VAL_MAX ? VAL_MAX-1:len);
-		ind = *((int*)req_pac.fld[gCFG->sess_fld].val);
+		ind = *(reinterpret_cast<int*>(req_pac.fld[gCFG->sess_fld].val));
 		
 		if (!authenticate(pass, ind) )
 		{ /* 认证未通过, 设置错误信息 */

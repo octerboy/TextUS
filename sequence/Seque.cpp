@@ -22,7 +22,36 @@
 #include "casecmp.h"
 #include "TBuffer.h"
 #include <stdarg.h>
-#define SEQUEINLINE inline
+struct List {
+	Amor *me; 
+	List *prev;
+	List *next;
+	inline List ()
+	{
+		me = 0;
+		prev = 0;
+		next = 0;
+	};
+	void put ( struct List *neo ) ;
+	inline void remove( struct List *obj)
+	{
+		obj->prev->next = obj->next; 
+		if ( obj->next )
+			obj->next->prev  =  obj->prev;
+		obj->prev = 0;
+		obj->next = 0;
+	}
+};
+void List::put ( struct List *neo ) 
+{
+	if( !neo ) return;
+	neo->next = next;
+	neo->prev = this;
+	if ( next != 0 )
+		next->prev = neo;
+	next = neo;
+};
+
 class Seque: public Amor
 {
 public:
@@ -43,45 +72,15 @@ private:
 	Amor *pipe;
 	Amor *root;
 	
-	struct List {
-		Amor *me; 
-		List *prev;
-		List *next;
-		inline List ()
-		{
-			me = 0;
-			prev = 0;
-			next = 0;
-		};
-		inline void put ( struct List *neo ) 
-		{
-			if( !neo ) return;
-			neo->next = next;
-			neo->prev = this;
-			if ( next != 0 )
-				next->prev = neo;
-			next = neo;
-		};
-
-		inline void remove( struct List *obj)
-		{
-			obj->prev->next = obj->next; 
-			if ( obj->next )
-				obj->next->prev  =  obj->prev;
-			obj->prev = 0;
-			obj->next = 0;
-		}
-
-	};
 #define M_PIPE 0
 #define M_SELF 1
 
 	List l_ele;
 
-	SEQUEINLINE void retain();
-	SEQUEINLINE void reset();
-	SEQUEINLINE void appoint();
-	SEQUEINLINE void appoint_me();	//自已传
+	void retain();
+	void reset();
+	void appoint();
+	void appoint_me();	//自已传
 	struct G_CFG
 	{
 		bool for_pipe;
@@ -90,35 +89,7 @@ private:
 		inline ~G_CFG() { 
 		};
 
-		inline G_CFG(TiXmlElement *cfg) 
-		{
-			const char *comm_str, *m_str;
-			for_pipe = false;
-			to_apportion = true;
-
-			comm_str = cfg->Attribute("pipe");
-			if ( comm_str )
-			{
-				if ( strcasecmp(comm_str, "yes") == 0 )
-					for_pipe = true;
-				if ( strcasecmp(comm_str, "no") == 0 )
-					for_pipe = false;
-			}
-
-			comm_str = cfg->Attribute("apportion");
-			if ( comm_str )
-			{
-				if ( strcasecmp(comm_str, "yes") == 0 )
-					to_apportion = true;
-				if ( strcasecmp(comm_str, "no") == 0 )
-					to_apportion = false;
-			}
-
-			work_mode = M_SELF;
-			m_str =cfg->Attribute("mode");
-			if ( m_str && strcasecmp(m_str, "aggregate") == 0 )
-				work_mode = M_PIPE;
-		};
+		G_CFG(TiXmlElement *cfg) ;
 	};
 
 	struct G_CFG *gcfg;  
@@ -127,6 +98,35 @@ private:
 };
 
 #include <assert.h>
+
+Seque::G_CFG::G_CFG(TiXmlElement *cfg)
+{
+	const char *comm_str, *m_str;
+	for_pipe = false;
+	to_apportion = true;
+
+	comm_str = cfg->Attribute("pipe");
+	if ( comm_str )
+	{
+		if ( strcasecmp(comm_str, "yes") == 0 )
+			for_pipe = true;
+		if ( strcasecmp(comm_str, "no") == 0 )
+			for_pipe = false;
+	}
+
+	comm_str = cfg->Attribute("apportion");
+	if ( comm_str )
+	{
+		if ( strcasecmp(comm_str, "yes") == 0 )
+			to_apportion = true;
+		if ( strcasecmp(comm_str, "no") == 0 )
+			to_apportion = false;
+	}
+	work_mode = M_SELF;
+	m_str =cfg->Attribute("mode");
+	if ( m_str && strcasecmp(m_str, "aggregate") == 0 )
+		work_mode = M_PIPE;
+}
 
 void Seque::ignite(TiXmlElement *cfg)
 {
@@ -350,13 +350,13 @@ Amor* Seque::clone()
 	return (Amor*)child;
 }
 
-SEQUEINLINE void Seque::reset()
+void Seque::reset()
 {
 	post_req.reset();
 	post_ans.reset();
 }
 
-SEQUEINLINE void Seque::retain()
+void Seque::retain()
 {
 	Amor::Pius tmp_p;
 
@@ -372,7 +372,7 @@ SEQUEINLINE void Seque::retain()
 	aptus->sponte(&tmp_p);
 }
 
-SEQUEINLINE void Seque::appoint_me()
+void Seque::appoint_me()
 {
 	if ( gcfg->work_mode == M_PIPE )
 	{	/* for mode of PIPE, just BEGIN_TRANS, wait for TRANS_TO_HANDLE(send, recv) */
@@ -382,7 +382,7 @@ SEQUEINLINE void Seque::appoint_me()
 	}
 }
 
-SEQUEINLINE void Seque::appoint()
+void Seque::appoint()
 {
 	Seque *bee;
 	Amor::Pius tmp_p;

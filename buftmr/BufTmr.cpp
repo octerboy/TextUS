@@ -201,7 +201,7 @@ void BufTmr::ignite(TiXmlElement *cfg)
 		has_config = true;
 	}
 	TEXTUS_STRCPY(md_magic, MD_MAGIC);
-	md_magic_len = (int)strlen(md_magic);
+	md_magic_len = static_cast<int>(strlen(md_magic));
 }
 
 void BufTmr::stamp()
@@ -268,7 +268,7 @@ void BufTmr::stamp()
 		nlen += gCFG->opt_len;
 	}
 
-	MD5Update (&Md5Ctx, (char*)rcv_buf->base, (int)nlen);
+	MD5Update (&Md5Ctx, (char*)rcv_buf->base, static_cast<int>(nlen));
 	MD5Final ((char *) &yaBuf[0], &Md5Ctx);
 
 	tmr_pac.input(MSG_SUM_FLD, yaBuf, MD_SUM_LEN);

@@ -27,7 +27,6 @@
 #include <time.h>
 #include <stdarg.h>
 
-#define INLINE inline
 class Slice: public Amor
 {
 public:
@@ -90,7 +89,7 @@ private:
 		int timeout;		/* 一帧的最大接收时间, 秒数 */
 
 		HEAD_TYPE head_types;
-		unsigned long fixed_len ;
+		unsigned TEXTUS_LONG fixed_len ;
 
 		inline G_CFG (TiXmlElement *cfg) 
 		{
@@ -121,14 +120,14 @@ private:
 
 			comm_str = cfg->Attribute ("rcv_guide");
 			if ( comm_str ) {
-				pre_ana_len = strlen(comm_str);
+				pre_ana_len = (unsigned int)strlen(comm_str);
 				pre_ana_str= new unsigned char[pre_ana_len];
 				pre_ana_len = BTool::unescape(comm_str, pre_ana_str);
 			}
 
 			comm_str = cfg->Attribute ("snd_guide");
 			if ( comm_str ) {
-				pre_comp_len = strlen(comm_str);
+				pre_comp_len = (unsigned int)strlen(comm_str);
 				pre_comp_str= new unsigned char[pre_comp_len];
 				pre_comp_len = BTool::unescape(comm_str, pre_comp_str);
 			}
@@ -164,7 +163,7 @@ private:
 
 				} else if ( strncasecmp(type_str, "term:", 5) == 0 )
 				{
-					term_len = strlen(&type_str[5]);
+					term_len = (unsigned int)strlen(&type_str[5]);
 					term_str= new unsigned char[term_len];
 					term_len = BTool::unescape(&type_str[5], term_str);
 					head_types = TERM;
@@ -203,14 +202,14 @@ private:
 	struct G_CFG *gCFG;     /* 全局共享参数 */
 	bool has_config;
 
-	INLINE void deliver(Notitia::HERE_ORDO aordo, bool inver=false);
-	INLINE bool analyze(TBuffer *raw, TBuffer *plain);
-	INLINE bool analyze_term(TBuffer *raw, TBuffer *plain);
-	INLINE bool compose(TBuffer *raw, TBuffer *plain);
-	INLINE bool compose_term(TBuffer *raw, TBuffer *plain);
-	INLINE unsigned long int getl(unsigned char *);
-	INLINE void putl(unsigned long int, unsigned char *);
-	INLINE void reset();
+	void deliver(Notitia::HERE_ORDO aordo, bool inver=false);
+	bool analyze(TBuffer *raw, TBuffer *plain);
+	bool analyze_term(TBuffer *raw, TBuffer *plain);
+	bool compose(TBuffer *raw, TBuffer *plain);
+	bool compose_term(TBuffer *raw, TBuffer *plain);
+	unsigned TEXTUS_LONG getl(unsigned char *);
+	void putl(unsigned TEXTUS_LONG , unsigned char *);
+	void reset();
 #include "wlog.h"
 };
 
@@ -266,7 +265,6 @@ bool Slice::facio( Amor::Pius *pius)
 				aptus->facio(&local_p);
 		}
 				break;
-		break;
 
 	case Notitia::SET_TBUF:	/* 取得TBuffer地址 */
 		WBUG("facio SET_TBUF");
@@ -293,7 +291,6 @@ bool Slice::facio( Amor::Pius *pius)
 	case Notitia::IGNITE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY");
 		goto ALL_READY;
-		break;
 
 	case Notitia::CLONE_ALL_READY:
 		WBUG("facio CLONE_ALL_READY");
@@ -415,7 +412,7 @@ Slice::~Slice()
 }
 
 /* 向接力者提交 */
-INLINE void Slice::deliver(Notitia::HERE_ORDO aordo, bool _inver)
+void Slice::deliver(Notitia::HERE_ORDO aordo, bool _inver)
 {
 	Amor::Pius tmp_pius;
 	TBuffer *pn[3];
@@ -452,17 +449,17 @@ Amor* Slice::clone()
 	return (Amor*)child;
 }
 
-INLINE bool Slice::analyze(TBuffer *raw, TBuffer *plain)
+bool Slice::analyze(TBuffer *raw, TBuffer *plain)
 {
 	/* 两字节表示后续数据的长度 */
-	unsigned long frameLen = 0;
-	unsigned long len = raw->point - raw->base;	//数据长度
+	unsigned TEXTUS_LONG frameLen = 0;
+	unsigned TEXTUS_LONG len = raw->point - raw->base;	//数据长度
 
 	if (len == 0 ) return false;	/* 没有数据, 也许被其它程序吃掉了 */
 	if ( gCFG->head_types == TERM )
 		return analyze_term(raw, plain);
 
-	WBUG("analyze raw length is %lu ", len);
+	WBUG("analyze raw length is " TLONG_FMTu, len);
 	if ( len < gCFG->offset + gCFG->len_size )
 	{ 		
 		if (!isFraming)
@@ -513,13 +510,13 @@ INLINE bool Slice::analyze(TBuffer *raw, TBuffer *plain)
 	}
 }
 
-INLINE bool Slice::compose(TBuffer *raw, TBuffer *plain)
+bool Slice::compose(TBuffer *raw, TBuffer *plain)
 {
 	unsigned char *where;
-	long len = plain->point - plain->base;	/* 应用数据长度, 应用数据应留出包括长度头的空间 */
-	long hasLen = raw->point - raw->base;	/* 原有数据长度 */
+	TEXTUS_LONG len = plain->point - plain->base;	/* 应用数据长度, 应用数据应留出包括长度头的空间 */
+	TEXTUS_LONG hasLen = raw->point - raw->base;	/* 原有数据长度 */
 
-	WBUG("compose all length is %lu ", len);
+	WBUG("compose all length is " TLONG_FMTu, len);
 	if ( len<=0 ) 
 		WLOG(NOTICE, "compose zero length");
 	if ( gCFG->head_types == TERM )
@@ -538,10 +535,10 @@ INLINE bool Slice::compose(TBuffer *raw, TBuffer *plain)
 	return true;
 }
 
-INLINE  unsigned long Slice::getl(unsigned char *buf)
+ unsigned TEXTUS_LONG Slice::getl(unsigned char *buf)
 {
 	int i;
-	unsigned long frameLen = 0;
+	unsigned TEXTUS_LONG frameLen = 0;
 	char l_str[16]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 	
 	switch ( gCFG->head_types)
@@ -575,17 +572,17 @@ INLINE  unsigned long Slice::getl(unsigned char *buf)
 		break;
 	}
 
-	WBUG("getl length is %lu from frame", frameLen);
+	WBUG("getl length is " TLONG_FMTu " from frame", frameLen);
 	frameLen += gCFG->adjust;	/* 调整为所有数据的长度 */
 	return frameLen;
 }
 
-INLINE void Slice::putl(unsigned long frameLen, unsigned char *pac)
+void Slice::putl(unsigned TEXTUS_LONG frameLen, unsigned char *pac)
 {
 	int i;
 	frameLen -= gCFG->adjust;	/* 原值为所有数据长度, 减去调整值 */
 	
-	WBUG("putl length is %lu to frame", frameLen);
+	WBUG("putl length is " TLONG_FMTu " to frame", frameLen);
 	switch ( gCFG->head_types)
 	{
 	case RIGID:
@@ -623,9 +620,9 @@ INLINE void Slice::putl(unsigned long frameLen, unsigned char *pac)
 	}
 }
 
-INLINE bool Slice::analyze_term(TBuffer *raw, TBuffer *plain)
+bool Slice::analyze_term(TBuffer *raw, TBuffer *plain)
 {
-	long frameLen = -1;
+	TEXTUS_LONG frameLen = -1;
 	unsigned char* ptr = raw->base;
 	bool ret = false;
 	
@@ -667,10 +664,10 @@ INLINE bool Slice::analyze_term(TBuffer *raw, TBuffer *plain)
 	return ret;
 }
 
-INLINE bool Slice::compose_term(TBuffer *raw, TBuffer *plain)
+bool Slice::compose_term(TBuffer *raw, TBuffer *plain)
 {
-	long len = plain->point - plain->base;	/* 数据长度, 留出结尾字符空间 */
-	long hasLen = raw->point - raw->base;	/* 原有数据长度 */
+	TEXTUS_LONG len = plain->point - plain->base;	/* 数据长度, 留出结尾字符空间 */
+	TEXTUS_LONG hasLen = raw->point - raw->base;	/* 原有数据长度 */
 
 	if ( len ==0 ) 
 	{
@@ -683,7 +680,7 @@ INLINE bool Slice::compose_term(TBuffer *raw, TBuffer *plain)
 	return true;
 }
 
-INLINE void Slice::reset()
+void Slice::reset()
 {
 	ask_pa->reset();
 	res_pa->reset();

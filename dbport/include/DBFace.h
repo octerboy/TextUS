@@ -43,7 +43,7 @@
 		int namelen;		/* 参数名称的长度 */
 		DataType type;		/* 数据类型 */
 		DIRECTION inout;	/* 定义参数方向, PARA_IN为输入, PARA_OUT为输出, PARA_INOUT输入与输出 */
-		unsigned int outlen;		/* 输出长度 */
+		unsigned TEXTUS_LONG outlen;		/* 输出长度 */
 		unsigned char scale;		/* 对于Decimal等类型的输出定义 */
 		unsigned char precision;
 		inline Para () {

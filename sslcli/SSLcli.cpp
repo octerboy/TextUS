@@ -66,7 +66,7 @@ int SSLcli::encrypt()
 	}
 
 	/* 灌明文,从snd_buf取出数据 */	
-	len = SND_LEN;
+	len = (int) SND_LEN;
 	if ( len == 0 )
 		return 1;
 
@@ -122,7 +122,7 @@ int SSLcli::decrypt()
 	if ( !ssl) return -1;
 
 	/* 灌密文, 从bio_in_buf取出数据 */	
-	len = (bio_in_buf.point) - (bio_in_buf.base);
+	len = (int) ( (bio_in_buf.point) - (bio_in_buf.base));
 	puttedLen = BIO_write(rbio, bio_in_buf.base, len);
 	
 	assert( puttedLen >= 0 );

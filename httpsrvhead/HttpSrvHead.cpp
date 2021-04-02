@@ -249,7 +249,7 @@ END:
 		break;
 
 	case Notitia::IGNITE_ALL_READY:	
-		WLOG(INFO,"%s","tdate_parse - parse string dates into internal form, stripped-down version, Copyright (c)1995 by Jef Poskanzer <jef@acme.com>.  All rights reserved.");
+		WLOG(INFO,"%s","http server started.");
 		break;
 		
 	case Notitia::DMD_END_SESSION:
@@ -311,6 +311,11 @@ bool HttpSrvHead::sponte( Amor::Pius *pius)
 			WBUG("sponte CMD_HTTP_GET GetHead(\"%s\")=" TLONG_FMT , req_cmd->name,req_cmd->valInt);
 			break;
 				
+		case GetRequestCmd::GetHeadULong:
+			req_cmd->valULong = request.getHeadULong(req_cmd->name);
+			WBUG("sponte CMD_HTTP_GET GetHead(\"%s\")=" TLONG_FMTu , req_cmd->name,req_cmd->valULong);
+			break;
+				
 		case GetRequestCmd::GetLenOfContent:
 			req_cmd->len = content_length ;
 			WBUG("sponte CMD_HTTP_GET GetLenOfContent=" TLONG_FMT, req_cmd->len);
@@ -348,6 +353,11 @@ bool HttpSrvHead::sponte( Amor::Pius *pius)
 			response.setHead(res_cmd->name, res_cmd->valInt);
 			break;
 
+		case SetResponseCmd::SetHeadULong :
+			WBUG("sponte CMD_HTTP_SET SetHeadULong(\"%s\")=" TLONG_FMTu, res_cmd->name, res_cmd->valULong);
+			response.setHead(res_cmd->name, res_cmd->valULong);
+			break;
+
 		case SetResponseCmd::SetHeadTime :
 			WBUG("sponte CMD_HTTP_SET SetHeadTime(\"%s\")=" TLONG_FMTu , res_cmd->name, res_cmd->valTime);
 			response.setHeadTime(res_cmd->name, res_cmd->valTime);
@@ -382,6 +392,11 @@ bool HttpSrvHead::sponte( Amor::Pius *pius)
 		case SetResponseCmd::GetHeadInt:
 			res_cmd->valInt = response.getHeadInt(res_cmd->name);
 			WBUG("sponte CMD_HTTP_SET GetHead(\"%s\")=" TLONG_FMT, res_cmd->name, res_cmd->valInt);
+				break;
+
+		case SetResponseCmd::GetHeadULong:
+			res_cmd->valULong = response.getHeadULong(res_cmd->name);
+			WBUG("sponte CMD_HTTP_SET GetHead(\"%s\")=" TLONG_FMTu, res_cmd->name, res_cmd->valULong);
 				break;
 		default:
 			WLOG(NOTICE, "sponte CMD_HTTP_SET %d (it's unknown fun)",res_cmd->fun);

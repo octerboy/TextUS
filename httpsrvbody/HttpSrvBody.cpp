@@ -252,7 +252,7 @@ bool HttpSrvBody::facio( Amor::Pius *pius)
 		chunko.reset();
 		session = true;
 
-		mth = (int)getHeadInt("method");
+		mth = static_cast<int>(getHeadInt("method"));
 		content_length = getContentSize();
 		if ( mth ==  2 ) //GET
 		{
@@ -710,7 +710,7 @@ bool HttpSrvBody::lookSocket()
 			unsigned char md[SHA_DIGEST_LENGTH];
 			char md2[40];
 
-			sock.version = (int)getHeadInt("Sec-WebSocket-Version");
+			sock.version = static_cast<int>(getHeadInt("Sec-WebSocket-Version"));
 			if ( sock.version != 13 ) 
 			{
 				setStatus(426);

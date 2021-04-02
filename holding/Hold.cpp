@@ -100,7 +100,7 @@ private:
 
 			path = cfg->Attribute("path");
 			sname = cfg->Attribute("name");
-			if ( sname ) snlen = (int)strlen(sname);
+			if ( sname ) snlen = static_cast<int>(strlen(sname));
 
 			comm_str = cfg->Attribute("expired");
 			if (  comm_str && atoi(comm_str) > 1 )
@@ -144,7 +144,7 @@ private:
 				ele = ele->NextSiblingElement("domain");
 			}
 
-			random_seed = (unsigned int)time(0);
+			random_seed = static_cast<unsigned int> (time(0) & 0xFFFFFFFFL);
 			srand(random_seed);
 		};
 
@@ -339,8 +339,8 @@ bool Hold::sponte( Amor::Pius *pius)
 	switch ( pius->ordo )
 	{
 	case Notitia::CMD_SET_HOLDING:
-		WBUG("sponte CMD_SET_HOLDING %d", *((int*) pius->indic));
-		i = *((int*) pius->indic);
+		WBUG("sponte CMD_SET_HOLDING %d", *(reinterpret_cast<int*>(pius->indic)));
+		i = *(reinterpret_cast<int*>(pius->indic));
 		if ( i >= 0 && i < gCFG->seNum )
 		{
 			gCFG->sess[i].status = VALID;
@@ -351,8 +351,8 @@ bool Hold::sponte( Amor::Pius *pius)
 		break;
 
 	case Notitia::CMD_CLR_HOLDING:
-		WBUG("sponte CMD_CLR_HOLDING %d", *((int*) pius->indic));
-		i = *((int*) pius->indic);
+		WBUG("sponte CMD_CLR_HOLDING %d", *(reinterpret_cast<int*>(pius->indic)));
+		i = *(reinterpret_cast<int*>(pius->indic));
 		if ( i >= 0 && i < gCFG->seNum )
 		{
 			gCFG->sess[i].status = IDLE;

@@ -110,7 +110,7 @@ static void sys_err_desc()
 	dw = GetLastError(); 
     	FormatMessage( FORMAT_MESSAGE_FROM_SYSTEM, NULL, dw,
         	MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), m_sys_buf, 256, NULL );
-	mlen = strlen(m_sys_buf);
+	mlen = (int) strlen(m_sys_buf);
 	if ( mlen > 2 ) {
 		if ( m_sys_buf[mlen-1] == 0x0a && m_sys_buf[mlen-2] == 0x0d)
 			m_sys_buf[mlen-2] = 0;
@@ -182,7 +182,7 @@ Again:
 		}
 		goto TRY_NEXT;
 	} else {
-		WBUG("%s  %s, at %s, hCard=%p", isRe?"SCardReConnect":"SCardConnect", t, gCFG->name, hCardHandle);
+		WBUG("%s  %s, at %s, hCard=" TLONG_FMTx , isRe?"SCardReConnect":"SCardConnect", t, gCFG->name, hCardHandle);
 	}
 
 	if (gCFG->uid_ins /*&& activeProtocol == SCARD_PROTOCOL_T1 */ )
@@ -191,7 +191,6 @@ Again:
 		memcpy(&uid[0], &resp[(gCFG->uid_offset)*2], (gCFG->uid_length)*2);
 		uid[(gCFG->uid_length)*2] = '\0';
 		WLOG(INFO, "Open Card ret %d,  uid= %s, sw=%04x, %s", ret, uid, sw, t == t0 ? "T0":"T1");
-		if ( ret ==0 && sw != 0x9000 )  ret = -1;
 	} else {
 		ret = 0;
 	}
@@ -248,7 +247,7 @@ Again:
 			WLOG(ERR, "Established Context Failed error=%08X", lReturn);
 			goto END;
 		} else {
-			WBUG("Established Context OK, hSC=%p", gCFG->hSC);
+			WBUG("Established Context OK, hSC=" TLONG_FMTx, gCFG->hSC);
 		}
 		goto Again;
 	}
@@ -326,7 +325,7 @@ int ScPort::Sam_Reset(char atr[64])
 		}
 		goto END;
 	} else {
-		WBUG("%s  %s, at %s, hCard=%p", isRe?"SCardReConnect":"SCardConnect", t, gCFG->name, hCardHandle);
+		WBUG("%s  %s, at %s, hCard=" TLONG_FMTx, isRe?"SCardReConnect":"SCardConnect", t, gCFG->name, hCardHandle);
 	}
 
 	if ( gCFG->isTySam ) 
@@ -467,7 +466,7 @@ int ScPort::dev_close(void)
 		WLOG(ERR, "SCardReleaseContext hSC=%p Failed error=%08X", gCFG->hSC, lReturn);
 		return -1;
 	} else {
-		WBUG("SCardReleaseContext OK, hSC=%p", gCFG->hSC);
+		WBUG("SCardReleaseContext OK, hSC=" TLONG_FMTx, gCFG->hSC);
 	}
 	return 0;
 }
@@ -489,7 +488,7 @@ int ScPort::dev_init(void)
 		WLOG(ERR, "Established Context Failed error=%08X", lReturn);
 		goto END;
 	} else {
-		WBUG("Established Context OK, hSC=%p", gCFG->hSC);
+		WBUG("Established Context OK, hSC=" TLONG_FMTx, gCFG->hSC);
 	}
 
 	if ( gCFG->hSC == -1 ) 

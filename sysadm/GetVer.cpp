@@ -55,8 +55,9 @@ bool GetVer::facio( Amor::Pius *pius)
 #else
 	struct utsname osver;
 #endif
-
+	tmpstr[0] = 0;
 	assert(pius);
+
 	switch ( pius->ordo )
 	{
 	case Notitia::PRO_SOAP_BODY:	/* ÓÐSOAPÇëÇó */
@@ -68,6 +69,7 @@ bool GetVer::facio( Amor::Pius *pius)
 
 #if defined (_WIN32)
 		osver.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);	
+#pragma warning(disable: 4996)
 		GetVersionEx((LPOSVERSIONINFO)&osver);	
 		TEXTUS_SNPRINTF(tmpstr, sizeof(tmpstr)-1, "Microsoft Windows(%d, %08x) %d.%d.%d %s", osver.dwPlatformId, osver.wSuiteMask, osver.dwMajorVersion, osver.dwMinorVersion, osver.dwPlatformId == 2 ? osver.dwBuildNumber : osver.dwBuildNumber & 0xff, osver.szCSDVersion);
 #else
@@ -80,7 +82,7 @@ bool GetVer::facio( Amor::Pius *pius)
 		root.InsertEndChild(ver);
 
 		aptus->facio(&neo);
-		WBUG("CMD_GET_VERSION %lx", (unsigned long )neo.indic);
+		WBUG("CMD_GET_VERSION %s", tmpstr);
 		if ( neo.indic)
 			root.InsertEndChild(*((TiXmlElement *)neo.indic))->SetValue("Application");
 

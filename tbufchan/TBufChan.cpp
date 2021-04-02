@@ -224,11 +224,9 @@ bool TBufChan::facio( Amor::Pius *pius)
 		{
 			case STILL:
 				goto PRO_TBUF_END;
-				break;	
 			case CLEAR:
 				rcv_buf->reset();
 				goto PRO_TBUF_END;
-				break;
 			default:
 				break;
 		}
@@ -308,7 +306,7 @@ bool TBufChan::facio( Amor::Pius *pius)
 		break;
 
 	case Notitia::TIMER_HANDLE:
-		WBUG("facio TIMER_HANDLE");
+		WBUG("facio TIMER_HANDLE %p", pius->indic);
 		clr_timer_pius.indic = pius->indic;
 		break;
 

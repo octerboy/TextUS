@@ -186,7 +186,7 @@ void SysStat::handle()
 		struct Netrs::RouteSubInfo *rns = route->subinfo;	
 		for ( i = 0; i < route->routeNum; i++ )
 		{
-			TiXmlElement route( "route" );
+			TiXmlElement rout( "route" );
 			TiXmlElement destination( "destination" );
 			TiXmlElement gateway( "gateway" );
 			TiXmlElement iface( "iface" );
@@ -195,21 +195,21 @@ void SysStat::handle()
 
 			text.SetValue(rns[i].netip);
 			destination.InsertEndChild(text);
-			route.InsertEndChild(destination);
+			rout.InsertEndChild(destination);
 
 			text.SetValue(rns[i].gateway);
 			gateway.InsertEndChild(text);
-			route.InsertEndChild(gateway);
+			rout.InsertEndChild(gateway);
 
 			text.SetValue(rns[i].iface);
 			iface.InsertEndChild(text);
-			route.InsertEndChild(iface);
+			rout.InsertEndChild(iface);
 
 			text.SetValue(rns[i].netmask);
 			mask.InsertEndChild(text);
-			route.InsertEndChild(mask);
+			rout.InsertEndChild(mask);
 
-			root.InsertEndChild(route);
+			root.InsertEndChild(rout);
 		}
 	}
 

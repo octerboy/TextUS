@@ -27,7 +27,6 @@
 #include <time.h>
 #include <stdarg.h>
 
-#define TINLINE inline
 class HttpXML: public Amor
 {
 public:
@@ -56,9 +55,9 @@ private:
 	TBuffer *rcv_buf;	/* http body content */
 	TBuffer *snd_buf;
 
-	TINLINE void reset();
-	TINLINE int get_xml_content();
-	TINLINE void deliver(Notitia::HERE_ORDO aordo);
+	void reset();
+	size_t get_xml_content();
+	void deliver(Notitia::HERE_ORDO aordo);
 #include "httpsrv_obj.h"
 #include "wlog.h"
 };
@@ -269,7 +268,7 @@ Amor* HttpXML::clone()
 }
 
 /* 向接力者提交 */
-TINLINE void HttpXML::deliver(Notitia::HERE_ORDO aordo)
+void HttpXML::deliver(Notitia::HERE_ORDO aordo)
 {
 	Amor::Pius tmp_pius;
 	TiXmlDocument *doc[3];
@@ -294,12 +293,12 @@ TINLINE void HttpXML::deliver(Notitia::HERE_ORDO aordo)
 	return ;
 }
 
-TINLINE int HttpXML::get_xml_content()
+size_t HttpXML::get_xml_content()
 {
 	TiXmlPrinter printer;
-	int len;
+	size_t len;
 	res_doc.Accept( &printer );
-	len = (int) printer.Size();
+	len = printer.Size();
 	snd_buf->input((unsigned char*) printer.CStr(), len);
 	res_doc.Clear();
 	return len;

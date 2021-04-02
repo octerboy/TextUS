@@ -227,7 +227,7 @@ bool Systime::handle2(TiXmlElement *reqele)
 		mytm.tm_year 	=atol (year->GetText())-1900;
 		gettimeofday(&tv, &tz);
 		mytm.tm_isdst = daylight;
-		tv.tv_sec = (long) mktime(&mytm);
+		tv.tv_sec = (TEXTUS_LONG) mktime(&mytm);
 		tv.tv_usec = 0;
 		if ( settimeofday(&tv, &tz) !=0  )
 #endif
@@ -252,9 +252,10 @@ bool Systime::handle2(TiXmlElement *reqele)
 		} else 
 		{
 			time_t now = time(&now);
-#if defined (_WIN32)
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
 			char str[128];
-			TEXTUS_SPRINTF(tmpstr,"%s", ctime_s(str,128, &now));
+			ctime_s(str,128, &now);
+			TEXTUS_SPRINTF(tmpstr,"%s", str);
 #else
 			TEXTUS_SPRINTF(tmpstr,"%s", ctime(&now));
 #endif

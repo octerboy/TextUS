@@ -35,7 +35,7 @@
 #define BUFF_SIZE_2 2048
 
 #define ROUNDUP_AMOUNT		8
-#define ROUNDUP_(size,amount)	(((ULONG)(size)+((amount)-1))&~((amount)-1))
+#define ROUNDUP_(size,amount)	(((unsigned TEXTUS_LONG)(size)+((amount)-1))&~((amount)-1))
 #define ROUNDUP(size)		ROUNDUP_(size, ROUNDUP_AMOUNT)
 #define MOLE_Release(pv)	{ ((IUnknown*)pv)->Release(); (pv) = NULL; }
 
@@ -56,7 +56,7 @@ public:
 	unsigned TEXTUS_LONG handle();	/* 0:需要向左dopac_pius; > 0, 不管, 对于有行集返回时用 */
 	void start_session();
 	void end_session();
-	DBTYPE getdty(DBFace::DataType type);
+	DBTYPE getdty(DBFace::DataType type, unsigned short &sz);
 	DBFace::Para *findDefOut(int &from );
 
 	WCHAR connect_wstr[BUFF_SIZE_2];
@@ -107,7 +107,7 @@ public:
 	IRowset		*pIRowset;
 	DBBINDING	defns[PARA_MAX];
 
-	ULONG 		defNum ;
+	unsigned short	defNum ;
 	DBBINDSTATUS 	DBBindStatus[PARA_MAX];
 	HROW		*rghRows; // Row handles
 	ULONG 		ghrow_sz;	/* how many Row handles */
@@ -358,7 +358,8 @@ unsigned TEXTUS_LONG Consumer::handle()
 	HRESULT rc=S_OK;
 	DBCOUNTITEM  cBindings, cBindOut;
 
-	ULONG i, j, ulOffset = 0;
+	unsigned int i,j;
+	unsigned TEXTUS_LONG ulOffset = 0;
 	unsigned TEXTUS_LONG retnum=0;
 
 	int len ;
@@ -430,9 +431,10 @@ unsigned TEXTUS_LONG Consumer::handle()
 		for ( i = 0; i < dbface->num && i < PARA_MAX; i++ )
 		{	
 			unsigned char *buf;
-			ULONG 	blen, space;
+			unsigned TEXTUS_LONG blen, space;
 			DBTYPE	dty;
 			size_t 	gap;
+			unsigned short dsz = 0;
 
 			DBFace::Para &para = dbface->paras[i];
 			int rNo = para.fld + dbface->offset;
@@ -442,13 +444,14 @@ unsigned TEXTUS_LONG Consumer::handle()
 			blen = 0;
 			space = 0;
 			buf = 0;
-			if ( !(dty =getdty(para.type)) )
+			if ( !(dty =getdty(para.type, dsz)) )
 				goto ENDQUERY;
 
 			bnds[cBindings].iOrdinal	= cBindings+1;
 			bnds[cBindings].obStatus	= ulOffset;
 			bnds[cBindings].obLength	= ulOffset + sizeof(DBSTATUS);
-			bnds[cBindings].obValue		= ulOffset + sizeof(ULONG) + sizeof(DBSTATUS);
+			//bnds[cBindings].obValue	= ulOffset + sizeof(ULONG) + sizeof(DBSTATUS);
+			bnds[cBindings].obValue		= ulOffset + dsz + sizeof(DBSTATUS);
 			
 			bnds[cBindings].pTypeInfo	= NULL;
 			bnds[cBindings].pBindExt	= NULL;
@@ -470,10 +473,10 @@ unsigned TEXTUS_LONG Consumer::handle()
 				if ( para.inout == DBFace::PARA_IN )
 				{
 					bnds[cBindings].eParamIO	= DBPARAMIO_INPUT;
-					space = (ULONG) rcv_pac->fld[rNo].range ;
+					space = rcv_pac->fld[rNo].range ;
 				} else {
 					bnds[cBindings].eParamIO	= DBPARAMIO_INPUT | DBPARAMIO_OUTPUT;
-					space =(ULONG) (para.outlen == 0 ? rcv_pac->fld[rNo].range : para.outlen) ;
+					space = (para.outlen == 0 ? rcv_pac->fld[rNo].range : para.outlen) ;
 				}
 
 				if ( rcv_pac->fld[rNo].no < 0 )
@@ -481,7 +484,7 @@ unsigned TEXTUS_LONG Consumer::handle()
 					dbStatus = DBSTATUS_S_ISNULL;
 				} else {
 					dbStatus = DBSTATUS_S_OK;
-					blen = (ULONG) rcv_pac->fld[rNo].range;
+					blen = rcv_pac->fld[rNo].range;
 					buf = rcv_pac->fld[rNo].val;
 				}
 
@@ -492,7 +495,7 @@ unsigned TEXTUS_LONG Consumer::handle()
 			}
 
 			dbData.input( (unsigned char*)&dbStatus, sizeof(DBSTATUS));
-			dbData.input( (unsigned char*)&blen, sizeof(ULONG));
+			dbData.input( (unsigned char*)&blen, sizeof(unsigned TEXTUS_LONG));
 			if ( blen > 0 && buf ) 
 			{	/* input */
 				dbData.input(buf, blen);
@@ -516,7 +519,6 @@ unsigned TEXTUS_LONG Consumer::handle()
 				dbData.grant(gap);
 				dbData.commit(gap);
 			}
-
 			cBindings++;
 		}
 
@@ -580,7 +582,7 @@ unsigned TEXTUS_LONG Consumer::handle()
 
 	    CASE_DBPROC:
 		memcpy(&tmp_str[len], dbface->sentence, strlen(dbface->sentence));
-		len += (int)strlen(dbface->sentence);
+		len += static_cast<int>(strlen(dbface->sentence));
 		memcpy(&tmp_str[len], "(", 1);
 		len++;
 		for ( i = j; (i+1) < dbface->num && (i+1) < PARA_MAX; i++ )
@@ -632,25 +634,26 @@ unsigned TEXTUS_LONG Consumer::handle()
 		for ( i = 0; i < dbface->num && i < PARA_MAX; i++ )
 		{	
 			unsigned char *buf;
-			ULONG 	blen, space;
-			size_t 	gap;
+			size_t 	gap, space, blen;
 			DBTYPE	dty;
+			unsigned short dsz = 0;
 
 			DBFace::Para &para = dbface->paras[i];
 			int rNo = para.fld + dbface->offset;
 			DBSTATUS dbStatus;
 	
-			assert(para.pos == (unsigned int)i );
+			assert(para.pos == i );
 			blen = 0;
 			space = 0;
 			buf = 0;
-			if ( !(dty =getdty(para.type)) )
+			if ( !(dty =getdty(para.type, dsz)) )
 				goto ENDDBPROC;
 
 			bnds[cBindings].iOrdinal	= cBindings+1;
 			bnds[cBindings].obStatus	= ulOffset;
 			bnds[cBindings].obLength	= ulOffset + sizeof(DBSTATUS);
-			bnds[cBindings].obValue		= ulOffset + sizeof(ULONG) + sizeof(DBSTATUS);
+			//bnds[cBindings].obValue	= ulOffset + sizeof(ULONG) + sizeof(DBSTATUS);
+			bnds[cBindings].obValue		= ulOffset + dsz + sizeof(DBSTATUS);
 			
 			bnds[cBindings].pTypeInfo	= NULL;
 			bnds[cBindings].pBindExt	= NULL;
@@ -668,26 +671,24 @@ unsigned TEXTUS_LONG Consumer::handle()
 			switch ( para.inout )
 			{
 			case DBFace::PARA_IN:
+				assert(rNo <= rcv_pac->max );
+				bnds[cBindings].eParamIO	= DBPARAMIO_INPUT;
+				space = rcv_pac->fld[rNo].range ;
+				goto ParaInOut_Pro;
 			case DBFace::PARA_INOUT:
 				assert(rNo <= rcv_pac->max );
-				if ( para.inout == DBFace::PARA_IN )
-				{
-					bnds[cBindings].eParamIO	= DBPARAMIO_INPUT;
-					space = (ULONG)rcv_pac->fld[rNo].range ;
-				} else {
-					bnds[cBindings].eParamIO	= DBPARAMIO_INPUT | DBPARAMIO_OUTPUT;
-					space = (ULONG) (para.outlen == 0 ? rcv_pac->fld[rNo].range : para.outlen) ;
-				}
+				bnds[cBindings].eParamIO	= DBPARAMIO_INPUT | DBPARAMIO_OUTPUT;
+				space = (para.outlen == 0 ? rcv_pac->fld[rNo].range : para.outlen) ;
 
+			ParaInOut_Pro:
 				if ( rcv_pac->fld[rNo].no < 0 )
 				{
 					dbStatus = DBSTATUS_S_ISNULL;
 				} else {
 					dbStatus = DBSTATUS_S_OK;
-					blen = (ULONG) rcv_pac->fld[rNo].range;
+					blen = rcv_pac->fld[rNo].range;
 					buf = rcv_pac->fld[rNo].val;
 				}
-
 				break;
 
 			case DBFace::PARA_OUT:
@@ -695,8 +696,7 @@ unsigned TEXTUS_LONG Consumer::handle()
 				bnds[cBindings].eParamIO	= DBPARAMIO_OUTPUT;
 				space = para.outlen;
 				blen = 0;
-				buf = (unsigned char *)0;
-
+				buf = 0;
 				break;
 
 			default:
@@ -705,7 +705,7 @@ unsigned TEXTUS_LONG Consumer::handle()
 			}
 
 			dbData.input( (unsigned char*)&dbStatus, sizeof(DBSTATUS));
-			dbData.input( (unsigned char*)&blen, sizeof(ULONG));
+			dbData.input( (unsigned char*)&blen, sizeof(unsigned TEXTUS_LONG));
 			if ( blen > 0 && buf ) 
 			{	/* input */
 				dbData.input(buf, blen);
@@ -729,7 +729,6 @@ unsigned TEXTUS_LONG Consumer::handle()
 				dbData.grant(gap);
 				dbData.commit(gap);
 			}
-
 			cBindings++;
 		}
 
@@ -768,7 +767,7 @@ unsigned TEXTUS_LONG Consumer::handle()
 		for ( i = 0; i < dbface->num && i < PARA_MAX; ++i )
 		{
 			unsigned char *buf;
-			ULONG 	blen;
+			unsigned TEXTUS_LONG 	blen;
 			DBSTATUS dbStatus;
 
 			DBFace::Para &para = dbface->paras[i];
@@ -790,7 +789,7 @@ unsigned TEXTUS_LONG Consumer::handle()
 				memcpy(&dbStatus, bnds[cBindOut].obStatus + dbData.base,  sizeof(DBSTATUS));
 				if ( dbStatus == DBSTATUS_S_OK ||  dbStatus == DBSTATUS_S_TRUNCATED )
 				{
-					memcpy(&blen, bnds[cBindOut].obLength + dbData.base,  sizeof(ULONG));
+					memcpy(&blen, bnds[cBindOut].obLength + dbData.base,  sizeof(unsigned TEXTUS_LONG));
 					buf = bnds[cBindOut].obValue + dbData.base;
 					snd_pac->input(rNo, buf, blen);
 				}
@@ -870,30 +869,110 @@ void Consumer::start_session()
 	WBUG("connected to a server successfully!");
 }
 
-DBTYPE Consumer::getdty(DBFace::DataType type)
+DBTYPE Consumer::getdty(DBFace::DataType type, unsigned short &dsz)
 {
 	DBTYPE dty;
 	switch ( type )
 	{
 	case DBFace::Integer:
 		dty = DBTYPE_I4;
-		break;
-
-	case DBFace::Byte:
-		dty = DBTYPE_BYTES;
+		dsz = 4;
 		break;
 
 	case DBFace::String:
+	case DBFace::Memo    :
+	case DBFace::Text    :
+		dty = DBTYPE_BSTR;
+		dsz = sizeof(unsigned TEXTUS_LONG);
+		break;
+
 	case DBFace::Char:
 		dty = DBTYPE_STR;
+		dsz = sizeof(unsigned TEXTUS_LONG);
 		break;
 
 	case DBFace::Decimal:
 		dty = DBTYPE_DECIMAL ;
+		dsz = sizeof(DECIMAL);
 		break;
 
 	case DBFace::Numeric:
 		dty = DBTYPE_NUMERIC;
+		dsz = sizeof(DB_NUMERIC);
+		break;
+
+	case DBFace::BigInt :
+		dty = DBTYPE_I8;
+		dsz = 8;
+		break;
+
+	case DBFace::SmallInt:
+		dty = DBTYPE_I2;
+		dsz = 4;
+		break;
+
+	case DBFace::TinyInt :
+	case DBFace::Byte:
+		dty = DBTYPE_I1 ;
+		dsz = 4;
+		break;
+
+	case DBFace::Binary  :
+	case DBFace::VarBinary :
+	case DBFace::LongBinary :
+		dty = DBTYPE_BYTES;
+		dsz = 8;
+		break;
+
+	case DBFace::Boolean :
+		dty = DBTYPE_BOOL;
+		dsz = 4;
+		break;
+
+	case DBFace::Currency:
+		dty = DBTYPE_CY;
+		dsz = 8;
+		break;
+
+	case DBFace::Double  :
+		dty = DBTYPE_R8;
+		dsz = 8;
+		break;
+
+	case DBFace::Float   :
+	case DBFace::Single  :
+		dty = DBTYPE_R4;
+		dsz = 4;
+		break;
+
+	case DBFace::GUID    :
+		dty = DBTYPE_GUID;
+		dsz = 8;
+		break;
+
+	case DBFace::Long    :
+#if defined(TEXTUS_PLATFORM_64)
+		dty = DBTYPE_I8;
+		dsz = 8;
+#elif defined(TEXTUS_PLATFORM_32)
+		dty = DBTYPE_I4;
+		dsz = 4;
+#endif
+		break;
+
+	case DBFace::Date    :
+		dty = DBTYPE_DATE;
+		dsz = sizeof(DBDATE);
+		break;
+
+	case DBFace::Time    :
+		dty = DBTYPE_DBTIME;
+		dsz = sizeof(DBTIME);
+		break;
+
+	case DBFace::TimeStamp :
+		dty = DBTYPE_DBTIMESTAMP;
+		dsz = sizeof(DBTIMESTAMP);
 		break;
 
 	default:
@@ -916,9 +995,9 @@ bool Consumer::getQueryInfo(int para_offset)
 	OLECHAR* pColumnStrings = NULL;
 
 	DBORDINAL nCols;
-	unsigned TEXTUS_LONG j;
+	unsigned short j;
 	int k;
-	ULONG ulOffset = 0;
+	unsigned TEXTUS_LONG ulOffset = 0;
 
 	IColumnsInfo* pIColumnsInfo = NULL;
 
@@ -946,18 +1025,20 @@ bool Consumer::getQueryInfo(int para_offset)
 	{
 		DBFace::Para *para;
 		DBTYPE	dty;
+		unsigned short dsz=0;
 		/* 找一个已经定义的 */
 		para = findDefOut(k);
 		if ( !para ) break;
 		//k++;		/* 为下一个参数准备 */
 
-		if ( !(dty =getdty(para->type)) )
+		if ( !(dty =getdty(para->type, dsz)) )
 			break;
 
 		defns[defNum].iOrdinal	= pColumnsInfo[j].iOrdinal;
 		defns[defNum].obStatus	= ulOffset;
 		defns[defNum].obLength	= ulOffset + sizeof(DBSTATUS);;
-		defns[defNum].obValue	= ulOffset + sizeof(DBSTATUS) + sizeof(ULONG);
+		//defns[defNum].obValue	= ulOffset + sizeof(DBSTATUS) + sizeof(ULONG);
+		defns[defNum].obValue	= ulOffset + sizeof(DBSTATUS) + dsz;
 
 		defns[defNum].pTypeInfo	= NULL;
 		defns[defNum].pBindExt	= NULL;
@@ -1029,7 +1110,7 @@ DBCOUNTITEM Consumer::fetch(int para_offset)
 {
 	int k;
 	DBCOUNTITEM cRowsObtained = 0, iRow; // Count of rows,  Row count
-	ULONG j;
+	unsigned short j;
 	HRESULT hr;
 	ULONG chunk_rows;
 
@@ -1069,7 +1150,7 @@ DBCOUNTITEM Consumer::fetch(int para_offset)
 			int rNo ;
 
 			unsigned char *buf;
-			ULONG 	blen;
+			unsigned TEXTUS_LONG 	blen;
 			DBSTATUS dbStatus;
 
 			/* 找一个已经定义的 */
@@ -1080,7 +1161,7 @@ DBCOUNTITEM Consumer::fetch(int para_offset)
 			memcpy(&dbStatus, defns[j].obStatus + rowData.base,  sizeof(DBSTATUS));
 			if ( dbStatus == DBSTATUS_S_OK ||  dbStatus == DBSTATUS_S_TRUNCATED )
 			{
-				memcpy(&blen, defns[j].obLength + rowData.base,  sizeof(ULONG));
+				memcpy(&blen, defns[j].obLength + rowData.base,  sizeof(unsigned TEXTUS_LONG));
 				buf = defns[j].obValue + rowData.base;
 
 				rNo = para->fld + dbface->offset;

@@ -302,7 +302,7 @@ unsigned int BTool::unescape( const char *s, unsigned char *t)
 	}
 
 	*p = '\0';
-	return (int)( p-t);
+	return static_cast<unsigned int>( p-t);
 }
 
 /* base64 program  
@@ -330,9 +330,9 @@ int BTool::base64_encode(char *encoded, const unsigned char *string, int len)
       for (i = 0; i < len - 2; i += 3) {
   	*p++ = b64_code_table[(string[i] >> 2) & 0x3F];
   	*p++ = b64_code_table[((string[i] & 0x3) << 4) |
-  	                ((int) (string[i + 1] & 0xF0) >> 4)];
+  	                (static_cast<int>(string[i + 1] & 0xF0) >> 4)];
   	*p++ = b64_code_table[((string[i + 1] & 0xF) << 2) |
-  	                ((int) (string[i + 2] & 0xC0) >> 6)];
+  	                (static_cast<int>(string[i + 2] & 0xC0) >> 6)];
   	*p++ = b64_code_table[string[i + 2] & 0x3F];
       }
       if (i < len) {
@@ -343,14 +343,14 @@ int BTool::base64_encode(char *encoded, const unsigned char *string, int len)
   	}
   	else {
   	    *p++ = b64_code_table[((string[i] & 0x3) << 4) |
-  	                    ((int) (string[i + 1] & 0xF0) >> 4)];
+  	                    (static_cast<int>(string[i + 1] & 0xF0) >> 4)];
   	    *p++ = b64_code_table[((string[i + 1] & 0xF) << 2)];
   	}
   	*p++ = '=';
       }
   
       *p++ = '\0';
-      return (int) (p - encoded);
+      return static_cast<int>(p - encoded);
 }
 
 /* Base-64 decoding.  This represents binary data as printable ASCII

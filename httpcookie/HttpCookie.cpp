@@ -125,7 +125,7 @@ bool HttpCookie::facio( Amor::Pius *pius)
 		kie_str = getHead("Cookie");
 		if ( kie_str )
 		{
-			len = (int)strlen(kie_str);
+			len = static_cast<int>(strlen(kie_str));
 			rlen = len < buf_max-1 ? len : buf_max-1;
 			memcpy(mybuf, kie_str, rlen ); 
 			mybuf[rlen] = 0;

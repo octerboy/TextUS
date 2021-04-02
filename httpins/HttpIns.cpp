@@ -1082,7 +1082,7 @@ const char* HttpIns::pro_rply(struct DyVarBase **psnap, struct InsData *insd, De
 			if ( rlen >= (rply->start ) )	
 			{
 				rlen -= (rply->start-1); //start是从1开始
-				if ( rply->length > 0 && (unsigned int)rply->length < rlen)
+				if ( rply->length > 0 && rply->length < rlen)
 					rlen = rply->length;
 				psnap[rply->dyna_pos]->input((unsigned char*)&fc[rply->start-1], rlen);
 			}

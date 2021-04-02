@@ -339,7 +339,6 @@ bool Sched::facio( Amor::Pius *pius)
 	case Notitia::WINMAIN_PARA:	/* 在整个系统中, 这应是最后被通知到的。 */
 		WBUG("facio Notitia::WINMAIN_PARA");
 		goto MainPro;
-		break;
 
 	case Notitia::MAIN_PARA:	/* 在整个系统中, 这应是最后被通知到的。 */
 		WBUG("facio Notitia::MAIN_PARA");
@@ -556,7 +555,7 @@ void Sched::sort()
 	int i;
 	Amor::Pius timer_pius;
 	struct timeb now;
-	long passed ;
+	TEXTUS_LONG passed ;
 
 	ftime(&now);
 	timer_pius.ordo = Notitia::TIMER;
@@ -565,25 +564,25 @@ void Sched::sort()
 	for( i = 0 ;i < infor_size ; i++)
 	{
 		if ( timer_infor[i].pupa == (Amor*) 0 ) break;
-		WBUG("TIMER[%d] %p, status %d, since %ld, interval %d", i, timer_infor[i].pupa, timer_infor[i].status, timer_infor[i].since.time, (unsigned int)(timer_infor[i].interval) );
+		WBUG("TIMER[%d] %p, status %d, since " TLONG_FMT ", interval %d", i, timer_infor[i].pupa, timer_infor[i].status, timer_infor[i].since.time, (unsigned int)(timer_infor[i].interval) );
 		switch ( timer_infor[i].status )
 		{
 		case 0:
 			timer_infor[i].pupa->facio(&timer_pius);
 			break;
 		case 1:
-			passed = (long) (now.time - timer_infor[i].since.time)*1000
+			passed = (TEXTUS_LONG) (now.time - timer_infor[i].since.time)*1000
 				+ (now.millitm - timer_infor[i].since.millitm);
-			if ( passed >= (long) timer_infor[i].interval )
+			if ( passed >= (TEXTUS_LONG) timer_infor[i].interval )
 			{
 				timer_infor[i].pupa->facio(&timer_pius);
 				timer_infor[i].status = 2; /* 超时仅作一次通知 */
 			}
 			break;
 		case 3:
-			passed = (long) (now.time - timer_infor[i].since.time)*1000
+			passed = (TEXTUS_LONG) (now.time - timer_infor[i].since.time)*1000
 				+ (now.millitm - timer_infor[i].since.millitm);
-			if ( passed >= (long) timer_infor[i].interval )
+			if ( passed >= (TEXTUS_LONG) timer_infor[i].interval )
 			{
 				timer_infor[i].pupa->facio(&timer_pius);
 			}

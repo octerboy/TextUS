@@ -334,17 +334,57 @@ TEXTUS_LONG DeHead::getHeadInt(const char* name)
 		return content_length;
 	else {
 		for ( i = 0; i < field_num; i++ )
+		{
 		if ( !field_values[i].name )
 			break;
 		else if ( strcasecmp( name, field_values[i].name) == 0 )
 		{
-			if ( field_values[i].type == 1 )
+			switch ( field_values[i].type )
+			{
+			case 1:
 				return field_values[i].val;
-			else if ( field_values[i].type == 2 )
-				return (int)field_values[i].when;
-			else
+			case 2:
+				return static_cast<TEXTUS_LONG>(field_values[i].when);
+			case 3:
+				return static_cast<TEXTUS_LONG>(field_values[i].uval);
+			default:
 				return atol(field_values[i].str);
+			}
+			break;
 		}		
+		}
+	}
+	return 0; 			  	
+}
+
+unsigned TEXTUS_LONG DeHead::getHeadULong(const char* name)
+{
+	int i;
+	if (strcasecmp(name, "Method") ==0 )
+		return method_type;
+	if (strcasecmp(name, "Content-Length") ==0 )
+		return content_length;
+	else {
+		for ( i = 0; i < field_num; i++ )
+		{
+		if ( !field_values[i].name )
+			break;
+		else if ( strcasecmp( name, field_values[i].name) == 0 )
+		{
+			switch ( field_values[i].type )
+			{
+			case 1:
+				return static_cast<unsigned TEXTUS_LONG>(field_values[i].val);
+			case 2:
+				return field_values[i].when;
+			case 3:
+				return field_values[i].uval;
+			default:
+				return static_cast<unsigned TEXTUS_LONG>(atoll(field_values[i].str));
+			}
+			break;
+		}
+		}
 	}
 	return 0; 			  	
 }
@@ -495,7 +535,7 @@ void DeHead::setField(const char* name, const char* strv, TEXTUS_LONG lv, time_t
 void DeHead::setHead(const char* name, TEXTUS_LONG value)
 {
 	if (strcasecmp(name,"Status")==0)
-		setStatus((int)value);
+		setStatus(static_cast<int>(value));
 	else
 		setField(name, 0, value, 0, 1);
 

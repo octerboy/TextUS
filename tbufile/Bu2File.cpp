@@ -82,7 +82,7 @@ public:
 	TBuffer *first_buf;
 	TBuffer *second_buf;
 
-	unsigned long instance_id;
+	unsigned int instance_id;
 	enum OUT_FORM { DIRECT_VIEW = 0 ,  DEBUG_VIEW =1, DEBUG_VIEW_X=2 };
 	enum SHOW_DEV { NONE_SHOW = 0 ,  STDOUT_SHOW =1, STDERR_SHOW=2 };
 	enum SPLIT { SP_NONE = 0 ,  SP_DATE =1};
@@ -93,7 +93,7 @@ private:
 	char errMsg[256];
 	char id_str[16];
 	struct G_CFG {
-		unsigned long instance_id;
+		unsigned int instance_id;
 		const char *filename;	//文件名, 当SPLIT不为0时, 这个文件名就成为一个格式符
 		OUT_FORM form;		/* 输出形式, 0: 标准, 直接输出; 1: 16进制, 并输出ASCII */
 		bool multi;		/* 多实例 */
@@ -157,7 +157,8 @@ private:
 	TINLINE void output(TBuffer *, int direct);
 	TINLINE int bug_view(TBuffer *, char*);
 
-	char *out_buf; int out_len;
+	char *out_buf; 
+	TEXTUS_LONG out_len;
 	bool get_file_name();
 	char real_fname[128];
 	
@@ -369,7 +370,7 @@ bool Bu2File::sponte( Amor::Pius *pius)
 
 int Bu2File::bug_view(TBuffer *tbuf, char *str)
 {
-	int i,ri, len, rows, rest;
+	TEXTUS_LONG len, rows, rest, i,ri;
 	unsigned char *p = tbuf->base;
 	len = tbuf->point - tbuf->base;
 	rows = len/gCFG->disp_len;
@@ -380,7 +381,7 @@ int Bu2File::bug_view(TBuffer *tbuf, char *str)
 	for ( ri = 0 ; ri < rows+1 ; ri++, offset += gCFG->row_size)
 	{
 		char *rstr = &str[offset];
-		int left = (ri == rows ? rest : gCFG->disp_len) ;
+		TEXTUS_LONG left = (ri == rows ? rest : gCFG->disp_len) ;
 
 		memset (rstr, ' ', gCFG->row_size);
 		rstr[gCFG->row_size-1] =  '\n';
@@ -388,7 +389,7 @@ int Bu2File::bug_view(TBuffer *tbuf, char *str)
 		{
 			unsigned char e;
 			unsigned char c = p[ri*gCFG->disp_len+i];
-			int o = i*3;
+			TEXTUS_LONG o = i*3;
 			for ( e = 1; e <= i/8; e++) o++;  //中间加一空格
 			//	if ( i >= e*o )  o++; 	//中间加一空格
 			if ( gCFG->form == DEBUG_VIEW_X )
@@ -466,13 +467,14 @@ bool Bu2File::get_file_name()
 
 void Bu2File::output(TBuffer *tbuf, int direct)
 {
-	int wLen, w2Len;
+	TEXTUS_LONG wLen;
+	size_t w2Len;
 	char *w_buf;
 
 	assert(gCFG);
 	if ( gCFG->form != DIRECT_VIEW )
 	{ 
-		int needl = (( tbuf->point - tbuf->base )/gCFG->disp_len+2)*gCFG->row_size + 15;
+		TEXTUS_LONG needl = (( tbuf->point - tbuf->base )/gCFG->disp_len+2)*gCFG->row_size + 15;
 		if (out_len < needl )
 		{
 			delete []out_buf;
@@ -545,10 +547,10 @@ void Bu2File::output(TBuffer *tbuf, int direct)
 
 	if (gCFG->hasLock)	/* 文件加锁 */
 	{
-#if !defined (_WIN32)
-		if(fcntl(gCFG->fileD, F_SETLKW, &gCFG->lock)==-1)
+#if defined (_WIN32)
+		if( _locking( gCFG->fileD, _LK_LOCK, static_cast<int>(w2Len)) != 0 )
 #else
-		if( _locking( gCFG->fileD, _LK_LOCK, w2Len) != 0 )
+		if(fcntl(gCFG->fileD, F_SETLKW, &gCFG->lock)==-1)
 #endif
 		{
 			ERROR_PRO("lock file")
@@ -556,17 +558,17 @@ void Bu2File::output(TBuffer *tbuf, int direct)
 		}
 	}
 
-#if !defined (_WIN32)
-	wLen = write(gCFG->fileD, w_buf, w2Len);
+#if defined (_WIN32)
+	wLen = _write(gCFG->fileD, w_buf, static_cast<int>(w2Len));
 #else
-	wLen = _write(gCFG->fileD, w_buf, w2Len);
+	wLen = write(gCFG->fileD, w_buf, w2Len);
 #endif
 	if (gCFG->hasLock)	/* 文件解锁, 对于MS VC,采用CRT的函数, 一个字节 */
 	{
-#if !defined (_WIN32)
-		if(fcntl(gCFG->fileD, F_SETLKW, &gCFG->unlock)==-1)
+#if defined (_WIN32)
+		if( _locking( gCFG->fileD, LK_UNLCK, static_cast<int>(wLen)) != 0 )
 #else
-		if( _locking( gCFG->fileD, LK_UNLCK, wLen) != 0 )
+		if(fcntl(gCFG->fileD, F_SETLKW, &gCFG->unlock)==-1)
 #endif
 		{
 			ERROR_PRO("unlock file")
@@ -633,7 +635,7 @@ Amor* Bu2File::clone()
 	child->gCFG = gCFG;
 	gCFG->instance_id++;
 	child->instance_id = gCFG->instance_id;
-	TEXTUS_SPRINTF(child->id_str, "%lu", child->instance_id);
+	TEXTUS_SPRINTF(child->id_str, "%d", child->instance_id);
 
 	return (Amor*)child;
 }

@@ -54,7 +54,7 @@ protected:
 	static int serialNo;		/* 如果毫秒数都相同，则采用序列号 */
 	static char last_md_sum[8];	/* 上一次日志的MD5值 */
 	static char md_magic[64];	/*默认是MD_MAGIC */
-	static int md_magic_len;
+	static short md_magic_len;
 	
 	int aliusID;		/* 每一个模块的唯一标志，默认为 -1 */
 	char alius[128];	/* 每个模块的别名 */
@@ -93,7 +93,7 @@ int Logdata::chnnls_num = CHNNL_NUM;
 char Logdata::last_md_sum[] = {0};
 bool Logdata::detect_modified = false;
 char Logdata::md_magic[] = {0};
-int Logdata::md_magic_len = 0;
+short Logdata::md_magic_len = 0;
 #define MD_MAGIC "1E19A89ADAFGAD"  // 每条日志中再加一点内容，再加MD5，以简单实现的防改。
 
 Logdata::Logdata()
@@ -102,7 +102,7 @@ Logdata::Logdata()
 	memset(alius, 0, sizeof(alius));
 	
 	instance_id = 0;
-	instance_last_id = (int*) 0;
+	instance_last_id = 0;
 	isPioneer = false;
 	if ( last_md_sum[0] == 0 ) 	//以此判断, 整个进程中, 这里初始为"00000000"
 	{
@@ -154,7 +154,7 @@ void Logdata::ignite_t (TiXmlElement *cfg, TiXmlElement *log_ele)
 		TEXTUS_STRNCPY(md_magic, comm_str, sizeof(comm_str)-2);
 	} else 
 		TEXTUS_STRCPY(md_magic, MD_MAGIC);
-	md_magic_len = (int)strlen(md_magic);
+	md_magic_len = (short)strlen(md_magic);
 
 	if ( (host_str = cfg->Attribute("host")) )
 	{

@@ -193,7 +193,7 @@ PASS:
 bool Relay::facio( Amor::Pius *pius)
 {
 	/* owner调用facio()时, 离开本节点之前 */
-	WBUG("facio Notitia::%d, owner %p", pius->ordo, owner);
+	WBUG("facio Notitia::" TLONG_FMT ", owner %p", pius->ordo, owner);
 
 	if (want_stop ) 
 	{	/* 这是Animus调用Aptus的facio发生控制转移而来的, 

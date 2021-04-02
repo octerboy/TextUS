@@ -521,7 +521,7 @@ bool Aio::facio( Amor::Pius *pius)
 #if defined(__linux__)
 		io_evp = (struct io_event*)pius->indic;
 		if ( (void*)io_evp->obj == (void*)aiocbp_R ) {
-			WBUG("io_submit(read) return %d bytes", (int)io_evp->res);
+			WBUG("io_submit(read) return %ld bytes", io_evp->res);
 			switch ( io_evp->res) {
 			case 0:
 				WLOG(INFO, "end of file");
@@ -543,7 +543,7 @@ bool Aio::facio( Amor::Pius *pius)
 				break;
 			}
 		} else if ( (void*)io_evp->obj == (void*)aiocbp_W ) {
-			WBUG("io_submit(write) return %d", (int)io_evp->res);
+			WBUG("io_submit(write) return %ld bytes", io_evp->res);
 			if ( io_evp->res <= 0 )	{
 				WLOG_OSERR("io_submit(write)");
 				a_close();
@@ -568,14 +568,12 @@ bool Aio::facio( Amor::Pius *pius)
 				tmp_ps.ordo = Notitia::Pro_File_End;
 				tmp_ps.indic = 0;
 				goto ERR_END;
-				break;
 			case -1:
 				WLOG_OSERR("aio_return(read)");
 				a_close();
 				tmp_ps.ordo = Notitia::Pro_File_Err;
 				tmp_ps.indic = 0;
 				goto ERR_END;
-				break;
 			default:
 				rcv_buf->commit(get_bytes);
 				aiocbp_R->aio_offset +=get_bytes ;
@@ -695,7 +693,6 @@ H_END:
 		WBUG("facio PRO_FILE_Pac");
 		TEXTUS_STRCPY(file_name, (char*)(fname_pac->getfld(gCFG->pac_fld_num)));
 		goto A_OPEN_PRO;
-		break;
 
 	case Notitia::PRO_FILE :
 		WBUG("facio PRO_FILE");
@@ -989,7 +986,7 @@ void Aio::recito_ex()
 	aiocbp_R->aio_reqprio = 0;
 	aiocbp_R->aio_buf = (u_int64_t) rcv_buf->point;
 	aiocbp_R->aio_nbytes = block_size;
-	//printf("block %d bytes %d iocbp_R %p aiocbp_R %p\n",block_size,  (int)aiocbp_R->aio_nbytes, iocbp_R, aiocbp_R);
+	//printf("block %ld bytes %d iocbp_R %p aiocbp_R %p\n",block_size,  aiocbp_R->aio_nbytes, iocbp_R, aiocbp_R);
 	aiocbp_R->aio_offset = 0;
 	//{int *a =0; *a= 0; }
 	if (io_submit(pollor.ctx, 1, iocbp_R) <= 0) {

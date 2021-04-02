@@ -9,10 +9,10 @@ AMOROBJS=ScPort.obj
 all: scport.dll
 
 ScPort.obj: ScPort.cpp
-	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=ScPort ScPort.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=ScPort ScPort.cpp
 
 scport.dll: ScPort.obj
-	$(LD) /NODEFAULTLIB  /NOLOGO -dll -out:$@ ScPort.obj $(LDLIB) Winscard.lib
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)  Winscard.lib
 	$(_VC_MANIFEST_PRO)
 	$(_POST_RPO_SUB)
 

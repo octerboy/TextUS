@@ -19,7 +19,8 @@ struct GetRequestCmd {
 		GetFileLen=6,           /*6: getFile(char* name, int *len);*/
 		GetFileLenType=7,       /*7: getFile(char* name, int *len, char **filename, char** type); */
 		GetQuery=8,		/*8: getQuery() */
-		GetHeadArr=9		/*9: getHeadArr(char* name)  */
+		GetHeadArr=9,		/*9: getHeadArr(char* name)  */
+		GetHeadULong=10		/*10: getHeadULong(char* name) */
 	} fun;	/*  输入参数,指明功能*/
 	
 	const char *name; 	/*  输入参数
@@ -30,6 +31,7 @@ struct GetRequestCmd {
 	const char *valStr;	/* 输出，用于fun=0,2~6,9~12，指向HTTP头内容、表单参数相应的内容、文件内容(char *) */
 	const char **valStrArr;	/* 输出，用于fun=0,2~6,9~12，指向HTTP头内容、表单参数相应的内容、文件内容(char *) */
 	TEXTUS_LONG valInt;	/* 输出，用于fun=1，指向HTTP头内容  */	
+	unsigned TEXTUS_LONG valULong;	/* 输出，用于fun=10，指向HTTP头内容  */	
 	TEXTUS_LONG len;	/* 输出，用于fun=3,4,6,7，指向输出内容（表单相应参数的内容、文件内容）的长度，即字节数 */
 	char *filename;	/* 输出，用于fun=7，指向文件名（表单送上来的） */ 
 	char *type;	/* 输出，用于fun=7，指向文件类型（表单送上来的）*/ 
@@ -40,16 +42,18 @@ struct GetRequestCmd {
 /* Amor中, Pius->indic 指向下面的结构 */
 struct SetResponseCmd {
 	enum {
-		GetHead = 0,		/*0: setHead(char* name, char* value); 	*/
-		GetHeadInt = 1,		/*1: setHead(char* name, int value); 	*/		
+		GetHead = 0,		/*0: getHead(char* name); 	*/
+		GetHeadInt = 1,		/*1: getHead(char* name); 	*/		
 		SetHead = 2,		/*2: setHead(char* name, char* value); 	*/
 		SetHeadInt = 3,		/*3: setHead(char* name, int value); 	*/		
-		SetHeadTime = 4,	/*4: setHead(char* name, int value); 	*/		
+		SetHeadTime = 4,	/*4: setHead(char* name, time_t); 	*/		
 		AddHead = 5,		/*5: addHead(char* name, char* value)  	*/
 		AddHeadInt = 6,		/*6: addHead(char* name, int value)    	*/
 		SetStatus = 7,		/*7: setStatus(int sc)                 	*/
 		SendError = 8,		/*8: sendError(int sc)                 	*/
 		SetLenOfContent = 9,	/*9: setContentSize			*/		
+		GetHeadULong = 13,	/*13: getHeadULong(char* name); 	*/		
+		SetHeadULong = 14,	/*14: setHead(char* name, unsigned long);*/		
 
 		OutPut = 10,		/*10:output(char* str)			*/
 		OutPutLen = 11,		/*11:output(char* str, int len)         	*/
@@ -60,6 +64,7 @@ struct SetResponseCmd {
 	const char *valStr;	/* 输入，用于fun=setHead, sendError,output,setXMLComment,setContentType，
 				 指向value, err_title, value,type, str */
 	TEXTUS_LONG valInt;	/* 输入，用于fun=setHead，指int value */
+	unsigned TEXTUS_LONG valULong;	/* 输入，用于fun=setHead，指unsigned long valULong */
 	time_t valTime;	/* 输入，用于fun=setHead，指int value */
 	int sc;		/* 输入，用于fun=setStatus,sendError，指sc */
 	TEXTUS_LONG len;	/* 输入，用于fun=OutPut,SetLenOfContent, 指len */
@@ -126,6 +131,15 @@ Amor::Pius cmd_pius;  /* 仅用于向httpsrv取得HTTP请求数据或设置HTTP响应数据 */
 		request_cmd.name = name;
 		SponteGetCmd;
 		return( request_cmd.valInt);
+	}; 
+	
+	inline unsigned TEXTUS_LONG getHeadULong(const char* name)
+	{
+		REQ_CMD
+		request_cmd.fun = GetRequestCmd::GetHeadULong ;
+		request_cmd.name = name;
+		SponteGetCmd;
+		return( request_cmd.valULong);
 	}; 
 	
 	/* 取表单内容 */
@@ -222,6 +236,15 @@ Amor::Pius cmd_pius;  /* 仅用于向httpsrv取得HTTP请求数据或设置HTTP响应数据 */
 		return( response_cmd.valInt);
 	}; 
 
+	inline unsigned TEXTUS_LONG getResHeadULong(const char* name)
+	{
+		RES_CMD
+		response_cmd.fun = SetResponseCmd::GetHeadULong ;
+		response_cmd.name = name;
+		SponteSetCmd;
+		return( response_cmd.valULong);
+	}; 
+	
 	inline void setHead(const char* name, const char* value)
 	{
 		RES_CMD
@@ -237,6 +260,15 @@ Amor::Pius cmd_pius;  /* 仅用于向httpsrv取得HTTP请求数据或设置HTTP响应数据 */
 		response_cmd.fun = SetResponseCmd::SetHeadInt;
 		response_cmd.name = name;
 		response_cmd.valInt = value;
+		SponteSetCmd;
+	};
+
+	inline void setHead(const char* name, unsigned TEXTUS_LONG value)
+	{
+		RES_CMD
+		response_cmd.fun = SetResponseCmd::SetHeadULong;
+		response_cmd.name = name;
+		response_cmd.valULong = value;
 		SponteSetCmd;
 	};
 
@@ -329,4 +361,4 @@ Amor::Pius cmd_pius;  /* 仅用于向httpsrv取得HTTP请求数据或设置HTTP响应数据 */
 		response_cmd.valStr = buf;
 		SponteSetCmd;
 		return response_cmd.len;
-	};	
+	};

@@ -20,8 +20,9 @@
 
 #include "Aptus.h"
 #include "BTool.h"
-#if defined(_WIN32) 
-#include "boost\regex.h"
+#if defined(_MSC_VER) && (_MSC_VER >= 1900 )
+#include <regex>
+using namespace std;
 #else
 #include <regex.h>
 #endif
@@ -72,7 +73,11 @@ typedef struct _FldDef {
 		unsigned int len;	/* 内容长度 */
 		unsigned char *val;	/*  匹配规则内容  */
 		bool NOT;	/* 结果取反 */
+#if defined(_MSC_VER) && (_MSC_VER >= 1900 )
+		regex rgx;
+#else
 		regex_t rgx;	//规则
+#endif
 		Match () {
 			NOT = false;
 		};
@@ -340,7 +345,7 @@ void Ramify::setDef(PacDef *pdef, TiXmlElement *fdset_ele, const char *which_pac
 			fdef->m_num++;
 			total_len += 1;
 			if ( m_ele->GetText())
-				total_len += strlen(m_ele->GetText());
+				total_len += (int)strlen(m_ele->GetText());
 		}
 		if ( fdef->m_num == 0)
 			goto NEXTFLD;
@@ -395,8 +400,23 @@ void Ramify::setDef(PacDef *pdef, TiXmlElement *fdset_ele, const char *which_pac
 				match.type = REGEX; 
 			}
 			if ( match.type == REGEX) 
-				if ( regcomp(&match.rgx, (const char*)match.val, 0) != 0 )
+			{
+#if defined(_MSC_VER) && (_MSC_VER >= 1900 )
+				try {
+					match.rgx = (char*) match.val;
+				} catch (regex_error& e ) {
+					WBUG("regex error %s at %s", e.what(), (char*) match.val);
 					match.type = VAR_ANY;	/* 如果规则不合法，就设为无限制 */
+					//printf("%s\n", e.what());
+				}
+#else
+				if ( regcomp(&match.rgx, (const char*)match.val, 0) != 0 )
+				{
+					match.type = VAR_ANY;	/* 如果规则不合法，就设为无限制 */
+					WBUG("regex error in %s", (char*) match.val);
+				}
+#endif
+			}
 	
 			if ( match.type == NO_MATCH) continue;
 			match.len = BTool::unescape(m_ele->GetText(), match.val) ;
@@ -504,7 +524,7 @@ bool Ramify::dextra(Amor::Pius *pius, unsigned int from)
 	default:
 		if ( pius->ordo == gCFG->dex_def.ordo )
 		{
-			WBUG("dextra Notitia::%d owner is %p", pius->ordo, owner);
+			WBUG("dextra Notitia::" TLONG_FMT " owner is %p", pius->ordo, owner);
 			goto MA;
 		}
 		return false;
@@ -564,7 +584,7 @@ bool Ramify::sponte_n (Amor::Pius *pius, unsigned int from)
 	default:
 		if ( pius->ordo == gCFG->spo_def.ordo )
 		{
-			WBUG("sponte Notitia::%d owner is %p", pius->ordo, owner);
+			WBUG("sponte Notitia::" TLONG_FMT " owner is %p", pius->ordo, owner);
 			goto MA;
 		}
 		return false;
@@ -619,7 +639,7 @@ bool Ramify::laeve(Amor::Pius *pius, unsigned int from)
 	default:
 		if ( pius->ordo == gCFG->lae_def.ordo )
 		{
-			WBUG("laeve Notitia::%d owner is %p", pius->ordo, owner);
+			WBUG("laeve Notitia::" TLONG_FMT " owner is %p", pius->ordo, owner);
 			goto MA;
 		}
 		return false;
@@ -733,11 +753,15 @@ bool Ramify::do_match(FieldObj &field, FldDef &fld_def)
 			break;
 
 		case REGEX:
+#if defined(_MSC_VER) && (_MSC_VER >= 1900 )
+			matched = regex_match((const char*)field.val, (const char*)(field.val + field.range),  scan->rgx);
+#else
 			m_con.grant(field.range+1);
 			m_con.input(field.val, field.range);
 			m_con.base[field.range] = 0;	//null terminating string.
 			if ( regexec(&(scan->rgx), (const char*)m_con.base, 0,  0, 0) == 0 )
 				matched = true;
+#endif
 			break;
 
 		default:
