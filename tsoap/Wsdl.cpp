@@ -27,7 +27,7 @@ VName::VName(const char *nm)
 	int len;
 	if (nm)
 	{
-		len = strlen(nm);
+		len = static_cast<int>(strlen(nm));
 		name = new char[len+1];
 		memcpy(name, nm, len);
 		name[len] = 0;
@@ -41,7 +41,7 @@ NString::NString (const char *n)
 	{
 		int len;
 		if ( nm ) delete[] nm;
-		len = strlen(n);
+		len = static_cast<int>(strlen(n));
 		nm = new char[len+1];
 		memset(nm, 0, len+1);
 		memcpy(nm, n, len);
@@ -54,7 +54,7 @@ void NString::operator = (const char *val)
 	{
 		int len;
 		if ( value ) delete[] value;
-		len = strlen(val);
+		len = static_cast<int>(strlen(val));
 		value = new char[len+1];
 		memset(value, 0, len+1);
 		memcpy(value, val, len);
@@ -66,7 +66,7 @@ void NString::operator = (NString &n)
 	if (n.value)
 	{
 		int len;
-		len = strlen(n.value);
+		len = static_cast<int>(strlen(n.value));
 		value = new char[len+1];
 		memset(value, 0, len+1);
 		memcpy(value, n.value, len);
@@ -81,12 +81,12 @@ char* NString::operator + (const char *val)
 		return value;
 
 	if ( value ) 
-		len = strlen(value);
+		len = static_cast<int>(strlen(value));
 	else 	
 		len = 0;
 
 	l = len;
-	len += strlen(val);
+	len += static_cast<int>(strlen(val));
 	
 	if ( result ) delete[] result;
 	result = new char[len+1];
@@ -106,7 +106,7 @@ void Z::set##Y (const char *val) 	\
 	if (val && X != val)		\
 	{				\
 		int len;		\
-		len = strlen(val);	\
+		len = static_cast<int>(strlen(val));	\
 		X = new char[len+1];	\
 		memset(X, 0, len+1);	\
 		memcpy(X, val, len);	\
@@ -241,7 +241,7 @@ bool Wsdl::parse ( TiXmlElement *def )
 
 	def->Accept(&printer);
 	if ( asmx ) delete[] asmx;
-	asm_len = printer.Size();
+	asm_len =static_cast<int>(printer.Size());
 	asmx = new char [asm_len +1 ];
 	TEXTUS_STRCPY( asmx, printer.CStr());
 
@@ -536,7 +536,7 @@ bool Wsdl::parse ( TiXmlElement *def )
 			oM->soapAction = nsoapops->Attribute("soapAction");
 			if ( oM->soapAction )
 			{
-				int len = strlen(oM->soapAction);
+				int len = static_cast<int>(strlen(oM->soapAction));
 				oM->soapAction2 = new char[len + 3];
 				oM->soapAction2[0] = '"';
 				memcpy(&oM->soapAction2[1], oM->soapAction, len);

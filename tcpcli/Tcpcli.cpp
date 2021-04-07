@@ -25,10 +25,12 @@
 #include <stdlib.h>
 #if defined(_WIN32)
 #define CLOSE closesocket
+#if defined(_MSC_VER) && (_MSC_VER < 1400 )
 #define EWOULDBLOCK WSAEWOULDBLOCK
 #define EAGAIN WSAEWOULDBLOCK
 #define EINPROGRESS WSAEWOULDBLOCK
 #define EINTR WSAEINTR
+#endif
 #define GETSOCK_OPT_TYPE char*
 #else
 #define CLOSE close
@@ -60,7 +62,7 @@ Tcpcli::Tcpcli()
 	BZERO(server_ip);
 	server_port = 0;
 
-	connfd = -1;
+	connfd = INVALID_SOCKET ;
 
 	wr_blocked = false; 	/* 刚开始, 最近一次写当然不阻塞 */
 	isConnecting = false;	/* 并非在连接进行中 */
@@ -88,7 +90,7 @@ bool Tcpcli::sock_start()
 #endif
 	GUID GuidConnectEx = WSAID_CONNECTEX;
 	DWORD dwBytes = 0;
-	int fd;
+	SOCKET fd;
 	int iResult = WSAStartup(MAKEWORD(2,2), &wsaData);
 	if (iResult != NO_ERROR)
 	{
@@ -98,7 +100,11 @@ bool Tcpcli::sock_start()
 	
 	lpfnConnectEx = NULL;
 
+#if defined(_MSC_VER) && (_MSC_VER >= 1800 )
+	if ((fd = WSASocketW(AF_INET,SOCK_STREAM, IPPROTO_TCP, NULL,0,WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET )
+#else
 	if ((fd = WSASocket(AF_INET,SOCK_STREAM, IPPROTO_TCP, NULL,0,WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET )
+#endif
 	{
 		ERROR_PRO("WSASocket")
 		return false;
@@ -121,7 +127,7 @@ bool Tcpcli::annecto_ex()
 	memset(&rcv_ovp, 0, sizeof(OVERLAPPED));
 
 	bRetVal = lpfnConnectEx(connfd,  (struct sockaddr *)&servaddr, sizeof(servaddr), 
-				(PVOID)snd_buf->point, snd_buf->point - snd_buf->base, &dwBytes, &rcv_ovp);
+				(PVOID)snd_buf->base, static_cast<DWORD>(snd_buf->point - snd_buf->base), &dwBytes, &rcv_ovp);
 	if (bRetVal == FALSE) { 
 		if (  ERROR_IO_PENDING  == WSAGetLastError() ) {
 			return true;
@@ -132,7 +138,7 @@ bool Tcpcli::annecto_ex()
 		}
 	}
 	if ( dwBytes > 0 )
-		snd_buf->commit(-(long)dwBytes);	//提交所读出的数据
+		snd_buf->commit(-(TEXTUS_LONG)dwBytes);	//提交所读出的数据
 	return true;
 }
 #endif
@@ -156,12 +162,44 @@ bool Tcpcli::clio( bool block)
 	{
 		struct in_addr me;
 #if defined (_WIN32)
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+#define	HAS_ADDR inet_pton(AF_INET, server_ip, &me) != 1
+#else
 #define	HAS_ADDR (me.s_addr = inet_addr(server_ip)) == INADDR_NONE
+#endif
 #else
 #define HAS_ADDR inet_aton(server_ip, &me) == 0
 #endif
 		if ( HAS_ADDR )
 		{
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+			int ret;
+			bool ok= true;
+			struct addrinfo hints;
+			struct addrinfo *result=0;
+			memset(&hints, 0, sizeof(struct addrinfo));
+			hints.ai_family = AF_INET;    /* Allow IPv4 */
+			hints.ai_socktype = SOCK_STREAM;
+			hints.ai_flags = AI_ALL;
+			hints.ai_protocol = IPPROTO_TCP;
+			ret = getaddrinfo(server_ip, 0, &hints, &result);
+			if ( ret !=0 )
+			{
+				ERROR_PRO("Invalid address")
+				err_lev = 3;
+				ok = false;
+			} else {
+				if ( result->ai_family == AF_INET ) {
+		   	 		(void) memcpy(&servaddr.sin_addr, &(((struct sockaddr_in *) result->ai_addr)->sin_addr), sizeof(servaddr.sin_addr));
+				} else {
+					if ( errMsg ) TEXTUS_SNPRINTF(errMsg, errstr_len, "%s", "not ipv4 address" );
+					err_lev = 3;
+					ok = false;
+				}
+			}
+			if ( !result ) freeaddrinfo(result);
+			if ( !ok ) return false;
+#else
 			struct hostent* he;
 			he = gethostbyname(server_ip);
 			if ( he == (struct hostent*) 0 )
@@ -169,14 +207,13 @@ bool Tcpcli::clio( bool block)
 				ERROR_PRO("Invalid address")
 				err_lev = 3;
 				return false;
-		   	} else
-			{
+		   	} else {
 		   	 	(void) memcpy(&servaddr.sin_addr, he->h_addr, he->h_length );
 		   	 }
-		   } else
-		   {
-		   	servaddr.sin_addr.s_addr = me. s_addr;
-		   }
+#endif
+		} else {
+			servaddr.sin_addr.s_addr = me.s_addr;
+		}
 	} else
 	{
 		if ( errMsg ) TEXTUS_STRCPY(errMsg, "annecto server ip is null!");
@@ -186,25 +223,30 @@ bool Tcpcli::clio( bool block)
 
 /* 建立套接字 */
 #if defined(_WIN32)
+#if defined(_MSC_VER) && (_MSC_VER >= 1800 )
+	if ((connfd = WSASocketW(AF_INET,SOCK_STREAM, IPPROTO_TCP, NULL,0,WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET )
+#else
 	if ((connfd = WSASocket(AF_INET,SOCK_STREAM, IPPROTO_TCP, NULL,0,WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET )
+#endif
 #else
 	if ((connfd = socket (AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET )
 #endif 
 	{
 		ERROR_PRO("create socket")
 		err_lev = 3;
-		connfd = -1;
+		connfd = INVALID_SOCKET ;
 		return false;
 	}
 
 	if ( !block )
 	{	//设为NONBLOCK方式
-		int flags;
 		int ret;
 #if defined(_WIN32)
+		u_long flags;
 		flags = 1;
-		ret = ioctlsocket(connfd, (long) FIONBIO, (u_long* ) &flags);
+		ret = ioctlsocket(connfd, FIONBIO, &flags);
 #else
+		int flags;
 		flags=fcntl(connfd, F_GETFL, 0);
 		if (flags != -1 )
 		{
@@ -299,7 +341,7 @@ bool Tcpcli::annecto_done()
 #ifndef NDEBUG
 	if ( ret )
 	{
-		if ( errMsg ) TEXTUS_SNPRINTF(errMsg, 512, "annecto_done success for %s:%d, fd:%d", server_ip, server_port, connfd);
+		if ( errMsg ) TEXTUS_SNPRINTF(errMsg, 512, "annecto_done success for %s:%d, fd:" TLONG_FMTu, server_ip, server_port, (connfd));
 	}
 #endif
 
@@ -317,7 +359,7 @@ void Tcpcli::end(bool down)
 		if ( down && !isConnecting ) 	//这是已经建立连接的, 所以关闭以通知对方.
 			shutdown(connfd, SHUT_RDWR);
 		CLOSE(connfd);	
-		connfd=-1;
+		connfd = INVALID_SOCKET ;
 	}
 
 #if defined (_WIN32)
@@ -371,7 +413,7 @@ bool Tcpcli::recito_ex()
 int Tcpcli::transmitto_ex()
 {
 	int rc;
-	wsa_snd.len = snd_buf->point - snd_buf->base;   //发送长度
+	wsa_snd.len = static_cast<DWORD>(snd_buf->point - snd_buf->base);   //发送长度
 	wsa_snd.buf = (char *)snd_buf->base;
 	memset(&snd_ovp, 0, sizeof(OVERLAPPED));
 	rc = WSASend(connfd, &wsa_snd, 1, NULL, 0, &snd_ovp, NULL);
@@ -379,22 +421,22 @@ int Tcpcli::transmitto_ex()
 	if ( rc != 0 )
 	{
 		if ( WSA_IO_PENDING == WSAGetLastError() ) {
-			snd_buf->commit(-(long)wsa_snd.len);	//已经到了系统
+			snd_buf->commit(-(TEXTUS_LONG)wsa_snd.len);	//已经到了系统
 			return 1; //回去再试, 
 		} else {
 			ERROR_PRO ("WSASend");
 			return -1;
 		}
 	}
-	snd_buf->commit(-(long)wsa_snd.len);	//已经到了系统
+	snd_buf->commit(-(TEXTUS_LONG)wsa_snd.len);	//已经到了系统
 	return 0;
 }
 #endif
 
 /* 接收发生错误时, 建议关闭这个套接字 */
-int Tcpcli::recito()
+TEXTUS_LONG Tcpcli::recito()
 {	
-	long len;
+	TEXTUS_LONG len;
 
 	rcv_buf->grant(rcv_frame_size);	//保证有足够空间
 ReadAgain:
@@ -431,8 +473,13 @@ ReadAgain:
 /* 发送有错误时, 返回-1, 建议关闭这个套接字 */
 int Tcpcli::transmitto()
 {
-	long len, snd_len ;
+#if defined(_WIN32)
+	DWORD len, snd_len ;
+	snd_len = static_cast<DWORD>(snd_buf->point - snd_buf->base);	//发送长度
+#else
+	TEXTUS_LONG len, snd_len ;
 	snd_len = snd_buf->point - snd_buf->base;	//发送长度
+#endif
 SendAgain:
 	len = send(connfd, (char *)snd_buf->base, snd_len, MSG_NOSIGNAL); /* (char*) for WIN32 */
 	if( len == SOCKET_ERROR )
@@ -461,7 +508,7 @@ SendAgain:
 			return -1;
 		}
 	}
-	snd_buf->commit(-len);	//提交所读出的数据
+	snd_buf->commit(-(TEXTUS_LONG)len);	//提交所读出的数据
 	if (snd_len > len )
 	{	
 		TEXTUS_SNPRINTF(errMsg, errstr_len, "sending not completed.");

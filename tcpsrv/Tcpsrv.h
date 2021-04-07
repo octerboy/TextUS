@@ -22,7 +22,6 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <mswsock.h>
-
 #endif
 
 #include "TBuffer.h"
@@ -37,8 +36,14 @@ public:
 	char srvip[50];		
 	int srvport;		//每个子实例相同
 
-	int listenfd;	//侦听
+#if defined(_WIN64)
+	SOCKET connfd; 	//-1表示本实例空闲, 每个子实例不同
+	SOCKET listenfd;	//侦听
+#else
 	int connfd; 	//-1表示本实例空闲, 每个子实例不同,负责侦听的实例保存最近一次的连接
+	int listenfd;	//侦听
+#endif
+
 	int rcv_frame_size;
 
 	bool servio(bool block = false);	/* 设定侦听套接字, 如果成功,则:
@@ -55,7 +60,7 @@ public:
 	int accept_ex();
 	bool post_accept_ex();
 	OVERLAPPED rcv_ovp, snd_ovp;
-	char accept_buf[128];
+	char accept_buf[8];
 	WSABUF wsa_snd, wsa_rcv;
 	DWORD flag;
 	bool sock_start();
@@ -64,15 +69,13 @@ public:
 	int transmitto_ex();	
 #endif
 
-
-	int recito();		//接收数据, 返回-1或0时建议关闭套接字 
+	TEXTUS_LONG recito();		//接收数据, 返回-1或0时建议关闭套接字 
 	int transmitto();	/* 发送数据, 返回
 				   0:  发送OK, 也不要设wrSet了.
 				   1:  没发完, 要设wrSet
 				   -1: 有错误, 建议关闭套接字, 但自己不关,
 					要由调用者使用end().
 				*/
-					
 	void end();	/*  结束当前的连接  */
 	void release();	/*  释放连接, 比如采用多进程, 则其中一个进程要释放  */
 	void endListen();	/* 结束服务, 当然连接有可能继续 */

@@ -158,11 +158,10 @@ char HttpNTLM::valid_pwd[1024][256] = {""};
 
 void HttpNTLM::prompt()
 {
-	int sc = 401;
 	//int sc = 407;
 	char basic_realm[256];
 
-	setHead("Status", sc);			
+	setHead("Status", (TEXTUS_LONG)401);			
 	setContentSize(0);			
 	//TEXTUS_SPRINTF(basic_realm,"Basic realm=\"%s\"", realm);
 	//TEXTUS_SPRINTF(basic_realm,"Digest realm=\"%s\"", "registered_users@gotham.news.com");
@@ -184,7 +183,7 @@ bool HttpNTLM::authenticate()
 {
 	unsigned char authinfo[500];
     	const char *authorization;
-	int l,i;
+	TEXTUS_LONG l,i;
  
 	if (!should_authen ) return true;
     	if ( !(authorization = getHead("Authorization")) )

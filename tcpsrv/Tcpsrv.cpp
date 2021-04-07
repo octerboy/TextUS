@@ -45,9 +45,11 @@
 
 #if defined(_WIN32)
 #define CLOSE closesocket
+#if defined(_MSC_VER) && (_MSC_VER < 1400 )
 #define EWOULDBLOCK WSAEWOULDBLOCK
 #define EAGAIN WSAEINPROGRESS
 #define EINTR WSAEINTR
+#endif
 #define SETSOCK_OPT_TYPE const char*
 #else
 #define CLOSE close
@@ -78,8 +80,8 @@ Tcpsrv::Tcpsrv()
 	memset(srvip, 0, sizeof(srvip));
 	srvport = 0;
 
-	connfd = -1;
-	listenfd = -1;
+	connfd = INVALID_SOCKET ;
+	listenfd = INVALID_SOCKET ;
 
 	wr_blocked = false; 	//刚开始, 最近一次写当然不阻塞
 
@@ -110,7 +112,7 @@ bool Tcpsrv::sock_start()
 	GUID GuidAcceptEx = WSAID_ACCEPTEX;
 	DWORD dwBytes;
 	BOOL bRetVal = FALSE;
-	int fd;
+	SOCKET fd;
 	int iResult = WSAStartup(MAKEWORD(2,2), &wsaData);
 	if (iResult != NO_ERROR)
 	{
@@ -118,8 +120,11 @@ bool Tcpsrv::sock_start()
 		return false;
 	}
 	lpfnAcceptEx = NULL;
-
+#if defined(_MSC_VER) && (_MSC_VER >= 1800 )
+	if ((fd = WSASocketW(AF_INET,SOCK_STREAM, IPPROTO_TCP, NULL,0,WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET )
+#else
 	if ((fd = WSASocket(AF_INET,SOCK_STREAM, IPPROTO_TCP, NULL,0,WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET )
+#endif
 	{
 		ERROR_PRO("create socket")
 		return false;
@@ -156,12 +161,42 @@ bool Tcpsrv::servio( bool block)
 	{
 		struct in_addr me;
 #if defined (_WIN32)
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+#define	HAS_ADDR inet_pton(AF_INET, srvip, &me) != 1
+#else
 #define	HAS_ADDR (me.s_addr = inet_addr(srvip)) == INADDR_NONE
+#endif
 #else
 #define HAS_ADDR inet_aton(srvip, &me) == 0
 #endif
 		if ( HAS_ADDR )
 		{
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+			int ret;
+			bool ok= true;
+			struct addrinfo hints;
+			struct addrinfo *result=0;
+			memset(&hints, 0, sizeof(struct addrinfo));
+			hints.ai_family = AF_INET;    /* Allow IPv4 */
+			hints.ai_socktype = SOCK_STREAM;
+			hints.ai_flags = AI_ALL;
+			hints.ai_protocol = IPPROTO_TCP;
+			ret = getaddrinfo(srvip, 0, &hints, &result);
+			if ( ret !=0 )
+			{
+				ERROR_PRO("Invalid address")
+				ok = false;
+			} else {
+				if ( result->ai_family == AF_INET ) {
+		   	 		(void) memcpy(&servaddr.sin_addr, &(((struct sockaddr_in *) result->ai_addr)->sin_addr), sizeof(servaddr.sin_addr));
+				} else {
+					if ( errMsg ) TEXTUS_SNPRINTF(errMsg, errstr_len, "%s", "not ipv4 address" );
+					ok = false;
+				}
+			}
+			if ( !result ) freeaddrinfo(result);
+			if ( !ok ) return false;
+#else
 			struct hostent* he;
 			he = gethostbyname(srvip);
 			if ( he == (struct hostent*) 0 )
@@ -172,6 +207,7 @@ bool Tcpsrv::servio( bool block)
 		   	{
 		   	 	(void) memcpy(&servaddr.sin_addr, he->h_addr, he->h_length );
 		   	 }
+#endif
 		   } else
 		   {
 		   	servaddr.sin_addr.s_addr = me. s_addr;
@@ -179,7 +215,11 @@ bool Tcpsrv::servio( bool block)
 	} 	
 /* 建立套接字 */
 #if defined(_WIN32)
+#if defined(_MSC_VER) && (_MSC_VER >= 1800 )
+	if ((listenfd = WSASocketW(AF_INET,SOCK_STREAM, IPPROTO_TCP, NULL,0,WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET )
+#else
 	if ((listenfd = WSASocket(AF_INET,SOCK_STREAM, IPPROTO_TCP, NULL,0,WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET )
+#endif 
 #else
 	if ((listenfd = socket (AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET )
 #endif 
@@ -213,11 +253,12 @@ bool Tcpsrv::servio( bool block)
 
 	if ( !block )
 	{
-		int flags;
 #if defined(_WIN32)
+		u_long flags;
 		flags = 1;
-		ioctlsocket(listenfd, (long) FIONBIO, (u_long* ) &flags);
+		ioctlsocket(listenfd, FIONBIO, (u_long* ) &flags);
 #else
+		int flags;
 		flags=fcntl(listenfd,F_GETFL,0);	//设为NONBLOCK方式
 		fcntl(listenfd,F_SETFL,O_NONBLOCK|flags);
 #endif
@@ -316,15 +357,16 @@ AcceptAgain:
 
 	if ( !block )
 	{
-		int flags;
 #if defined(_WIN32)
+		u_long flags;
 		flags = 1;
-		if ( ioctlsocket(connfd, (long) FIONBIO, (u_long *)&flags) == SOCKET_ERROR )
+		if ( ioctlsocket(connfd, FIONBIO, &flags) == SOCKET_ERROR )
 		{
 			ERROR_PRO ("ioctlsocket FIONBIO");
 			return false;
 		}
 #else
+		int flags;
 		flags=fcntl(connfd,F_GETFL,0);	//connfd设为NONBLOCK方式
 		fcntl(connfd,F_SETFL,O_NONBLOCK|flags);
 #endif
@@ -342,7 +384,7 @@ void Tcpsrv::end()
 #endif
 		shutdown(connfd, SHUT_RDWR);
 		CLOSE(connfd);	
-		connfd=-1;
+		connfd = INVALID_SOCKET;
 	}
 	return ;
 }
@@ -352,7 +394,7 @@ void Tcpsrv::release()
 	if ( connfd > 0 ) 
 	{
 		CLOSE (connfd);	
-		connfd = -1;
+		connfd =  INVALID_SOCKET;
 	}
 	return ;
 }
@@ -362,7 +404,7 @@ void Tcpsrv::endListen()
 	if ( listenfd > 0)
 	{	
 		CLOSE(listenfd);	
-		listenfd =-1;
+		listenfd = INVALID_SOCKET;
 	}
 	return ;
 }
@@ -390,7 +432,7 @@ bool Tcpsrv::recito_ex()
 int Tcpsrv::transmitto_ex()
 {
 	int rc;
-	wsa_snd.len = snd_buf->point - snd_buf->base;   //发送长度
+	wsa_snd.len = static_cast<DWORD>(snd_buf->point - snd_buf->base);   //发送长度
 	wsa_snd.buf = (char *)snd_buf->base;
 	memset(&snd_ovp, 0, sizeof(OVERLAPPED));
 	rc = WSASend(connfd, &wsa_snd, 1, NULL, 0, &snd_ovp, NULL);
@@ -398,22 +440,22 @@ int Tcpsrv::transmitto_ex()
 	if ( rc != 0 )
 	{
 		if ( WSA_IO_PENDING == WSAGetLastError() ) {
-			snd_buf->commit(-(long)wsa_snd.len);	//已经到了系统
+			snd_buf->commit(-(TEXTUS_LONG)wsa_snd.len);	//已经到了系统
 			return 1; //回去再试, 
 		} else {
 			ERROR_PRO ("WSASend");
 			return -1;
 		}
 	}
-	snd_buf->commit(-(long)wsa_snd.len);	//已经到了系统
+	snd_buf->commit(-(TEXTUS_LONG)wsa_snd.len);	//已经到了系统
 	return 0;
 }
 #endif
 
 /* 接收发生错误时, 建议关闭这个套接字 */
-int Tcpsrv::recito()
+TEXTUS_LONG Tcpsrv::recito()
 {	
-	long len;
+	TEXTUS_LONG len;
 
 	rcv_buf->grant(rcv_frame_size);	//保证有足够空间
 ReadAgain:
@@ -450,9 +492,13 @@ ReadAgain:
 /* 发送有错误时, 返回-1, 建议关闭这个套接字 */
 int Tcpsrv::transmitto()
 {
-	long len,snd_len;
+#if defined(_WIN32)
+	DWORD len, snd_len ;
+	snd_len = static_cast<DWORD>(snd_buf->point - snd_buf->base);	//发送长度
+#else
+	TEXTUS_LONG len, snd_len ;
 	snd_len = snd_buf->point - snd_buf->base;	//发送长度
-
+#endif
 SendAgain:
 	len = send(connfd, (char *)snd_buf->base, snd_len, MSG_NOSIGNAL); /* (char*) for WIN32 */
 	if( len == SOCKET_ERROR )
@@ -481,7 +527,7 @@ SendAgain:
 			return -1;
 		}
 	}
-	snd_buf->commit(-len);	//提交所读出的数据
+	snd_buf->commit(-(TEXTUS_LONG)len);	//提交所读出的数据
 	if (snd_len > len )
 	{	
 		TEXTUS_SNPRINTF(errMsg, errstr_len, "sending not completed.");
@@ -526,7 +572,11 @@ unsigned short Tcpsrv::getSrvPort()
 
 char * Tcpsrv::getSrvIP()
 {
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+	static char str[32];
+#else
 	char *str = 0;
+#endif
 	struct sockaddr_in name1;
 #if defined(__linux__) || defined(_AIX) || defined(__APPLE__) || defined(__SUNPRO_CC)
 	socklen_t clilen; 
@@ -538,7 +588,11 @@ char * Tcpsrv::getSrvIP()
 	{
 		ERROR_PRO("getsockname");
 	} else {
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+		inet_ntop(AF_INET, &(name1.sin_addr), str, sizeof(str));
+#else
 		str = inet_ntoa(name1.sin_addr);
+#endif
 	}
 	return str;
 }

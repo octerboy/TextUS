@@ -345,7 +345,7 @@ void Ramify::setDef(PacDef *pdef, TiXmlElement *fdset_ele, const char *which_pac
 			fdef->m_num++;
 			total_len += 1;
 			if ( m_ele->GetText())
-				total_len += (int)strlen(m_ele->GetText());
+				total_len += static_cast<int>(strlen(m_ele->GetText()));
 		}
 		if ( fdef->m_num == 0)
 			goto NEXTFLD;

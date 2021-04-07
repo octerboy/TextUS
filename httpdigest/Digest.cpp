@@ -308,10 +308,9 @@ Digest::~Digest()
 
 void Digest::prompt(int ind)
 {
-	int sc = 401;
 	char basic_realm[1024];
 
-	setHead("Status", sc);			
+	setHead("Status", (unsigned TEXTUS_LONG)401);			
 	setContentSize(0);			
 	if ( ind > gCFG->oNum )
 		gCFG->expand(ind);
@@ -348,7 +347,7 @@ inline bool Digest::parse()
 	while (strListGetItem(&authorization[7], ',', &item, &ilen, &pos)) 
 	{
 	if ((p = strchr(item, '=')) && (p - item < ilen))
-		ilen = (int) (p++ - item);
+		ilen = static_cast<int>(p++ - item);
 
 	if (!strncmp(item, "username", ilen)) {
 		/* white space */

@@ -33,7 +33,11 @@ public:
 	*/
 	struct Criptor{
 		Amor *pupa;	//被调用facio的对象
+#if defined(_WIN64)
+		SOCKET scanfd;	//描述符
+#else
 		int scanfd;	//描述符
+#endif
 		int rd_index;	//指示数组中的位置, 这对于Sched类有意义
 		int wr_index;	//指示数组中的位置, 这对于Sched类有意义
 		int ex_index;	//指示数组中的位置, 这对于Sched类有意义

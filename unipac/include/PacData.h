@@ -25,7 +25,7 @@
 
    struct Asn1Type {
 	char kind;
-	int len;
+	TEXTUS_LONG len;
 	unsigned char *val;
    };
 
@@ -33,10 +33,10 @@
    struct FieldObj {
  	int no;			/* 域号, < 0 :无此数据, >=0 : 有数据, 与数组下标相同 */
   	unsigned char *raw;	/* 报文解析后, 指向原始数据buffer中的位置, 包括前缀、后缀 */
-  	unsigned long _rlen;	/* raw所指的范围的字节数 */
+  	unsigned TEXTUS_LONG _rlen;	/* raw所指的范围的字节数 */
   	unsigned char *val;	/* 报文解析后, 指向原始数据buffer中的位置, 不包括前缀、后缀 */
-  	unsigned long range;	/* val所指的范围的字节数 */
-  	long len;		/* 名义(定义)长度,  -1:此值无效 */
+  	unsigned TEXTUS_LONG range;	/* val所指的范围的字节数 */
+  	TEXTUS_LONG len;		/* 名义(定义)长度,  -1:此值无效 */
 	ComplexType *other;		/* 其它种种情况 */
 	/* 报文合成的规则:
 		1：如果存在raw, 则取之, 不理会定义, 这为产生'非法报文'提供可能
@@ -82,7 +82,7 @@
 		TBuffer::exchange(buf, ano->buf);
 	};
 
-	inline unsigned char *alloc_buf(long len)
+	inline unsigned char *alloc_buf(TEXTUS_LONG len)
 	{
 		unsigned char *p = buf.point;
 		buf.commit(len);
@@ -98,7 +98,7 @@
 #define M_SZ_MASK 3
 #define NOT_M_SZ_MASK 0xfffffffc
 #endif
-	inline unsigned char *alloc_align_buf(long len)
+	inline unsigned char *alloc_align_buf(TEXTUS_LONG len)
 	{
 		unsigned char *q,*p;
 		size_t offset;
@@ -185,7 +185,7 @@
 		}
 	};
 
-	inline void grant( unsigned long n) { 
+	inline void grant( unsigned TEXTUS_LONG n) { 
 		if ( buf.point +n > buf.limit )
 		{
 			unsigned char *o = buf.base;
@@ -194,7 +194,7 @@
 		}
 	};
 
-	inline void commit( int no, unsigned long len) { 
+	inline void commit( int no, unsigned TEXTUS_LONG len) { 
 		if ( no < 0 ||  no > max ) return;
 		fld[no].no = no;
 		fld[no].val = buf.point;
@@ -202,7 +202,7 @@
 		buf.commit(len);
 	};
 
-	inline  unsigned char *getfld(int no, unsigned long *lenp) { 
+	inline  unsigned char *getfld(int no, unsigned TEXTUS_LONG *lenp) { 
 		if ( no < 0 ||  no > max ) 
 			return 0x0;
 		if ( fld[no].no == no  )
@@ -232,7 +232,7 @@
 		return 0x0;
 	};
 
-	inline void input( int no, unsigned char *val, unsigned long len) { 
+	inline void input( int no, unsigned char *val, unsigned TEXTUS_LONG len) { 
 		if ( no > max || no < 0) return;
 		if ( !val ) return;
 		if ( fld[no].no == no && fld[no].val && fld[no].range >= len )
@@ -379,18 +379,18 @@
 
 
 	inline void input( int no, const char *val, int len) { 
-		input(no, (unsigned char*)val, (unsigned long)len);
+		input(no, (unsigned char*)val, (unsigned TEXTUS_LONG)len);
 	};
 /*
-	inline void input( int no, const char *val, unsigned long len) { 
+	inline void input( int no, const char *val, unsigned TEXTUS_LONG len) { 
 		input(no, (unsigned char*)val, len);
 	};
-	inline void input( int no, char val[], unsigned long len) { 
+	inline void input( int no, char val[], unsigned TEXTUS_LONG len) { 
 		input(no, (unsigned char*)(&val[0]), len);
 	};
 */
 	inline  unsigned char *getfld(int no, int *lenp) { 
-		unsigned long ulen=0;
+		unsigned TEXTUS_LONG ulen=0;
 		unsigned char *p;
 		p =  getfld(no, &ulen);
 		*lenp = (int)ulen;

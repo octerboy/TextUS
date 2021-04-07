@@ -98,7 +98,7 @@ void TSoap::ignite(TiXmlElement *cfg)
 
 	gCFG->wsdl->parse(cfg->FirstChildElement());
 	ql = gCFG->wsdl->qlt["SOAP-ENV"].value;
-	len = strlen(ql);
+	len = static_cast<int> (strlen(ql));
 	if ( len > 500 ) len = 500;
 
 	BZERO(gCFG->envVal);
@@ -263,7 +263,7 @@ void TSoap::handle()
 	TiXmlElement *reqele = req_doc->RootElement();
 	char *nsq = Wsdl::getQualifier((char*)reqele->Value());
 		
-	len2 = len = strlen(nsq);
+	len2 = len = static_cast<int> (strlen(nsq));
 
 	if ( len2 > 0 )  
 	{

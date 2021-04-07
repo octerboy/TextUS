@@ -43,6 +43,11 @@
 
 
 #define TOR_SIZE FD_SETSIZE
+#if defined(_WIN64)
+typedef SOCKET MY_FD_TYPE;
+#else
+typedef int MY_FD_TYPE;
+#endif
 class Sched: public Amor
 {
 public:
@@ -53,7 +58,7 @@ public:
 
 	Sched();
 private:
-	int maxfd;
+	MY_FD_TYPE maxfd;
 	int timer_milli; /* ¶¨Ê±Æ÷ºÁÃëÊı */
 	int timer_usec;	/* ÂÖÑ¯¼ä¸ôÎ¢ÃëÊı */
 	int timer_sec;	/* ÂÖÑ¯¼ä¸ôÃëÊı */
@@ -68,10 +73,10 @@ private:
 
 		fd_set rwSet;
 
-		inline int setup(Describo::Criptor * ,int*);
-		inline void clear(Describo::Criptor *, int*);
-		inline void isset(fd_set*, Notitia::HERE_ORDO, int& nready);
-		inline Tor_Pool ()
+		MY_FD_TYPE setup(Describo::Criptor * ,int*);
+		void clear(Describo::Criptor *, int*);
+		void isset(fd_set*, Notitia::HERE_ORDO, int& nready);
+		Tor_Pool ()
 		{
 			wpius.ordo = 0;
 			wpius.indic = &wtor;
@@ -94,7 +99,7 @@ private:
 					1: Òª³¬Ê±Í¨Öª, Ö»Í¨¶ÌÒ»´Î
 					2: ÒÑ¾­³¬Ê±Í¨Öª¹ıÁË, ÒÔºó²»»áÔÙÍ¨Öª, Èç¹ûÊ¹ÓÃÕßÇå³ıÔòÒ»Ö±Õ¼×Å¿Õ¼ä
 				*/
-		inline void clear ()
+		void clear ()
 		{
 			pupa = 0;
 			since.time = 0;
@@ -104,7 +109,7 @@ private:
 			interval = 0;
 			status = 0;
 		}
-		inline Timer_info ()
+		Timer_info ()
 		{
 			clear();
 		}
@@ -117,7 +122,7 @@ private:
 	bool shouldEnd;
 	struct Describo::Pendor *pendors;	//ÑÓºóµ÷ÓÃµÄÊı×é£»
 	int pendor_size;
-	int pendor_top;
+	MY_FD_TYPE pendor_top;
 	void run_pendors();
 	Amor::Pius tm_hd_ps;
 #include "wlog.h"
@@ -161,7 +166,8 @@ void Sched::ignite(TiXmlElement *cfg)
 
 bool Sched::sponte( Amor::Pius *apius)
 {
-	int i, tmp_type = 0;
+	MY_FD_TYPE i;
+	int tmp_type = 0;
 	unsigned interval =0;
 	Amor *ask_pu = (Amor *) 0;
 	void **p;
@@ -174,7 +180,7 @@ bool Sched::sponte( Amor::Pius *apius)
 	case Notitia::FD_SETRD :	/* ÖÃ¶Á */
 		tor = (Describo::Criptor *)(apius->indic);	
 		assert(tor);
-		WBUG("%p %s %d", tor->pupa, "sponte FD_SETRD", tor->scanfd);
+		WBUG("%p %s " TLONG_FMTu, tor->pupa, "sponte FD_SETRD", tor->scanfd);
 		i = rd_tors.setup(tor, &(tor->rd_index));
 
 		if ( i >= 0 )
@@ -186,7 +192,7 @@ bool Sched::sponte( Amor::Pius *apius)
 	case Notitia::FD_SETWR :	/* ÖÃĞ´ */
 		tor = (Describo::Criptor *)(apius->indic);	
 		assert(tor);
-		WBUG("%p %s %d", tor->pupa, "sponte FD_SETWR", tor->scanfd);
+		WBUG("%p %s " TLONG_FMTu, tor->pupa, "sponte FD_SETWR", tor->scanfd);
 		i = wr_tors.setup(tor, &(tor->wr_index));
 		if ( i >= 0 )
 			maxfd = (maxfd > i ? maxfd:i);
@@ -197,7 +203,7 @@ bool Sched::sponte( Amor::Pius *apius)
 	case Notitia::FD_SETEX :	/* set except fd */
 		tor = (Describo::Criptor *)(apius->indic);	
 		assert(tor);
-		WBUG("%p %s %d", tor->pupa, "sponte FD_SETEX", tor->scanfd);
+		WBUG("%p %s " TLONG_FMTu, tor->pupa, "sponte FD_SETEX", tor->scanfd);
 		i = ex_tors.setup(tor, &(tor->ex_index));
 		if ( i >= 0 )
 			maxfd = (maxfd > i ? maxfd:i);
@@ -208,21 +214,21 @@ bool Sched::sponte( Amor::Pius *apius)
 	case Notitia::FD_CLRRD :	/* Çå¿É¶Á */
 		tor = (Describo::Criptor *)(apius->indic);	
 		assert(tor);
-		WBUG("%p %s %d", tor->pupa, "sponte FD_CLRRD", tor->scanfd);
+		WBUG("%p %s " TLONG_FMTu, tor->pupa, "sponte FD_CLRRD", tor->scanfd);
 		rd_tors.clear(tor, &(tor->rd_index));
 		break;
 
 	case Notitia::FD_CLRWR :	/* Çå¿ÉĞ´ */
 		tor = (Describo::Criptor *)(apius->indic);	
 		assert(tor);
-		WBUG("%p %s %d", tor->pupa, "sponte FD_CLRWR", tor->scanfd);
+		WBUG("%p %s " TLONG_FMTu, tor->pupa, "sponte FD_CLRWR", tor->scanfd);
 		wr_tors.clear(tor, &(tor->wr_index));
 		break;
 
 	case Notitia::FD_CLREX :	/* clear exception fd */
 		tor = (Describo::Criptor *)(apius->indic);	
 		assert(tor);
-		WBUG("%p %s %d", tor->pupa, "sponte FD_CLREX", tor->scanfd);
+		WBUG("%p %s " TLONG_FMTu, tor->pupa, "sponte FD_CLREX", tor->scanfd);
 		ex_tors.clear(tor, &(tor->ex_index));
 		break;
 
@@ -241,7 +247,7 @@ bool Sched::sponte( Amor::Pius *apius)
 			p = (void**) (apius->indic);
 			ask_pu = (Amor*) (*p);
 			p++;
-			interval = *((int *)(*p));
+			interval = *(reinterpret_cast<int*>(*p));
 			p++;
 			if ( *p ) 
 				tmp_type = 3;	//repeat
@@ -281,7 +287,7 @@ bool Sched::sponte( Amor::Pius *apius)
 		if ( apius->indic == 0  ) break;
 		for( i = 0 ;i < infor_size; i++)
 		{
-			int j;
+			MY_FD_TYPE j;
 			if ( timer_infor[i].pupa != (Amor*)(apius->indic) ) continue;
 			for ( j = i; j < infor_size-1; j++) /* ÁôÏÂÒ»¸ö¿ÕÎ»ÖÃ, Ç°ÒÆ */
 			{
@@ -357,7 +363,7 @@ Amor* Sched::clone()
 	return (Amor*)this;
 }
 
-int Sched::Tor_Pool::setup (Describo::Criptor *tor, int *index)
+MY_FD_TYPE Sched::Tor_Pool::setup (Describo::Criptor *tor, int *index)
 {
 	if ( *index >= 0 ) goto GIVE;	/* ²»ÅÂÖØ¸´ÉèÖÃ */
 	if ( top >=0 )
@@ -431,7 +437,7 @@ void Sched::run_pendors()
 {
 	Amor::Pius aps;
 	struct Describo::Pendor pen;
-	int i;
+	MY_FD_TYPE i;
 	i = pendor_top ; 
 	for ( ; i > -1; i-- )
 	{
@@ -484,7 +490,7 @@ LOOP:
 		nready = 0;
 	} else
 #endif
-	nready = select((maxfd+1), 
+	nready = select((maxfd+1), 	/* ¶ÔÓÚwin64, ÕâÃ´Ó²×ª»», ÓĞÃ»ÓĞÎÊÌâ£¿ÓĞÆäËüselectº¯Êı¿  */
 		rd_tors.cur == 0 ? NULL: &rset,
 		wr_tors.cur == 0 ? NULL: &wset, 
 		ex_tors.cur == 0 ? NULL: &eset, &tv); 
@@ -593,4 +599,3 @@ void Sched::sort()
 	}
 }
 #include "hook.c"
-

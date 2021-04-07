@@ -35,7 +35,6 @@
 #if !defined(_WIN32)
 #include <unistd.h>
 #endif
-#define INLINE inline
 #define BUFF_SIZE 256
 class OraCli: public Amor
 {
@@ -52,20 +51,20 @@ public:
 	bool inThread;
 	const char *so_file;
 	
-	INLINE int handle();
-	INLINE int fetch(ub4 many, bool just=false);
-	INLINE void copyRowValue();
-	INLINE void copyRowSet(int);
+	int handle();
+	int fetch(ub4 many, bool just=false);
+	void copyRowValue();
+	void copyRowSet(int);
 #define ROWSET_LEFT	0
 #define ROWS_OBTAINED	1
 
-	INLINE void logon();
-	INLINE void logout();
-	INLINE void myalloc();
-	INLINE bool hasError(sword status);
-	INLINE ub2 getdty(DBFace::DataType type);
-	INLINE TEXTUS_LONG getRowsetSize();
-	INLINE void setRowsCount();
+	void logon();
+	void logout();
+	void myalloc();
+	bool hasError(sword status);
+	ub2 getdty(DBFace::DataType type);
+	ub4 getRowsetSize();
+	void setRowsCount();
 
 	char conn_str[BUFF_SIZE];
 	const char *username, *password;
@@ -88,8 +87,8 @@ public:
 
 	OCIStmt *stmthp;
 	
-	TEXTUS_LONG	cRowsObtained;	/* 结果集返回记录数 */
-	TEXTUS_LONG	cRowsLeft;	/* 行集中还有多少记录未取 */
+	ub4	cRowsObtained;	/* 结果集返回记录数 */
+	ub4	cRowsLeft;	/* 行集中还有多少记录未取 */
 #define STMT_MAX	1024
 #define PARA_MAX 	256
 	char proc_stmt[STMT_MAX];
@@ -385,16 +384,15 @@ Amor* OraCli::clone()
 	return (Amor*)child;
 }
 
-INLINE int OraCli::handle()
+int OraCli::handle()
 {
 	int retnum, m_chunk;
 	unsigned int slen = 0;
-	unsigned TEXTUS_LONG oTotal;
+	unsigned TEXTUS_LONG oTotal, blen ;
 	sword status;
 	unsigned int i;
 	unsigned int outNum;	/* 输出参数个数, 对于DBPROC、FUNC, 如果本身没有输出参数, 则NO_DATA不算错 */
 	ub4 execute_mode;	/* 执行模式 */
-	sb4 blen ;
 
 	unsigned int defNum, bindNum;
 
@@ -469,7 +467,7 @@ INLINE int OraCli::handle()
 
 			case DBFace::PARA_INOUT:
 				assert(rNo <= snd_pac->max );
-				blen = para.outlen == 0 ? (sb4)rcv_pac->fld[rNo].range : para.outlen ;
+				blen = para.outlen == 0 ? rcv_pac->fld[rNo].range : para.outlen ;
 				outNum++;
 				break;
 
@@ -484,7 +482,7 @@ INLINE int OraCli::handle()
 		/* 输入输出值的绑定 */
 		for ( i = 0; i < face->num && i < PARA_MAX; i++ )
 		{
-			unsigned char *buf = (unsigned char*) 0;
+			unsigned char *buf = 0;
 			ub2 dty;
 			ub2 *alenp = (ub2*) 0; /* actual length  */
 			DBFace::Para &para = face->paras[i];
@@ -496,7 +494,7 @@ INLINE int OraCli::handle()
 			case DBFace::PARA_IN:
 				assert(rNo <= rcv_pac->max );
 				buf = rcv_pac->fld[rNo].val;
-				blen = (sb4) rcv_pac->fld[rNo].range;
+				blen = rcv_pac->fld[rNo].range;
 #if TEXTUS_BIG_ENDIAN
 				alenp = sizeof(rcv_pac->fld[rNo].range) -2 + (ub2*) &(rcv_pac->fld[rNo].range);	//定位到第7或3个字节,
 #elif TEXTUS_LITTLE_ENDIAN
@@ -528,7 +526,7 @@ INLINE int OraCli::handle()
 			case DBFace::PARA_INOUT:
 				assert(rNo <= snd_pac->max );
 				blen = para.outlen == 0 ? (sb4)rcv_pac->fld[rNo].range : para.outlen ;
-				WBUG("inout snd_pac input blen %d, fld[%d].range " TLONG_FMT ", outlen %d" , blen, rNo, rcv_pac->fld[rNo].range, para.outlen);
+				WBUG("inout snd_pac input blen " TLONG_FMT ", fld[%d].range " TLONG_FMT ", outlen " TLONG_FMT , blen, rNo, rcv_pac->fld[rNo].range, para.outlen);
 				snd_pac->input(rNo, rcv_pac->fld[rNo].val, blen);
 				buf = snd_pac->fld[rNo].val;
 #if TEXTUS_BIG_ENDIAN
@@ -547,7 +545,7 @@ INLINE int OraCli::handle()
 			if ( !(dty =getdty(para.type)) )
 				goto ENDDBPROC;
 
-			if ( hasError(OCIBindByPos(stmthp, &bndp[i], errhp, i+1, (dvoid *) buf, blen, dty, 
+			if ( hasError(OCIBindByPos(stmthp, &bndp[i], errhp, i+1, (dvoid *) buf, static_cast<sb4>(blen), dty, 
 				(dvoid *) 0, alenp, (ub2 *) 0, (ub4) 0, (ub4 *) 0, OCI_DEFAULT)))
 				break;
 		}
@@ -632,19 +630,19 @@ INLINE int OraCli::handle()
 		defNum = 0; bindNum = 0;
 		for ( i = 0; i < face->num && i < PARA_MAX; i++ )
 		{
-			unsigned char *buf = (unsigned char*) 0;
+			unsigned char *buf = 0;
 			ub2 dty;
 			ub2 *alenp; /* actual length  */
 			DBFace::Para &para = face->paras[i];
 			int rNo = para.fld + face->offset;
 	
-			assert(para.pos == (unsigned int)i );
+			assert(para.pos == i);
 			switch ( para.inout )
 			{
 			case DBFace::PARA_IN:
 				assert(rNo <= rcv_pac->max );
 				buf = rcv_pac->fld[rNo].val;
-				blen = (sb4) rcv_pac->fld[rNo].range;
+				blen = rcv_pac->fld[rNo].range;
 #if TEXTUS_BIG_ENDIAN
 				alenp = sizeof(rcv_pac->fld[rNo].range) -2 + (ub2*) &(rcv_pac->fld[rNo].range);	//定位到第7或3个字节,
 #elif TEXTUS_LITTLE_ENDIAN
@@ -660,7 +658,7 @@ INLINE int OraCli::handle()
 				assert(rNo <= snd_pac->max );
 				blen = para.outlen;
 				buf = rowset_pac.buf.point;
-				WBUG("rowset_pac rNo %d, blen %d", rNo, blen);
+				WBUG("rowset_pac rNo %d, blen " TLONG_FMT, rNo, blen);
 				rowset_pac.commit(rNo, blen*m_chunk);
 				memset(buf, 0, blen*m_chunk);
 
@@ -677,14 +675,14 @@ INLINE int OraCli::handle()
 			switch ( para.inout )
 			{
 			case DBFace::PARA_IN:
-				if ( hasError(OCIBindByPos(stmthp, &bndp[i], errhp, bindNum, (dvoid *) buf, blen, dty, 
+				if ( hasError(OCIBindByPos(stmthp, &bndp[i], errhp, bindNum, (dvoid *) buf, static_cast<sb4>(blen), dty, 
 					(dvoid *) 0, (ub2 *) 0, (ub2 *) 0, (ub4) 0, (ub4 *) 0, OCI_DEFAULT)))
 					goto ENDQUERY;
 				break;
 
 			case DBFace::PARA_OUT:
 				alenp = &rlenp[(defNum-1)*m_chunk];
-				if ( hasError(OCIDefineByPos(stmthp, &defnp[i], errhp, defNum, (dvoid *) buf, blen, dty, 
+				if ( hasError(OCIDefineByPos(stmthp, &defnp[i], errhp, defNum, (dvoid *) buf, static_cast<sb4>(blen), dty, 
 					(dvoid *) 0, alenp, (ub2 *) 0, OCI_DEFAULT)))
 					goto ENDQUERY;
 				break;
@@ -735,13 +733,13 @@ INLINE int OraCli::handle()
 			DBFace::Para &para = face->paras[i];
 			int rNo = para.fld + face->offset;
 	
-			assert(para.pos == (unsigned int)i );
+			assert(para.pos == i);
 			switch ( para.inout )
 			{
 			case DBFace::PARA_IN:
 				assert(rNo <= rcv_pac->max );
 				buf = rcv_pac->fld[rNo].val;
-				blen = (sb4)rcv_pac->fld[rNo].range;
+				blen = rcv_pac->fld[rNo].range;
 				break;
 
 			default:
@@ -751,7 +749,7 @@ INLINE int OraCli::handle()
 			if ( !(dty =getdty(para.type)) )
 				goto ENDDBPROC;
 
-			if ( hasError(OCIBindByPos(stmthp, &bndp[i], errhp, i+1, (dvoid *) buf, blen, dty, 
+			if ( hasError(OCIBindByPos(stmthp, &bndp[i], errhp, i+1, (dvoid *) buf, static_cast<sb4>(blen), dty, 
 				(dvoid *) 0, (ub2 *) 0, (ub2 *) 0, (ub4) 0, (ub4 *) 0, OCI_DEFAULT)))
 				break;
 		}
@@ -791,7 +789,7 @@ INLINE int OraCli::handle()
 
 int OraCli::fetch(ub4 many, bool just)
 {
-	int i = 0;
+	ub4 i = 0;
 	sword sc;
 	ub2 orientation = just ? OCI_FETCH_ABSOLUTE : OCI_FETCH_NEXT ;
 	
@@ -860,7 +858,7 @@ void OraCli::copyRowSet(int rowi)
 	unsigned int i ;
 	unsigned int defi;
 	int m_chunk;
-	ub2 blen, rlen;
+	unsigned TEXTUS_LONG blen, rlen;
 
 	if( face->rowset ) 
 		m_chunk = face->rowset->chunk;
@@ -871,7 +869,7 @@ void OraCli::copyRowSet(int rowi)
 	for ( i = 0; i < face->num && defi <= PARA_MAX; ++i )
 	{
 		DBFace::Para &para = face->paras[i];
-		assert(para.pos == (unsigned int)i );
+		assert(para.pos == i );
 
 		if (  para.inout == DBFace::PARA_OUT )
 		{
@@ -879,7 +877,7 @@ void OraCli::copyRowSet(int rowi)
 			struct FieldObj &fobj = rowset_pac.fld[rNo];
 
 			assert(rNo <= snd_pac->max );
-			blen = (ub2) para.outlen;
+			blen = para.outlen;
 			rlen = rlenp[defi*m_chunk + rowi] ;
 			if ( rlen && fobj.no > 0 )
 				snd_pac->input(fobj.no, &(fobj.val[ rowi*blen ]), rlen);
@@ -944,7 +942,7 @@ void OraCli::myalloc()
 		(ub4) OCI_ATTR_PASSWORD, errhp);
 }
 
-INLINE ub2 OraCli::getdty(DBFace::DataType type)
+ub2 OraCli::getdty(DBFace::DataType type)
 {
 	ub2 dty;
 	switch ( type )
@@ -973,9 +971,9 @@ INLINE ub2 OraCli::getdty(DBFace::DataType type)
 	return dty;
 }
 
-TEXTUS_LONG OraCli::getRowsetSize()
+ub4 OraCli::getRowsetSize()
 {
-	TEXTUS_LONG position;
+	ub4 position;
 	if ( hasError( OCIStmtFetch2(stmthp, errhp, (ub4) 1, OCI_FETCH_LAST, (sb4) 0, OCI_DEFAULT) ) )
 		return 0;
 
@@ -983,18 +981,18 @@ TEXTUS_LONG OraCli::getRowsetSize()
 		&position, NULL, OCI_ATTR_CURRENT_POSITION, errhp)) )
 		return 0;
 
-	WBUG("the Rowset size is " TLONG_FMT, position);
+	WBUG("the Rowset size is %d", position);
 	return position;
 }
 
 void OraCli::setRowsCount()
 {
-	TEXTUS_LONG count;
+	ub4 count;
 
 	if (hasError(OCIAttrGet(stmthp, OCI_HTYPE_STMT, (dvoid*)&count, (ub4 *)0, OCI_ATTR_ROW_COUNT, errhp)))
 		return ;
 
-	WBUG("get OCI_ATTR_ROW_COUNT is " TLONG_FMT, count);
+	WBUG("get OCI_ATTR_ROW_COUNT is %d", count);
 	PUT_FSND (cRows_field, &count, sizeof(count));
 }
 
@@ -1003,7 +1001,7 @@ bool OraCli::hasError(sword status)
 	text errbuf[512];
 	sb4 errcode = 0;
 	bool ret = true;
-	int len;
+	unsigned short len;
 
 	PUT_FSND (errCode_field, &status, sizeof(status));
 
@@ -1031,7 +1029,7 @@ bool OraCli::hasError(sword status)
 	case OCI_ERROR:
 		(void) OCIErrorGet((dvoid *)errhp, (ub4) 1, (text *) NULL, &errcode,
 				errbuf, (ub4) sizeof(errbuf), OCI_HTYPE_ERROR);
-		len = (int) strlen((char*)errbuf);
+		len = (unsigned short) strlen((char*)errbuf);
 		if ( errbuf[len-1] == '\r' || errbuf[len-1] == '\n' )
 		{
 			len--;

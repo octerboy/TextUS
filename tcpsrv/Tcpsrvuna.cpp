@@ -36,9 +36,6 @@
 #include "textus_string.h"
 #include <stdarg.h>
 
-#ifndef TINLNE
-#define TINLNE inline
-#endif
 #if defined( _MSC_VER ) && (_MSC_VER < 1400 )
 typedef unsigned int* ULONG_PTR;
 typedef struct _OVERLAPPED_ENTRY {
@@ -68,7 +65,7 @@ private:
 		bool use_epoll;
 		Amor *sch;
 		struct DPoll::PollorBase lor; /* 探询 */
-		inline G_CFG() {
+		G_CFG() {
 			on_start = true;
 			back_log = 100;
 			use_epoll = false;
@@ -91,19 +88,19 @@ private:
 	Tcpsrvuna *last_child;	/* 最近一次连接的子实例 */
 
 	bool isPioneer, isListener;
-	TINLNE void child_begin();
-	TINLNE void parent_begin();
-	TINLNE void end_service();	/* 关闭侦听套接字 */
-	TINLNE void end(bool down=true);		/* 关闭连接 或 只释放套接字 */
+	void child_begin();
+	void parent_begin();
+	void end_service();	/* 关闭侦听套接字 */
+	void end(bool down=true);		/* 关闭连接 或 只释放套接字 */
 
-	TINLNE void child_rcv_pro(long len, const char *msg);
-	TINLNE void parent_accept();
-	TINLNE void child_transmit();
-	TINLNE void child_transmit_ep();
-	TINLNE void deliver(Notitia::HERE_ORDO aordo);
-	inline void new_conn_pro();
+	void child_rcv_pro(TEXTUS_LONG len, const char *msg);
+	void parent_accept();
+	void child_transmit();
+	void child_transmit_ep();
+	void deliver(Notitia::HERE_ORDO aordo);
+	void new_conn_pro();
 #if defined (_WIN32 )	
-	inline void do_accept_ex();
+	void do_accept_ex();
 #endif	//for WIN32
 #include "wlog.h"
 };
@@ -154,7 +151,7 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 {
 	TiXmlElement *cfg;
 	Amor::Pius tmp_p;
-	long len;
+	TEXTUS_LONG len;
 
 #if defined (_WIN32 )	
 	OVERLAPPED_ENTRY *aget;
@@ -268,7 +265,7 @@ LOOP:
 			break;
 
 		default:	
-			WBUG("child recv %ld bytes", len);
+			WBUG("child recv " TLONG_FMT " bytes", len);
 			if ( len <  tcpsrv->rcv_frame_size ) { 
 				/* action flags and filter for event remain unchanged */
 				gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
@@ -340,8 +337,9 @@ LOOP:
 			neo->parent_begin();
 			cfg->SetAttribute("port", neo->tcpsrv->getSrvPort());	
 			ip_str = neo->tcpsrv->getSrvIP();
-			if ( ip_str)
+			if ( ip_str) {
 				cfg->SetAttribute("ip", ip_str);	
+			}
 		}
 		break;
 
@@ -388,7 +386,7 @@ LOOP:
 		break;
 
 	case Notitia::CLONE_ALL_READY:
-		WBUG("facio CLONE_ALL_READY %lu" , pius->ordo);			
+		WBUG("facio CLONE_ALL_READY " TLONG_FMTu, pius->ordo);			
 		deliver(Notitia::SET_TBUF);
 		break;
 
@@ -519,7 +517,7 @@ Tcpsrvuna::~Tcpsrvuna()
 	delete tcpsrv;
 }
 
-TINLNE void Tcpsrvuna::parent_begin()
+void Tcpsrvuna::parent_begin()
 {	/* 服务开启 */
 	if ( tcpsrv->listenfd > 0 )
 		return ;
@@ -570,11 +568,11 @@ TINLNE void Tcpsrvuna::parent_begin()
 	return ;
 }
 
-TINLNE void Tcpsrvuna::child_rcv_pro(long len, const char *msg)
+void Tcpsrvuna::child_rcv_pro(TEXTUS_LONG len, const char *msg)
 {
 	if ( len > 0 ) 
 	{
-		WBUG("%s %ld", msg, len);
+		WBUG("%s " TLONG_FMT, msg, len);
 		aptus->facio(&pro_tbuf_ps);
 	} else {
 		if ( len == 0 || len == -1)	/* 记日志 */
@@ -589,7 +587,7 @@ TINLNE void Tcpsrvuna::child_rcv_pro(long len, const char *msg)
 }
 
 #if defined (_WIN32 )	
-inline void Tcpsrvuna::do_accept_ex()
+void Tcpsrvuna::do_accept_ex()
 {
 	int ret;
 	while ( (ret = tcpsrv->accept_ex()) != 0 ) 	//异步操作， 先接收，以投递到IOCP
@@ -613,7 +611,7 @@ inline void Tcpsrvuna::do_accept_ex()
 }
 #endif
 
-TINLNE void Tcpsrvuna::child_begin()
+void Tcpsrvuna::child_begin()
 {	
 	tcpsrv->rcv_buf->reset();	//TCP接收(发送)缓冲区清空
 	tcpsrv->snd_buf->reset();
@@ -670,7 +668,7 @@ TINLNE void Tcpsrvuna::child_begin()
 	return;
 }
 
-TINLNE void Tcpsrvuna::parent_accept()
+void Tcpsrvuna::parent_accept()
 {
 	if ( !tcpsrv->accipio(false)) 
 	{	/* 接收新连接失败, 回去吧 */
@@ -686,7 +684,7 @@ TINLNE void Tcpsrvuna::parent_accept()
 	new_conn_pro();
 }
 
-inline void Tcpsrvuna::new_conn_pro()
+void Tcpsrvuna::new_conn_pro()
 {
 	Amor::Pius tmp_p;
 	WLOG(INFO,"create socket %d", tcpsrv->connfd);
@@ -708,7 +706,7 @@ inline void Tcpsrvuna::new_conn_pro()
 	}
 }
 
-TINLNE void Tcpsrvuna::child_transmit_ep()
+void Tcpsrvuna::child_transmit_ep()
 {
 #if defined (_WIN32 )	
 	switch ( tcpsrv->transmitto_ex() )
@@ -763,7 +761,7 @@ TINLNE void Tcpsrvuna::child_transmit_ep()
 	}
 }
 
-TINLNE void Tcpsrvuna::child_transmit()
+void Tcpsrvuna::child_transmit()
 {
 	switch ( tcpsrv->transmitto() )
 	{
@@ -796,7 +794,7 @@ TINLNE void Tcpsrvuna::child_transmit()
 	}
 }
 
-TINLNE void Tcpsrvuna::end_service()
+void Tcpsrvuna::end_service()
 {	/* 服务关闭 */
 	Amor::Pius tmp_p;
 
@@ -826,7 +824,7 @@ TINLNE void Tcpsrvuna::end_service()
 	deliver(Notitia::END_SERVICE); //向下一级传递本类的会话关闭信号
 }
 
-TINLNE void Tcpsrvuna::end(bool down)
+void Tcpsrvuna::end(bool down)
 {	/* 服务关闭 */
 	Amor::Pius tmp_p;
 	if ( isListener )
@@ -870,7 +868,7 @@ Amor* Tcpsrvuna::clone()
 }
 
 /* 向接力者提交 */
-TINLNE void Tcpsrvuna::deliver(Notitia::HERE_ORDO aordo)
+void Tcpsrvuna::deliver(Notitia::HERE_ORDO aordo)
 {
 	Amor::Pius tmp_pius;
 	tmp_pius.ordo = aordo;

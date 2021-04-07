@@ -41,14 +41,17 @@ public:
 
 	char server_ip[128];		
 	int server_port;		//每个子实例相同
-
+#if defined(_WIN64)
+	SOCKET connfd; 	//-1表示本实例空闲, 每个子实例不同
+#else
 	int connfd; 	//-1表示本实例空闲, 每个子实例不同
+#endif
 
 	bool annecto(); /* 发起一个连接 */
 	bool annecto_done(); /* 处理未完成的一个连接 */
 	bool isConnecting;	//true:连接中, false:已经连接完成或未开始连接
 
-	int recito();		//接收数据, 返回false时建议关闭套接字 
+	TEXTUS_LONG recito();		//接收数据, 返回false时建议关闭套接字 
 	int transmitto();	/* 发送数据, 返回
 				   0:  发送OK, 也不要设wrSet了.
 				   1:  没发完, 要设wrSet
@@ -76,7 +79,7 @@ public:
 	bool annecto_ex(); /* 发起一个连接 */
 	OVERLAPPED rcv_ovp, snd_ovp;
 	WSABUF wsa_snd, wsa_rcv;
-	DWORD rb, flag;
+	DWORD flag;
 	bool recito_ex();		//接收数据, 返回<0时建议关闭套接字 
 	int transmitto_ex();
 #if defined( _MSC_VER ) && (_MSC_VER < 1400 )

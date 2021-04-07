@@ -110,7 +110,7 @@ static void sys_err_desc()
 	dw = GetLastError(); 
     	FormatMessage( FORMAT_MESSAGE_FROM_SYSTEM, NULL, dw,
         	MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), m_sys_buf, 256, NULL );
-	mlen = (int) strlen(m_sys_buf);
+	mlen = static_cast<int>(strlen(m_sys_buf));
 	if ( mlen > 2 ) {
 		if ( m_sys_buf[mlen-1] == 0x0a && m_sys_buf[mlen-2] == 0x0d)
 			m_sys_buf[mlen-2] = 0;

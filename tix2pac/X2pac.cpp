@@ -53,7 +53,7 @@ private:
 	struct PField {
 		int no;
 		unsigned char *f_val;	/* 该域赋常量的值 */
-		unsigned int f_len;	/* 长度 */
+		unsigned TEXTUS_LONG f_len;	/* 长度 */
 		inline PField () {
 			no = -1;
 			f_val = 0;
@@ -229,7 +229,6 @@ bool X2pac::facio( Amor::Pius *pius)
 	case Notitia::IGNITE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY");
 		goto DEL_PAC;
-		break;
 
 	case Notitia::CLONE_ALL_READY:
 		WBUG("facio CLONE_ALL_READY, 1st pac %p, 2nd pac %p", pa[0], pa[1]);
@@ -399,11 +398,11 @@ void X2pac::def_map(struct Where *wh, TiXmlElement *cfg)
 			/* 检测常量, 这样当一个FieldObj没有内容或不存在时, xml元素从这里获得 */
 			/* 当不存在这样一个xml元素时, FieldObj从这里获得 */
 			const char *c_val = cfg->GetText();
-			int len;
+			TEXTUS_LONG len;
 			if ( c_val )
 			{
 				len = strlen(c_val);
-				wh->fdef->f_val = new unsigned char (len+1);
+				wh->fdef->f_val = new unsigned char[len+1];
 				wh->fdef->f_len = BTool::unescape(c_val, wh->fdef->f_val);
 			}
 		}
@@ -421,7 +420,7 @@ void X2pac::mapdo(TiXmlElement *elem, PacketObj &packet, struct Where &wh)
 	
 	if ( !wh.where )	/* 定义指明到了叶元素 */
 	{	unsigned char *cval = 0;
-		unsigned int clen = 0;
+		unsigned TEXTUS_LONG clen = 0;
 
 		fdef = wh.fdef;
 		if ( fdef && fdef->no >=0 && fdef->no <= packet.max ) 
@@ -472,7 +471,7 @@ void X2pac::domap( TiXmlElement *elem, PacketObj &packet, struct Where &wh)
 	if ( !wh.where && fdef && fdef->no >=0 && fdef->no <= packet.max ) 
 	{	 /* 定义指明到了叶元素 */
 		unsigned char *cval = 0;
-		unsigned int clen ;
+		unsigned TEXTUS_LONG clen ;
 		if ( elem) 
 			cval = (unsigned char*) elem->GetText();
 
@@ -509,7 +508,7 @@ void X2pac::do_fault(TiXmlElement &root, const char *code, const char *str, Pack
 	if ( pac )
 	{
 		unsigned char *v;
-		unsigned long l;
+		unsigned TEXTUS_LONG l;
 		
 		c_val = new TiXmlText("");
 		s_val = new TiXmlText("");

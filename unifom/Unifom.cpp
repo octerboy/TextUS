@@ -828,7 +828,6 @@ bool Unifom::facio( Amor::Pius *pius)
 	case Notitia::IGNITE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY" );
 		goto DEL_PAC;
-		break;
 
 	case Notitia::CLONE_ALL_READY:
 		WBUG("facio CLONE_ALL_READY" );
@@ -1062,13 +1061,13 @@ void Unifom::convert(FieldObj &fldIn, PacketObj &pac, unsigned int fldOut, bool 
 
 	unsigned char *vbuf;
 
-	long result1;
+	TEXTUS_LONG result1;
 	int result32;
 	short result16;
 	char result8;
 
-	unsigned int len, len2 = 0, i, j;
-	long ii,jj;
+	unsigned int j;
+	TEXTUS_LONG len2 =0, i, ii,jj,len;
 
 	if ( negative )
 	{
@@ -1348,7 +1347,6 @@ void Unifom::convert(FieldObj &fldIn, PacketObj &pac, unsigned int fldOut, bool 
 			default:
 				WLOG(ERR, "field %d range %d is invalid for interger.", fldIn.no, fldIn.range);
 				goto HI_END;
-				break;
 		}
 		switch ( out )
 		{
@@ -1541,7 +1539,7 @@ void Unifom::do_obu_sn(FieldObj &fldIn, PacketObj &pac, unsigned int out, bool &
 	unsigned char *from, *to;
 	unsigned int flen;
 	unsigned char o_sn[128], n_sn[128], fac_type[2];
-	unsigned int o_len, n_len;
+	unsigned TEXTUS_LONG o_len, n_len;
 	
 	num = def.factory_map.mapNum;
 	if ( num <= 0) 
@@ -1594,7 +1592,7 @@ void Unifom::do_obu_sn(FieldObj &fldIn, PacketObj &pac, unsigned int out, bool &
 
 void Unifom::dotrim(FieldObj &fldIn, PacketObj &pac, unsigned int out, bool &negative, Proc_Trim &def)
 {
-	unsigned int len,i;
+	unsigned TEXTUS_LONG len,i;
 	unsigned char *vbuf;
 	if ( !negative )
 	{	/* 去掉或前或后的字符 */
@@ -1611,7 +1609,7 @@ void Unifom::dotrim(FieldObj &fldIn, PacketObj &pac, unsigned int out, bool &neg
 			pac.input(out, fldIn.val, len-i);
 		}
 	} else {
-		unsigned int sp ;
+		unsigned TEXTUS_LONG sp ;
 		if ( (def.len <=  (int ) fldIn.range && def.len != 0 ) 
 			|| (def.len == 0 && fldIn.range % 2 == 0) 
 		)
@@ -1651,8 +1649,8 @@ void Unifom::dosubstr(FieldObj &fldIn, PacketObj &pac, unsigned int out, Proc_Su
 {
 	if ( fldIn.range > def.begin )
 	{
-		unsigned int rest = fldIn.range - def.begin;
-		unsigned int r_len; 
+		unsigned TEXTUS_LONG rest = fldIn.range - def.begin;
+		unsigned TEXTUS_LONG r_len; 
 		if ( def.len == 0 )
 			r_len = rest;
 		else
@@ -1700,7 +1698,7 @@ void Unifom::do_getLen(FieldObj *fldIn, PacketObj &pac, unsigned int out, Proc_G
 	char buf[128];
 	pac.grant(128);	//最终输出不过128字节
 	TEXTUS_SPRINTF(buf, def.format, fldIn->range/def.unit + def.adjust);
-	pac.input(out, buf, strlen(buf));
+	pac.input(out, (unsigned char*)buf, (unsigned TEXTUS_LONG)strlen(buf));
 }
 
 void Unifom::dolet(FieldObj *fldIn, PacketObj &pac, unsigned int out, Proc_Let &def)

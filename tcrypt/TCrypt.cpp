@@ -63,7 +63,7 @@ typedef struct _SM4_Key {
 	SM4_cblock key;
 	unsigned int rk[32];	//ROT key
 } SM4_Key;
-#define ROT(x,i) ((unsigned int)((((unsigned long)x << i) | ((unsigned long)x >> (32-i))) & 0xFFFFFFFF))
+#define ROT(x,i) ((unsigned int)((((unsigned TEXTUS_LONG)x << i) | ((unsigned TEXTUS_LONG)x >> (32-i))) & 0xFFFFFFFF))
 #define Linear(b) (b^ROT(b,2)^ROT(b,10)^ROT(b,18)^ ROT(b,24))
 #define Linear_Alt(b) (b^ROT(b,13)^ROT(b,23))
 #define Tao(b) ((Sbox[(b>>24 & 0xFF)] << 24 ) | (Sbox[(b>>16 & 0xFF)] << 16 ) | (Sbox[(b>>8 & 0xFF)] << 8 ) | (Sbox[(b & 0xFF)]))
@@ -126,10 +126,10 @@ void sm4_enc(SM4_cblock in,  SM4_cblock out, SM4_Key *key, int alog)
 	}
 }
 
-static void sm4_enc_hex(char in[], unsigned long len, char k_buf[], char out[] )
+static void sm4_enc_hex(char in[], unsigned TEXTUS_LONG len, char k_buf[], char out[] )
 {
-	unsigned long i;
-	unsigned long chunk = len/32;
+	unsigned TEXTUS_LONG i;
+	unsigned TEXTUS_LONG chunk = len/32;
 	SM4_Key sm_key;
 	SM4_cblock key_blk, in_blk, out_blk;
 	hex2byte(key_blk, 16, k_buf);
@@ -172,7 +172,7 @@ static void sm4_mac(const unsigned char *input, size_t len, SM4_cblock mac,
 	sm4_enc(blk, mac, key, SM4_ENC);
 }
 
-static void sm4_mac_hex(char data[], int d_len,  char k_buf[], char vec[], char mac[])
+static void sm4_mac_hex(char data[], TEXTUS_LONG d_len,  char k_buf[], char vec[], char mac[])
 {
 	SM4_cblock vector;
 	unsigned char *buf;
@@ -195,10 +195,10 @@ static void sm4_mac_hex(char data[], int d_len,  char k_buf[], char vec[], char 
 	delete[] buf;
 }
 
-static void encrypt(char in[], int len, char k_buf[], char out[] )
+static void encrypt(char in[], TEXTUS_LONG len, char k_buf[], char out[] )
 {
-	int i;
-	int chunk = len/16;
+	TEXTUS_LONG i;
+	TEXTUS_LONG chunk = len/16;
 
 #if defined(__APPLE__)
 	unsigned char key[24], in_blk[8], out_blk[8];
@@ -239,7 +239,7 @@ static void encrypt(char in[], int len, char k_buf[], char out[] )
 #endif
 }
 
-static void encrypt_cbc(char in[], int len, char k_buf[], char out[] )
+static void encrypt_cbc(char in[], TEXTUS_LONG len, char k_buf[], char out[] )
 {
 	unsigned char *indata, in_buf[256], *outdata, out_buf[256];
 
@@ -345,7 +345,7 @@ static void doubleMAC(const unsigned char *input, size_t len, unsigned char *mac
 	//DES_ecb_encrypt (&blk, mac,  keyL, DES_ENCRYPT);
 }
 
-static void TDesMac(char data[], int d_len,  char k_buf[], char vec[], char mac[])
+static void TDesMac(char data[], size_t d_len,  char k_buf[], char vec[], char mac[])
 {
 	unsigned char key[24], in_blk[8], out_blk[8], vector[8], c_code[8];
 	unsigned char *buf;
@@ -368,7 +368,7 @@ static void TDesMac(char data[], int d_len,  char k_buf[], char vec[], char mac[
 	delete[] buf;
 }
 
-static void SDesMac(char data[], int d_len,  char k_buf[], char vec[], char mac[])
+static void SDesMac(char data[], size_t d_len,  char k_buf[], char vec[], char mac[])
 {
 	unsigned char vector[8], c_code[8], lkey[16];
 	unsigned char *buf;
@@ -418,7 +418,7 @@ static void doubleMAC(const unsigned char *input, size_t len, DES_cblock *mac,
 	DES_ecb_encrypt (&blk, mac,  keyL, DES_ENCRYPT);
 }
 
-static void TDesMac(char data[], int d_len,  char k_buf[], char vec[], char mac[])
+static void TDesMac(char data[], size_t d_len,  char k_buf[], char vec[], char mac[])
 {
 	DES_cblock vector;
 	unsigned char buf[1024];
@@ -448,7 +448,7 @@ static void TDesMac(char data[], int d_len,  char k_buf[], char vec[], char mac[
 	byte2hex(c_code, 8, mac);
 }
 
-static void SDesMac(char data[], int d_len,  char k_buf[], char vec[], char mac[])
+static void SDesMac(char data[], size_t d_len,  char k_buf[], char vec[], char mac[])
 {
 	DES_cblock vector;
 	unsigned char buf[1024];
@@ -602,7 +602,7 @@ bool TCrypt::facio( Amor::Pius *pius)
 {
 	PacketObj **tmp;
 	unsigned char *actp;
-	unsigned long alen;
+	unsigned TEXTUS_LONG alen;
 
 	switch ( pius->ordo )
 	{
@@ -722,7 +722,7 @@ bool TCrypt::gm_cipher()
 {
 	char k_buf[64];
 	unsigned char *h_val;
-	unsigned long h_len;
+	unsigned TEXTUS_LONG h_len;
 
 	h_val=rcv_pac->getfld(3, &h_len);	//protect key
 	memcpy(k_buf, h_val, h_len);	
@@ -740,7 +740,7 @@ bool TCrypt::jt_gm_auth()
 {
 	char k_buf[64]={0}, rnd[64]={0}, cipher[64]={0}, auth[64]={0};
 	unsigned char *h_val;
-	unsigned long h_len;
+	unsigned TEXTUS_LONG h_len;
 	int i;
 
 	h_val=rcv_pac->getfld(3, &h_len);	//protect key
@@ -766,18 +766,16 @@ bool TCrypt::jt_gm_auth()
 	}
 	snd_pac->input(2, auth, 16);
 	return true;
-
-	return true;
 }
 
 bool TCrypt::gm_cipher_mac()
 {
 	const char *patch ="80000000000000000000000000000000";
 	const char *zero ="00000000000000000000000000000000";
-	unsigned long t_len, head_len;
+	unsigned TEXTUS_LONG t_len, head_len;
 	char cmd_buf[1024], body[1024], k_buf[64], rnd[64];
 	unsigned char *h_val;
-	unsigned long h_len;
+	unsigned TEXTUS_LONG h_len;
 
 	h_val=rcv_pac->getfld(2, &h_len);	//head
 	memcpy(cmd_buf, h_val, h_len);	//指令头
@@ -803,7 +801,7 @@ bool TCrypt::gm_cipher_mac()
 	t_len +=8;
 	cmd_buf[t_len] = '\0';
 	//snd_pac->input(2, cmd_buf, strlen(cmd_buf));
-	snd_pac->input(2, &cmd_buf[head_len], strlen(&cmd_buf[head_len]));
+	snd_pac->input(2, (unsigned char*)&cmd_buf[head_len], (unsigned TEXTUS_LONG)strlen(&cmd_buf[head_len]));
 	//{int *a= 0 ; *a=0;}
 	return true;
 }
@@ -814,7 +812,7 @@ bool TCrypt::gm_mac()
 	const char *zero ="00000000000000000000000000000000";
 	char mac[64], k_buf[64], rnd[64];
 	unsigned char *h_val;
-	unsigned long h_len;
+	unsigned TEXTUS_LONG h_len;
 
 	h_val=rcv_pac->getfld(4, &h_len);	//protect key
 	memcpy(k_buf, h_val, h_len);	
@@ -838,7 +836,7 @@ bool TCrypt::tdes_mac()
 	const char *zero ="00000000000000000000000000000000";
 	char mac[64], k_buf[64], rnd[64];
 	unsigned char *h_val;
-	unsigned long h_len;
+	unsigned TEXTUS_LONG h_len;
 
 	h_val=rcv_pac->getfld(4, &h_len);	//protect key
 	memcpy(k_buf, h_val, h_len);	
@@ -862,7 +860,7 @@ bool TCrypt::sdes_mac()
 	const char *zero ="00000000000000000000000000000000";
 	char mac[64], k_buf[64], rnd[64];
 	unsigned char *h_val;
-	unsigned long h_len;
+	unsigned TEXTUS_LONG h_len;
 
 	h_val=rcv_pac->getfld(4, &h_len);	//protect key
 	memcpy(k_buf, h_val, h_len);	
@@ -884,10 +882,10 @@ bool TCrypt::tdes_cipher_mac()
 {
 	const char *patch ="80000000000000000000000000000000";
 	const char *zero ="00000000000000000000000000000000";
-	unsigned long t_len, head_len;
+	unsigned TEXTUS_LONG t_len, head_len;
 	char cmd_buf[1024], body[1024], k_buf[64], rnd[64];
 	unsigned char *h_val;
-	unsigned long h_len;
+	unsigned TEXTUS_LONG h_len;
 
 	h_val=rcv_pac->getfld(2, &h_len);	//head
 	memcpy(cmd_buf, h_val, h_len);	//指令头
@@ -919,7 +917,7 @@ bool TCrypt::tdes_cipher_mac()
 	TDesMac(cmd_buf, t_len,  (char*)k_buf, rnd, &cmd_buf[t_len]);
 	t_len +=8;
 	cmd_buf[t_len] = '\0';
-	snd_pac->input(2, &cmd_buf[head_len], strlen(&cmd_buf[head_len]));
+	snd_pac->input(2, (unsigned char*)&cmd_buf[head_len], (unsigned TEXTUS_LONG)strlen(&cmd_buf[head_len]));
 	return true;
 }
 
@@ -927,7 +925,7 @@ bool TCrypt::tdes_cipher()
 {
 	char *key;
 	unsigned char *h_val;
-	unsigned long h_len;
+	unsigned TEXTUS_LONG h_len;
 
 	key=(char*)rcv_pac->getfld(3, &h_len);	//protect key
 	if ( h_len != 32) return false;
@@ -944,7 +942,7 @@ bool TCrypt::tdes_cbc()
 {
 	char *key;
 	unsigned char *h_val;
-	unsigned long h_len;
+	unsigned TEXTUS_LONG h_len;
 
 	key=(char*)rcv_pac->getfld(3, &h_len);	//protect key
 	if ( h_len != 32) return false;
@@ -961,8 +959,8 @@ bool TCrypt::diversify()
 {
 	char *key, *alog, div[33], nkey[33], skey[33];
 	unsigned char *h_val;
-	unsigned long h_len;
-	int i,div_num,j;
+	unsigned TEXTUS_LONG h_len, div_num;
+	int i,j;
 
 	alog=(char*)rcv_pac->getfld(4, &h_len);	//分散算法
 	if ( h_len != 1) 
@@ -1024,7 +1022,7 @@ bool TCrypt::fetch_i()
 	me_l = gcfg->pool.fetch();
 	if ( !me_l ) 
 		return false;
-	snd_pac->input(2, me_l->a_str, strlen(me_l->a_str));
+	snd_pac->input(2, (unsigned char*)me_l->a_str, (unsigned TEXTUS_LONG)strlen(me_l->a_str));
 	return true;
 }
 

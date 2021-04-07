@@ -84,7 +84,7 @@ private:
 	Amor::Pius epl_set_out, epl_clr_out;
 #else
 	void toExprog_ex();
-	long fromExprog_ex();
+	TEXTUS_LONG fromExprog_ex();
 	int sv[2];
 #endif
 	TBuffer work_buf;	/* 保存临时参数*/
@@ -171,7 +171,7 @@ void TCgi::ignite(TiXmlElement *cfg)
 	{
 		if (v_ele->GetText())
 		{
-			aLen += strlen(v_ele->GetText());
+			aLen += static_cast<int>(strlen(v_ele->GetText()));
 			aLen++; /* for null char */
 		}
 		gCFG->argc++;
@@ -250,7 +250,7 @@ bool TCgi::facio( Amor::Pius *pius)
 #if defined (_WIN32 )	
 	OVERLAPPED_ENTRY *aget;
 #else
-	long len;
+	TEXTUS_LONG len;
 #endif	//for WIN32
 
 
@@ -284,7 +284,7 @@ bool TCgi::facio( Amor::Pius *pius)
 			if ( no >= 0 && rcv_pac->max >= no
 				&& rcv_pac->fld[no].val	)
 			{
-				unsigned long &range = rcv_pac->fld[no].range;
+				unsigned TEXTUS_LONG &range = rcv_pac->fld[no].range;
 				if ( p + range +1 >= work_buf.limit )	/* 一个程序接受的参数超过1024? */
 					break;
 				memcpy(p, rcv_pac->fld[no].val, range);
@@ -594,7 +594,7 @@ INLINE void TCgi::toExprog()
 		{
 #if defined(_WIN32)
 		WAgain:
-		if ( WriteFile( pipe_out[1], rcv_buf->base, rcv_buf->point - rcv_buf->base, (LPDWORD) &wBytes, NULL) == FALSE )
+		if ( WriteFile( pipe_out[1], rcv_buf->base, static_cast<DWORD>(rcv_buf->point - rcv_buf->base), (LPDWORD) &wBytes, NULL) == FALSE )
 #else
 		if ( rcv_buf->point ==  rcv_buf->base  ) 
 		{
@@ -729,14 +729,14 @@ bool TCgi::init()
 
 	memset(cmdLine, 0, CMDLENGTH);
 	cmdLine[0] = '\"';
-	len = strlen(gCFG->exec_file);
+	len = static_cast<int>(strlen(gCFG->exec_file));
 	if ( len < CMDLENGTH-10  )
 	TEXTUS_STRCAT ( cmdLine, gCFG->exec_file);
 	TEXTUS_STRCAT ( cmdLine, "\"");
 	len += 2;
 	for ( i =1 ; cgi_argv[i]; i++)
 	{
-		len += strlen(cgi_argv[i]) + 1;
+		len += static_cast<int>(strlen(cgi_argv[i])) + 1;
 		if ( len > CMDLENGTH - 10 ) break;
 		TEXTUS_STRCAT(cmdLine, " ");
 		TEXTUS_STRCAT(cmdLine, cgi_argv[i]);
@@ -947,7 +947,7 @@ INLINE void TCgi::deliver(Notitia::HERE_ORDO aordo)
 #if defined (_WIN32 )
 void TCgi::transmitto_ex()
 {
-	DWORD snd_len = rcv_buf->point - rcv_buf->base;	//发送长度
+	DWORD snd_len = static_cast<DWORD> (rcv_buf->point - rcv_buf->base);	//发送长度
 	memset(&snd_ovp, 0, sizeof(OVERLAPPED));
 	if ( !WriteFile(pipe_out[1], rcv_buf->base, snd_len, NULL, &snd_ovp) )
 	{
@@ -957,7 +957,7 @@ void TCgi::transmitto_ex()
 			return ;
 		}
 	}
-	snd_buf->commit(-(long)snd_len);	//已经到了系统
+	snd_buf->commit(-(TEXTUS_LONG)snd_len);	//已经到了系统
 }
 
 void TCgi::recito_ex()
@@ -976,12 +976,12 @@ void TCgi::recito_ex()
 #else	//for not windows
 
 /* 接收发生错误时, 建议关闭这个套接字 */
-long TCgi::fromExprog_ex()
+TEXTUS_LONG TCgi::fromExprog_ex()
 {	
 	/* 读取pipe_in[0]中的数据 */
 	unsigned char tmp[RCV_FRAME_SIZE], *t_buf;
 	bool has = false;
-	long rBytes;
+	TEXTUS_LONG rBytes;
 	if (snd_buf && ( gCFG->direction == BOTH || gCFG->direction == FROM_PROG ))
 	{
 		snd_buf->grant(RCV_FRAME_SIZE);
@@ -1018,7 +1018,7 @@ ReadAgain:
 /* 发送有错误时, 返回-1, 建议关闭这个套接字 */
 void TCgi::toExprog_ex()
 {
-	long wBytes, snd_len ;
+	TEXTUS_LONG wBytes, snd_len ;
 	int ret;
 	if ( !sessioning )
 	{
@@ -1118,7 +1118,6 @@ EP_PRO:
 
 			gCFG->sch->sponte(&epl_set_ps);	//向tpoll, 以设置kqueue等
 			return;	//即返回, PROG_ONCE不起作用
-			break;
 	
 		case -1://有严重错误, 关闭
 			end();
@@ -1135,6 +1134,5 @@ EP_PRO:
 }
 
 #endif
-
 
 #include "hook.c"

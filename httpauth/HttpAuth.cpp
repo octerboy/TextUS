@@ -167,10 +167,9 @@ char HttpAuth::valid_pwd[1024][256] = {""};
 
 void HttpAuth::prompt()
 {
-	int sc = 401;
 	char basic_realm[256];
 
-	setHead("Status", sc);			
+	setHead("Status", (TEXTUS_LONG) 401);			
 	setContentSize(0);			
 	TEXTUS_SPRINTF(basic_realm,"Basic realm=\"%s\"", realm);
 	setHead("WWW-Authenticate", basic_realm);
@@ -186,7 +185,7 @@ inline bool HttpAuth::authenticate()
 	char authinfo[500];
     	char* authpass;
     	const char *authorization;
-	int l;
+	size_t l;
 	char* colon;
 	char* pwd_yes;
 	 

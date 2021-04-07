@@ -26,10 +26,6 @@
 #include "Describo.h"
 #include <stdarg.h>
 
-#ifndef TINLINE
-#define TINLINE inline
-#endif 
-
 #if defined( _MSC_VER ) && (_MSC_VER < 1400 )
 typedef unsigned int* ULONG_PTR;
 typedef struct _OVERLAPPED_ENTRY {
@@ -70,7 +66,7 @@ private:
 		bool use_epoll;
 		Amor *sch;
 		struct DPoll::PollorBase lor; /* 探询 */
-		inline G_CFG() {
+		G_CFG() {
 			block_mode = false;
 			on_start =  true;
 			try_interval = 0;
@@ -82,15 +78,15 @@ private:
 	struct G_CFG *gCFG;
 	void *arr[3];
 
-	TINLINE void transmit();
-	TINLINE void transmit_ep();
-	TINLINE void establish_done();
-	TINLINE void establish();
-	TINLINE void deliver(Notitia::HERE_ORDO aordo);
-	TINLINE void end(bool outer=false);
-	TINLINE void release();
-	TINLINE void errpro();
-	TINLINE void rcv_pro(long len, const char *msg, bool outer=false);
+	void transmit();
+	void transmit_ep();
+	void establish_done();
+	void establish();
+	void deliver(Notitia::HERE_ORDO aordo);
+	void end(bool outer=false);
+	void release();
+	void errpro();
+	void rcv_pro(TEXTUS_LONG len, const char *msg, bool outer=false);
 
 #include "wlog.h"
 };
@@ -146,7 +142,7 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 	TBuffer **tb;
 	TiXmlElement *cfg;
 	Amor::Pius tmp_p;
-	long len;
+	TEXTUS_LONG len;
 
 #if defined (_WIN32 )	
 	OVERLAPPED_ENTRY *aget;
@@ -273,7 +269,7 @@ LOOP:
 			break;
 
 		default:	
-			WBUG("client recv %ld bytes", len);
+			WBUG("client recv " TLONG_FMT " bytes", len);
 			if ( len <  tcpcli->rcv_frame_size ) { 
 				/* action flags and filter for event remain unchanged */
 				gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
@@ -527,7 +523,7 @@ Tcpcliuna::~Tcpcliuna()
 		delete gCFG;
 }
 
-TINLINE void Tcpcliuna::establish()
+void Tcpcliuna::establish()
 {
 	WLOG(INFO, "estabish to %s:%d  .....", tcpcli->server_ip, tcpcli->server_port);
 
@@ -614,7 +610,7 @@ TINLINE void Tcpcliuna::establish()
 	}
 }
 
-TINLINE void Tcpcliuna::establish_done()
+void Tcpcliuna::establish_done()
 {
 	if (tcpcli->isConnecting ) if ( !tcpcli->annecto_done())
 	{	//在建立连接的过程中出错
@@ -669,7 +665,7 @@ TINLINE void Tcpcliuna::establish_done()
 	deliver(Notitia::START_SESSION); //向接力者发出通知, 本对象开始
 }
 
-TINLINE void Tcpcliuna::transmit()
+void Tcpcliuna::transmit()
 {
 	int ret;
 	ret = tcpcli->transmitto() ;
@@ -702,7 +698,7 @@ TINLINE void Tcpcliuna::transmit()
 	return ;
 }
 
-inline void Tcpcliuna::transmit_ep()
+void Tcpcliuna::transmit_ep()
 {
 #if defined (_WIN32 )
 	switch ( tcpcli->transmitto_ex() )
@@ -757,7 +753,7 @@ inline void Tcpcliuna::transmit_ep()
 	}
 }
 
-TINLINE void Tcpcliuna::end(bool outer)
+void Tcpcliuna::end(bool outer)
 {
 	WBUG("end%s", outer? " (won't connect again)" : (gCFG->try_interval > 0 ? " (will connect again ...)" : "ed." ));
 	if ( tcpcli->connfd == -1 ) return;	/* 不重复关闭 */
@@ -781,7 +777,7 @@ TINLINE void Tcpcliuna::end(bool outer)
 	deliver(Notitia::END_SESSION);/* 向左、右传递本类的会话关闭信号 */
 }
 
-TINLINE void Tcpcliuna::release()
+void Tcpcliuna::release()
 {
 	WBUG("release().....");
 	if ( tcpcli->connfd == -1 ) return;	/* 不重复 */
@@ -804,7 +800,7 @@ Amor* Tcpcliuna::clone()
 }
 
 /* 向接力者提交 */
-TINLINE void Tcpcliuna::deliver(Notitia::HERE_ORDO aordo)
+void Tcpcliuna::deliver(Notitia::HERE_ORDO aordo)
 {
 	Amor::Pius tmp_pius;
 	tmp_pius.ordo = aordo;
@@ -842,7 +838,7 @@ TINLINE void Tcpcliuna::deliver(Notitia::HERE_ORDO aordo)
 	aptus->sponte(&tmp_pius);
 }
 
-TINLINE void Tcpcliuna::errpro()
+void Tcpcliuna::errpro()
 {
 	switch(tcpcli->err_lev) {
 	case 0:
@@ -871,11 +867,11 @@ TINLINE void Tcpcliuna::errpro()
 	}
 }
 
-inline void Tcpcliuna::rcv_pro(long len, const char *msg, bool outer)
+void Tcpcliuna::rcv_pro(TEXTUS_LONG len, const char *msg, bool outer)
 {
 	if ( len > 0 ) 
 	{
-		WBUG("%s %ld", msg, len);
+		WBUG("%s " TLONG_FMT, msg, len);
 		aptus->sponte(&pro_tbuf_ps);
 	} else {
 		if ( len == 0 || len == -1)	/* 记日志 */

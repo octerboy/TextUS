@@ -829,7 +829,7 @@ Unipac::Unipac():do_tmp(1024)
 	pa[1] = &do_pac;
 	pa[2] = 0;
 	
-	map_index = (int*)0;
+	map_index = 0;
 	mapi_num = 0;
 	mapi_sub = 0;
 
@@ -1503,10 +1503,10 @@ PACINLINE TEXTUS_LONG Unipac::unfield(unsigned char* base, TEXTUS_LONG range, Pa
 
 		if (base[1] & 0x80) 
 		{
-			int g, sz;
+			unsigned short g, sz;
 
 			sz = base[1] & 0x7F;
-			if (sz == 0 || sz > (int) (sizeof(int)) || range < sz+2 ) 
+			if (sz == 0 || sz > static_cast<unsigned short>(sizeof(int)) || range < sz+2 ) 
 				return -1;
 
 			len = 0;
@@ -1515,7 +1515,7 @@ PACINLINE TEXTUS_LONG Unipac::unfield(unsigned char* base, TEXTUS_LONG range, Pa
 
 			left = base+g+2;
 		} else {
-			len    = (int) base[1];
+			len    = base[1];
 			left = base+2;
 		}
 		((struct Asn1Type *)field.other->value)->val = left;

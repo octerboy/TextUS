@@ -21,9 +21,6 @@
 #include <winsock2.h>
 #include <mstcpip.h>
 #include <stdio.h>
-
-#define TINLINE inline
-
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <mswsock.h>
@@ -80,7 +77,7 @@ private:
 	struct G_CFG *gCFG;     /* 全局共享参数 */
 	bool has_config;
 
-	TINLINE bool handle();
+	bool handle();
 	void init();	
 	void init_ex();	
 	void recito_ex();	
@@ -302,7 +299,11 @@ void TWCap::init()
 
 	sa.sin_family = AF_INET;
  	sa.sin_port = htons(7000);
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+	inet_pton(AF_INET, gCFG->eth, &me);
+#else
 	me.s_addr = inet_addr(gCFG->eth);
+#endif
 	sa.sin_addr.s_addr = me.s_addr;
 
 	if (bind(sock_fd,(struct sockaddr *)&sa, sizeof(sa)) == SOCKET_ERROR)
@@ -355,7 +356,11 @@ void TWCap::init_ex()
 	SOCKADDR_IN sa;
 	struct in_addr me;
 
+#if defined(_MSC_VER) && (_MSC_VER >= 1800 )
+	if ((sock_fd = WSASocketW(AF_INET, SOCK_RAW, IPPROTO_IP, NULL,0,WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET )
+#else
 	if ((sock_fd = WSASocket(AF_INET, SOCK_RAW, IPPROTO_IP, NULL,0,WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET )
+#endif
 	{
 		WLOG_OSERR("WSASocket ")
 		return ;
@@ -370,7 +375,11 @@ void TWCap::init_ex()
 
 	sa.sin_family = AF_INET;
  	sa.sin_port = htons(7000);
+#if defined(_MSC_VER) && (_MSC_VER >= 1400 )
+	inet_pton(AF_INET, gCFG->eth, &me);
+#else
 	me.s_addr = inet_addr(gCFG->eth);
+#endif
 	sa.sin_addr.s_addr = me.s_addr;
 
         if (bind(sock_fd,(struct sockaddr *)&sa, sizeof(sa)) == SOCKET_ERROR)
@@ -413,7 +422,7 @@ void TWCap::end()
 	}
 }
 
-TINLINE bool TWCap::handle()
+bool TWCap::handle()
 {
 	int rlen;
 	rcv_buf.grant(rcv_frame_size);	 //保证有足够空间

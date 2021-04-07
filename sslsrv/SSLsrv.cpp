@@ -71,7 +71,7 @@ bool SSLsrv::encrypt()
 
 	if ( !ssl) return false;
 	/* 灌明文,从snd_buf取出数据 */	
-	len = (int) SND_LEN;
+	len = static_cast<int> SND_LEN;
 	puttedLen = SSL_write( ssl, snd_buf->base, len);
 
 	if ( puttedLen < 0 )
@@ -126,7 +126,7 @@ int SSLsrv::decrypt()
 
 	/* 灌密文, 从bio_in_buf取出数据 */	
 	assert(bio_in_buf);
-	len = (int) ((bio_in_buf->point) - (bio_in_buf->base));
+	len = static_cast<int>(bio_in_buf->point - bio_in_buf->base);
 	puttedLen = BIO_write(rbio, bio_in_buf->base, len);
 	
 	assert( puttedLen >= 0 );

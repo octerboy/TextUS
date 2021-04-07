@@ -59,8 +59,9 @@ private:
 		int max_fld;		/* 最大域号 */
 
 		bool limited;
-		char ip[CLIENT_MAX][64]; /* 所允许的客户端的ip号, 内容共享 */
-		inline G_CFG() {
+		int client_max;
+		char (*ip)[64]; /* 所允许的客户端的ip号, 内容共享 */
+		G_CFG() {
 			srvip_fld = -1;	
 			srvport_fld = -1;
 			srvmac_fld = -1;
@@ -70,9 +71,9 @@ private:
 			climac_fld = -1;
 			max_fld = 10;
 			limited = false;
-			BZERO(ip);
+			ip = 0;
+			client_max = 0;
 		};
-
 	};
 	struct G_CFG *gCFG;
 
@@ -128,7 +129,6 @@ void TCtrl::ignite(TiXmlElement *cfg)
 		MAXFLD(cliport_fld);
 		MAXFLD(climac_fld);
 	}
-
 	f_pac.produce(gCFG->max_fld);
 	s_pac.produce(gCFG->max_fld);
 
@@ -136,7 +136,11 @@ void TCtrl::ignite(TiXmlElement *cfg)
 	if ( str && strcmp(str, "yes") == 0 )
 		gCFG->limited = true;
 
-	cli_ele = cfg->FirstChildElement("client");
+	
+	for( cli_ele = cfg->FirstChildElement("client"); cli_ele; cli_ele = cli_ele->NextSiblingElement("client")) gCFG->client_max++;
+	if (  gCFG->client_max > 0 )
+		gCFG->ip =new char[gCFG->client_max][64];
+	cli_ele = cfg->FirstChildElement("client"); 
 	while ( cli_ele )
 	{
 		str = cli_ele->Attribute("ip");
@@ -173,7 +177,6 @@ bool TCtrl::facio( Amor::Pius *pius)
 	case Notitia::IGNITE_ALL_READY:	
 		WBUG("facio IGNITE_ALL_READY");
 		goto MYPRO;
-		break;
 
 	case Notitia::CLONE_ALL_READY:	
 		WBUG("facio IGNITE_ALL_READY/CLONE_ALL_READY");	/* 获得其fd的地址 */
@@ -244,12 +247,12 @@ bool TCtrl::facio( Amor::Pius *pius)
 			{
 				const char *cli_ip = peer->Attribute("cliip");
 				int i;
-				for ( i = 0 ; i < CLIENT_MAX; i++ )
+				for ( i = 0 ; i < gCFG->client_max; i++ )
 				{
 					if (strcmp ( gCFG->ip[i], cli_ip) == 0 )
 						break;
 				}
-				if ( i >= CLIENT_MAX ) 
+				if ( i >=  gCFG->client_max ) 
 					goto FAIL;
 			}
 			aptus->facio(&pro_unipac);

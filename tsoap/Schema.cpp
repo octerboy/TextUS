@@ -25,7 +25,7 @@ Schema::Schema (const char *nm)
 	clear();
 	if ( !nm )
 		return;
-	len = strlen(nm);
+	len = static_cast<int>(strlen(nm));
 	uri = new char[len+1];
 	memcpy(uri, nm, len );
 	uri[len] = 0;

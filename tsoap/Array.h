@@ -43,7 +43,7 @@ ArrayEle<T>:: ArrayEle(const char *nm): val(nm)
 	if ( nm )
 	{
 		int len;
-		len = strlen(nm);
+		len = static_cast<int>(strlen(nm));
 		name = new char [len + 1];
 		memcpy ( name, nm, len);
 		name[len] = 0;

@@ -217,7 +217,7 @@ bool XmlConf::set_conf_ele (TiXmlElement *ref_up, TiXmlElement *reqele, TiXmlEle
 void XmlConf::wfile()
 {
 	TiXmlPrinter printer;
-	unsigned long len;
+	unsigned TEXTUS_LONG len;
 	unsigned char *act;
 	unsigned char *p;
 
@@ -256,7 +256,6 @@ void XmlConf::wfile()
 		break;
 	default:
 		goto ErrPro;
-		break;
 	}
 
 	snd_pac->input(gCFG->act_fld, (unsigned char*) "s", 1);

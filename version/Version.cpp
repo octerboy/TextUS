@@ -263,12 +263,12 @@ char* r_share(const char *so_file)
 	memset(r_file, 0, sizeof(r_file));
 	if ( ld_lib_path[0])
 	{
-		l = strlen(ld_lib_path);
+		l = static_cast<int>(strlen(ld_lib_path));
 		if (l > 512 ) l = 512;
 	 	memcpy(r_file, ld_lib_path, l);
 		n = l;
 	}
-	l = strlen(so_file);
+	l =static_cast<int>(strlen(so_file));
 	if (l > 512 ) l = 512;
 	memcpy(&r_file[n], so_file, l);
 	TEXTUS_STRCAT(r_file, TEXTUS_MOD_SUFFIX);

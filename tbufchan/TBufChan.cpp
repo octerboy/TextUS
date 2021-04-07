@@ -28,10 +28,6 @@
 #include <stdarg.h>
 #include <assert.h>
 
-#ifndef TINLINE
-#define TINLINE inline
-#endif
-
 class TBufChan: public Amor
 {
 public:
@@ -59,8 +55,8 @@ private:
 	TBuffer right_rcv;	/* 从右节点接收的数据缓冲 */
 	TBuffer right_snd;	/* 向右节点发送的数据缓冲 */
 
-	TINLINE void deliver(Notitia::HERE_ORDO aordo);
-	TINLINE void right_reset();
+	void deliver(Notitia::HERE_ORDO aordo);
+	void right_reset();
 	Amor::Pius pro_tbuf;
 	Amor::Pius pro_unipac;
 	Amor::Pius dmd_start;
@@ -442,7 +438,7 @@ Amor* TBufChan::clone()
 	return (Amor*)child;
 }
 
-TINLINE void TBufChan::right_reset()
+void TBufChan::right_reset()
 {
 	right_rcv.reset();
 	right_snd.reset();
@@ -451,7 +447,7 @@ TINLINE void TBufChan::right_reset()
 }
 
 /* 向接力者提交 */
-TINLINE void TBufChan::deliver(Notitia::HERE_ORDO aordo)
+void TBufChan::deliver(Notitia::HERE_ORDO aordo)
 {
 	Amor::Pius tmp_pius;
 	TBuffer *tb[3];

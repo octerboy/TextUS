@@ -901,7 +901,7 @@ WinComm::~WinComm()
 
 void WinComm::transmitto_ex()
 {
-	DWORD snd_len = snd_buf->point - snd_buf->base;	//发送长度
+	DWORD snd_len = static_cast<DWORD>(snd_buf->point - snd_buf->base);	//发送长度
 	memset(&ovlpW, 0, sizeof(OVERLAPPED));
 //	printf("write ovlpW %p\n", &ovlpW);
 	if ( !WriteFile(hdev, snd_buf->base, snd_len, NULL, &ovlpW) )
@@ -912,7 +912,7 @@ void WinComm::transmitto_ex()
 			return ;
 		}
 	}
-	snd_buf->commit(-(long)snd_len);	//已经到了系统
+	snd_buf->commit(-(TEXTUS_LONG)snd_len);	//已经到了系统
 }
 
 void WinComm::recito_ex()

@@ -131,7 +131,6 @@ private:
 	struct G_CFG {
 		bool no_reader_down;
 		struct TokenList idle;
-		long token_num ;
 
 		enum Work_Mode work_mode;
 		struct TokenList *token_db;
