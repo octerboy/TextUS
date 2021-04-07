@@ -13,7 +13,7 @@
 */
 
 /* $NoKeywords: $ */
-
+#include "textus_os.h"
 #ifndef NOTITIA__H
 #define NOTITIA__H
 #define TEST_NOTITIA_FLAG 0xF0000000	/* 设置该4位为测试位, 表示不同的语言领域 */
