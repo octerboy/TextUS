@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2027 by Ju Haibo (octerboy@21cn.com)
+/* Copyright (c) 2005-2027 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
