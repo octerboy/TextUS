@@ -1,0 +1,36 @@
+# Title: Makefile(VC)
+# ID: Textus-Makefile-vc
+# Build: B01:created by octerboy 2006/05/27
+include ./Rules.basemod.vc
+include ./Allmodules
+CFLAGS  =  /W3 /O2 /c
+AMOROBJS=main.obj  wmain.obj
+
+sub_all:
+	vcbuild.bat $(DIRS)	
+	nmake -fmakefile.vc tus.exe
+	nmake -fmakefile.vc wtus.exe
+
+main.obj: main.c
+        $(CC) $(CFLAGS) main.c
+
+wmain.obj: wmain.c
+        $(CC) $(CFLAGS) wmain.c
+
+tus.exe: main.obj
+        $(LD) /NOLOGO /MANIFEST  -stack:6291456 -out:$@ main.obj $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO)
+	
+wtus.exe: wmain.obj
+        $(LD) /SUBSYSTEM:WINDOWS -stack:6291456 -out:$@ wmain.obj tus.res amor/libanimus.lib kernel32.lib user32.lib
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO)
+
+clean:
+        del *.obj
+	del *.exe
+	del *.exp
+	del *.lib
+	del *.dll
+	vcclean.bat $(DIRS)	

@@ -119,7 +119,7 @@ static char* r_share(const char *so_file)
 	static char r_file[1024];
 	int l = 0;
 	memset(r_file, 0, sizeof(r_file));
-	l = strlen(so_file);
+	l = (int)strlen(so_file);
 	if (l > 512 ) l = 512;
 	memcpy(r_file, so_file, l);
 	memcpy(&r_file[l], TEXTUS_MOD_SUFFIX, strlen(TEXTUS_MOD_SUFFIX));

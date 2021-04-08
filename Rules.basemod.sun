@@ -2,10 +2,13 @@
 TEXTUS_DIR = $(HOME)/Tasks/textus
 RELEASE_DIR = $(HOME)/lib
 LPXX = -m64
+#LPXX = -m32
 CC=CC
 CXX=CC $(LPXX)
 LD=CC
-CFLAGS  = -g -erroff=%none -errtags=yes -c -Kpic -mt $(LPXX)
+CFLAGS  = -g -erroff=notused,hidef,wemptydecl -errtags=yes +w2 -c -Kpic -mt $(LPXX)
+#CFLAGS  = -g -erroff=notused,hidef,wemptydecl,inllargeuse  -errtags=yes -errwarn +w2 -c -Kpic -mt $(LPXX)
+#CFLAGS  = -g -errtags=yes -c -Kpic -mt $(LPXX)
 INCLUDE_DIR = -I$(TEXTUS_DIR)/tinyxml -I$(TEXTUS_DIR)/amor/include -I/usr/sfw/include
 LDFLAGS = -G $(LPXX) -L$(HOME)/lib -L/usr/sfw/lib/64
 ALONE_LDFLAGS = -G $(LPXX)
@@ -17,5 +20,6 @@ DEBUG_FLAG= -DNNDEBUG
 LIBSOCKET= -lsocket -lnsl -lresolv
 _POST_RPO_SUB = cp $@ $(RELEASE_DIR)
 
-JDK_HOME=/usr/java/
+#JDK_HOME=/usr/java/
+JDK_HOME=//opt/jdk1.8.0_271
 JDK_INC_JNI=$(JDK_HOME)/include/solaris
