@@ -1144,7 +1144,7 @@ void PyPort::free_aps(Amor::Pius &aps)
 		break;	
 
 	case Notitia::CMD_SET_DBFACE:	
-		/* 这个由DBPort发出, 不会有Java到C++的情况*/
+		/* 这个由DBPort发出, 不会有反向的情况*/
 		break;	
 
 	case Notitia::DMD_SET_TIMER:
@@ -1161,9 +1161,8 @@ void PyPort::free_aps(Amor::Pius &aps)
 		break;
 
 	case Notitia::DMD_SET_ALARM:
-		/* ps.indic 是一个java.lang.integer, 转成int, 并且还要加一个jvmport的指针 */
-		delete[] (int*)(((void **)aps.indic)[1]);
-		delete [](void**)aps.indic;
+		delete[] reinterpret_cast<int*>(((void **)aps.indic)[1]);
+		delete[] reinterpret_cast<void**>(aps.indic);
 		break;
 
 	case Notitia::CMD_HTTP_GET:
@@ -1286,8 +1285,8 @@ bool PyPort::get_aps(Amor::Pius &aps, PyObject *args, const char *err_msg)
 			WLOG(WARNING,"aps.indic is not of PyInt_Type! when DMD_SET_ALARM");
 			return false;
 		}
-		click[0] = (int)(PyInt_AS_LONG(c1)&0xFFFFFFFF);
-		click[1] = (int)(PyInt_AS_LONG(c2)&0xFFFFFFFF);
+		click[0] = static_cast<int>(PyInt_AS_LONG(c1)&0xFFFFFFFF);
+		click[1] = static_cast<int>(PyInt_AS_LONG(c2)&0xFFFFFFFF);
 		indp[0] = this;
 		indp[1] = &click[0];
 		indp[2] = &click[1];
@@ -1548,8 +1547,8 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 		/*  *indic[0] = argc, *indic[1] = argv, 将此转为String[] */
 		WBUG("%s MAIN_PARA", meth_str);
 	{
-		void **ps = (void**)pius->indic;
-		int num = (*(int *)ps[0]);
+		void **ps = reinterpret_cast<void**>(pius->indic);
+		int num = *(reinterpret_cast<int*>(ps[0]));
 		char **argv = (char **)ps[1];
 		obj_list = PyList_New(0);
 		PyObject *num_obj;
@@ -1583,7 +1582,7 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 		/* 这些要转一个PyInt_Type, 这个不需要了 */
 		/*
 	case Notitia::TIMER:
-		ps_obj->indic = PyInt_FromLong((TEXTUS_LONG)*((int*) (pius->indic)));
+		ps_obj->indic = PyInt_FromLong((TEXTUS_LONG)*(reinterpret_cast<int*>(pius->indic)));
 		ret_obj = PyObject_CallMethod(pInstance, py_method, (char*)"O", ps_obj);
 		Py_DECREF(ps_obj->indic);
 		break;
