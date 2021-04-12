@@ -1177,8 +1177,7 @@ JNIEXPORT void JNICALL Java_textor_jvmport_PacketData_input__ILjava_lang_String_
 	jmethodID getBytes_mid = env->GetMethodID(str_cls, "getBytes", "(Ljava/lang/String;)[B");
 	jbyteArray strBytes;
 	jsize len;
-		
-	
+
 	if (!sVal ) return;
 	if ( pcp)
 	{
@@ -1429,7 +1428,7 @@ JNIEXPORT jbyteArray JNICALL Java_textor_jvmport_TBuffer_getBytes
 	jsize len ;
 	if ( !tbp)
 		return 0;
-	len = (jsize) (tbp->point - tbp->base);
+	len = static_cast<jsize>(tbp->point - tbp->base);
 	bts = env->NewByteArray(len);
 	env->SetByteArrayRegion(bts, 0, len, (jbyte*)tbp->base);
 	return bts;
