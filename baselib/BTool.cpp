@@ -16,7 +16,6 @@
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 #include "casecmp.h"
-#include "BTool.h"
 #include "textus_string.h"
 #include <stdio.h>
 #include <string.h>
@@ -26,6 +25,7 @@
 #else
 #include <errno.h>
 #endif
+#include "BTool.h"
 
 char* BTool::getaddr ( const char *filename, const char *key)
 {
@@ -321,9 +321,9 @@ unsigned int BTool::unescape( const char *s, unsigned char *t)
 
 static const char *b64_code_table="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-int BTool::base64_encode(char *encoded, const unsigned char *string, int len)
+size_t BTool::base64_encode(char *encoded, const unsigned char *string, size_t len)
 {
-	int i;
+	size_t i;
 	char *p;
   
 	p = encoded;
@@ -350,7 +350,7 @@ int BTool::base64_encode(char *encoded, const unsigned char *string, int len)
       }
   
       *p++ = '\0';
-      return static_cast<int>(p - encoded);
+      return (p - encoded);
 }
 
 /* Base-64 decoding.  This represents binary data as printable ASCII
@@ -388,10 +388,11 @@ static int b64_decode_table[256] = {
 ** be at most 3/4 the size of the encoded, and may be smaller if there
 ** are padding characters (blanks, newlines).
 */
-int BTool::base64_decode( const char* str, unsigned char* space, int size )
+size_t BTool::base64_decode( const char* str, unsigned char* space, size_t size )
 {
 	const char* cp;
-	int space_idx, phase;
+	size_t space_idx;
+	unsigned short phase;
     	int d, prev_d = 0;
     	unsigned char c;
 
