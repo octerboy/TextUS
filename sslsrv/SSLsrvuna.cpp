@@ -8,7 +8,7 @@
  */
 
 /**
- Title: ssl服务端接入textus
+ Title: ssl service
  Build: created by octerboy, 2005/06/10
  $Id$
 */
@@ -23,9 +23,6 @@
 #include "Notitia.h"
 #include "TBuffer.h"
 #include "casecmp.h"
-#ifndef TINLINE
-#define TINLINE inline
-#endif
 class SSLsrvuna: public Amor
 {
 public:
@@ -43,9 +40,9 @@ private:
 	bool sessioning;
 
 	SSLsrv *sslsrv;
-	TINLINE void deliver(Notitia::HERE_ORDO aordo);
-	TINLINE void end();
-	TINLINE void errpro();
+	void deliver(Notitia::HERE_ORDO aordo);
+	void end();
+	void errpro();
 #include "wlog.h"
 };
 
@@ -256,7 +253,7 @@ SSLsrvuna::~SSLsrvuna()
 }
 
 /* 向接力者提交 */
-TINLINE void SSLsrvuna::deliver(Notitia::HERE_ORDO aordo)
+void SSLsrvuna::deliver(Notitia::HERE_ORDO aordo)
 {
 	Amor::Pius tmp_pius;
 	TBuffer *tb[3];
@@ -281,7 +278,7 @@ TINLINE void SSLsrvuna::deliver(Notitia::HERE_ORDO aordo)
 	return ;
 }
 
-TINLINE void SSLsrvuna::end()
+void SSLsrvuna::end()
 {
 	Amor::Pius tmp_pius;
 	tmp_pius.ordo = Notitia::END_SESSION;
@@ -302,7 +299,7 @@ TINLINE void SSLsrvuna::end()
 	aptus->sponte(&tmp_pius);	/* send END_SESSION to left node */
 }
 
-TINLINE void SSLsrvuna::errpro()
+void SSLsrvuna::errpro()
 {
 	switch( sslsrv->err_lev )
 	{
