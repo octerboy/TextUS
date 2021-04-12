@@ -252,7 +252,6 @@ bool Nostra::sponte_n (Amor::Pius *pius, unsigned int from)
 	default: /* ¼ÌĞøÏò×ó´«µİ */
 		return false;
 	}
-
 	return true;
 }
 
