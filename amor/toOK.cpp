@@ -263,6 +263,8 @@ int main (int argc, char *argv[] )
 
   matter[16] = '\0';
   memset ( matter,'0',16);
+  printf ("platform is %d bits\n", sizeof(TEXTUS_LONG)*8);
+
   if ( (argc < 3 || argc > 5) || (argc == 3 && argv[2][0] != '9' && argv[2][0] != 'a') ) {
 	printf ( "usage: %s filename method days ?runtimes?\n",argv[0]);
 	printf ( "method '1':   受时间限制, 无次数限制, 不作全文校验\n");
