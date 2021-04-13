@@ -31,7 +31,6 @@
 #if !defined (_WIN32)
 #include <sys/time.h>
 #endif
-#include "md5.h"
 
 #define SEQ_FLD 3
 #define TAG_FLD 5
@@ -208,7 +207,7 @@ void BufTmr::stamp()
 {
 	unsigned TEXTUS_LONG interval, nlen, start_sec, start_milli_l;
 	unsigned char offset;
-	MD5_CTX Md5Ctx;
+	BTool::MD5_CTX Md5Ctx;
 	unsigned char yaBuf[16];
 	unsigned short start_milli;
 	unsigned int i, yaLen = 0;
@@ -226,8 +225,8 @@ void BufTmr::stamp()
 	start_milli_l =  start_tp.tv_nsec/100000;
 #endif
 	start_milli = (unsigned short)start_milli_l;
-	MD5Init (&Md5Ctx);
-	MD5Update (&Md5Ctx, md_magic, md_magic_len);
+	BTool::MD5Init (&Md5Ctx);
+	BTool::MD5Update (&Md5Ctx, md_magic, md_magic_len);
 
 	if ( gCFG->seq) {
 		tmr_pac.input(SEQ_FLD, gCFG->seq, gCFG->seq_len);
@@ -243,14 +242,14 @@ void BufTmr::stamp()
 		start_sec /=256;
 	}
 	tmr_pac.input(START_SEC_FLD, yaBuf, 4);
-	MD5Update (&Md5Ctx, (char*)yaBuf, 4);
+	BTool::MD5Update (&Md5Ctx, (char*)yaBuf, 4);
 
 	yaBuf[0] = (unsigned char)(start_milli%256);
 	start_milli /=256;
 	yaBuf[1] = (unsigned char)(start_milli%256);
 	start_milli /=256;
 	tmr_pac.input(START_MILLI_FLD, yaBuf, 2);
-	MD5Update (&Md5Ctx, (char*)yaBuf, 2);
+	BTool::MD5Update (&Md5Ctx, (char*)yaBuf, 2);
 
 	for ( i = 0 ; i < gCFG->time_len ; i++)
 	{
@@ -258,18 +257,18 @@ void BufTmr::stamp()
 		interval /=256;
 	}
 	tmr_pac.input(INTERVAL_FLD, (char*)yaBuf, gCFG->time_len);
-	MD5Update (&Md5Ctx, (char*)yaBuf, yaLen);
+	BTool::MD5Update (&Md5Ctx, (char*)yaBuf, yaLen);
 
 	nlen  = rcv_buf->point - rcv_buf->base;
 	if ( gCFG->opt)
 	{
 		tmr_pac.input(DATA_OPT_FLD, gCFG->opt, gCFG->opt_len);
-		MD5Update (&Md5Ctx, (char*)gCFG->opt, gCFG->opt_len);
+		BTool::MD5Update (&Md5Ctx, (char*)gCFG->opt, gCFG->opt_len);
 		nlen += gCFG->opt_len;
 	}
 
-	MD5Update (&Md5Ctx, (char*)rcv_buf->base, static_cast<int>(nlen));
-	MD5Final ((char *) &yaBuf[0], &Md5Ctx);
+	BTool::MD5Update (&Md5Ctx, (char*)rcv_buf->base, static_cast<int>(nlen));
+	BTool::MD5Final ((char *) &yaBuf[0], &Md5Ctx);
 
 	tmr_pac.input(MSG_SUM_FLD, yaBuf, MD_SUM_LEN);
 	offset = MD_SUM_LEN;
