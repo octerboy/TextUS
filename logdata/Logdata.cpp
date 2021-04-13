@@ -19,6 +19,7 @@
 /* $NoKeywords: $ */
 
 #include "Aptus.h"
+#include "BTool.h"
 #include <time.h>
 #include <sys/types.h>
 #include <sys/timeb.h>
@@ -79,7 +80,6 @@ protected:
 #include <stdio.h>
 #include <string.h>
 #include <sys/timeb.h>
-#include "md5.h"
 #define CHNNL_NUM 0
 
 char Logdata::hostname[] = "";
@@ -395,18 +395,18 @@ bool Logdata::sponte_n ( Amor::Pius *pius, unsigned int from)
 
 	if ( detect_modified ) 
 	{	/*生成MD5校验值, 若篡改日志内容, 就可发现 */
-		MD5_CTX Md5Ctx;
+		BTool::MD5_CTX Md5Ctx;
 		unsigned char md[16];
 		char md_sum[16];
 		int i,l;
 		
 		l = (int)strlen(log_ptr);
 
-		MD5Init (&Md5Ctx);
-		MD5Update (&Md5Ctx, last_md_sum, 8);
-		MD5Update (&Md5Ctx, log_ptr, l);
-		MD5Update (&Md5Ctx, md_magic, md_magic_len);
-		MD5Final ((char *) &md[0], &Md5Ctx);
+		BTool::MD5Init (&Md5Ctx);
+		BTool::MD5Update (&Md5Ctx, last_md_sum, 8);
+		BTool::MD5Update (&Md5Ctx, log_ptr, l);
+		BTool::MD5Update (&Md5Ctx, md_magic, md_magic_len);
+		BTool::MD5Final ((char *) &md[0], &Md5Ctx);
 		for (i = 0; i < 4; i++)
 		{
 			TEXTUS_SNPRINTF (&md_sum[i * 2], 3, "%02x", md[i]);

@@ -3,18 +3,15 @@
 # Build: B01:created by octerboy 2006/05/28, Panyu in Gaungzhou
 
 include ..\Rules.basemod.vc
-AMOROBJS=Logdata.obj md5.obj
+AMOROBJS=Logdata.obj
 
 all: logdata.dll
 
 Logdata.obj: Logdata.cpp
-	$(CC) $(CFLAGS) -DNDEBUG -DAMOR_CLS_TYPE=Logdata Logdata.cpp
-
-md5.obj: md5.c
-	$(CC) $(CFLAGS) md5.c 
+	$(CC) $(CFLAGS) -I..\baselib\include -DNDEBUG -DAMOR_CLS_TYPE=Logdata Logdata.cpp
 
 logdata.dll: $(AMOROBJS)
-	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB) ..\baselib\libbase.lib
 	$(_VC_MANIFEST_PRO)
 	$(_POST_RPO_SUB)
 

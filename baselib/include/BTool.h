@@ -27,10 +27,19 @@ public:
 	static	bool putaddr ( const char* filename, const char*key, const char* value);
 	static	bool putaddr ( const char* filename, const char*key, const char* split, const char* value,int no);
 	/* base64编码与解码函数,返回已解码或编码内容的长度 */
-	static int base64_encode(char* encoded, const unsigned char * plain, int len);	
-	static int base64_decode(const char* encoded, unsigned char* plain, int size);
+	static size_t base64_encode(char* encoded, const unsigned char * plain, size_t);	
+	static size_t base64_decode(const char* encoded, unsigned char* plain, size_t size);
 
 	/* Remove "\" escapes from s..., to t...., return the length of t */
 	static unsigned int unescape( const char *s, unsigned char *t);
+	typedef struct MD5Context {
+    		unsigned int buf[4];
+    		unsigned int bytes[2];
+    		unsigned int in[16];
+	} MD5_CTX;
+	static void MD5Init(struct MD5Context *context);
+	static void MD5Update(struct MD5Context *context, const char *buf, unsigned len);
+	static void MD5Final(char digest[16], struct MD5Context *context);
+	static void MD5Transform(unsigned int buf[4], unsigned int const in[16]);
 };
 #endif
