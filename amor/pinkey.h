@@ -1,3 +1,4 @@
+#include "Amor.h"
 static  int pinkeys[3][64] = {
 	{ 
 		1,0,1,1,1,0,0,1,
@@ -34,7 +35,7 @@ static  unsigned char sum_file_vector[8] = {9,44,88,13,7,5,6,36 };
 static const char* sumfile (char *filename, int row, int keyIndex, unsigned char lrcblock[], int mode) 
 {
   FILE *fp;
-  int hasRead;
+   TEXTUS_LONG hasRead;
   static char sum[17];
   int pinkeyA[64];
   int Chiper_text[64],Clear_text[64];
