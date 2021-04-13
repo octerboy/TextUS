@@ -47,6 +47,7 @@ public:
 	const char* 	getHead(const char* name); 
 	const char** 	getHeadArray(const char* name);
 	TEXTUS_LONG 	getHeadInt(const char* name); 
+	unsigned TEXTUS_LONG 	getHeadULong(const char* name); 
 	/* 设置HTTP头内容 */
 	void 	setHead (const char* name, const char* value);
 	void 	setHead (const char* name, TEXTUS_LONG value);
@@ -99,6 +100,7 @@ public:
 		const char *str_array[64];	//某些Head包含多个内容, 以逗号相隔. 这里假定最多63个。
 		char _str[1024];
 		TEXTUS_LONG val;
+		unsigned TEXTUS_LONG uval;
 		time_t when;
 		inline Field_Value()
 		{
@@ -140,6 +142,13 @@ public:
 			when = v;
 			type = 2;	/* 这是时间值 */
 		};
+
+		inline void setv(unsigned TEXTUS_LONG v)
+		{
+			uval = v;
+			type = 3;	/* 无符号整型 */
+		};
+
 	} FIELD_VALUE;
 	FIELD_VALUE *field_values;
 	int field_num;
