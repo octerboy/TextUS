@@ -290,7 +290,7 @@ static void encrypt_cbc(char in[], TEXTUS_LONG len, char k_buf[], char out[] )
 
 	hex2byte(indata, len/2, &in[0]);
 	memset(&ivec, 0, sizeof(ivec));
-	DES_ede2_cbc_encrypt(indata, outdata, len/2, &kLeft, &kRight, &ivec, DES_ENCRYPT);
+	DES_ede2_cbc_encrypt(indata, outdata, static_cast<int>(len/2), &kLeft, &kRight, &ivec, DES_ENCRYPT);
 	byte2hex(outdata, len/2, &out[0]);	
 #endif
 
