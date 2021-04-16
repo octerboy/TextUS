@@ -4,7 +4,7 @@
 
 include ..\Rules.basemod.vc
 CFLAGS  =  $(CFLAGS) -I..\baselib\include -I..\unipac\include -I..\logdata\include -I$(OPENSSL_DIR)\include
-LDLIB = $(LDLIB) ..\baselib\libbase.lib $(OPENSSL_DIR)\lib\libeay32.lib $(OPENSSL_DIR)\lib\ssleay32.lib
+LDLIB = $(LDLIB) ..\baselib\libbase.lib $(OPENSSL_DIR)\lib\libeay32.lib
 AMOROBJS=TCrypt.obj 
 
 all: tcrypt.dll
