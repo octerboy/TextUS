@@ -111,7 +111,7 @@
                     </Log>
                     <Module name="montcp" sum="no" disable="no">
                         <!-- 监听设置, 其中 server_ip 和 server_port可以更改, 其它不要更改。 -->
-                        <Property source_ip="14" destination_ip="15" source_port="20" destination_port="21" offset="24" flags="25" data="45" direction="44" server_ip="106.122.255.77" server_port="80" simply="yes" lonely="no">
+                        <Property source_ip="14" destination_ip="15" source_port="20" destination_port="21" offset="24" flags="25" data="45" direction="44" server_ip="106.122.255.77" server_port="80" simply="no" lonely="no">
                             <service ip="14.21.78.176" port="80" />
                         </Property>
                         <Multi radic="yes" seed="4" />
