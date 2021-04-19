@@ -1,5 +1,5 @@
-<?xml version="1.0" encoding="gb2312" ?>
-<root tag="Module" path="./release/" sum="A053788B7EA72D2937EBBEB009DEF214">
+<?xml version="1.0" encoding="ISO8859-1" ?>
+<root tag="Module" path="../../lib/" sum="BED87225890B8BE4510E4FD6AA40376C">
     <![CDATA[<greeting>Hello, World!</greeting>]]>
 
     <Module name="log2buff" sum="no" disable="no">
@@ -27,7 +27,7 @@
         </Property>
     </Module>
     <Module name="tcpsrv" disable="no" sum="no">
-        <Property port="80" />
+        <Property port="8000" />
         <!-- 这是TCP服务模块 -->
         <Trend>
             <laeve ordo="END_SESSION" goon="no">
@@ -46,21 +46,28 @@
         </Log>
         <Module name="jvmport" disable="no" sum="no">
             <Property class="JTest">
-                <parameter v="134">ok好</parameter>
-                <jvm version="1.4">
-                    <option>-Djava.class.path=release/jvmport.jar</option>
-                    <option>-Djava.class.path=jvmport/</option>
+                <jvm version="1.6">
+                    <option>-Djava.class.path=./jvmport/:../../lib/jvmport.jar:../../lib/sqljdbc42.jar:../../lib/</option>
+                    <Option>-verbose:class</Option>
+                </jvm>
+                <parameter v="139">bad news...!!</parameter>
+            </Property>
+            <Property class="JdbCli">
+                <parameter driver="com.microsoft.sqlserver.jdbc.SQLServerDriver" connect="jdbc:sqlserver://169.254.60.22:1433;databaseName=master;" user="sa" password="root" />
+                <parameter ver="134">oook好</parameter>
+                <jvm version="1.6">
+                    <option>-Djava.class.path=../../lib/jvmport.jar:../../lib/sqljdbc42.jar:../../lib/</option>
                     <Option>-verbose:class</Option>
                 </jvm>
             </Property>
-            <Log ID="-44" alias="jvm">
+            <Log ID="-44">
                 <Exclude level="DEBUG" />
             </Log>
             <Fly>
                 <sponte ordo="DMD_SET_ALARM" />
                 <sponte ordo="DMD_SET_TIMER" />
             </Fly>
-            <Module name="jvmport" disable="yes" sum="no">
+            <Module name="jvmport" disable="no" sum="no">
                 <Property class="JTest">
                     <parameter v="139">bad news...!!</parameter>
                 </Property>
@@ -77,7 +84,7 @@
                 </Module>
             </Module>
         </Module>
-        <Module name="slice" disable="no" sum="no">
+        <Module name="slice" disable="yes" sum="no">
             <Property length="string:4" />
             <Log ID="-77">
                 <Exclude level="DEBUG" />
@@ -106,7 +113,7 @@
                         </Log>
                     </aux>
                 </Aux>
-                <Module name="jvmport" disable="yes" sum="no">
+                <Module name="jvmport" disable="no" sum="no">
                     <Property class="JTest">
                         <parameter v="139">good news...!!</parameter>
                     </Property>
@@ -164,7 +171,7 @@
             </Module>
         </Module>
     </Module>
-    <Module name="tcpsrv" sum="no">
+    <Module name="tcpsrv" sum="no" disable="yes">
         <Property Eth="eth0" port="7000" />
         <!-- 这是TCP服务模块 -->
         <Joint />
@@ -193,7 +200,7 @@
             <Fly group="peer" where="end" cause="yes" />
         </Module>
     </Module>
-    <Module name="tcpsrv" sum="no">
+    <Module name="tcpsrv" sum="no" disable="yes">
         <Property Eth="eth0" port="6606" />
         <!-- 这是TCP服务模块 -->
         <Log ID="-2" alias="tcpsrv">
@@ -469,7 +476,7 @@
             </Module>
         </Module>
     </Module>
-    <Module name="tcpsrv" disable="no" sum="no">
+    <Module name="tcpsrv" disable="yes" sum="no">
         <Property Eth="eth0" port="443" />
         <!-- 这是TCP服务模块 -->
         <Trend>
@@ -643,7 +650,7 @@
                         <Exclude level="DEBUG" />
                     </Log>
                 </Module>
-                <Module name="httpnourl" disable="yes" sum="0000">
+                <Module name="httpnourl" disable="yes" sum="0E47">
                     <Property />
                     <Log ID="-98" />
                 </Module>
@@ -657,8 +664,7 @@
         </Log>
         <Fly Group="99" where="end" />
     </Module>
-    <Attachment name="jvm" flag="GLOB" sum="no" />
-    <Attachment name="js32" flag="GLOB" sum="no" />
+    <attachment name="js32" flag="GLOB" sum="no" />
     <Attachment name="tversion" sum="no" />
     <Attachment name="relay" sum="no" />
     <Attachment name="nostra" sum="no" />
