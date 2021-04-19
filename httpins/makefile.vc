@@ -10,10 +10,10 @@ LDLIB = $(LDLIB) ..\baselib\libbase.lib $(OPENSSL_DIR)\lib\libeay32.lib
 all: httpins.dll
 
 DeHead.obj: ..\httpsrvhead\DeHead.cpp ..\httpsrvhead\tdate_parse.c
-	$(CC) $(CFLAGS)  -DDEBUG ..\httpsrvhead\DeHead.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) ..\httpsrvhead\DeHead.cpp
 
 HttpIns.obj: HttpIns.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=HttpIns HttpIns.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=HttpIns HttpIns.cpp
 
 httpins.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

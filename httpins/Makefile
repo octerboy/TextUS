@@ -11,10 +11,10 @@ DeHead.o:../httpsrvhead/DeHead.cpp ../httpsrvhead/tdate_parse.c
 	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG) -o $@ ../httpsrvhead/DeHead.cpp
 
 HttpIns.o:HttpIns.cpp
-	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=HttpIns -o $@ $^ 
+	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG)  -DAMOR_CLS_TYPE=HttpIns -o $@ $^ 
 	
 httpins.so: HttpIns.o DeHead.o
-	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase
+	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lcrypto -lbase
 	$(_POST_RPO_SUB)
 
 clean:
