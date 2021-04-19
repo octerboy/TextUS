@@ -356,7 +356,7 @@ date_parse( char* str )
     */
 
     /* DD/mth/YY:HH:MM:SS zone */
-    if ( sscanf( cp, "%d/%400[a-zA-Z]/%d:%d:%d:%d %400[^: 	\n]",
+    if (  TEXTUS_SSCANF( cp, "%d/%400[a-zA-Z]/%d:%d:%d:%d %400[^: 	\n]",
 	   &tm_mday, str_mon, &tm_year, &tm_hour, &tm_min, &tm_sec,
 	   str_gmtoff ) == 7 &&
 	 scan_mon( str_mon, &tm_mon ) &&
