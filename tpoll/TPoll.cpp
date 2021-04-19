@@ -718,7 +718,7 @@ END_TIMER_PRO:
 
 END_ALARM_PRO:
 		tm_hd_ps.indic = 0;
-		printf(" error set_alarm aor->pupa %p hand\n", aor->pupa);
+		//printf(" error set_alarm aor->pupa %p hand\n", aor->pupa);
 		WLOG(ERR,"error set_alarm aor->pupa %p hand", aor->pupa);
 		aor->pupa->facio(&tm_hd_ps);
 		put_timor(aor); //发生错误而回收
