@@ -10,7 +10,7 @@ AMOROBJS=Induco.obj
 all: induco.dll
 
 Induco.obj: Induco.cpp
-	$(CC) $(CFLAGS) -DNDEBUG -DAMOR_CLS_TYPE=Induco Induco.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Induco Induco.cpp
 
 induco.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
