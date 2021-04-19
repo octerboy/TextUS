@@ -36,6 +36,7 @@ $(PACDIR)/Amor.class:Amor.java
 $(PACDIR)/Pius.class:Pius.java
 	${JC} ${JCFLAGS} $^
 	mv Pius.class $(PACDIR)
+	${JH} $(PACPATH)Pius
 	${JAR} cvf jvmport.jar textor
 	cp jvmport.jar $(RELEASE_DIR)
 
@@ -68,7 +69,7 @@ $(PACDIR)/DBFace.class: DBFace.java
 	cp jvmport.jar $(RELEASE_DIR)
 
 jv:jv.c
-	gcc -I$(INCLUDE_DIR) $^ -o jv -L$(RELEASE_DIR) -ljvm
+	CC -m64 $(INCLUDE_DIR) $^ -o jv -L$(JDK_HOME)/jre/lib/server -ljvm
 
 clean:
 	rm *.o

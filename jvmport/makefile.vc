@@ -3,31 +3,31 @@
 # Build:
 #	B01:created by octerboy 2007/11/16, Guangzhou
 
-
 include ..\Rules.basemod.vc
 AMOROBJS=JvmPort.obj 
 
-include ..\Rules.java
+include ..\Rules.java.win
+LDLIB2 = ..\baselib\libbase.lib $(LDLIB) $(JDK_HOME)\lib\jvm.lib
 
 PACDIR = textor\jvmport
 PACPATH = textor.jvmport.
 
-CFLAGS  = $(CFLAGS) -I..\baselib\include -I..\logdata\include -I..\unipac\include -I$(JDK_HOME)\include -I$(JDK_INC_JNI)  -I..\dbport\include
+CFLAGS  = $(CFLAGS) -I..\baselib\include -I..\logdata\include -I..\unipac\include -I$(JDK_HOME)\include -I$(JDK_HOME)\include\win32  -I..\dbport\include
 
-all:jvmport.dll
-all_class:$(PACDIR)\Pius.class $(PACDIR)\Amor.class $(PACDIR)\TBuffer.class $(PACDIR)\PacketData.class $(PACDIR)\TiXML.class  $(PACDIR)/DBFace.class
+all:jvmport.dll $(PACDIR)\Pius.class $(PACDIR)\Amor.class $(PACDIR)\TBuffer.class $(PACDIR)\PacketData.class $(PACDIR)\TiXML.class
+all_class:$(PACDIR)/Pius.class $(PACDIR)/Amor.class $(PACDIR)/TBuffer.class $(PACDIR)/PacketData.class $(PACDIR)/TiXML.class $(PACDIR)/DBFace.class
 
 JvmPort.obj: JvmPort.cpp
 	$(CC) $(CFLAGS) $(INCLUDE_DIR) -I..\unipac\include $(DEBUG_FLAG) -DAMOR_CLS_TYPE=JvmPort JvmPort.cpp
 
 jvmport.dll: JvmPort.obj
-	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  ..\baselib\libbase.lib $(LDLIB) $(JDK_HOME)\lib\jvm.lib
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB2)
 	$(_POST_RPO_SUB)
 
 $(PACDIR)\Amor.class: Amor.java
 	$(JC) Amor.java 
 	move /Y Amor.class $(PACDIR)
-	$(JH) $(PACPATH)Amor
+	$(JH) ./ Amor.java
 	$(JAR) cvf jvmport.jar textor
 	copy jvmport.jar $(RELEASE_DIR)
 
@@ -38,33 +38,32 @@ $(PACDIR)\Pius.class:Pius.java
 	copy jvmport.jar $(RELEASE_DIR)
 
 $(PACDIR)\TBuffer.class:TBuffer.java
-	$(JC) TBuffer.java
+	$(JC) $(JCFLAGS) TBuffer.java
 	move /Y TBuffer.class $(PACDIR)
-	$(JH) $(PACPATH)TBuffer
+	$(JH) ./ TBuffer.java
 	$(JAR) cvf jvmport.jar textor
 	copy jvmport.jar $(RELEASE_DIR)
 
 $(PACDIR)\PacketData.class:PacketData.java
 	$(JC) PacketData.java
 	move /Y PacketData.class $(PACDIR)
-	$(JH) $(PACPATH)PacketData
+	$(JH) ./ PacketData.java
 	$(JAR) cvf jvmport.jar textor
 	copy jvmport.jar $(RELEASE_DIR)
 
 $(PACDIR)\TiXML.class:TiXML.java
 	$(JC) TiXML.java
 	move /Y TiXML.class $(PACDIR)
-	$(JH) $(PACPATH)TiXML
+	$(JH) ./ TiXML.java
 	$(JAR) cvf jvmport.jar textor
 	copy jvmport.jar $(RELEASE_DIR)
-	
-$(PACDIR)/DBFace.class:DBFace.java
-	$(JC) DBFace.java
+
+$(PACDIR)\DBFace.class: DBFace.java
+	$(JC) $(JCFLAGS) DBFace.java
 	move /Y DBFace*.class $(PACDIR)
-	$(JH) $(PACPATH)DBFace
+	$(JH) ./ DBFace.java
 	$(JAR) cvf jvmport.jar textor
 	copy jvmport.jar $(RELEASE_DIR)
-	
 
 jv.exe:jv.c
 	cl -I$(JDK_HOME)\include -I$(JDK_HOME)\include\win32 jv.c $(JDK_HOME)\lib\jvm.lib
@@ -74,3 +73,4 @@ clean:
 	del *.dll.*
 	del *.exp
 	del *.lib
+

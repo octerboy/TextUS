@@ -6,7 +6,7 @@ JavaVM *jvm;
 JNIEnv *env;
 JavaVMInitArgs vm_args;
 JavaVMOption options[8];
-vm_args.version=JNI_VERSION_1_6;
+vm_args.version=JNI_VERSION_1_8;
 //这个字段必须设置为该值
 /*设置初始化参数*/
 options[1].optionString = "-Djava.class.path=.";
@@ -25,6 +25,7 @@ vm_args.nOptions = 3;
 vm_args.options = options;
 vm_args.ignoreUnrecognized = JNI_FALSE;
 
+printf("jlong size %d, jsize %d, jint size %d\n", sizeof(jlong), sizeof(jsize),sizeof(jint));
 res = JNI_GetDefaultJavaVMInitArgs(&vm_args);
 fprintf(stderr, "JNI_GetDefaultJavaVMInitArgs %08x\n", res);
 for (n = 0 ; n < vm_args.nOptions; n++)
@@ -41,7 +42,8 @@ fprintf(stderr,
 "Can't create Java VM %08x\n", res);
 	return 1;
 }
-(*jvm)->DestroyJavaVM(jvm);
+jvm->DestroyJavaVM();
+//(*jvm)->DestroyJavaVM(jvm);
 fprintf(stdout,
 "Java VM destory.\n");
 }
