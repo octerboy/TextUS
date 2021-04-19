@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="GB2312" ?>
-<Property offset="0" act="forward" maxium="50">
+<Property provide="packet" offset="0" mapOnly="no" maxium="50">
 
-                            <!-- maxium='0' 表示本身无PacketObj -->
                         <facio from="LFirst" to="RFirst">
                             <!-- 指令格式转换-->
                             <convert>
