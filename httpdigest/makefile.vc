@@ -5,21 +5,18 @@
 include ..\Rules.basemod.vc
 CFLAGS  = $(CFLAGS) -I..\logdata\include -I..\baselib\include -I..\httpsrvhead\include -I..\unipac\include
 LDLIB = $(LDLIB) ..\baselib\libbase.lib
-AMOROBJS=Digest.obj  md5.obj tools.obj digcalc.obj
+AMOROBJS=Digest.obj  Tools.obj Digcalc.obj
 
 all: httpdigest.dll
 
 Digest.obj: Digest.cpp
-	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Digest Digest.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Digest Digest.cpp
 
-md5.obj:md5.c
-	$(CC)  $(CFLAGS) md5.c
+Tools.obj:tools.cpp
+	$(CC)  $(CFLAGS) tools.cpp
 
-tools.obj:tools.c
-	$(CC)  $(CFLAGS) tools.c
-
-digcalc.obj:digcalc.c
-	$(CC)  $(CFLAGS)  digcalc.c
+Digcalc.obj:digcalc.cpp
+	$(CC)  $(CFLAGS) -I..\baselib\include digcalc.cpp
 
 httpdigest.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)

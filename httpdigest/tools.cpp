@@ -26,7 +26,7 @@ size_t xcountws(const char *str)
     return count;
 }
 
-int strListGetItem(const char * str, char del, const char **item, int *ilen, const char **pos)
+extern "C" int strListGetItem(const char * str, char del, const char **item, int *ilen, const char **pos)
 {
     int len;
     static char delim[2][3] =
@@ -65,7 +65,7 @@ int strListGetItem(const char * str, char del, const char **item, int *ilen, con
 		*pos += 1;
 	}
     } while (**pos);
-    len = *pos - *item;		/* *pos points to del or '\0' */
+    len = static_cast<int>(*pos - *item);		/* *pos points to del or '\0' */
     /* rtrim */
     while (len > 0 && xisspace((*item)[len - 1]))
 	len--;

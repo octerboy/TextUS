@@ -10,16 +10,13 @@ all:httpdigest.so
 Digest.o:Digest.cpp
 	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG)  -DAMOR_CLS_TYPE=Digest -o $@ $^
 
-md5.o:md5.c
+Tools.o:tools.cpp
 	${CC} ${CFLAGS} -o $@ $^
 
-tools.o:tools.c
-	${CC} ${CFLAGS} -o $@ $^
-
-digcalc.o:digcalc.c
+Digcalc.o:digcalc.cpp
 	${CC} ${CFLAGS} $(INCLUDE_DIR) -o $@ $^
 
-httpdigest.so: Digest.o digcalc.o tools.o md5.o
+httpdigest.so: Digest.o Digcalc.o Tools.o
 	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase
 	$(_POST_RPO_SUB)
 
