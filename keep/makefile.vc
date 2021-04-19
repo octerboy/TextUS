@@ -10,7 +10,7 @@ AMOROBJS=Keep.obj
 all: keep.dll
 
 Keep.obj: Keep.cpp
-	$(CC) $(CFLAGS) -DNDEBUG -DAMOR_CLS_TYPE=Keep Keep.cpp
+	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=Keep Keep.cpp
 
 keep.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
