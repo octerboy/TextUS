@@ -1,15 +1,15 @@
 #all modules name list here.
-DIRS= tinyxml amor baselib ajpfwd airline auxiliary \
+DIRS= tinyxml amor baselib ajpfwd aio airline auxiliary \
 balance buftmr \
 dbport dummy formauth grate \
 holding htmlsift httpagent httpauth httpcookie \
 httpdigest httpdir httpfile httpform httpins httpnourl \
 httpsrvbody httpsrvhead httpupfile httpurlsw httpxml \
-induco jdbcli joint jvmport keep locker log2buff logdata \
+induco jvmport jdbcli joint keep locker log2buff logdata \
 monip montcp \
 nacframe nostra \
 oledbcsm oracli \
-pactran pacins pipe pmuto process pyport ramify relay \
+pactran pacins pipe pmuto ponder process pyport ramify relay \
 sched sequence signal slice sslcli sslsrv sslvcert \
 tbufchan tbufile \
 tcgi tcpcli tcpctrl tcpsrv \
