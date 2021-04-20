@@ -80,7 +80,6 @@ unsigned int validate(char* filename, int row, const char *sum)
 		encrypt = 0;
 		/* 算了吧,这种方法还是禁止的好 */
 			return 3;
-		break;
 	case  '4':
  	/* 不受时间限制, 无次数限制,作全文校验 */
 		expired = 0;
