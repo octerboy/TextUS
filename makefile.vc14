@@ -1,5 +1,5 @@
 # Title: Makefile(VC)
-# ID: Textus-Makefile-vc
+# ID: Textus-Makefile-vc14
 # Build: B01:created by octerboy 2006/05/27
 include ./Rules.basemod.vc
 include ./Allmodules
@@ -8,8 +8,8 @@ AMOROBJS=main.obj  wmain.obj
 
 sub_all:
 	vcbuild.bat $(DIRS)	
-	nmake -fmakefile.vc tus.exe
-	nmake -fmakefile.vc wtus.exe
+	nmake -fmakefile.vc14 tus.exe
+	nmake -fmakefile.vc14 wtus.exe
 
 main.obj: main.c
         $(CC) $(CFLAGS) main.c

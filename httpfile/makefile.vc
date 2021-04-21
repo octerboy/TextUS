@@ -6,7 +6,7 @@
 include ..\Rules.basemod.vc
 CFLAGS  = $(CFLAGS)  -I..\logdata\include -I..\baselib\include -I..\httpsrvhead\include
 LDLIB = $(LDLIB) ..\baselib\libbase.lib
-AMOROBJS=FileLet.obj 
+AMOROBJS=FileLet.obj FileLetAio.obj
 
 all: httpfile.dll httpfileaio.dll
 
