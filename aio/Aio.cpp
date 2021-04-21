@@ -163,9 +163,10 @@ private:
 					dwCreationDisposition = TRUNCATE_EXISTING;
 				}
 			}
-			dwFlagsAndAttributes |= FILE_FLAG_OVERLAPPED;
 
-			ele2= cfg->FirstChildElement("flag");
+			dwFlagsAndAttributes |= FILE_FLAG_OVERLAPPED;
+			ele2= cfg->FirstChildElement("Flag");
+			if ( ele2)
 			for (	ele= ele2->FirstChildElement("security"); ele; ele = ele->NextSiblingElement("security"))
 			{
 				str = ele->GetText();
@@ -182,6 +183,7 @@ private:
 				if ( strcasecmp(str, "IMPERSONATION" ) == 0 )	
 					dwFlagsAndAttributes |= SECURITY_IMPERSONATION;
 			}
+			if ( ele2)
 			for (	ele= ele2->FirstChildElement("flag"); ele; ele = ele->NextSiblingElement("flag"))
 			{
 				str = ele->GetText();
@@ -210,6 +212,7 @@ private:
 					dwFlagsAndAttributes |= FILE_FLAG_WRITE_THROUGH;
 
 			}
+			if ( ele2)
 			for (	ele= ele2->FirstChildElement("attribute"); ele; ele = ele->NextSiblingElement("attribute"))
 			{
 				str = ele->GetText();
@@ -344,6 +347,7 @@ private:
 			const char *comm_str;
 			sch = 0;
 			lor.type = DPoll::NotUsed;
+                	on_start = true; /* default to start */
 			if ( (comm_str = cfg->Attribute("start") ) && strcasecmp(comm_str, "no") ==0 )
                 		on_start = false; /* 并非一开始就启动 */
 			block_size = 512;
@@ -410,7 +414,7 @@ bool Aio::a_open()
 
 	if (hdev == INVALID_HANDLE_VALUE)
 	{
-		TEXTUS_SPRINTF(msg, "CreateFile(%s)",this->file_name);
+		TEXTUS_SPRINTF(msg, "CreateFile(name=%s)",this->file_name);
 		WLOG_OSERR(msg);
 		return false;
 	}
@@ -461,6 +465,8 @@ void Aio::ignite(TiXmlElement *cfg)
 	comm_str = cfg->Attribute("file");
 	if ( comm_str ) 
 		TEXTUS_SPRINTF(file_name, "%s", comm_str);
+	else
+		gCFG->on_start = false;
 	block_size = gCFG->block_size;
 }
 
