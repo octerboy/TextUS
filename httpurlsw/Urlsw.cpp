@@ -230,7 +230,7 @@ HANDLEPRO:
 		break;
 
 	default:
-		WBUG("Urlsw facio Notitia:%lu", concerned);
+		WBUG("Urlsw facio Notitia:" TLONG_FMTu, concerned);
 		if ( concerned == pius->ordo && canMatch() ) 
 			pius->subor = cur_subor;
 		break;
