@@ -170,7 +170,7 @@ bool L2Buffer::facio( Amor::Pius *pius)
 		break;
 
 	case Notitia::CLONE_ALL_READY:
-		WBUG("facio CLONE_ALL_READY %lu" , pius->ordo);			
+		WBUG("facio CLONE_ALL_READY " TLONG_FMTu, pius->ordo);			
 		deliver(Notitia::SET_TBUF);
 		break;
 
