@@ -748,7 +748,6 @@ bool TTY::facio( Amor::Pius *pius)
 		WBUG("facio PRO_FILE_Pac");
 		TEXTUS_STRCPY(ttyname, (char*)(fname_pac->getfld(gCFG->pac_fld_num)));
 		goto OPEN_PRO;
-		break;
 
 	case Notitia::PRO_FILE :
 		WBUG("facio PRO_FILE");

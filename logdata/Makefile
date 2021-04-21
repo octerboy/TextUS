@@ -4,7 +4,7 @@
 #	B01:created by octerboy 2006/04/01, ”⁄Œ‰∫∫
 
 include ../Rules.basemod
-AMOROBJS=Logdata.o md5.o
+AMOROBJS=Logdata.o
 
 all:logdata.so
 
