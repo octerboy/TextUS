@@ -24,7 +24,6 @@
 #include "textor_jvmport_TiXML.h"
 #include "textor_jvmport_Amor.h"
 #include "textor_jvmport_PacketData.h"
-#include "textor_jvmport_DBFace.h"
 #include "PacData.h"
 #include "textor_jvmport_TBuffer.h"
 #include "TBuffer.h"
