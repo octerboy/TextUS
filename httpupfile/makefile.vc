@@ -1,28 +1,20 @@
 # Title: Makefile(VC)
-# ID: Textus-httpfile-Makefile-vc
+# ID: Textus-httpupfile-Makefile-vc
 # Build: 
 #	B01:created by octerboy 2006/05/28, Gaungzhou
 
 include ..\Rules.basemod.vc
-CFLAGS  = $(CFLAGS)  -I..\logdata\include -I..\baselib\include -I..\httpsrvhead\include
-LDLIB = $(LDLIB) ..\baselib\libbase.lib
-AMOROBJS=FileLet.obj FileLetAio.obj
+CFLAGS  = $(CFLAGS) -I..\logdata\include -I..\baselib\include -I..\httpsrvhead\include
+LDLIB = ..\baselib\libbase.lib $(LDLIB)
+AMOROBJS=httpupfile.obj 
 
-all: httpfile.dll httpfileaio.dll
+all: httpupfile.dll
 
-FileLet.obj: FileLet.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=FileLet FileLet.cpp
+HttpUpFile.obj: HttpUpFile.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=HttpUpFile HttpUpFile.cpp
 
-FileLetAio.obj: FileLet.cpp
-	$(CC) $(CFLAGS) /Fo:FileLetAio.obj -DNNDEBUG -DUSE_TEXTUS_AIO -DAMOR_CLS_TYPE=FileLet FileLet.cpp
-
-httpfile.dll: FileLet.obj
-	$(LD) $(LDFLAGS) -out:$@ FileLet.obj  $(LDLIB)
-	$(_VC_MANIFEST_PRO)
-	$(_POST_RPO_SUB)
-
-httpfileaio.dll: FileLetAio.obj 
-	$(LD) $(LDFLAGS) -out:$@ FileLetAio.obj  $(LDLIB)
+httpupfile.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
 	$(_VC_MANIFEST_PRO)
 	$(_POST_RPO_SUB)
 

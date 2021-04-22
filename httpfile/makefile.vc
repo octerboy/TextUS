@@ -14,10 +14,10 @@ FileLet.obj: FileLet.cpp
 	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=FileLet FileLet.cpp
 
 FileLetAio.obj: FileLet.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DUSE_TEXTUS_AIO -DAMOR_CLS_TYPE=FileLet FileLet.cpp
+	$(CC) $(CFLAGS) /Fo:FileLetAio.obj -DNNDEBUG -DUSE_TEXTUS_AIO -DAMOR_CLS_TYPE=FileLet FileLet.cpp
 
-httpfile.dll: $(AMOROBJS)
-	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+httpfile.dll: FileLet.obj
+	$(LD) $(LDFLAGS) -out:$@ FileLet.obj  $(LDLIB)
 	$(_VC_MANIFEST_PRO)
 	$(_POST_RPO_SUB)
 
