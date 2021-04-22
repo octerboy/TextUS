@@ -11,7 +11,7 @@ AMOROBJS=Ponder.obj
 all: ponder.dll
 
 Ponder.obj: Ponder.cpp
-	$(CC) $(CFLAGS) -DNDEBUG -DAMOR_CLS_TYPE=Ponder Ponder.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=Ponder Ponder.cpp
 
 ponder.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
