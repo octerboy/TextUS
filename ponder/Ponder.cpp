@@ -167,7 +167,7 @@ void Ponder::put_sch(int dir, int from, Amor::Pius *pius)
 bool Ponder::dextra( Amor::Pius *pius, unsigned int from)
 {	/* 进入owner->facio()之前 */
 	
-	WBUG("dextra Notitia::%lu owner is %p, pius=%p", pius->ordo, owner, pius);
+	WBUG("dextra Notitia::" TLONG_FMTu " owner is %p, pius=%p", pius->ordo, owner, pius);
 	if ( pius->ordo == dex_do )
 	{
 		put_sch(DEXTRA, from+1,pius);
@@ -178,7 +178,7 @@ bool Ponder::dextra( Amor::Pius *pius, unsigned int from)
 
 bool Ponder::laeve( Amor::Pius *pius, unsigned int from)
 {	/* 进入owner->sponte()之前的处理 */
-	WBUG("laeve Notitia::%lu owner is %p, pius=%p", pius->ordo, owner, pius);
+	WBUG("laeve Notitia:::" TLONG_FMTu " owner is %p, pius=%p", pius->ordo, owner, pius);
 	if ( pius->ordo == dex_do )
 	{
 		put_sch(LAEVE, from+1,pius);
@@ -189,7 +189,7 @@ bool Ponder::laeve( Amor::Pius *pius, unsigned int from)
 
 bool Ponder::sponte_n ( Amor::Pius *pius, unsigned int from)
 {	/* 在owner向左发出数据前的处理 */
-	WBUG("sponte Notitia::%lu owner is %p, pius=%p", pius->ordo, owner, pius);
+	WBUG("sponte Notitia:::" TLONG_FMTu " owner is %p, pius=%p", pius->ordo, owner, pius);
 	if ( pius->ordo == spo_do )
 	{
 		put_sch(SPONTE, from+1,pius);
@@ -200,7 +200,7 @@ bool Ponder::sponte_n ( Amor::Pius *pius, unsigned int from)
 
 bool Ponder::facio_n ( Amor::Pius *pius, unsigned int from)
 {	/* 在owner向右发出数据前的处理 */
-	WBUG("facio Notitia::%lu owner is %p, pius=%p", pius->ordo, owner, pius);
+	WBUG("facio Notitia:::" TLONG_FMTu " owner is %p, pius=%p", pius->ordo, owner, pius);
 	if ( pius->ordo == fac_do )
 	{
 		put_sch(FACIO, from+1, pius);
