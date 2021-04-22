@@ -174,6 +174,8 @@ bool FileLet::facio( Amor::Pius *pius)
 		file_name = getHead("Path");
 #ifdef USE_TEXTUS_AIO
 		return false;	//aptus continues to deliver SET_TBUF
+#else
+		break;
 #endif
 	default:
 		return false;
