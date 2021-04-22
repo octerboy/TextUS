@@ -708,7 +708,7 @@ A_OPEN_PRO:
 		{
 			tmp_ps.ordo = Notitia::Pro_File_Open;
 		} else {
-			tmp_ps.ordo = Notitia::Pro_File_Err;
+			tmp_ps.ordo = Notitia::Pro_File_Err_Op;
 		}
 		tmp_ps.indic = 0;
 		DELI(tmp_ps)
