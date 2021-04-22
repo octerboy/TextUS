@@ -145,7 +145,7 @@ bool Tcpcli::annecto_ex()
 
 bool Tcpcli::clio( bool block)
 {
-	if ( connfd >= 0)	/* 已经连接或是正在连接, 则不再发起连接 */
+	if ( connfd != INVALID_SOCKET )	/* 已经连接或是正在连接, 则不再发起连接 */
 		return true;
 
 	err_lev = -1;
@@ -265,7 +265,7 @@ bool Tcpcli::clio( bool block)
 	return true;
 }
 
-/* 开始连接, 如果成功, 则connfd>=0 */
+/* 开始连接, 如果成功, 则connfd != INVALID_SOCKET */
 bool Tcpcli::annecto()
 {
 	int n;
@@ -351,7 +351,7 @@ bool Tcpcli::annecto_done()
 
 void Tcpcli::end(bool down)
 {
-	if ( connfd >= 0 ) 
+	if ( connfd !=INVALID_SOCKET ) 
 	{
 #ifndef SHUT_RDWR
 #define SHUT_RDWR 2

@@ -35,6 +35,9 @@
 #include "Amor.h"
 #include "textus_string.h"
 #include <stdarg.h>
+#ifndef INVALID_SOCKET
+#define INVALID_SOCKET -1
+#endif
 
 #if defined( _MSC_VER ) && (_MSC_VER < 1400 )
 typedef unsigned int* ULONG_PTR;
@@ -519,7 +522,7 @@ Tcpsrvuna::~Tcpsrvuna()
 
 void Tcpsrvuna::parent_begin()
 {	/* 服务开启 */
-	if ( tcpsrv->listenfd > 0 )
+	if ( tcpsrv->listenfd !=INVALID_SOCKET )
 		return ;
 
 	if (!tcpsrv->servio(false))
@@ -676,7 +679,7 @@ void Tcpsrvuna::parent_accept()
 		return;	
 	}
 
-	if ( tcpsrv->connfd < 0 ) 
+	if ( tcpsrv->connfd ==INVALID_SOCKET ) 
 	{	
 		SLOG(INFO)
 		return;	/* 连接还未建立好, 回去再等 */
@@ -798,7 +801,7 @@ void Tcpsrvuna::end_service()
 {	/* 服务关闭 */
 	Amor::Pius tmp_p;
 
-	if ( tcpsrv->listenfd <= 0 ) 
+	if ( tcpsrv->listenfd == INVALID_SOCKET ) 
 		return;
 	if (!gCFG->use_epoll)
 	{
@@ -830,7 +833,7 @@ void Tcpsrvuna::end(bool down)
 	if ( isListener )
 		return;
 
-	if ( tcpsrv->connfd == -1 ) 	/* 已经关闭或未开始 */
+	if ( tcpsrv->connfd == INVALID_SOCKET ) 	/* 已经关闭或未开始 */
 		return;
 
 	if (!gCFG->use_epoll)

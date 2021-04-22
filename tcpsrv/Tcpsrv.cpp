@@ -37,6 +37,8 @@
  #endif
 #else
 #include <windows.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #endif 
 #include <stdio.h>
 #ifndef MSG_NOSIGNAL
@@ -140,7 +142,7 @@ bool Tcpsrv::sock_start()
 }
 #endif
 
-/* 开始服务, 创建侦听端口, 如果成功, 则listenfd>0 */
+/* 开始服务, 创建侦听端口, 如果成功, 则listenfd != INVALID_SOCKET */
 bool Tcpsrv::servio( bool block)
 {
 	struct sockaddr_in servaddr;
@@ -237,7 +239,7 @@ bool Tcpsrv::servio( bool block)
 	{
 		ERROR_PRO("bind socket")
 		CLOSE(listenfd);
-		listenfd = -1;
+		listenfd = INVALID_SOCKET;
 		return false;
 	}
 
@@ -246,7 +248,7 @@ bool Tcpsrv::servio( bool block)
 	{
 		ERROR_PRO("listen socket")
 		CLOSE(listenfd);
-		listenfd = -1;
+		listenfd = INVALID_SOCKET;
 
 		return false;
 	}
@@ -333,7 +335,7 @@ bool Tcpsrv::accipio( bool block )
 
 AcceptAgain:
 	connfd= accept(listenfd, (struct sockaddr *)0, (CLI_TYPE *)0);
-	if ( connfd < 0 )
+	if ( connfd == INVALID_SOCKET )
 	{
 #if defined (_WIN32 )
 		DWORD error;	
@@ -377,7 +379,7 @@ AcceptAgain:
 
 void Tcpsrv::end()
 {
-	if ( connfd > 0 ) 
+	if ( connfd != INVALID_SOCKET ) 
 	{
 #ifndef SHUT_RDWR
 #define SHUT_RDWR 2
@@ -391,17 +393,17 @@ void Tcpsrv::end()
 
 void Tcpsrv::release()
 {
-	if ( connfd > 0 ) 
+	if ( connfd != INVALID_SOCKET ) 
 	{
 		CLOSE (connfd);	
-		connfd =  INVALID_SOCKET;
+		connfd = INVALID_SOCKET;
 	}
 	return ;
 }
 
 void Tcpsrv::endListen()
 {
-	if ( listenfd > 0)
+	if ( listenfd != INVALID_SOCKET )
 	{	
 		CLOSE(listenfd);	
 		listenfd = INVALID_SOCKET;

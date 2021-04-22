@@ -26,6 +26,10 @@
 #include "Describo.h"
 #include <stdarg.h>
 
+#ifndef INVALID_SOCKET
+#define INVALID_SOCKET -1
+#endif
+
 #if defined( _MSC_VER ) && (_MSC_VER < 1400 )
 typedef unsigned int* ULONG_PTR;
 typedef struct _OVERLAPPED_ENTRY {
@@ -153,7 +157,7 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 	{
 	case Notitia::PRO_TBUF :
 		WBUG("facio PRO_TBUF");
-		if ( tcpcli->connfd < 0 || tcpcli->isConnecting )
+		if ( tcpcli->connfd == INVALID_SOCKET || tcpcli->isConnecting )
 		{
 			Amor::Pius info_pius;
 			info_pius.ordo = Notitia::CHANNEL_NOT_ALIVE;
@@ -326,7 +330,7 @@ LOOP:
 
 	case Notitia::TIMER:
 		WBUG("facio TIMER");
-		if ( tcpcli->connfd == -1 )
+		if ( tcpcli->connfd == INVALID_SOCKET )
 		{	//最近发生一次连接, 而且连接失败, 间隔时间到达设定值
 			establish();		//开始建立连接
 		}
@@ -756,7 +760,7 @@ void Tcpcliuna::transmit_ep()
 void Tcpcliuna::end(bool outer)
 {
 	WBUG("end%s", outer? " (won't connect again)" : (gCFG->try_interval > 0 ? " (will connect again ...)" : "ed." ));
-	if ( tcpcli->connfd == -1 ) return;	/* 不重复关闭 */
+	if ( tcpcli->connfd == INVALID_SOCKET ) return;	/* 不重复关闭 */
 	if ( !gCFG->use_epoll ) 
 	{
 		deliver(Notitia::FD_CLRWR);
@@ -780,7 +784,7 @@ void Tcpcliuna::end(bool outer)
 void Tcpcliuna::release()
 {
 	WBUG("release().....");
-	if ( tcpcli->connfd == -1 ) return;	/* 不重复 */
+	if ( tcpcli->connfd == INVALID_SOCKET ) return;	/* 不重复 */
 	deliver(Notitia::FD_CLRWR);
 	deliver(Notitia::FD_CLREX);
 	deliver(Notitia::FD_CLRRD);
