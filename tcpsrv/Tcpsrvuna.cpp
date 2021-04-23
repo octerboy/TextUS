@@ -98,8 +98,8 @@ private:
 
 	void child_rcv_pro(TEXTUS_LONG len, const char *msg);
 	void parent_accept();
-	void child_transmit();
-	void child_transmit_ep();
+	void child_transmit_err(int);
+	void child_transmit_ep_err(int);
 	void deliver(Notitia::HERE_ORDO aordo);
 	void new_conn_pro();
 #if defined (_WIN32 )	
@@ -154,7 +154,8 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 {
 	TiXmlElement *cfg;
 	Amor::Pius tmp_p;
-	TEXTUS_LONG len;
+	TEXTUS_LONG tlen, len;
+	int ret;
 
 #if defined (_WIN32 )	
 	OVERLAPPED_ENTRY *aget;
@@ -217,10 +218,9 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 			end();	//失败即关闭
 		}
 		break;
-#endif
+
 	case Notitia::PRO_EPOLL:
 		WBUG("facio PRO_EPOLL");
-#if defined (_WIN32 )	
 		aget = (OVERLAPPED_ENTRY *)pius->indic;
 		if ( aget->lpOverlapped == &(tcpsrv->rcv_ovp) )
 		{	//已读数据,  不失败并有数据才向接力者传递
@@ -231,23 +231,25 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 			} else {
 				WBUG("child PRO_EPOLL recv %d bytes", aget->dwNumberOfBytesTransferred);
 				tcpsrv->rcv_buf->commit(aget->dwNumberOfBytesTransferred);
-				aptus->facio(&pro_tbuf_ps);
 				if ( !tcpsrv->recito_ex())
 				{
 					SLOG(ERR)
 					end();	//失败即关闭
 				}
+				aptus->facio(&pro_tbuf_ps);
+				return true;
 			}
 		} else if ( aget->lpOverlapped == &(tcpsrv->snd_ovp) ) {
 			WBUG("child PRO_EPOLL sent %d bytes", aget->dwNumberOfBytesTransferred); //写数据完成
 		} else {
 			WLOG(ALERT, "not my overlap");
 		}
-#endif
 		break;
+#endif
 
 	case Notitia::RD_EPOLL:
 		WBUG("facio RD_EPOLL");
+		tlen = 0;
 LOOP:
 		switch ( (len = tcpsrv->recito()) ) 
 		{
@@ -271,21 +273,29 @@ LOOP:
 			WBUG("child recv " TLONG_FMT " bytes", len);
 			if ( len <  tcpsrv->rcv_frame_size ) { 
 				/* action flags and filter for event remain unchanged */
-				gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
+				gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册, 最多就是这个情况
 				aptus->facio(&pro_tbuf_ps);
+				return true;
 			} else if (  len == tcpsrv->rcv_frame_size ) {
-				aptus->facio(&pro_tbuf_ps);
+				tlen += len;
 				goto LOOP;
 			} else if (  len > tcpsrv->rcv_frame_size ) {
+				tlen += len;
 				WLOG(EMERG, "child recv %ld bytes > rcv_size %d", len, tcpsrv->rcv_frame_size);
 			}
 			break;
 		}
+		if ( tlen > 0 ) aptus->facio(&pro_tbuf_ps);
 		break;
 
 	case Notitia::WR_EPOLL:
 		WBUG("facio WR_EPOLL");
-		child_transmit_ep();
+#if defined (_WIN32 )	
+		if( (ret = tcpsrv->transmitto_ex()) )
+#else
+		if( (ret = tcpsrv->transmitto()) )
+#endif
+			child_transmit_ep_err(ret);
 		break;
 
 	case Notitia::EOF_EPOLL:
@@ -349,7 +359,10 @@ LOOP:
 	case Notitia::FD_PROWR:
 		WBUG("facio FD_PROWR");	
 		if (!isListener)	 /* 子实例, 应当是写 */
-			child_transmit();
+		{
+			if( (ret = tcpsrv->transmitto()) )
+				child_transmit_err(ret);
+		}
 		break;
 		
 	case Notitia::FD_PROEX:
@@ -401,6 +414,7 @@ LOOP:
 
 bool Tcpsrvuna::sponte( Amor::Pius *pius)
 {
+	int ret;
 	assert(pius);
 
 	switch ( pius->ordo )
@@ -408,11 +422,18 @@ bool Tcpsrvuna::sponte( Amor::Pius *pius)
 	case Notitia::PRO_TBUF :	//处理一帧数据而已
 		WBUG("sponte PRO_TBUF");	
 		assert(!isListener);	//侦听实例不干这事儿.
-		if ( gCFG->use_epoll)
+#if defined (_WIN32 )	
+		if( (ret = tcpsrv->transmitto_ex()) )
+#else
+		if( (ret = tcpsrv->transmitto()) )
+#endif
 		{
-			child_transmit_ep();
-		} else {
-			child_transmit();
+			if ( gCFG->use_epoll)
+			{
+				child_transmit_ep_err(ret);
+			} else {
+				child_transmit_err(ret);
+			}
 		}
 		break;
 		
@@ -709,17 +730,14 @@ void Tcpsrvuna::new_conn_pro()
 	}
 }
 
-void Tcpsrvuna::child_transmit_ep()
+void Tcpsrvuna::child_transmit_ep_err(int mret)
 {
-#if defined (_WIN32 )	
-	switch ( tcpsrv->transmitto_ex() )
-#else
-	switch ( tcpsrv->transmitto() )
-#endif
+	switch ( mret )
 	{
+#if 0
 	case 0: //没有阻塞, 不变
 		break;
-	
+#endif	
 	case 2: //原有阻塞, 没有阻塞了, 清一下
 #if  defined(__linux__)
 		pollor.ev.events &= ~EPOLLOUT;	//等下一次设置POLLIN时再清
@@ -764,13 +782,14 @@ void Tcpsrvuna::child_transmit_ep()
 	}
 }
 
-void Tcpsrvuna::child_transmit()
+void Tcpsrvuna::child_transmit_err(int mret)
 {
-	switch ( tcpsrv->transmitto() )
+	switch ( mret )
 	{
+#if 0
 	case 0: //没有阻塞, 保持不变
 		break;
-		
+#endif	
 	case 2: //原有阻塞, 没有阻塞了, 清一下
 		local_pius.ordo =Notitia::FD_CLRWR;
 		//向Sched, 以设置wrSet.

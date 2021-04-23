@@ -82,8 +82,8 @@ private:
 	struct G_CFG *gCFG;
 	void *arr[3];
 
-	void transmit();
-	void transmit_ep();
+	void transmit_err(int);
+	void transmit_ep_err(int);
 	void establish_done();
 	void establish();
 	void deliver(Notitia::HERE_ORDO aordo);
@@ -146,7 +146,8 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 	TBuffer **tb;
 	TiXmlElement *cfg;
 	Amor::Pius tmp_p;
-	TEXTUS_LONG len;
+	TEXTUS_LONG tlen, len;
+	int ret;
 
 #if defined (_WIN32 )	
 	OVERLAPPED_ENTRY *aget;
@@ -157,17 +158,26 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 	{
 	case Notitia::PRO_TBUF :
 		WBUG("facio PRO_TBUF");
-		if ( tcpcli->connfd == INVALID_SOCKET || tcpcli->isConnecting )
+#if defined (_WIN32 )
+		ret = tcpcli->transmitto_ex();
+#else
+		ret = tcpcli->transmitto();
+#endif
+		WBUG("transmit ret %d", ret);
+		if( ret )
 		{
-			Amor::Pius info_pius;
-			info_pius.ordo = Notitia::CHANNEL_NOT_ALIVE;
-			info_pius.indic = 0;
-			aptus->sponte(&info_pius);
-		} else if ( gCFG->use_epoll)
-		{
-			transmit_ep();
-		} else {
-			transmit();
+			if ( tcpcli->connfd == INVALID_SOCKET || tcpcli->isConnecting )
+			{
+				Amor::Pius info_pius;
+				info_pius.ordo = Notitia::CHANNEL_NOT_ALIVE;
+				info_pius.indic = 0;
+				aptus->sponte(&info_pius);
+			} else if ( gCFG->use_epoll)
+			{
+				transmit_ep_err(ret);
+			} else {
+				transmit_err(ret);
+			}
 		}
 		break;
 
@@ -222,10 +232,9 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 			WLOG(ALERT, "not my overlap");
 		}
 		break;
-#endif
+
 	case Notitia::PRO_EPOLL:
 		WBUG("facio PRO_EPOLL");
-#if defined (_WIN32 )	
 		aget = (OVERLAPPED_ENTRY *)pius->indic;
 		if ( aget->lpOverlapped == &(tcpcli->rcv_ovp) )
 		{	//已读数据,  不失败并有数据才向接力者传递
@@ -236,23 +245,25 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 			} else {
 				WBUG("PRO_EPOLL recv %d bytes", aget->dwNumberOfBytesTransferred);
 				tcpcli->rcv_buf->commit(aget->dwNumberOfBytesTransferred);
-				aptus->sponte(&pro_tbuf_ps);
 				if ( !tcpcli->recito_ex())
 				{
 					SLOG(ERR)
 					end();	//失败即关闭
 				}
+				aptus->sponte(&pro_tbuf_ps);
+				return;
 			}
 		} else if ( aget->lpOverlapped == &(tcpcli->snd_ovp) ) {
 			WBUG("client PRO_EPOLL sent %d bytes", aget->dwNumberOfBytesTransferred); //写数据完成
 		} else {
 			WLOG(ALERT, "not my overlap");
 		}
-#endif
 		break;
+#endif
 
 	case Notitia::RD_EPOLL:
 		WBUG("facio RD_EPOLL");
+		tlen = 0;
 LOOP:
 		switch ( (len = tcpcli->recito()) ) 
 		{
@@ -278,22 +289,36 @@ LOOP:
 				/* action flags and filter for event remain unchanged */
 				gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
 				aptus->sponte(&pro_tbuf_ps);
+				return true;
 			} else if (  len == tcpcli->rcv_frame_size ) {
-				aptus->sponte(&pro_tbuf_ps);
+				tlen += len;	
 				goto LOOP;
 			} else if (  len > tcpcli->rcv_frame_size ) {
+				tlen += len;
 				WLOG(EMERG, "client recv %ld bytes > rcv_size %d", len, tcpcli->rcv_frame_size);
 			}
 			break;
 		}
+		if ( tlen > 0 ) aptus->sponte(&pro_tbuf_ps);
 		break;
 
 	case Notitia::WR_EPOLL:
 		WBUG("facio WR_EPOLL");
+	WR_PRO:
 		if ( tcpcli->isConnecting) //试图完成连接
 			establish_done();
-		else 
-			transmit_ep();
+		else {
+#if defined (_WIN32 )
+			ret = tcpcli->transmitto_ex();
+#else
+			ret = tcpcli->transmitto();
+#endif
+			WBUG("transmit ret %d", ret);
+			if( ret )
+			{
+				transmit_ep_err(ret);
+			}
+		}
 		break;
 
 	case Notitia::EOF_EPOLL:
@@ -305,11 +330,7 @@ LOOP:
 	case Notitia::FD_PROWR:
 		WBUG("facio FD_PROWR");
 		//写, 很少见, 除非系统很忙
-		if ( tcpcli->isConnecting) //试图完成连接
-			establish_done();
-		else
-			transmit();
-		break;
+		goto WR_PRO;
 
 	case Notitia::FD_PROEX:
 		WBUG("facio FD_PROEX");
@@ -669,15 +690,14 @@ void Tcpcliuna::establish_done()
 	deliver(Notitia::START_SESSION); //向接力者发出通知, 本对象开始
 }
 
-void Tcpcliuna::transmit()
+void Tcpcliuna::transmit_err(int mret)
 {
-	int ret;
-	ret = tcpcli->transmitto() ;
-	WBUG("transmit ret %d", ret);
-	switch ( ret )
+	switch ( mret )
 	{
+#if 0
 	case 0: //没有阻塞, 保持不变
 		break;
+#endif
 	case 2: //原有阻塞, 没有阻塞了, 清一下
 		errpro();
 		local_pius.ordo =Notitia::FD_CLRWR;
@@ -702,17 +722,15 @@ void Tcpcliuna::transmit()
 	return ;
 }
 
-void Tcpcliuna::transmit_ep()
+void Tcpcliuna::transmit_ep_err(int mret)
 {
-#if defined (_WIN32 )
-	switch ( tcpcli->transmitto_ex() )
-#else
-	switch ( tcpcli->transmitto() )
-#endif
+	switch ( mret )
 	{
+#if 0
 	case 0: //没有阻塞, 不变
 		break;
 	
+#endif
 	case 2: //原有阻塞, 没有阻塞了, 清一下
 #if  defined(__linux__)
 		pollor.ev.events &= ~EPOLLOUT;	//等下一次设置POLLIN时不再设
