@@ -251,7 +251,7 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 					end();	//失败即关闭
 				}
 				aptus->sponte(&pro_tbuf_ps);
-				return;
+				return true;
 			}
 		} else if ( aget->lpOverlapped == &(tcpcli->snd_ovp) ) {
 			WBUG("client PRO_EPOLL sent %d bytes", aget->dwNumberOfBytesTransferred); //写数据完成
@@ -510,7 +510,10 @@ bool Tcpcliuna::sponte( Amor::Pius *pius)
 Tcpcliuna::Tcpcliuna()
 {
 	pollor.pupa = this;
-	pollor.type = DPoll::Sock;
+#if defined(_WIN32)
+	pollor.type = DPoll::IOCPSock;
+	pollor.hnd.sock =  INVALID_SOCKET;
+#endif
 	epl_clr_ps.ordo = Notitia::CLR_EPOLL;
 	epl_clr_ps.indic = &pollor;
 	epl_set_ps.ordo = Notitia::SET_EPOLL;

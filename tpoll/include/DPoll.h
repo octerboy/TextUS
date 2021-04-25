@@ -46,8 +46,9 @@ public:
 		Timer = 8,
 		EventFD = 9, /* only for linux eventfd*/
 		Aio = 0x10,
-		File = 0x11,
-		Sock = 0x12
+		FileD = 0x11,
+		IOCPFile = 0x12,
+		IOCPSock = 0x13
 	};
 
 	struct PollorBase{
@@ -55,16 +56,14 @@ public:
 		Poll_Type type;	//7:alarm, 8:timer , 0x10: Aio, 0x11: aio file, 0x12: socket
 	};
 
+#if !defined(_WIN32)
 	struct PollorAio : PollorBase {
 		Amor::Pius pro_ps;
-#if defined(_WIN32)
-		HANDLE file_hnd;
-#elif defined(__linux__)
+		struct aiocb aiocb_W, aiocb_R;
+#if defined(__linux__)
 		struct iocb aiocb_W, aiocb_R;
 		struct iocb *iocbpp[2];
 		aio_context_t ctx;
-#else
-		struct aiocb aiocb_W, aiocb_R;
 #endif
 
 #if defined(__sun)
@@ -75,12 +74,8 @@ public:
 			pupa = 0;
 			type = Aio;
 			pro_ps.indic = 0;
-#if defined(_WIN32)
-			file_hnd = INVALID_HANDLE_VALUE;
-#else
 			memset(&aiocb_R, 0, sizeof(aiocb_R));
 			memset(&aiocb_W, 0, sizeof(aiocb_W));
-#endif
 #if defined(__sun)
 			aiocb_R.aio_sigevent.sigev_value.sival_ptr = &pn;
 			aiocb_W.aio_sigevent.sigev_value.sival_ptr = &pn;
@@ -98,6 +93,8 @@ public:
 #endif
 		};
 	};
+#endif
+
 	struct Pollor : PollorBase {
 		Amor::Pius pro_ps;
 #if defined(_WIN32)
@@ -122,12 +119,8 @@ public:
 #endif
 		inline Pollor() {
 			pupa = 0;
-			type = NotUsed ;
 			pro_ps.indic = 0;
-#if defined(_WIN32)
-			hnd.sock = INVALID_SOCKET;
-			hnd.file = INVALID_HANDLE_VALUE;
-#endif
+			type = FileD;
 		};
 	};
 };

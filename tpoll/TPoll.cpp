@@ -433,14 +433,16 @@ bool TPoll::sponte( Amor::Pius *apius)
 
 		break;
 	case Notitia::AIO_EPOLL :	/*  AIO transaction */
-		WBUG("%p %s", ((DPoll::PollorAio *)apius->indic)->pupa, "sponte AIO_EPOLL");
 #if defined(_WIN32)
-		hPort = CreateIoCompletionPort(((DPoll::PollorAio *)apius->indic)->file_hnd, iocp_port, (ULONG_PTR)apius->indic /* completion key */, number_threads);  
+		WBUG("%p %s", ((DPoll::Pollor *)apius->indic)->pupa, "sponte AIO_EPOLL");
+		hPort = CreateIoCompletionPort(((DPoll::Pollor *)apius->indic)->hnd.file, iocp_port, (ULONG_PTR)apius->indic /* completion key */, number_threads);  
 		if (hPort == NULL)  
 		{ 
 			ERROR_PRO("CreateIoCompletionPort failed to associate");
 			WLOG(WARNING, errMsg);
 		}
+#else
+		WBUG("%p %s", ((DPoll::PollorAio *)apius->indic)->pupa, "sponte AIO_EPOLL");
 #endif
 #if defined(__sun)
 		((DPoll::PollorAio *)apius->indic)->pn.portnfy_port = ev_port;
@@ -519,10 +521,10 @@ bool TPoll::sponte( Amor::Pius *apius)
 
 #if defined (_WIN32)
 		switch (ppo->type ) {
-		case DPoll::File:
+		case DPoll::IOCPFile:
 			port_hnd = ppo->hnd.file;
 			break;
-		case DPoll::Sock:
+		case DPoll::IOCPSock:
 			port_hnd = (HANDLE)ppo->hnd.sock;
 			break;
 		default:
@@ -960,7 +962,7 @@ void TPoll:: run()
 #define AKEY A_GET.lpCompletionKey
 	BOOL success;
 	ULONG nget, geti;
-	DWORD num_trans;
+	DWORD num_trans, rflag;
 	OVERLAPPED_ENTRY *pov = new OVERLAPPED_ENTRY[max_evs];
 	if (!iocp_port) return;
 #endif
@@ -1014,6 +1016,7 @@ LOOP:
 
 #if defined(_WIN32) && !defined(_WIN32XX)
 	nget = 0;
+	//memset(pov, 0, sizeof(OVERLAPPED_ENTRY) * max_evs);
 	success =  GetQueuedCompletionStatusEx(iocp_port,         // Completion port handle
 			pov, // pre-allocated array of OVERLAPPED_ENTRY structures
 			(ULONG)max_evs,	//The maximum number of entries to remove
@@ -1113,9 +1116,9 @@ LOOP:
 			TOR->pupa->facio(&timer_pius);
 			break;
 
+#if defined(__linux__)
 		case DPoll::EventFD:
 			WBUG("get DPoll:EventFD"); /* aio for linux*/
-#if defined(__linux__)
 			obtain = 0;
 			if (read(evt_fd, &obtain, sizeof(obtain)) != sizeof(obtain))
 			{
@@ -1152,23 +1155,12 @@ LOOP:
 					obtain -= nget;
 				}
 			}
-#endif
 			break;
+#endif
 
+#if  defined(__sun) || defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
 		case DPoll::Aio:
 			WBUG("get DPoll:Aio");
-#if defined (_WIN32)
-			if ( success ) {
-				poll_ps.ordo = PPO->pro_ps.ordo;
-				poll_ps.indic = &A_GET;
-			} else {
-				poll_ps.ordo = Notitia::ERR_EPOLL;
-				ERROR_PRO("GetIOCP");
-				poll_ps.indic = errMsg;
-			}
-			PPO->pupa->facio(&poll_ps);
-#endif
-#if  defined(__sun) || defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
 			my_error = aio_error((struct aiocb*)(Event_ID));
 			switch ( my_error)
 			{
@@ -1193,18 +1185,69 @@ LOOP:
 				poll_ps.indic = 0;
 				break;
 			}
-#endif
 			break;
+#endif
 
-		case DPoll::File:
-			WBUG("get DPoll:File");
 #if defined (_WIN32)
+		case DPoll::IOCPSock:
+			
+#if !defined(_WIN32XX)
+			num_trans = 0;
+			//success  = GetOverlappedResult((HANDLE)(PPO->hnd.sock), A_GET.lpOverlapped, &num_trans, FALSE);
+			success = WSAGetOverlappedResult((PPO->hnd.sock), A_GET.lpOverlapped, &num_trans, FALSE, &rflag);
+			WBUG("get DPoll:Sock %s %d ", success ? "success" : "failed", num_trans);
+#endif
 			goto WIN_POLL;
+
+		case DPoll::IOCPFile:
+			
+#if !defined(_WIN32XX)
+			num_trans = 0;
+			success  = GetOverlappedResult(PPO->hnd.file, A_GET.lpOverlapped, &num_trans, FALSE);
+			WBUG("get DPoll:File %s %d ", success ? "success" : "failed" ,num_trans);
+		WIN_POLL:
+			if ( success )
+			{
+				poll_ps.ordo = PPO->pro_ps.ordo;
+				poll_ps.indic = &A_GET;
+			} else {
+				ERROR_PRO("GetIOCPEx");
+				WLOG(WARNING, "GetOverlappedResult %s", errMsg);
+				if ( dw_error == ERROR_MORE_DATA ) 
+				{
+					poll_ps.ordo = Notitia::MORE_DATA_EPOLL;
+					poll_ps.indic = &A_GET;
+				} else {
+					poll_ps.ordo = Notitia::ERR_EPOLL;
+					poll_ps.indic = errMsg;
+				}
+			}
+			PPO->pupa->facio(&poll_ps);
+#endif
+#if defined (_WIN32XX)
+		WIN_POLL:
+			if ( success ) {
+				poll_ps.ordo = PPO->pro_ps.ordo;
+				poll_ps.indic = &A_GET;
+			} else {
+				ERROR_PRO("GetIOCP");
+				WLOG(WARNING, "GetQueuedCompletionStatus return %d %s", success, errMsg);
+				if ( dw_error == ERROR_MORE_DATA ) 
+				{
+					poll_ps.ordo = Notitia::MORE_DATA_EPOLL;
+					poll_ps.indic = &A_GET;
+				} else {
+					poll_ps.ordo = Notitia::ERR_EPOLL;
+					poll_ps.indic = errMsg;
+				}
+			}
+			PPO->pupa->facio(&poll_ps);
 #endif
 			break;
 
-		case DPoll::Sock:
-			WBUG("get DPoll:Sock");
+#endif
+		case DPoll::FileD:
+			WBUG("get DPoll:FileD");
 #if  defined(__sun)
 			if (A_GET.portev_events & (POLLIN | POLLRDNORM )) {
 				PPO->pupa->facio(&(PPO->pro_ps));
@@ -1279,52 +1322,13 @@ LOOP:
 			}
 #endif	//for bsd
 
-#if defined(_WIN32) && !defined(_WIN32XX)
-		WIN_POLL:
-			num_trans = 0;
-			if (GetOverlappedResult(PPO->hnd.file, A_GET.lpOverlapped, &num_trans, FALSE))
-			{
-				poll_ps.ordo = PPO->pro_ps.ordo;
-				poll_ps.indic = &A_GET;
-			} else {
-				ERROR_PRO("GetIOCPEx");
-				WLOG(WARNING, "GetOverlappedResult %s", errMsg);
-				if ( dw_error == ERROR_MORE_DATA ) 
-				{
-					poll_ps.ordo = Notitia::MORE_DATA_EPOLL;
-					poll_ps.indic = &A_GET;
-				} else {
-					poll_ps.ordo = Notitia::ERR_EPOLL;
-					poll_ps.indic = errMsg;
-				}
-			}
-			PPO->pupa->facio(&poll_ps);
-#endif
-#if defined (_WIN32XX)
-		WIN_POLL:
-			if ( success ) {
-				poll_ps.ordo = PPO->pro_ps.ordo;
-				poll_ps.indic = &A_GET;
-			} else {
-				ERROR_PRO("GetIOCP");
-				WLOG(WARNING, "GetQueuedCompletionStatus return %d %s", success, errMsg);
-				if ( dw_error == ERROR_MORE_DATA ) 
-				{
-					poll_ps.ordo = Notitia::MORE_DATA_EPOLL;
-					poll_ps.indic = &A_GET;
-				} else {
-					poll_ps.ordo = Notitia::ERR_EPOLL;
-					poll_ps.indic = errMsg;
-				}
-			}
-			PPO->pupa->facio(&poll_ps);
-#endif
 			break;
 
 		case DPoll::User:
 			WBUG("get DPoll:User");
 			break;
 		default:
+			WBUG("ngeti %d, unkown type %d", geti, AOR->type);
 			break;
 		}
 	}

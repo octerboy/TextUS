@@ -503,7 +503,10 @@ bool Tcpsrvuna::sponte( Amor::Pius *pius)
 Tcpsrvuna::Tcpsrvuna()
 {
 	pollor.pupa = this;
-	pollor.type = DPoll::Sock;
+#if defined(_WIN32)
+	pollor.type = DPoll::IOCPSock;
+	pollor.hnd.sock =  INVALID_SOCKET;
+#endif
 	epl_set_ps.ordo = Notitia::SET_EPOLL;
 	epl_set_ps.indic = &pollor;
 	epl_clr_ps.ordo = Notitia::CLR_EPOLL;
