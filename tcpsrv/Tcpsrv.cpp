@@ -416,8 +416,8 @@ bool Tcpsrv::recito_ex()
 {	
 	int rc;
 
-	rcv_buf->grant(rcv_frame_size);	//保证有足够空间
-	wsa_rcv.buf = (char *)rcv_buf->point;
+	m_rcv_buf.grant(rcv_frame_size);	//保证有足够空间
+	wsa_rcv.buf = (char *)m_rcv_buf.point;
 	flag = 0;
 	memset(&rcv_ovp, 0, sizeof(OVERLAPPED));
 	rc = WSARecv(connfd, &wsa_rcv, 1, NULL, &flag, &rcv_ovp, NULL);
@@ -434,22 +434,21 @@ bool Tcpsrv::recito_ex()
 int Tcpsrv::transmitto_ex()
 {
 	int rc;
-	wsa_snd.len = static_cast<DWORD>(snd_buf->point - snd_buf->base);   //发送长度
-	wsa_snd.buf = (char *)snd_buf->base;
+	TBuffer::pour(m_snd_buf, *snd_buf);
+	wsa_snd.len = static_cast<DWORD>(m_snd_buf.point - m_snd_buf.base);   //发送长度
+	wsa_snd.buf = (char *)m_snd_buf.base;
 	memset(&snd_ovp, 0, sizeof(OVERLAPPED));
 	rc = WSASend(connfd, &wsa_snd, 1, NULL, 0, &snd_ovp, NULL);
 
 	if ( rc != 0 )
 	{
 		if ( WSA_IO_PENDING == WSAGetLastError() ) {
-			snd_buf->commit(-(TEXTUS_LONG)wsa_snd.len);	//已经到了系统
 			return 1; //回去再试, 
 		} else {
 			ERROR_PRO ("WSASend");
 			return -1;
 		}
 	}
-	snd_buf->commit(-(TEXTUS_LONG)wsa_snd.len);	//已经到了系统
 	return 0;
 }
 #endif

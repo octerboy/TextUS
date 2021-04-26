@@ -82,6 +82,7 @@ public:
 	DWORD flag;
 	bool recito_ex();		//接收数据, 返回<0时建议关闭套接字 
 	int transmitto_ex();
+	TBuffer m_rcv_buf, m_snd_buf;	/* OVERLAP*/
 #if defined( _MSC_VER ) && (_MSC_VER < 1400 )
 typedef
 BOOL (PASCAL FAR * LPFN_CONNECTEX) (

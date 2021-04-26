@@ -67,6 +67,7 @@ public:
 	LPFN_ACCEPTEX lpfnAcceptEx ;
 	bool recito_ex();		//接收数据, 返回<0时建议关闭套接字 
 	int transmitto_ex();	
+	TBuffer m_rcv_buf, m_snd_buf;	/* OVERLAP*/
 #endif
 
 	TEXTUS_LONG recito();		//接收数据, 返回-1或0时建议关闭套接字 
