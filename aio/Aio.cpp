@@ -51,17 +51,21 @@ public:
 private:
 	bool should_spo;
 	bool get_file_all;
-	DPoll::PollorAio pollor; /* 保存事件句柄, 各子实例不同 */
 	Amor::Pius epl_set_ps, epl_clr_ps, pro_tbuf_ps, tmp_ps;
 
 	char file_name[1024];
 	int block_size;
 	PacketObj *fname_pac;
-	void epoll_set();
+	void epoll_launch();
 #if defined(_WIN32)
 	OVERLAPPED ovlpW, ovlpR;
-	HANDLE hdev, *hdevPtr;		/* 串口访问文件句柄 */
+	TEXTUS_LONG ovlpW_offset, ovlpR_offset;
+	
+	HANDLE hdev, *hdevPtr,  hEvent;		/* 文件句柄 */
+	DPoll::Pollor pollor; /* 保存事件句柄, 各子实例不同 */
 #else
+	DPoll::PollorAio pollor; /* 保存事件句柄, 各子实例不同 */
+	int fd, *fdPtr;
 #if defined(__linux__)
 	struct iocb *aiocbp_W, *aiocbp_R;
 	struct iocb **iocbp_W, **iocbp_R;
@@ -72,7 +76,6 @@ private:
 #else
 	struct aiocb *aiocbp_W, *aiocbp_R;
 #endif
-	int fd, *fdPtr;
 #endif
 	bool a_open();
 	void a_close();
@@ -377,10 +380,11 @@ private:
 
 	TBuffer *rcv_buf, *snd_buf;
 	TBuffer *m_rcv_buf, *m_snd_buf;
+	TBuffer wk_rcv_buf, wk_snd_buf;
 
-	inline void transmitto_ex();
-	inline void recito_ex();
-	inline void deliver(Notitia::HERE_ORDO aordo);
+	void transmitto_ex();
+	void recito_ex();
+	void deliver(Notitia::HERE_ORDO aordo);
 
 #include "wlog.h"
 };
@@ -418,7 +422,8 @@ bool Aio::a_open()
 		WLOG_OSERR(msg);
 		return false;
 	}
-#else
+	//ovlpR.hEvent = hEvent;
+#elif defined(__sun) || defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__) || defined(__linux__)
 	fd = open(file_name,  gCFG->oflag, gCFG->mode);
 	if ( fd == -1 )
 	{
@@ -427,26 +432,30 @@ bool Aio::a_open()
 		return false;
 	}
 #endif
-	/* 接收(发送)缓冲区清空 */
-	if ( rcv_buf) rcv_buf->reset();	
-	if ( snd_buf) snd_buf->reset();
-	epoll_set();
+	epoll_launch();
 	return true;
 }
 
-void Aio::epoll_set()
+void Aio::epoll_launch()
 {
-#if defined(__sun) || defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__) || defined(__linux__)
+	/* 接收(发送)缓冲区清空 */
+	wk_rcv_buf.reset();	
+	wk_snd_buf.reset();
+
+#if defined(_WIN32)
+	memset(&ovlpW, 0, sizeof(OVERLAPPED));
+	memset(&ovlpR, 0, sizeof(OVERLAPPED));
+	ovlpR_offset = ovlpW_offset = 0;
+	pollor.hnd.file = hdev;
+#elif defined(__sun) || defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__) || defined(__linux__)
 	aiocbp_R->aio_fildes = fd;
-	aiocbp_R->aio_nbytes = block_size;
-        aiocbp_R->aio_offset = 0;
 	aiocbp_W->aio_fildes = fd;
-	aiocbp_W->aio_nbytes = block_size;
+	aiocbp_R->aio_nbytes = gCFG->block_size;
+        aiocbp_R->aio_offset = 0;
+	//aiocbp_W->aio_nbytes = block_size;, given when transmitto_ex
         aiocbp_W->aio_offset = 0;
 #endif
-#if defined(_WIN32)
-	pollor.file_hnd = hdev;
-#endif
+
 	gCFG->sch->sponte(&epl_set_ps);	//向tpoll
 	if ( gCFG->seq_len > 0 ) {
 		snd_buf->input(gCFG->start_seq, gCFG->seq_len);
@@ -516,9 +525,16 @@ bool Aio::facio( Amor::Pius *pius)
 				goto ERR_END;
 			} else {
 				WBUG("PRO_EPOLL recv %d bytes", aget->dwNumberOfBytesTransferred);
-				rcv_buf->commit(aget->dwNumberOfBytesTransferred);
+				wk_rcv_buf.commit(aget->dwNumberOfBytesTransferred);
+				ovlpR_offset += aget->dwNumberOfBytesTransferred;
+				TBuffer::pour(*rcv_buf, wk_rcv_buf);
 			}
-		} else if ( aget->lpOverlapped != &ovlpW ) {
+		} else if ( aget->lpOverlapped == &ovlpW ) {
+			WLOG(INFO, "write completed");
+			ovlpW_offset += aget->dwNumberOfBytesTransferred;
+			wk_snd_buf.commit(-(TEXTUS_LONG)aget->dwNumberOfBytesTransferred);	//已经到了系统
+			goto H_END;
+		} else  {
 			WLOG(EMERG, "not my overlap");
 			goto H_END;
 		}
@@ -544,8 +560,9 @@ bool Aio::facio( Amor::Pius *pius)
 				goto ERR_END;
 				break;
 			default:
-				rcv_buf->commit(io_evp->res);
-				aiocbp_R->aio_offset +=get_bytes ;
+				wk_rcv_buf.commit(io_evp->res);
+				aiocbp_R->aio_offset += io_evp->res ;
+				TBuffer::pour(*rcv_buf, wk_rcv_buf);
 				break;
 			}
 		} else if ( (void*)io_evp->obj == (void*)aiocbp_W ) {
@@ -557,6 +574,8 @@ bool Aio::facio( Amor::Pius *pius)
 				tmp_ps.indic = 0;
 				goto ERR_END;
 			}
+			aiocbp_W->aio_offset += io_evp->res ;
+			wk_snd_buf.commit(-(TEXTUS_LONG)io_evp->res);	//已经到了系统
 		} else {
 			WLOG(EMERG, "not my iocb");
 			goto H_END;
@@ -581,11 +600,27 @@ bool Aio::facio( Amor::Pius *pius)
 				tmp_ps.indic = 0;
 				goto ERR_END;
 			default:
-				rcv_buf->commit(get_bytes);
+				wk_rcv_buf.commit(get_bytes);
 				aiocbp_R->aio_offset +=get_bytes ;
+				TBuffer::pour(*rcv_buf, wk_rcv_buf);
 				break;
 			}
-		} else if(  (struct aiocb*)pius->indic != aiocbp_W) {
+		} else if(  (struct aiocb*)pius->indic == aiocbp_W) {
+			get_bytes = aio_return(aiocbp_W);
+			WBUG("aio_return(write) %d bytes", get_bytes);
+			switch ( get_bytes) {
+			case -1:
+				WLOG_OSERR("aio_return(write)");
+				a_close();
+				tmp_ps.ordo = Notitia::Pro_File_Err;
+				tmp_ps.indic = 0;
+				goto ERR_END;
+			default:
+				aiocbp_W->aio_offset +=get_bytes ;
+				wk_snd_buf.commit(-(TEXTUS_LONG)get_bytes);	//已经到了系统
+				break;
+			}
+		} else {
 			WLOG(EMERG, "not my aiocb");
 			goto H_END;
 		}
@@ -633,6 +668,14 @@ H_END:
 		gCFG->sch->sponte(&tmp_ps);	//向tpoll, 取得TPOLL
 		if ( tmp_ps.indic != gCFG->sch ) break;
 
+#if defined(_WIN32)
+		if ( hEvent == INVALID_HANDLE_VALUE )
+		hEvent = CreateEvent(	NULL, TRUE, FALSE, NULL);
+		if (hEvent == INVALID_HANDLE_VALUE)
+		{
+			WLOG_OSERR("CreateEvent");
+		}
+#endif
 		if ( gCFG->on_start )
 		{
 			if ( a_open())		//开始建立连接
@@ -652,6 +695,14 @@ H_END:
 
 	case Notitia::CLONE_ALL_READY:
 		WBUG("facio CLONE_ALL_READY");
+#if defined(_WIN32)
+		if ( hEvent == INVALID_HANDLE_VALUE )
+		hEvent = CreateEvent(	NULL, TRUE, FALSE, NULL);
+		if (hEvent == INVALID_HANDLE_VALUE)
+		{
+			WLOG_OSERR("CreateEvent");
+		}
+#endif
 		deliver(Notitia::SET_TBUF);
 		if ( gCFG->on_start )
 		{
@@ -795,7 +846,7 @@ A_OPEN_PRO:
 		fd = *fdPtr;
 #endif
 		//printf("1--- ctx %lu \n", pollor.ctx);
-		epoll_set();
+		epoll_launch();
 		//printf("2---- ctx %lu \n", pollor.ctx);
 		break;
 
@@ -884,6 +935,14 @@ bool Aio::sponte( Amor::Pius *pius)
 Aio::Aio()
 {
 	pollor.pupa = this;
+#if defined(_WIN32)
+	pollor.type = DPoll::IOCPFile;
+	pollor.hnd.file =  INVALID_HANDLE_VALUE;
+	pollor.pro_ps.ordo = Notitia::PRO_EPOLL;
+#endif
+#if defined(__linux__)
+	pollor.type = DPoll::EventFD;
+#endif
 	epl_set_ps.ordo = Notitia::AIO_EPOLL;
 	epl_set_ps.indic = &pollor;
 	epl_clr_ps.ordo = Notitia::CLR_EPOLL;
@@ -906,9 +965,8 @@ Aio::Aio()
 	//printf("==== alloc aiocbp_R %p, iocbpp[0] %p\n", aiocbp_R, pollor.iocbpp[0]);
 #endif
 #if defined(_WIN32)
+	hEvent = INVALID_HANDLE_VALUE;
 	hdev = INVALID_HANDLE_VALUE;
-	memset(&ovlpW, 0, sizeof(OVERLAPPED));
-	memset(&ovlpR, 0, sizeof(OVERLAPPED));
 #else
 	fd = -1;
 #endif
@@ -934,10 +992,13 @@ Aio::~Aio()
 
 void Aio::transmitto_ex()
 {
+	TBuffer::pour(wk_snd_buf, *snd_buf);
 #if defined(_WIN32)
-	DWORD snd_len = (DWORD)(snd_buf->point - snd_buf->base);	//发送长度
+	DWORD snd_len = (DWORD)(wk_snd_buf.point - wk_snd_buf.base);	//发送长度
 	memset(&ovlpW, 0, sizeof(OVERLAPPED));
-	if ( !WriteFile(hdev, snd_buf->base, snd_len, NULL, &ovlpW) )
+	ovlpW.Offset = (DWORD) (ovlpW_offset & 0xFFFFFFFF);
+	ovlpW.OffsetHigh = (DWORD)(ovlpW_offset >> 32);
+	if ( !WriteFile(hdev, wk_snd_buf.base, snd_len, NULL, &ovlpW) )
 	{
 		if ( ERROR_IO_PENDING != GetLastError() ) {
 			WLOG_OSERR("WriteFile");
@@ -945,29 +1006,26 @@ void Aio::transmitto_ex()
 			goto ERR_RET;
 		}
 	}
-#elif  defined(__linux__)
-	TEXTUS_LONG snd_len = snd_buf->point - snd_buf->base;	//发送长度
+#else
+	TEXTUS_LONG snd_len = wk_snd_buf.point - wk_snd_buf.base;	//发送长度
+#if  defined(__linux__)
 	aiocbp_W->aio_reqprio = 0;
 	aiocbp_W->aio_buf = (u_int64_t) snd_buf->base;
 	aiocbp_W->aio_nbytes = snd_len;
-	aiocbp_W->aio_offset = 0;
+	//aiocbp_W->aio_offset = 0; absolute pos?
 	if (io_submit(pollor.ctx, 1, iocbp_W) <= 0) {
 		WLOG_OSERR("io_submit(write)");
-		a_close();
-		goto ERR_RET;
-	}
 #else
-	TEXTUS_LONG snd_len = snd_buf->point - snd_buf->base;	//发送长度
 	aiocbp_W->aio_nbytes = snd_len;
         aiocbp_W->aio_buf = snd_buf->base;
 	if ( aio_write(aiocbp_W) == -1 )
 	{
 		WLOG_OSERR("aio_write");
+#endif
 		a_close();
 		goto ERR_RET;
 	}
 #endif
-	snd_buf->commit(-(TEXTUS_LONG)snd_len);	//已经到了系统
 	return;
 ERR_RET:
 	tmp_ps.ordo = Notitia::Pro_File_Err;
@@ -977,43 +1035,78 @@ ERR_RET:
 
 void Aio::recito_ex()
 {
-	rcv_buf->grant(block_size);
+	wk_rcv_buf.grant(block_size);
 #if defined(_WIN32)
+	//ResetEvent(hEvent);
 	memset(&ovlpR, 0, sizeof(OVERLAPPED));
-	if (!ReadFile(hdev, rcv_buf->point, block_size, NULL, &ovlpR) )
+	ovlpR.Offset = (DWORD) (ovlpR_offset & 0xFFFFFFFF);
+	ovlpR.OffsetHigh = (DWORD)(ovlpR_offset >> 32);
+	if (!ReadFile(hdev, wk_rcv_buf.point, block_size, NULL, &ovlpR) )
 	{
-		if ( ERROR_IO_PENDING != GetLastError() ) {
-			WLOG_OSERR("ReadFile");
-			a_close();
-			goto ERR_RET;
+		DWORD dwError = GetLastError();
+		switch (dwError) { 
+                case ERROR_HANDLE_EOF:
+                    	WBUG("ReadFile returned EOF %s", file_name);
+			goto EOF_RET;
+                case ERROR_IO_PENDING: 	/* do nothing */
+                    	WBUG("ReadFile returned IO_PENDING %s", file_name);
+			break;
+		default:
+                	{ 
+			DWORD dwBytesRead;
+			if (!GetOverlappedResult(hdev,  &ovlpR, &dwBytesRead, FALSE) )
+			{
+				dwError = GetLastError();
+				switch (dwError) { 
+                		case ERROR_HANDLE_EOF:
+                    			WBUG("ReadFile(GetOverlappedResult) returned EOF %s", file_name);
+					goto EOF_RET;
+				default:
+					WLOG_OSERR("ReadFile");
+					goto ERR_RET;
+
+				}
+			} else {	
+				printf("getover ok\n");
+			}
+			}
 		}
-	} 
+	}  else { printf("Read ok\n");}
 #elif  defined(__linux__)
 	aiocbp_R->aio_reqprio = 0;
-	aiocbp_R->aio_buf = (u_int64_t) rcv_buf->point;
-	aiocbp_R->aio_nbytes = block_size;
+	aiocbp_R->aio_buf = (u_int64_t) wk_rcv_buf.point;
+	//aiocbp_R->aio_nbytes = block_size; had the value when a_open()
 	//printf("block %ld bytes %d iocbp_R %p aiocbp_R %p\n",block_size,  aiocbp_R->aio_nbytes, iocbp_R, aiocbp_R);
-	aiocbp_R->aio_offset = 0;
+	//aiocbp_R->aio_offset = 0; absolute pos?
 	//{int *a =0; *a= 0; }
 	if (io_submit(pollor.ctx, 1, iocbp_R) <= 0) {
 		WLOG_OSERR("io_submit(read)");
-		a_close();
 		goto ERR_RET;
 	}
 #else
-	aiocbp_R->aio_buf = rcv_buf->point;
+	aiocbp_R->aio_buf = wk_rcv_buf.point;
 	if ( aio_read(aiocbp_R) == -1 )
 	{
 		WLOG_OSERR("aio_read");
-		a_close();
 		goto ERR_RET;
 	}
 #endif
 	return;
 ERR_RET:
+	a_close();
 	tmp_ps.ordo = Notitia::Pro_File_Err;
 	tmp_ps.indic = 0;
 	DELI(tmp_ps)
+	return;
+
+#if defined(_WIN32)
+EOF_RET:
+	a_close();
+	tmp_ps.ordo = Notitia::Pro_File_End;
+	tmp_ps.indic = 0;
+	DELI(tmp_ps)
+	return;
+#endif
 }
 
 Amor* Aio::clone()
@@ -1039,7 +1132,7 @@ Amor* Aio::clone()
 }
 
 /* 向接力者提交 */
-inline void Aio::deliver(Notitia::HERE_ORDO aordo)
+void Aio::deliver(Notitia::HERE_ORDO aordo)
 {
 	TBuffer *tb[3];
 	tmp_ps.ordo = aordo;
