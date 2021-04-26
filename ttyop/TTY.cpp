@@ -940,7 +940,6 @@ bool TTY::sponte( Amor::Pius *pius)
 TTY::TTY()
 {
 	pollor.pupa = this;
-	pollor.type = DPoll::Sock;
 	epl_clr_ps.ordo = Notitia::CLR_EPOLL;
 	epl_clr_ps.indic = &pollor;
 	epl_set_ps.ordo = Notitia::SET_EPOLL;

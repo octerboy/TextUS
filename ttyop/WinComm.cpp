@@ -782,11 +782,12 @@ bool WinComm::facio( Amor::Pius *pius)
 			} else {
 				WBUG("PRO_EPOLL recv %d bytes", aget->dwNumberOfBytesTransferred);
 				rcv_buf->commit(aget->dwNumberOfBytesTransferred);
+				recito_ex();
 				if ( isCli ) 
 					aptus->sponte(&pro_tbuf_ps);
 				else
 					aptus->facio(&pro_tbuf_ps);
-				recito_ex();
+				return true;
 			}
 		} else if ( aget->lpOverlapped == &ovlpW ) {
 			WBUG("epoll for write ok");	
@@ -868,7 +869,8 @@ bool WinComm::sponte( Amor::Pius *pius)
 WinComm::WinComm()
 {
 	pollor.pupa = this;
-	pollor.type = DPoll::File;
+	pollor.type = DPoll::IOCPFile;
+	pollor.hnd.file = INVALID_HANDLE_VALUE;
 	pollor.pro_ps.ordo = Notitia::PRO_EPOLL;
 	epl_set_ps.ordo = Notitia::SET_EPOLL;
 	epl_set_ps.indic = &pollor;
