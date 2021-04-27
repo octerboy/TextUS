@@ -34,7 +34,9 @@
 #ifndef TBUFFER__H
 #define TBUFFER__H
 #define DEFAULT_TBUFFER_SIZE     4096
-#define TBINLINE  
+#define TBINLINE  inline
+#include <string.h>
+
 class TEXTUS_AMOR_STORAGE TBuffer
 {
 public:
@@ -45,14 +47,25 @@ public:
 	unsigned char * point;	//这点以前, 是有效数据, 这点(及此点)以后是空的.
 	unsigned char * limit;	//缓冲区的顶
 
-	TBINLINE void grant(unsigned TEXTUS_LONG space); //保证空余空间有space那么大
-	TBINLINE void input(unsigned char *val, unsigned TEXTUS_LONG len); /* 输入val内容, len为字节数 */
+	void grant(unsigned TEXTUS_LONG space) {
+		if ( point +space > limit ) this->expand(space);
+	}; //保证空余空间有space那么大
+	void input(unsigned char *p, unsigned TEXTUS_LONG n) {
+		if ( point +n > limit ) this->expand(n);
+		memcpy(point, p, n);
+		point += n;
+	}; /* 输入val内容, len为字节数 */
 	/* 数据读入(出)后的处理, 如果不调用此, 则数据仍留在其中 */
-	TBINLINE TEXTUS_LONG commit(TEXTUS_LONG len);	/* len >0, 增加数据, len为数据的长度
+	TEXTUS_LONG commit(TEXTUS_LONG len);	/* len >0, 增加数据, len为数据的长度
 					   len <0, 减少数据, -len为数据的长度
 					返回Buffer还剩余的空间大小值 */
-	void reset();
-	static void exchange(TBuffer &a, TBuffer &b); /* 将a与b交换空间 */
+	void commit_ack(TEXTUS_LONG len) { point += len; } ; /* 确定的提交 */
+	void reset() { point = base;};
+	static void exchange(TBuffer &a, TBuffer &b) { register unsigned char * med;
+		med = b.base; b.base=a.base; a.base = med;
+		med = b.point; b.point=a.point; a.point = med;
+		med = b.limit; b.limit=a.limit; a.limit = med;
+	}; /* 将a与b交换空间 */
 	static void pour(TBuffer &dst, TBuffer &src); /* 将src中的数据倒入到dst中 */
 	static void pour(TBuffer &dst, TBuffer &src, unsigned TEXTUS_LONG n); /* 将src中的n字节数据倒入到dst中 */
 private:
