@@ -120,7 +120,7 @@ void TWCap::ignite(TiXmlElement *prop)
 TWCap::TWCap():rcv_buf(8192)
 {
 	pollor.pupa = this;
-	pollor.type = DPoll::Sock;
+	pollor.type = DPoll::IOCPSock;
 	epl_set_ps.ordo = Notitia::SET_EPOLL;
 	epl_set_ps.indic = &pollor;
 	epl_clr_ps.ordo = Notitia::CLR_EPOLL;
