@@ -1193,7 +1193,6 @@ LOOP:
 #if !defined(_WIN32XX)
 			num_trans = 0;
 			success = WSAGetOverlappedResult((PPO->hnd.sock), A_GET.lpOverlapped, &num_trans, FALSE, &rflag);
-			WBUG("get DPoll:Sock %s trans(%d) %d", success ? "success" : "failed", num_trans, A_GET.dwNumberOfBytesTransferred);
 #endif
 			goto WIN_POLL;
 
@@ -1202,7 +1201,6 @@ LOOP:
 #if !defined(_WIN32XX)
 			num_trans = 0;
 			success  = GetOverlappedResult(PPO->hnd.file, A_GET.lpOverlapped, &num_trans, FALSE);
-			WBUG("get DPoll:File %s %d ", success ? "success" : "failed" ,num_trans);
 		WIN_POLL:
 			if ( success )
 			{
@@ -1211,7 +1209,7 @@ LOOP:
 			} else {
 				if ( WSAGetLastError() == ERROR_HANDLE_EOF )
 				{
-					WBUG("GetOverlappedResult EOF");
+					WBUG("GetOverlappedResult return ERROR_HANDLE_EOF");
 					poll_ps.ordo = PPO->pro_ps.ordo;
 					A_GET.dwNumberOfBytesTransferred = 0;
 					poll_ps.indic = &A_GET;
@@ -1228,6 +1226,7 @@ LOOP:
 					}
 				}
 			}
+			WBUG("get DPoll:%s %s trans(%d) get(%d)", AOR->type ==  DPoll::IOCPFile ? "File" : "Sock", success ? "success" : "failed", num_trans, A_GET.dwNumberOfBytesTransferred);
 			PPO->pupa->facio(&poll_ps);
 #endif
 #if defined (_WIN32XX)
