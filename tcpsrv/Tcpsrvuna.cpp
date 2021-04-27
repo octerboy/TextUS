@@ -230,7 +230,7 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 				end();
 			} else {
 				WBUG("child PRO_EPOLL recv %d bytes", aget->dwNumberOfBytesTransferred);
-				tcpsrv->m_rcv_buf.commit(aget->dwNumberOfBytesTransferred);
+				tcpsrv->m_rcv_buf.commit_ack(aget->dwNumberOfBytesTransferred);
 				TBuffer::pour(*tcpsrv->rcv_buf, tcpsrv->m_rcv_buf);
 				if ( !tcpsrv->recito_ex())
 				{
@@ -242,7 +242,11 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 			}
 		} else if ( aget->lpOverlapped == &(tcpsrv->snd_ovp) ) {
 			WBUG("child PRO_EPOLL sent %d bytes", aget->dwNumberOfBytesTransferred); //写数据完成
-			tcpsrv->m_snd_buf.commit(-(TEXTUS_LONG)aget->dwNumberOfBytesTransferred);
+			tcpsrv->m_snd_buf.commit_ack(-(TEXTUS_LONG)aget->dwNumberOfBytesTransferred);
+			if ( tcpsrv->snd_buf->point != tcpsrv->snd_buf->base )
+			{
+				if( (ret = tcpsrv->transmitto_ex()) ) child_transmit_ep_err(ret);
+			}
 		} else {
 			WLOG(ALERT, "not my overlap");
 		}
@@ -784,6 +788,9 @@ void Tcpsrvuna::child_transmit_ep_err(int mret)
 		end();
 		break;
 
+	case 4:	//IOCP wait
+		WLOG(INFO, "IOCP last sending is still pending");
+		break;
 	default:
 		break;
 	}

@@ -413,6 +413,7 @@ bool Tcpcli::recito_ex()
 int Tcpcli::transmitto_ex()
 {
 	int rc;
+	if ( m_snd_buf.point != m_snd_buf.base ) return 4;	/* not empty, wait */
 	TBuffer::pour(m_snd_buf, *snd_buf);
 	wsa_snd.len = static_cast<DWORD>(m_snd_buf.point - m_snd_buf.base);   //发送长度
 	wsa_snd.buf = (char *)m_snd_buf.base;
@@ -422,14 +423,12 @@ int Tcpcli::transmitto_ex()
 	if ( rc != 0 )
 	{
 		if ( WSA_IO_PENDING == WSAGetLastError() ) {
-			//snd_buf->commit(-(TEXTUS_LONG)wsa_snd.len);	//已经到了系统
 			return 1; //回去再试, 
 		} else {
 			ERROR_PRO ("WSASend");
 			return -1;
 		}
 	}
-	//snd_buf->commit(-(TEXTUS_LONG)wsa_snd.len);	//已经到了系统
 	return 0;
 }
 #endif

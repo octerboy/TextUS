@@ -244,7 +244,7 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 				end();
 			} else {
 				WBUG("PRO_EPOLL recv %d bytes", aget->dwNumberOfBytesTransferred);
-				tcpcli->m_rcv_buf.commit(aget->dwNumberOfBytesTransferred);
+				tcpcli->m_rcv_buf.commit_ack(aget->dwNumberOfBytesTransferred);
 				TBuffer::pour(*tcpcli->rcv_buf, tcpcli->m_rcv_buf);
 				if ( !tcpcli->recito_ex())
 				{
@@ -256,7 +256,11 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 			}
 		} else if ( aget->lpOverlapped == &(tcpcli->snd_ovp) ) {
 			WBUG("client PRO_EPOLL sent %d bytes", aget->dwNumberOfBytesTransferred); //写数据完成
-			tcpcli->m_snd_buf.commit(-(TEXTUS_LONG)aget->dwNumberOfBytesTransferred);
+			tcpcli->m_snd_buf.commit_ack(-(TEXTUS_LONG)aget->dwNumberOfBytesTransferred);
+			if ( tcpcli->snd_buf->point != tcpcli->snd_buf->base )
+			{
+				if( (ret = tcpcli->transmitto_ex()) ) transmit_ep_err(ret);
+			}
 		} else {
 			WLOG(ALERT, "not my overlap");
 		}
@@ -775,6 +779,9 @@ void Tcpcliuna::transmit_ep_err(int mret)
 		end(true);
 		break;
 
+	case 4:	//IOCP wait
+		WLOG(INFO, "IOCP last sending is still pending");
+		break;
 	default:
 		break;
 	}
