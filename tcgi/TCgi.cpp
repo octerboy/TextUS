@@ -533,14 +533,12 @@ TCgi::TCgi():work_buf(1024)
 {
 	pollor.pupa = this;
 #if defined(_WIN32)
-	pollor.type = DPoll::File;
-	pollor_out.type = DPoll::File;
+	pollor.type = DPoll::IOCPFile;
+	pollor_out.type = DPoll::IOCPFile;
 	epl_clr_out.ordo = Notitia::CLR_EPOLL;
 	epl_clr_out.indic = &pollor_out;
 	epl_set_out.ordo = Notitia::SET_EPOLL;
 	epl_set_out.indic = &pollor_out;
-#else
-	pollor.type = DPoll::Sock;
 #endif
 	epl_clr_ps.ordo = Notitia::CLR_EPOLL;
 	epl_clr_ps.indic = &pollor;
