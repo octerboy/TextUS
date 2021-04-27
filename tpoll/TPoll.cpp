@@ -1016,7 +1016,6 @@ LOOP:
 
 #if defined(_WIN32) && !defined(_WIN32XX)
 	nget = 0;
-	//memset(pov, 0, sizeof(OVERLAPPED_ENTRY) * max_evs);
 	success =  GetQueuedCompletionStatusEx(iocp_port,         // Completion port handle
 			pov, // pre-allocated array of OVERLAPPED_ENTRY structures
 			(ULONG)max_evs,	//The maximum number of entries to remove
@@ -1193,9 +1192,8 @@ LOOP:
 			
 #if !defined(_WIN32XX)
 			num_trans = 0;
-			//success  = GetOverlappedResult((HANDLE)(PPO->hnd.sock), A_GET.lpOverlapped, &num_trans, FALSE);
 			success = WSAGetOverlappedResult((PPO->hnd.sock), A_GET.lpOverlapped, &num_trans, FALSE, &rflag);
-			WBUG("get DPoll:Sock %s %d ", success ? "success" : "failed", num_trans);
+			WBUG("get DPoll:Sock %s trans(%d) %d", success ? "success" : "failed", num_trans, A_GET.dwNumberOfBytesTransferred);
 #endif
 			goto WIN_POLL;
 
@@ -1211,15 +1209,23 @@ LOOP:
 				poll_ps.ordo = PPO->pro_ps.ordo;
 				poll_ps.indic = &A_GET;
 			} else {
-				ERROR_PRO("GetIOCPEx");
-				WLOG(WARNING, "GetOverlappedResult %s", errMsg);
-				if ( dw_error == ERROR_MORE_DATA ) 
+				if ( WSAGetLastError() == ERROR_HANDLE_EOF )
 				{
-					poll_ps.ordo = Notitia::MORE_DATA_EPOLL;
+					WBUG("GetOverlappedResult EOF");
+					poll_ps.ordo = PPO->pro_ps.ordo;
+					A_GET.dwNumberOfBytesTransferred = 0;
 					poll_ps.indic = &A_GET;
 				} else {
-					poll_ps.ordo = Notitia::ERR_EPOLL;
-					poll_ps.indic = errMsg;
+					ERROR_PRO("GetIOCPEx");
+					WLOG(WARNING, "GetOverlappedResult %s", errMsg);
+					if ( dw_error == ERROR_MORE_DATA ) 
+					{
+						poll_ps.ordo = Notitia::MORE_DATA_EPOLL;
+						poll_ps.indic = &A_GET;
+					} else {
+						poll_ps.ordo = Notitia::ERR_EPOLL;
+						poll_ps.indic = errMsg;
+					}
 				}
 			}
 			PPO->pupa->facio(&poll_ps);
