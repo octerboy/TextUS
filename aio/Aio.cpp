@@ -518,21 +518,25 @@ bool Aio::facio( Amor::Pius *pius)
 		{	//已读数据,  不失败并有数据才向接力者传递
 			if ( aget->dwNumberOfBytesTransferred ==0 ) 
 			{
-				WLOG(INFO, "IOCP recv 0 disconnected");
+				WBUG("IOCP read 0 bytes, EOF");
 				a_close();
 				tmp_ps.ordo = Notitia::Pro_File_End;
 				tmp_ps.indic = 0;
 				goto ERR_END;
 			} else {
-				WBUG("PRO_EPOLL recv %d bytes", aget->dwNumberOfBytesTransferred);
-				wk_rcv_buf.commit(aget->dwNumberOfBytesTransferred);
+				WBUG("IOCP read %d bytes", aget->dwNumberOfBytesTransferred);
+				wk_rcv_buf.commit_ack(aget->dwNumberOfBytesTransferred);
 				ovlpR_offset += aget->dwNumberOfBytesTransferred;
 				TBuffer::pour(*rcv_buf, wk_rcv_buf);
 			}
 		} else if ( aget->lpOverlapped == &ovlpW ) {
 			WLOG(INFO, "write completed");
 			ovlpW_offset += aget->dwNumberOfBytesTransferred;
-			wk_snd_buf.commit(-(TEXTUS_LONG)aget->dwNumberOfBytesTransferred);	//已经到了系统
+			wk_snd_buf.commit_ack(-(TEXTUS_LONG)aget->dwNumberOfBytesTransferred);	//已经到了系统
+			if ( snd_buf->point != snd_buf->base )
+			{
+				transmitto_ex();
+			}
 			goto H_END;
 		} else  {
 			WLOG(EMERG, "not my overlap");
@@ -575,7 +579,11 @@ bool Aio::facio( Amor::Pius *pius)
 				goto ERR_END;
 			}
 			aiocbp_W->aio_offset += io_evp->res ;
-			wk_snd_buf.commit(-(TEXTUS_LONG)io_evp->res);	//已经到了系统
+			wk_snd_buf.commit_ack(-(TEXTUS_LONG)io_evp->res);	//已经到了系统
+			if ( snd_buf->point != snd_buf->base )
+			{
+				transmitto_ex();
+			}
 		} else {
 			WLOG(EMERG, "not my iocb");
 			goto H_END;
@@ -618,6 +626,10 @@ bool Aio::facio( Amor::Pius *pius)
 			default:
 				aiocbp_W->aio_offset +=get_bytes ;
 				wk_snd_buf.commit(-(TEXTUS_LONG)get_bytes);	//已经到了系统
+				if ( snd_buf->point != snd_buf->base )
+				{
+					transmitto_ex();
+				}
 				break;
 			}
 		} else {
@@ -992,6 +1004,10 @@ Aio::~Aio()
 
 void Aio::transmitto_ex()
 {
+	if ( wk_snd_buf.point != wk_snd_buf.base ) {
+		WBUG("last writing is still pending");
+		return ;	/* not empty, wait */
+	}
 	TBuffer::pour(wk_snd_buf, *snd_buf);
 #if defined(_WIN32)
 	DWORD snd_len = (DWORD)(wk_snd_buf.point - wk_snd_buf.base);	//发送长度
