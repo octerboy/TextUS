@@ -227,6 +227,9 @@ bool Seque::facio( Amor::Pius *pius)
 	return true;
 }
 
+#define TBChange(X,Y)  med = X->base; X->base = Y.base; Y.base = med; med = X->limit; X->limit = Y.limit; Y.limit = med; med = X->point; X->point = Y.point; Y.point = med;
+
+
 bool Seque::sponte( Amor::Pius *pius)
 {
 	assert(pius);
@@ -236,8 +239,14 @@ bool Seque::sponte( Amor::Pius *pius)
 		WBUG("sponte PRO_TBUF" );
 		if ( gather )
 		{
+			unsigned char *med;
+#if 0
 			TBuffer::exchange(*(gather->pri_req), post_req);
 			TBuffer::exchange(*(gather->pri_ans), post_ans);
+#endif
+			TBChange(gather->pri_req, post_req)
+			TBChange(gather->pri_ans, post_ans)
+
 			gather->aptus->sponte(&gather->local_pius);
 			if ( gcfg->work_mode == M_PIPE )
 			{	
@@ -397,6 +406,7 @@ void Seque::appoint()
 		WLOG(NOTICE, "limited seque, to max");
 		reset();
 	} else {
+		unsigned char *med;
 		bee = (Seque*)(tmp_p.indic);
 		bee->gather = this;
 		l_ele.put ( &bee->l_ele);
@@ -406,8 +416,12 @@ void Seque::appoint()
 		aptus->sponte(&tmp_p);
 
 		bee->reset();	//右侧数据清空, 然后交换过去
+#if 0
 		TBuffer::exchange(*pri_req, bee->post_req);
 		TBuffer::exchange(*pri_ans, bee->post_ans);
+#endif
+		TBChange(pri_req, bee->post_req)
+		TBChange(pri_ans, bee->post_ans)
 		if ( gcfg->work_mode == M_PIPE )
 		{	/* for mode of PIPE, just BEGIN_TRANS, wait for TRANS_TO_HANDLE(send, recv) */
 			bee->aptus->facio(&bee->start_trans);
