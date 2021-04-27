@@ -130,7 +130,7 @@ TBINLINE void TBuffer::expand(unsigned TEXTUS_LONG extraSize)	//¸ù¾ÝpointÀ©³äext
 	return;
 }
 
-TBINLINE TEXTUS_LONG TBuffer::commit(TEXTUS_LONG len)
+TEXTUS_LONG TBuffer::commit(TEXTUS_LONG len)
 {
 	if( point + len > limit || point + len < base )
 	{
@@ -150,19 +150,18 @@ TBINLINE TEXTUS_LONG TBuffer::commit(TEXTUS_LONG len)
 	return (limit - point);
 }
 
+#if 0
 TBINLINE void TBuffer::grant(unsigned TEXTUS_LONG space)
 {
 	if ( point +space > limit )
 		expand(space);
 	return ;
 }
-
 TBINLINE void TBuffer::reset()
 {
 	point = base;
 	return ;
 }
-
 void TBuffer::exchange(TBuffer &a, TBuffer &b)
 {
 	unsigned char * med;
@@ -176,6 +175,13 @@ void TBuffer::exchange(TBuffer &a, TBuffer &b)
 	EX(limit);
 	return ;
 }
+void TBuffer::input(unsigned char *p, unsigned TEXTUS_LONG n)
+{
+	grant(n);
+	memcpy(point, p, n);
+	commit(n);
+}
+#endif
 
 void TBuffer::pour(TBuffer &dst, TBuffer &src)
 {
@@ -211,9 +217,3 @@ void TBuffer::pour(TBuffer &dst, TBuffer &src, unsigned TEXTUS_LONG n)
 	return ;
 }
 
-void TBuffer::input(unsigned char *p, unsigned TEXTUS_LONG n)
-{
-	grant(n);
-	memcpy(point, p, n);
-	commit(n);
-}
