@@ -414,7 +414,7 @@ int Tcpcli::transmitto_ex()
 {
 	int rc;
 	if ( m_snd_buf.point != m_snd_buf.base ) return 4;	/* not empty, wait */
-	TBuffer::pour(m_snd_buf, *snd_buf);
+	TBuffer::exchange(m_snd_buf, *snd_buf);
 	wsa_snd.len = static_cast<DWORD>(m_snd_buf.point - m_snd_buf.base);   //·¢ËÍ³¤¶È
 	wsa_snd.buf = (char *)m_snd_buf.base;
 	memset(&snd_ovp, 0, sizeof(OVERLAPPED));
