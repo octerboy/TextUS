@@ -96,6 +96,7 @@ BOOL (PASCAL FAR * LPFN_CONNECTEX) (
     );
 #endif
 	LPFN_CONNECTEX lpfnConnectEx;
+	bool tbind();
 #endif	//for WIN32
 
 private:
