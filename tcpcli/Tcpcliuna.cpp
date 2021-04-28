@@ -189,6 +189,10 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 		if ( aget->lpOverlapped == (void*)&(tcpcli->rcv_ovp) )
 		{
 			establish_done();
+			if ( tcpcli->snd_buf->point != tcpcli->snd_buf->base )
+			{
+				if( (ret = tcpcli->transmitto_ex()) ) transmit_ep_err(ret);
+			}
 		} else {
 			WLOG(ALERT, "accept_epoll: not my overlap");
 		}
@@ -570,6 +574,10 @@ void Tcpcliuna::establish()
 		}
 		pollor.pro_ps.ordo = Notitia::ACCEPT_EPOLL;
 #if defined (_WIN32 )	
+		if ( !tcpcli->tbind()) {
+			errpro();
+ 			return;
+		}
 		pollor.hnd.sock = tcpcli->connfd;
 		gCFG->sch->sponte(&epl_set_ps);	//向tpoll
 		if ( tcpcli->annecto_ex() )
@@ -656,7 +664,6 @@ void Tcpcliuna::establish_done()
 	if ( gCFG->use_epoll ) 
 	{
 #if defined (_WIN32 )	
-		pollor.hnd.sock = tcpcli->connfd;
 		pollor.pro_ps.ordo = Notitia::PRO_EPOLL;
 #else //other unix like 
 		pollor.pro_ps.ordo = Notitia::RD_EPOLL;
@@ -674,7 +681,6 @@ void Tcpcliuna::establish_done()
 		pollor.events[1].flags = EV_ADD | EV_DISABLE;
 #endif	//for bsd
 
-		gCFG->sch->sponte(&epl_set_ps);	//向tpoll
 #if defined (_WIN32 )	
 		/* 主动去接收, 如果一开始有数据, 则先接收; 另外实现IOCP投递 */
 		if ( !tcpcli->recito_ex())
@@ -683,6 +689,8 @@ void Tcpcliuna::establish_done()
 			end();	//失败即关闭
 			return;
 		}
+#else
+		gCFG->sch->sponte(&epl_set_ps);	//向tpoll, 
 #endif	//for WIN32
 	} else {
 		mytor.scanfd = tcpcli->connfd;

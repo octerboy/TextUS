@@ -118,27 +118,50 @@ bool Tcpcli::sock_start()
 	return true;
 }
 
+bool Tcpcli::tbind()
+{
+	struct sockaddr_in addr;
+	memset(&addr, 0, sizeof(addr));
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = INADDR_ANY;
+	addr.sin_port = 0;
+	if ( bind(connfd, (SOCKADDR*) &addr, sizeof(addr)) != 0 )
+	{
+		ERROR_PRO("bind connfd")
+		err_lev = 3;
+		this->end(false);
+		return false;
+	}
+	return true;
+}
+
 bool Tcpcli::annecto_ex()
 {
-	DWORD dwBytes =0 ;
 	BOOL bRetVal = FALSE;
 
-	// Empty our overlapped structure and accept connections.
+	// Empty our overlapped structure and connections.
 	memset(&rcv_ovp, 0, sizeof(OVERLAPPED));
-
-	bRetVal = lpfnConnectEx(connfd,  (struct sockaddr *)&servaddr, sizeof(servaddr), 
-				(PVOID)snd_buf->base, static_cast<DWORD>(snd_buf->point - snd_buf->base), &dwBytes, &rcv_ovp);
-	if (bRetVal == FALSE) { 
-		if (  ERROR_IO_PENDING  == WSAGetLastError() ) {
-			return true;
-		} else {
+	bRetVal = lpfnConnectEx(connfd, (struct sockaddr *)&servaddr, sizeof(servaddr), NULL, 0, NULL, &rcv_ovp);
+	if ( !bRetVal ) { 
+		if (  ERROR_IO_PENDING  != WSAGetLastError() ) {
 			ERROR_PRO("lpfnConnectEx")
+			printf("err %s\n", errMsg);
+			err_lev = 3;
 			this->end(false);
 			return false;
 		}
 	}
-	if ( dwBytes > 0 )
-		snd_buf->commit(-(TEXTUS_LONG)dwBytes);	//提交所读出的数据
+
+	if ( bRetVal ) 
+	{
+		if ( !annecto_done() )
+		{
+			this->end(false);
+			return false;
+		}
+	} else
+		isConnecting = true;	//该连接正在进行
+
 	return true;
 }
 #endif
@@ -360,11 +383,13 @@ void Tcpcli::end(bool down)
 			shutdown(connfd, SHUT_RDWR);
 		CLOSE(connfd);	
 		connfd = INVALID_SOCKET ;
-	}
-
 #if defined (_WIN32)
+	m_rcv_buf.reset();
+	m_snd_buf.reset();
 	//WSACleanup();
 #endif
+	}
+
 	return ;
 }
 void Tcpcli::setPort(const char *port_str)
@@ -387,6 +412,9 @@ void Tcpcli::herit(Tcpcli *child)
 	assert(child);
 	memcpy(child->server_ip, server_ip,sizeof(server_ip));
 	child->server_port = server_port;
+#if defined(_WIN32)
+	child->lpfnConnectEx = lpfnConnectEx;
+#endif
 	return ;
 }
 
@@ -404,6 +432,7 @@ bool Tcpcli::recito_ex()
 	{
 		if ( WSA_IO_PENDING != WSAGetLastError() ) {
 			ERROR_PRO ("WSARecv when connected");
+			err_lev = 3;
 			return false;
 		}
 	}
@@ -426,6 +455,7 @@ int Tcpcli::transmitto_ex()
 			return 1; //回去再试, 
 		} else {
 			ERROR_PRO ("WSASend");
+			err_lev = 3;
 			return -1;
 		}
 	}
@@ -459,10 +489,12 @@ ReadAgain:
 		} else if ( error == EAGAIN || error == EWOULDBLOCK )
 		{	//还在进行中, 回去再等.
 			ERROR_PRO("recving encounter EAGAIN")
+			err_lev = 5;
 			return 0;
 		} else	
 		{	//的确有错误
 			ERROR_PRO("recv socket")
+			err_lev = 3;
 			return -2;
 		}
 	}
@@ -496,6 +528,7 @@ SendAgain:
 		} else if (error ==EWOULDBLOCK || error == EAGAIN)
 		{	//回去再试, 用select, 要设wrSet
 			ERROR_PRO("sending encounter EAGAIN")
+			err_lev = 5;
 			if ( wr_blocked ) 	//最近一次阻塞
 			{
 				return 3;
@@ -504,6 +537,7 @@ SendAgain:
 				return 1;
 			}
 		} else {
+			err_lev = 3;
 			ERROR_PRO("send")
 			return -1;
 		}
