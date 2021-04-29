@@ -22,9 +22,10 @@
 #include "Notitia.h"
 #include "textus_string.h"
 #include <time.h>
+#include <psapi.h>
 #include <string.h>
 #include <assert.h>
-
+#pragma comment(lib,"advapi32.lib")
 
 class NTSvc :public Amor
 {
@@ -39,40 +40,46 @@ public:
 
 	Amor::Pius local_pius;  //仅用于传回数据
 	Amor::Pius end_pius;  //仅用于传回数据
-	char service_name[256];
+	char service_name[2048];
 	Amor *sch;
 	Amor::Pius tmp_ps;
 
-    void logEvent(WORD wType, DWORD dwID,
-		const char* pszS1 = NULL,const char* pszS2 = NULL,const char* pszS3 = NULL);
-    void setStatus(DWORD dwState);
-    bool initialize();
+	void logEvent(WORD wType, DWORD dwID, const char* pszS1 = NULL,const char* pszS2 = NULL,const char* pszS3 = NULL);
+	void setStatus(DWORD dwState);
+	bool initialize();
 	bool onInit();
  
-    void OnStop();
-    void OnInterrogate();
-    void OnPause();
-    void OnContinue();
+	void OnStop();
+	void OnInterrogate();
+	void OnPause();
+	void OnContinue();
 	void OnShutdown();
 	void saveStatus();    
 
-    // data members
-
-    // static data
 	static	NTSvc* here_svc; // nasty hack to get object ptr
 
-    HANDLE m_hEventSource;
-    int m_iMajorVersion;
-    int m_iMinorVersion;
+	HANDLE m_hEventSource;
+	int m_iMajorVersion;
+	int m_iMinorVersion;
 	BYTE m_iStartParam, m_iIncParam, m_iState;
-    SERVICE_STATUS_HANDLE m_hServiceStatus;
-    SERVICE_STATUS m_Status;
-    bool m_bIsRunning;
+	SERVICE_STATUS_HANDLE m_hServiceStatus;
+	SERVICE_STATUS m_Status;
+	int argOffset;
+
+	bool m_bIsRunning;
 	void my_handle(DWORD dwOpcode);
 	void my_main(DWORD dwArgc, LPTSTR* lpszArgv);
 
+	bool parseStandardArgs(int argc, char* argv[]);
+	bool uninstall();
+	bool install(const char *cfg);
+	bool isinstalled();
 #include "wlog.h"
 };
+
+#define EVMSG_INSTALLED 0x00000064L
+#define EVMSG_REMOVED 0x00000065L
+#define EVMSG_NOTREMOVED   ((WORD)0x00000004L)
 
 // static member functions
 static void WINAPI serviceMain(DWORD dwArgc, LPTSTR* lpszArgv);
@@ -86,13 +93,18 @@ void NTSvc::ignite(TiXmlElement *cfg) {
 	if ( (comm_str = cfg->Attribute("service_name")) )
 		TEXTUS_STRNCPY( service_name, comm_str, sizeof(service_name)-1);
 
+	if ( (comm_str = cfg->Attribute("offset")) )
+		argOffset = atoi(comm_str);
+	if ( argOffset < 1 ) 
+		argOffset =1;
 }
 
 bool NTSvc::facio( Amor::Pius *pius)
 {
-	//void **ps;
-	//char *path;
+	void **ps;
+	char *p;
 	BOOL ret;
+                char szFilePath[_MAX_PATH];
 	SERVICE_TABLE_ENTRY st[] = {
 		{service_name, serviceMain},
 		{NULL, NULL}
@@ -100,16 +112,33 @@ bool NTSvc::facio( Amor::Pius *pius)
 	assert(pius);
 	switch ( pius->ordo )
 	{
+	case Notitia::WINMAIN_PARA:	/* 在整个系统中, 这应是最后被通知到的。 */
+		WBUG("facio Notitia::WinMain_PARA");
+		goto SRV_START;
 	case Notitia::MAIN_PARA:	/* 在整个系统中, 这应是最后被通知到的。 */
 		WBUG("facio Notitia::MAIN_PARA");
+	SRV_START:
+		ps = (void**)pius->indic;
+		if (parseStandardArgs( (*(int *)ps[0]) - argOffset, &((char**)ps[1])[argOffset]) ) break;
     		WBUG("Calling StartServiceCtrlDispatcher(service_name(%s), serviceMain(%p))", st[0].lpServiceName, st[0].lpServiceProc);
+                ::GetModuleFileName(NULL, szFilePath, sizeof(szFilePath));
+    		WBUG("ModuleFileName %s", szFilePath);
+		p = &szFilePath[strlen(szFilePath)-1];
+		while ( *p != '\\' && *p != '/'  && p != &szFilePath[0] ) p--;
+    		WBUG("p %s", p);
+		if (  *p == '\\' || *p == '/'  ) *p = 0;
+    		WBUG("Current %s", szFilePath);
+		if( !SetCurrentDirectory(szFilePath))
+		{
+			WLOG(ERR, "SetCurrentDirectory failed (%d)\n", GetLastError());
+		}	
 		ret = StartServiceCtrlDispatcher(st);
-		WBUG("Returned %d from StartServiceCtrlDispatcher()", ret);
-		//printf("last %08x\n", GetLastError());
 		if ( !ret ) 
 		{
 			WLOG_OSERR("StartServiceCtrlDispatcher");
 		}
+		WBUG("Returned %d from StartServiceCtrlDispatcher()", ret);
+		//printf("last %08x\n", GetLastError());
 		break;
 	
 	case Notitia::IGNITE_ALL_READY:
@@ -162,6 +191,11 @@ void NTSvc::my_main(DWORD dwArgc, LPTSTR* lpszArgv)
 	void *ps[3];
 	Amor::Pius para;
 	para.ordo = Notitia::MAIN_PARA;
+	WBUG("para %d ", dwArgc);
+	for ( unsigned int i = 0 ; i < dwArgc ; i++)
+	{
+		WBUG("%s ", lpszArgv[i]);
+	}
 	ps[0] = &dwArgc;
 	ps[1] = lpszArgv;
 	ps[2] = 0;
@@ -190,7 +224,7 @@ void NTSvc::my_main(DWORD dwArgc, LPTSTR* lpszArgv)
 
     // Tell the service manager we are stopped
     setStatus(SERVICE_STOPPED);
-    WBUG("Leaving NTSvc::ServiceMain()");
+//    WBUG("Leaving NTSvc::ServiceMain()");
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -281,7 +315,7 @@ void NTSvc::my_handle(DWORD dwOpcode)
         OnStop();
         m_bIsRunning = FALSE;
         //logEvent(EVENTLOG_INFORMATION_TYPE, EVMSG_STOPPED);
-	WLOG(INFO, "service %s stopped", service_name);
+	//WLOG(INFO, "service %s stopped", service_name);
         break;
 
     case SERVICE_CONTROL_PAUSE: // 2
@@ -436,6 +470,198 @@ void NTSvc::setStatus(DWORD dwState)
     m_Status.dwCurrentState = dwState;
     ::SetServiceStatus(m_hServiceStatus, &m_Status);
 }
+
+////////////////////////////////////////////////////////////////////////////////////////
+// Default command line argument parsing
+
+// Returns TRUE if it found an arg it recognised, FALSE if not
+// Note: processing some arguments causes output to stdout to be generated.
+bool NTSvc::parseStandardArgs(int argc, char* argv[])
+{
+    // See if we have any command line args we recognise
+    if (argc <= 1) return FALSE;
+
+    if (_stricmp(argv[1], "-v") == 0) {
+
+        // Spit out version info
+        printf("%s %s Version %d.%d\n", argv[0],
+               service_name, m_iMajorVersion, m_iMinorVersion);
+        printf("The service is %s installed\n",
+               isinstalled() ? "currently" : "not");
+        return TRUE; // say we processed the argument
+
+    } else if (_stricmp(argv[1], "-i") == 0) {
+
+        // Request to install.
+        if (isinstalled()) {
+            printf("%s is already installed\n", service_name);
+        } else {
+            // Try and install the copy that's running
+            if (install(argv[0])) {
+                printf("%s installed successfully!\n", service_name);
+            } else {
+                printf("%s failed to install. Error %d\n", service_name, GetLastError());
+            }
+        }
+        return TRUE; // say we processed the argument
+
+    } else if (_stricmp(argv[1], "-u") == 0) {
+
+        // Request to uninstall.
+        if (!isinstalled()) {
+            printf("%s is not installed\n", service_name);
+        } else {
+            // Try and remove the copy that's installed
+            if (uninstall()) {
+                // Get the executable file path
+                char szFilePath[_MAX_PATH];
+                ::GetModuleFileName(NULL, szFilePath, sizeof(szFilePath));
+                printf("%s removed. (You must delete the file (%s) yourself.)\n",
+                       service_name, szFilePath);
+            } else {
+                printf("Could not remove %s. Error %d\n", service_name, GetLastError());
+            }
+        }
+        return TRUE; // say we processed the argument
+    
+    }
+         
+    // Don't recognise the args
+    return FALSE;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////
+// install/uninstall routines
+
+// Test if the service is currently installed
+bool NTSvc::isinstalled()
+{
+    bool bResult = FALSE;
+
+    // Open the Service Control Manager
+    SC_HANDLE hSCM = ::OpenSCManager(NULL, // local machine
+                                     NULL, // ServicesActive database
+                                     SC_MANAGER_ALL_ACCESS); // full access
+    if (hSCM) {
+
+        // Try to open the service
+        SC_HANDLE hService = ::OpenService(hSCM,
+                                           service_name,
+                                           SERVICE_QUERY_CONFIG);
+        if (hService) {
+            bResult = TRUE;
+            ::CloseServiceHandle(hService);
+        }
+
+        ::CloseServiceHandle(hSCM);
+    }
+    
+    return bResult;
+}
+
+bool NTSvc::install(const char *cfg)
+{
+    // Open the Service Control Manager
+	DWORD szRet;
+    SC_HANDLE hSCM = ::OpenSCManager(NULL, // local machine
+                                     NULL, // ServicesActive database
+                                     SC_MANAGER_ALL_ACCESS); // full access
+    if (!hSCM) return FALSE;
+
+    // Get the executable file path
+    char szFilePath[_MAX_PATH];
+    char szBasePath[_MAX_PATH];
+    ::GetModuleFileName(NULL, szFilePath, sizeof(szFilePath));
+//	::GetServiceDirectory(RegisterServiceCtrlHandler(service_name,handler), ServiceDirectoryPersistentState, (PWCHAR)&szBasePath[0], sizeof(szFilePath), &szRet);
+    //GetModuleBaseNameA(NULL, NULL,szBasePath, sizeof(szFilePath));
+//	printf("base %s\n", szBasePath);
+
+    // Create the service
+	TEXTUS_STRCAT(szFilePath, " ");
+	TEXTUS_STRCAT(szFilePath, cfg);
+    SC_HANDLE hService = ::CreateService(hSCM,
+                                         service_name,
+                                         service_name,
+                                         SERVICE_ALL_ACCESS,
+                                         SERVICE_WIN32_OWN_PROCESS,
+                                         SERVICE_DEMAND_START,        // start condition
+                                         SERVICE_ERROR_NORMAL,
+                                         szFilePath,
+                                         NULL,
+                                         NULL,
+                                         NULL,
+                                         NULL,
+                                         NULL);
+    if (!hService) {
+        ::CloseServiceHandle(hSCM);
+        return FALSE;
+    }
+
+    // make registry entries to support logging messages
+    // Add the source name as a subkey under the Application
+    // key in the EventLog service portion of the registry.
+    char szKey[256];
+    HKEY hKey = NULL;
+    TEXTUS_STRCPY(szKey, "SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\");
+    TEXTUS_STRCAT(szKey, service_name);
+    if (::RegCreateKey(HKEY_LOCAL_MACHINE, szKey, &hKey) != ERROR_SUCCESS) {
+        ::CloseServiceHandle(hService);
+        ::CloseServiceHandle(hSCM);
+        return FALSE;
+    }
+
+    // Add the Event ID message-file name to the 'EventMessageFile' subkey.
+    ::RegSetValueEx(hKey,
+                    "EventMessageFile",
+                    0,
+                    REG_EXPAND_SZ, 
+                    (CONST BYTE*)szFilePath,
+                    (DWORD)strlen(szFilePath) + 1);     
+
+    // Set the supported types flags.
+    DWORD dwData = EVENTLOG_ERROR_TYPE | EVENTLOG_WARNING_TYPE | EVENTLOG_INFORMATION_TYPE;
+    ::RegSetValueEx(hKey,
+                    "TypesSupported",
+                    0,
+                    REG_DWORD,
+                    (CONST BYTE*)&dwData,
+                     sizeof(DWORD));
+    ::RegCloseKey(hKey);
+
+    logEvent(EVENTLOG_INFORMATION_TYPE, EVMSG_INSTALLED, service_name);
+
+    // tidy up
+    ::CloseServiceHandle(hService);
+    ::CloseServiceHandle(hSCM);
+    return TRUE;
+}
+
+bool NTSvc::uninstall()
+{
+    // Open the Service Control Manager
+    SC_HANDLE hSCM = ::OpenSCManager(NULL, // local machine
+                                     NULL, // ServicesActive database
+                                     SC_MANAGER_ALL_ACCESS); // full access
+    if (!hSCM) return FALSE;
+
+    bool bResult = FALSE;
+    SC_HANDLE hService = ::OpenService(hSCM,
+                                       service_name,
+                                       DELETE);
+    if (hService) {
+        if (::DeleteService(hService)) {
+            logEvent(EVENTLOG_INFORMATION_TYPE, EVMSG_REMOVED, service_name);
+            bResult = TRUE;
+        } else {
+            logEvent(EVENTLOG_ERROR_TYPE, EVMSG_NOTREMOVED, service_name);
+        }
+        ::CloseServiceHandle(hService);
+    }
+    
+    ::CloseServiceHandle(hSCM);
+    return bResult;
+}
+
 NTSvc::~NTSvc() { } 
 #include "hook.c"
 
