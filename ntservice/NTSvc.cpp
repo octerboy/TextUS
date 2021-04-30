@@ -76,10 +76,27 @@ public:
 	bool isinstalled();
 #include "wlog.h"
 };
+#define EVMSG_INSTALLED                  0x00000064L
+#define EVMSG_REMOVED                    0x00000065L
+#define EVMSG_NOTREMOVED                 0x00000066L
+#define EVMSG_CTRLHANDLERNOTINSTALLED    0x00000067L
+#define EVMSG_FAILEDINIT                 0x00000068L
+#define EVMSG_STARTED                    0x00000069L
+#define EVMSG_BADREQUEST                 0x0000006AL
+#define EVMSG_DEBUG                      0x0000006BL
+#define EVMSG_STOPPED                    0x0000006CL
 
-#define EVMSG_INSTALLED 0x00000064L
-#define EVMSG_REMOVED 0x00000065L
-#define EVMSG_NOTREMOVED   ((WORD)0x00000004L)
+/*
+#define EVMSG_INSTALLED                  1006
+#define EVMSG_REMOVED                    1002
+#define EVMSG_NOTREMOVED                 1003
+#define EVMSG_CTRLHANDLERNOTINSTALLED    1004
+#define EVMSG_FAILEDINIT                 1005
+#define EVMSG_STARTED                    1001
+#define EVMSG_BADREQUEST                 1007
+#define EVMSG_DEBUG                      1008
+#define EVMSG_STOPPED                    1009
+*/
 
 // static member functions
 static void WINAPI serviceMain(DWORD dwArgc, LPTSTR* lpszArgv);
@@ -88,6 +105,9 @@ NTSvc *NTSvc::here_svc = (NTSvc*)0;
 
 void NTSvc::ignite(TiXmlElement *cfg) { 
 	const char *comm_str;
+	char *p;
+	char szFilePath[_MAX_PATH], errmsg[64];
+
 	if ( !cfg )
 		return;
 	if ( (comm_str = cfg->Attribute("service_name")) )
@@ -97,14 +117,25 @@ void NTSvc::ignite(TiXmlElement *cfg) {
 		argOffset = atoi(comm_str);
 	if ( argOffset < 1 ) 
 		argOffset =1;
+
+	TEXTUS_STRCPY(szFilePath, cfg->GetDocument()->Value());
+
+	p = &szFilePath[strlen(szFilePath)-1];
+	while ( *p != '\\' && *p != '/'  && p != &szFilePath[0] ) p--;
+	if (  *p == '\\' || *p == '/'  ) *p = 0;
+    	if (strlen(szFilePath) > 0 ) {
+		if( !SetCurrentDirectory(szFilePath))
+		{
+			TEXTUS_SPRINTF(errmsg, "SetCurrentDirectory failed (%d)", GetLastError());
+			logEvent(EVENTLOG_ERROR_TYPE, EVMSG_FAILEDINIT, errmsg);
+		}
+	}
 }
 
 bool NTSvc::facio( Amor::Pius *pius)
 {
 	void **ps;
-	char *p;
 	BOOL ret;
-                char szFilePath[_MAX_PATH];
 	SERVICE_TABLE_ENTRY st[] = {
 		{service_name, serviceMain},
 		{NULL, NULL}
@@ -112,33 +143,22 @@ bool NTSvc::facio( Amor::Pius *pius)
 	assert(pius);
 	switch ( pius->ordo )
 	{
-	case Notitia::WINMAIN_PARA:	/* 在整个系统中, 这应是最后被通知到的。 */
-		WBUG("facio Notitia::WinMain_PARA");
-		goto SRV_START;
 	case Notitia::MAIN_PARA:	/* 在整个系统中, 这应是最后被通知到的。 */
 		WBUG("facio Notitia::MAIN_PARA");
-	SRV_START:
 		ps = (void**)pius->indic;
 		if (parseStandardArgs( (*(int *)ps[0]) - argOffset, &((char**)ps[1])[argOffset]) ) break;
+		goto SRV_START;
+
+	case Notitia::WINMAIN_PARA:	/* 在整个系统中, 这应是最后被通知到的。 */
+		WBUG("facio Notitia::WinMain_PARA");
+	SRV_START:
     		WBUG("Calling StartServiceCtrlDispatcher(service_name(%s), serviceMain(%p))", st[0].lpServiceName, st[0].lpServiceProc);
-                ::GetModuleFileName(NULL, szFilePath, sizeof(szFilePath));
-    		WBUG("ModuleFileName %s", szFilePath);
-		p = &szFilePath[strlen(szFilePath)-1];
-		while ( *p != '\\' && *p != '/'  && p != &szFilePath[0] ) p--;
-    		WBUG("p %s", p);
-		if (  *p == '\\' || *p == '/'  ) *p = 0;
-    		WBUG("Current %s", szFilePath);
-		if( !SetCurrentDirectory(szFilePath))
-		{
-			WLOG(ERR, "SetCurrentDirectory failed (%d)\n", GetLastError());
-		}	
 		ret = StartServiceCtrlDispatcher(st);
 		if ( !ret ) 
 		{
 			WLOG_OSERR("StartServiceCtrlDispatcher");
 		}
 		WBUG("Returned %d from StartServiceCtrlDispatcher()", ret);
-		//printf("last %08x\n", GetLastError());
 		break;
 	
 	case Notitia::IGNITE_ALL_READY:
@@ -191,10 +211,11 @@ void NTSvc::my_main(DWORD dwArgc, LPTSTR* lpszArgv)
 	void *ps[3];
 	Amor::Pius para;
 	para.ordo = Notitia::MAIN_PARA;
-	WBUG("para %d ", dwArgc);
+
+	WBUG("%s has parameters %d ", service_name, dwArgc);
 	for ( unsigned int i = 0 ; i < dwArgc ; i++)
 	{
-		WBUG("%s ", lpszArgv[i]);
+		WBUG("para[%d] %s ", i, lpszArgv[i]);
 	}
 	ps[0] = &dwArgc;
 	ps[1] = lpszArgv;
@@ -290,7 +311,7 @@ bool NTSvc::initialize()
         return FALSE;    
     }
     
-    //logEvent(EVENTLOG_INFORMATION_TYPE, EVMSG_STARTED);
+	logEvent(EVENTLOG_INFORMATION_TYPE, EVMSG_STARTED, service_name, " started.");
 	WLOG(INFO, "service %s started", service_name); 
     setStatus(SERVICE_RUNNING);
     return TRUE;
@@ -314,7 +335,7 @@ void NTSvc::my_handle(DWORD dwOpcode)
         setStatus(SERVICE_STOP_PENDING);
         OnStop();
         m_bIsRunning = FALSE;
-        //logEvent(EVENTLOG_INFORMATION_TYPE, EVMSG_STOPPED);
+        logEvent(EVENTLOG_INFORMATION_TYPE, EVMSG_STOPPED, service_name, " stopped.");
 	//WLOG(INFO, "service %s stopped", service_name);
         break;
 
@@ -562,7 +583,6 @@ bool NTSvc::isinstalled()
 bool NTSvc::install(const char *cfg)
 {
     // Open the Service Control Manager
-	DWORD szRet;
     SC_HANDLE hSCM = ::OpenSCManager(NULL, // local machine
                                      NULL, // ServicesActive database
                                      SC_MANAGER_ALL_ACCESS); // full access
@@ -570,12 +590,7 @@ bool NTSvc::install(const char *cfg)
 
     // Get the executable file path
     char szFilePath[_MAX_PATH];
-    char szBasePath[_MAX_PATH];
     ::GetModuleFileName(NULL, szFilePath, sizeof(szFilePath));
-//	::GetServiceDirectory(RegisterServiceCtrlHandler(service_name,handler), ServiceDirectoryPersistentState, (PWCHAR)&szBasePath[0], sizeof(szFilePath), &szRet);
-    //GetModuleBaseNameA(NULL, NULL,szBasePath, sizeof(szFilePath));
-//	printf("base %s\n", szBasePath);
-
     // Create the service
 	TEXTUS_STRCAT(szFilePath, " ");
 	TEXTUS_STRCAT(szFilePath, cfg);
@@ -584,7 +599,7 @@ bool NTSvc::install(const char *cfg)
                                          service_name,
                                          SERVICE_ALL_ACCESS,
                                          SERVICE_WIN32_OWN_PROCESS,
-                                         SERVICE_DEMAND_START,        // start condition
+                                         SERVICE_AUTO_START,        // start condition
                                          SERVICE_ERROR_NORMAL,
                                          szFilePath,
                                          NULL,
