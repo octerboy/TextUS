@@ -43,7 +43,6 @@ public:
 	char service_name[2048];
 	Amor *sch;
 	Amor::Pius tmp_ps;
-
 	void logEvent(WORD wType, DWORD dwID, const char* pszS1 = NULL,const char* pszS2 = NULL,const char* pszS3 = NULL);
 	void setStatus(DWORD dwState);
 	bool initialize();
@@ -65,6 +64,8 @@ public:
 	SERVICE_STATUS_HANDLE m_hServiceStatus;
 	SERVICE_STATUS m_Status;
 	int argOffset;
+	char appPath[_MAX_PATH];
+	char event_file[_MAX_PATH];
 
 	bool m_bIsRunning;
 	void my_handle(DWORD dwOpcode);
@@ -85,18 +86,7 @@ public:
 #define EVMSG_BADREQUEST                 0x0000006AL
 #define EVMSG_DEBUG                      0x0000006BL
 #define EVMSG_STOPPED                    0x0000006CL
-
-/*
-#define EVMSG_INSTALLED                  1006
-#define EVMSG_REMOVED                    1002
-#define EVMSG_NOTREMOVED                 1003
-#define EVMSG_CTRLHANDLERNOTINSTALLED    1004
-#define EVMSG_FAILEDINIT                 1005
-#define EVMSG_STARTED                    1001
-#define EVMSG_BADREQUEST                 1007
-#define EVMSG_DEBUG                      1008
-#define EVMSG_STOPPED                    1009
-*/
+#define NTS_HANDLER_FAILED		0x0000006DL
 
 // static member functions
 static void WINAPI serviceMain(DWORD dwArgc, LPTSTR* lpszArgv);
@@ -106,29 +96,39 @@ NTSvc *NTSvc::here_svc = (NTSvc*)0;
 void NTSvc::ignite(TiXmlElement *cfg) { 
 	const char *comm_str;
 	char *p;
-	char szFilePath[_MAX_PATH], errmsg[64];
+	char errmsg[64];
 
 	if ( !cfg )
 		return;
 	if ( (comm_str = cfg->Attribute("service_name")) )
 		TEXTUS_STRNCPY( service_name, comm_str, sizeof(service_name)-1);
 
+	if ( (comm_str = cfg->Attribute("event_file")) )
+		TEXTUS_STRNCPY(event_file , comm_str, sizeof(event_file)-1);
+	else
+		TEXTUS_STRNCPY(event_file , "tusEvent.dll", sizeof(event_file)-1);
+
 	if ( (comm_str = cfg->Attribute("offset")) )
 		argOffset = atoi(comm_str);
 	if ( argOffset < 1 ) 
 		argOffset =1;
 
-	TEXTUS_STRCPY(szFilePath, cfg->GetDocument()->Value());
+	TEXTUS_STRCPY(appPath, cfg->GetDocument()->Value());
 
-	p = &szFilePath[strlen(szFilePath)-1];
-	while ( *p != '\\' && *p != '/'  && p != &szFilePath[0] ) p--;
+	p = &appPath[strlen(appPath)-1];
+	while ( *p != '\\' && *p != '/'  && p != &appPath[0] ) p--;
 	if (  *p == '\\' || *p == '/'  ) *p = 0;
-    	if (strlen(szFilePath) > 0 ) {
-		if( !SetCurrentDirectory(szFilePath))
+    	if (strlen(appPath) > 0 ) {
+		if( !SetCurrentDirectory(appPath))
 		{
 			TEXTUS_SPRINTF(errmsg, "SetCurrentDirectory failed (%d)", GetLastError());
 			logEvent(EVENTLOG_ERROR_TYPE, EVMSG_FAILEDINIT, errmsg);
 		}
+	} else {
+    		::GetModuleFileName(NULL, appPath, sizeof(appPath));
+		p = &appPath[strlen(appPath)-1];
+		while ( *p != '\\' && *p != '/'  && p != &appPath[0] ) p--;
+		if (  *p == '\\' || *p == '/'  ) *p = 0;
 	}
 }
 
@@ -226,7 +226,7 @@ void NTSvc::my_main(DWORD dwArgc, LPTSTR* lpszArgv)
     m_Status.dwCurrentState = SERVICE_START_PENDING;
     m_hServiceStatus = RegisterServiceCtrlHandler(service_name,handler);
 	if (m_hServiceStatus == NULL) {
-        //logEvent(EVENTLOG_ERROR_TYPE, NTS_HANDLER_FAILED);
+		logEvent(EVENTLOG_ERROR_TYPE, NTS_HANDLER_FAILED);
 		WLOG_OSERR("RegisterServiceCtrlHandler failed");
 		return;
 	}
@@ -257,6 +257,7 @@ void NTSvc::logEvent(WORD wType, DWORD dwID,
                           const char* pszS2,
                           const char* pszS3)
 {
+#ifdef USE_LOG_EVENT
     const char* ps[3];
     ps[0] = pszS1;
     ps[1] = pszS2;
@@ -285,6 +286,7 @@ void NTSvc::logEvent(WORD wType, DWORD dwID,
                       ps,
                       NULL);
     }
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -305,9 +307,9 @@ bool NTSvc::initialize()
     m_Status.dwCheckPoint = 0;
     m_Status.dwWaitHint = 0;
     if (!bResult) {
-        //logEvent(EVENTLOG_ERROR_TYPE, EVMSG_FAILEDINIT);
+		logEvent(EVENTLOG_ERROR_TYPE, EVMSG_FAILEDINIT);
 		WLOG_OSERR("service init failed")
-        setStatus(SERVICE_STOPPED);
+		setStatus(SERVICE_STOPPED);
         return FALSE;    
     }
     
@@ -535,10 +537,10 @@ bool NTSvc::parseStandardArgs(int argc, char* argv[])
             // Try and remove the copy that's installed
             if (uninstall()) {
                 // Get the executable file path
-                char szFilePath[_MAX_PATH];
-                ::GetModuleFileName(NULL, szFilePath, sizeof(szFilePath));
+                char filePath[_MAX_PATH];
+                ::GetModuleFileName(NULL, filePath, sizeof(filePath));
                 printf("%s removed. (You must delete the file (%s) yourself.)\n",
-                       service_name, szFilePath);
+                       service_name, filePath);
             } else {
                 printf("Could not remove %s. Error %d\n", service_name, GetLastError());
             }
@@ -583,17 +585,18 @@ bool NTSvc::isinstalled()
 bool NTSvc::install(const char *cfg)
 {
     // Open the Service Control Manager
+	char filePath[_MAX_PATH];
     SC_HANDLE hSCM = ::OpenSCManager(NULL, // local machine
                                      NULL, // ServicesActive database
                                      SC_MANAGER_ALL_ACCESS); // full access
     if (!hSCM) return FALSE;
 
     // Get the executable file path
-    char szFilePath[_MAX_PATH];
-    ::GetModuleFileName(NULL, szFilePath, sizeof(szFilePath));
     // Create the service
-	TEXTUS_STRCAT(szFilePath, " ");
-	TEXTUS_STRCAT(szFilePath, cfg);
+    ::GetModuleFileName(NULL, filePath, sizeof(filePath));
+    // Create the service
+	TEXTUS_STRCAT(filePath, " ");
+	TEXTUS_STRCAT(filePath, cfg);
     SC_HANDLE hService = ::CreateService(hSCM,
                                          service_name,
                                          service_name,
@@ -601,7 +604,7 @@ bool NTSvc::install(const char *cfg)
                                          SERVICE_WIN32_OWN_PROCESS,
                                          SERVICE_AUTO_START,        // start condition
                                          SERVICE_ERROR_NORMAL,
-                                         szFilePath,
+                                         filePath,
                                          NULL,
                                          NULL,
                                          NULL,
@@ -612,6 +615,7 @@ bool NTSvc::install(const char *cfg)
         return FALSE;
     }
 
+#ifdef USE_LOG_EVENT
     // make registry entries to support logging messages
     // Add the source name as a subkey under the Application
     // key in the EventLog service portion of the registry.
@@ -626,12 +630,15 @@ bool NTSvc::install(const char *cfg)
     }
 
     // Add the Event ID message-file name to the 'EventMessageFile' subkey.
+	TEXTUS_STRCPY(filePath, appPath);
+	TEXTUS_STRCAT(filePath, " ");
+	TEXTUS_STRCAT(filePath, event_file);
     ::RegSetValueEx(hKey,
                     "EventMessageFile",
                     0,
                     REG_EXPAND_SZ, 
-                    (CONST BYTE*)szFilePath,
-                    (DWORD)strlen(szFilePath) + 1);     
+                    (CONST BYTE*)filePath,
+                    (DWORD)strlen(filePath) + 1);     
 
     // Set the supported types flags.
     DWORD dwData = EVENTLOG_ERROR_TYPE | EVENTLOG_WARNING_TYPE | EVENTLOG_INFORMATION_TYPE;
@@ -644,7 +651,7 @@ bool NTSvc::install(const char *cfg)
     ::RegCloseKey(hKey);
 
     logEvent(EVENTLOG_INFORMATION_TYPE, EVMSG_INSTALLED, service_name);
-
+#endif
     // tidy up
     ::CloseServiceHandle(hService);
     ::CloseServiceHandle(hSCM);
