@@ -27,6 +27,19 @@
 #include <assert.h>
 #pragma comment(lib,"advapi32.lib")
 
+void error_pro(const char* msg)
+{
+    char errstr[1024], dispstr[2048];
+    DWORD dw = GetLastError();
+
+    FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, dw,
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        errstr, 1024, NULL);
+
+    wsprintf(dispstr, "%s with error %d: %s", (char*)msg, dw, errstr);
+    MessageBox(NULL, (const char*)dispstr, TEXT("Error"), MB_OK);
+}
+
 class NTSvc :public Amor
 {
 public:
@@ -71,7 +84,7 @@ public:
 	void my_handle(DWORD dwOpcode);
 	void my_main(DWORD dwArgc, LPTSTR* lpszArgv);
 
-	bool parseStandardArgs(int argc, char* argv[]);
+	bool parseStandardArgs(int argc, char* argv[],char*);
 	bool uninstall();
 	bool install(const char *cfg);
 	bool isinstalled();
@@ -136,17 +149,21 @@ bool NTSvc::facio( Amor::Pius *pius)
 {
 	void **ps;
 	BOOL ret;
+    char disp[1024];
 	SERVICE_TABLE_ENTRY st[] = {
 		{service_name, serviceMain},
 		{NULL, NULL}
 	};
 	assert(pius);
-	switch ( pius->ordo )
-	{
-	case Notitia::MAIN_PARA:	/* 在整个系统中, 这应是最后被通知到的。 */
-		WBUG("facio Notitia::MAIN_PARA");
-		ps = (void**)pius->indic;
-		if (parseStandardArgs( (*(int *)ps[0]) - argOffset, &((char**)ps[1])[argOffset]) ) break;
+    switch (pius->ordo)
+    {
+    case Notitia::MAIN_PARA:	/* 在整个系统中, 这应是最后被通知到的。 */
+        WBUG("facio Notitia::MAIN_PARA");
+        ps = (void**)pius->indic;
+        if (parseStandardArgs((*(int*)ps[0]) - argOffset, &((char**)ps[1])[argOffset],disp)) {
+                MessageBox(NULL, (const char*)disp, TEXT("Info"), MB_OK);
+               break;
+        }
 		goto SRV_START;
 
 	case Notitia::WINMAIN_PARA:	/* 在整个系统中, 这应是最后被通知到的。 */
@@ -499,17 +516,18 @@ void NTSvc::setStatus(DWORD dwState)
 
 // Returns TRUE if it found an arg it recognised, FALSE if not
 // Note: processing some arguments causes output to stdout to be generated.
-bool NTSvc::parseStandardArgs(int argc, char* argv[])
+bool NTSvc::parseStandardArgs(int argc, char* argv[], char *disp)
 {
     // See if we have any command line args we recognise
+
     if (argc <= 1) return FALSE;
 
     if (_stricmp(argv[1], "-v") == 0) {
 
         // Spit out version info
-        printf("%s %s Version %d.%d\n", argv[0],
+        TEXTUS_SPRINTF(disp,1024,"%s %s Version %d.%d\n", argv[0],
                service_name, m_iMajorVersion, m_iMinorVersion);
-        printf("The service is %s installed\n",
+        TEXTUS_SPRINTF(disp, 1024, "The service is %s installed\n",
                isinstalled() ? "currently" : "not");
         return TRUE; // say we processed the argument
 
@@ -517,13 +535,13 @@ bool NTSvc::parseStandardArgs(int argc, char* argv[])
 
         // Request to install.
         if (isinstalled()) {
-            printf("%s is already installed\n", service_name);
+            TEXTUS_SPRINTF(disp, 1024, "%s is already installed\n", service_name);
         } else {
             // Try and install the copy that's running
             if (install(argv[0])) {
-                printf("%s installed successfully!\n", service_name);
+                TEXTUS_SPRINTF(disp, 1024, "%s installed successfully!\n", service_name);
             } else {
-                printf("%s failed to install. Error %d\n", service_name, GetLastError());
+                TEXTUS_SPRINTF(disp, 1024, "%s failed to install. Error %d\n", service_name, GetLastError());
             }
         }
         return TRUE; // say we processed the argument
@@ -532,17 +550,17 @@ bool NTSvc::parseStandardArgs(int argc, char* argv[])
 
         // Request to uninstall.
         if (!isinstalled()) {
-            printf("%s is not installed\n", service_name);
+            TEXTUS_SPRINTF(disp, 1024, "%s is not installed\n", service_name);
         } else {
             // Try and remove the copy that's installed
             if (uninstall()) {
                 // Get the executable file path
                 char filePath[_MAX_PATH];
                 ::GetModuleFileName(NULL, filePath, sizeof(filePath));
-                printf("%s removed. (You must delete the file (%s) yourself.)\n",
+                TEXTUS_SPRINTF(disp, 1024, "%s removed. (You must delete the file (%s) yourself.)\n",
                        service_name, filePath);
             } else {
-                printf("Could not remove %s. Error %d\n", service_name, GetLastError());
+                TEXTUS_SPRINTF(disp, 1024, "Could not remove %s. Error %d\n", service_name, GetLastError());
             }
         }
         return TRUE; // say we processed the argument
@@ -578,6 +596,9 @@ bool NTSvc::isinstalled()
 
         ::CloseServiceHandle(hSCM);
     }
+    else {
+        error_pro("OpenSCManager");
+    }
     
     return bResult;
 }
@@ -589,7 +610,9 @@ bool NTSvc::install(const char *cfg)
     SC_HANDLE hSCM = ::OpenSCManager(NULL, // local machine
                                      NULL, // ServicesActive database
                                      SC_MANAGER_ALL_ACCESS); // full access
-    if (!hSCM) return FALSE;
+    if (!hSCM) {
+        error_pro("OpenSCManager");  return FALSE;
+    }
 
     // Get the executable file path
     // Create the service
@@ -611,6 +634,7 @@ bool NTSvc::install(const char *cfg)
                                          NULL,
                                          NULL);
     if (!hService) {
+        error_pro("CreateService");  
         ::CloseServiceHandle(hSCM);
         return FALSE;
     }
@@ -664,7 +688,10 @@ bool NTSvc::uninstall()
     SC_HANDLE hSCM = ::OpenSCManager(NULL, // local machine
                                      NULL, // ServicesActive database
                                      SC_MANAGER_ALL_ACCESS); // full access
-    if (!hSCM) return FALSE;
+    if (!hSCM) { 
+        error_pro("OpenSCManager");
+        return FALSE;
+    }
 
     bool bResult = FALSE;
     SC_HANDLE hService = ::OpenService(hSCM,
@@ -679,7 +706,10 @@ bool NTSvc::uninstall()
         }
         ::CloseServiceHandle(hService);
     }
-    
+    else {
+        error_pro("DeleteService");
+    }
+
     ::CloseServiceHandle(hSCM);
     return bResult;
 }
