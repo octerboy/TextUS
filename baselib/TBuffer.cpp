@@ -84,7 +84,7 @@ TBuffer::~TBuffer()
 		delete[] base;
 }
 
-TBINLINE void TBuffer::expand(unsigned TEXTUS_LONG extraSize)	//根据point扩充extraSize
+void TBuffer::expand(unsigned TEXTUS_LONG extraSize)	//根据point扩充extraSize
 {
 	unsigned TEXTUS_LONG newSize, size, n, len;
 

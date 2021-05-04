@@ -34,7 +34,6 @@
 #ifndef TBUFFER__H
 #define TBUFFER__H
 #define DEFAULT_TBUFFER_SIZE     4096
-#define TBINLINE  inline
 #include <string.h>
 
 class TEXTUS_AMOR_STORAGE TBuffer
@@ -69,6 +68,6 @@ public:
 	static void pour(TBuffer &dst, TBuffer &src); /* 将src中的数据倒入到dst中 */
 	static void pour(TBuffer &dst, TBuffer &src, unsigned TEXTUS_LONG n); /* 将src中的n字节数据倒入到dst中 */
 private:
-	TBINLINE void expand(unsigned TEXTUS_LONG extraSize);
+	void expand(unsigned TEXTUS_LONG extraSize);
 };
 #endif
