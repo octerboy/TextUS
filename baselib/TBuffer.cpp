@@ -10,11 +10,11 @@
 /**
  Title: 	TBuffer
  Build: created by octerboy, 2005/06/10
- $Id$
+ $Id: baselib/TBuffer.cpp 2021-04-27 07:28:18 +0000  octerboy $
 */
 
-#define TEXTUS_MODTIME  "$Date$"
-#define TEXTUS_BUILDNO  "$Revision$"
+#define TEXTUS_MODTIME  "$Date:   2021-04-27 07:28:18 +0000 $"
+#define TEXTUS_BUILDNO  "$Revision:        5 $"
 #include "hook.h"
 
 #if defined(_WIN32) 
