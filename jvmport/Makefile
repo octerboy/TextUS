@@ -19,52 +19,52 @@ JvmPort.o: JvmPort.cpp
 	${CC} ${CFLAGS} $(INCLUDE_DIR) -I../unipac/include $(DEBUG_FLAG) -DAMOR_CLS_TYPE=JvmPort -o $@ $^
 
 jvmport.so: JvmPort.o 
-	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase -L$(JDK_HOME)/jre/lib/server -ljvm
+	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase -L$(JDK_HOME)/lib/server -ljvm
 	$(_POST_RPO_SUB)
 
 libjvmport.dylib: JvmPort.o 
-	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase -L$(JDK_HOME)/jre/lib/server -ljvm
+	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase -L$(JDK_HOME)/lib/server -ljvm
 	$(_POST_RPO_SUB)
 
 $(PACDIR)/Amor.class:Amor.java
+	${JH} ./ $^
 	${JC} ${JCFLAGS} $^
 	mv Amor.class $(PACDIR)
-	${JH} $(PACPATH)Amor
 	${JAR} cvf jvmport.jar textor
 	cp jvmport.jar $(RELEASE_DIR)
 
 $(PACDIR)/Pius.class:Pius.java
+	${JH} ./ $^
 	${JC} ${JCFLAGS} $^
 	mv Pius.class $(PACDIR)
-	${JH} $(PACPATH)Pius
 	${JAR} cvf jvmport.jar textor
 	cp jvmport.jar $(RELEASE_DIR)
 
 $(PACDIR)/TBuffer.class:TBuffer.java
+	${JH} ./ $^
 	${JC} ${JCFLAGS} $^
 	mv TBuffer.class $(PACDIR)
-	${JH} $(PACPATH)TBuffer
 	${JAR} cvf jvmport.jar textor
 	cp jvmport.jar $(RELEASE_DIR)
 
 $(PACDIR)/PacketData.class:PacketData.java
+	${JH} ./ $^
 	${JC} ${JCFLAGS} $^
 	mv PacketData.class $(PACDIR)
-	${JH} $(PACPATH)PacketData
 	${JAR} cvf jvmport.jar textor
 	cp jvmport.jar $(RELEASE_DIR)
 
 $(PACDIR)/TiXML.class: TiXML.java
+	${JH} ./ $^
 	${JC} ${JCFLAGS} $^
 	mv TiXML.class $(PACDIR)
-	${JH} $(PACPATH)TiXML
 	${JAR} cvf jvmport.jar textor
 	cp jvmport.jar $(RELEASE_DIR)
 
 $(PACDIR)/DBFace.class: DBFace.java
+	${JH} ./ $^
 	${JC} ${JCFLAGS} $^
 	mv DBFace*.class $(PACDIR)
-	${JH} $(PACPATH)DBFace
 	${JAR} cvf jvmport.jar textor
 	cp jvmport.jar $(RELEASE_DIR)
 
