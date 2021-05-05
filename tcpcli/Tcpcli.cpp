@@ -364,7 +364,7 @@ bool Tcpcli::annecto_done()
 #ifndef NDEBUG
 	if ( ret )
 	{
-		if ( errMsg ) TEXTUS_SNPRINTF(errMsg, 512, "annecto_done success for %s:%d, fd:" TLONG_FMTu, server_ip, server_port, (connfd));
+		if ( errMsg ) TEXTUS_SNPRINTF(errMsg, 512, "annecto_done success for %s:%d, fd:" TSOCKET_FMT, server_ip, server_port, (connfd));
 	}
 #endif
 
