@@ -11,7 +11,7 @@ TCrypt.o: TCrypt.cpp
 	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=TCrypt -o $@ TCrypt.cpp
 	
 tcrypt.so: TCrypt.o
-	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lcrypto -lbase
+	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) $(CRYPTO_LIB) -lbase
 	$(_POST_RPO_SUB)
 
 clean:

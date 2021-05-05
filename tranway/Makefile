@@ -11,7 +11,7 @@ TranWay.o: TranWay.cpp
 	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=TranWay -o $@ TranWay.cpp
 	
 tranway.so: TranWay.o
-	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lcrypto -lbase
+	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS)  $(CRYPTO_LIB)  -lbase
 	$(_POST_RPO_SUB)
 
 clean:

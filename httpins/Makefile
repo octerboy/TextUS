@@ -14,7 +14,7 @@ HttpIns.o:HttpIns.cpp
 	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG)  -DAMOR_CLS_TYPE=HttpIns -o $@ $^ 
 	
 httpins.so: HttpIns.o DeHead.o
-	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lcrypto -lbase
+	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS)  $(CRYPTO_LIB)  -lbase
 	$(_POST_RPO_SUB)
 
 clean:
