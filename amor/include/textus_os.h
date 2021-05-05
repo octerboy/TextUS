@@ -4,14 +4,20 @@
 #define TLONG_FMT "%ld"
 #define TLONG_FMTx "%lx"
 #define TLONG_FMTu "%lu"
+#define TSOCKET_FMT "%d"
 #if defined(__LP64__)
 // LP64 machine, OS X or Linux
 #define TEXTUS_LONG long
 #define TEXTUS_PLATFORM_64 1
+
 #elif defined( _MSC_VER ) && (  defined(_M_X64)  ||  defined(_WIN64))
 // msvc 64 
 #define TEXTUS_LONG __int64
 #define TEXTUS_PLATFORM_64 1
+
+#undef  TSOCKET_FMT 
+#define TSOCKET_FMT "%I64u"
+
 #undef  TLONG_FMT
 #define TLONG_FMT "%I64d"
 #undef  TLONG_FMTx
