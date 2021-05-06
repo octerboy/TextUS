@@ -24,4 +24,4 @@ _POST_RPO_SUB = cp $@ $(RELEASE_DIR)
 #JDK_HOME=/usr/java/
 JDK_HOME=//opt/jdk1.8.0_271
 JDK_INC_JNI=$(JDK_HOME)/include/solaris
-PYTHON_HOME=/
+PYTHON_HOME=/usr
