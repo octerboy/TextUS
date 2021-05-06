@@ -59,17 +59,17 @@ public:
 	Sched();
 private:
 	MY_FD_TYPE maxfd;
-	int timer_milli; /* ¶¨Ê±Æ÷ºÁÃëÊı */
-	int timer_usec;	/* ÂÖÑ¯¼ä¸ôÎ¢ÃëÊı */
-	int timer_sec;	/* ÂÖÑ¯¼ä¸ôÃëÊı */
+	int timer_milli; /* å®šæ—¶å™¨æ¯«ç§’æ•° */
+	int timer_usec;	/* è½®è¯¢é—´éš”å¾®ç§’æ•° */
+	int timer_sec;	/* è½®è¯¢é—´éš”ç§’æ•° */
 
 	struct Tor_Pool {
 		Amor::Pius wpius;
 		Describo::Criptor wtor;
-		int  top; /* ¶ÑÕ»¶¥ */
-		int  house[TOR_SIZE]; /* Ì×½Ó×Ö±»Çåºó, poolÖĞ±»ÖÃ"¿Õ"µÄË÷Òı, ÕâÊÇÒ»¸ö¶ÑÕ». */
-		int cur;		/* Ö¸Ê¾Æä×î´óË÷ÒıÖµ, ÔÚÕâÖ®ºó, ÆäCriptorÎª¿Õ */
-		Describo::Criptor *pool[TOR_SIZE];	/* ±£´æ±»ÖÃsetµÄÃèÊö·û,Êı×é³ß´çÎªFD_SETSIZE */
+		int  top; /* å †æ ˆé¡¶ */
+		int  house[TOR_SIZE]; /* å¥—æ¥å­—è¢«æ¸…å, poolä¸­è¢«ç½®"ç©º"çš„ç´¢å¼•, è¿™æ˜¯ä¸€ä¸ªå †æ ˆ. */
+		int cur;		/* æŒ‡ç¤ºå…¶æœ€å¤§ç´¢å¼•å€¼, åœ¨è¿™ä¹‹å, å…¶Criptorä¸ºç©º */
+		Describo::Criptor *pool[TOR_SIZE];	/* ä¿å­˜è¢«ç½®setçš„æè¿°ç¬¦,æ•°ç»„å°ºå¯¸ä¸ºFD_SETSIZE */
 
 		fd_set rwSet;
 
@@ -92,12 +92,12 @@ private:
 	struct Tor_Pool ex_tors;
 
 	struct Timer_info {
-		Amor *pupa;	/* ÒªÇó¸øÓèTIMER/ALARMĞÅºÅµÄ¶ÔÏóÖ¸Õë */
-		struct timeb since;	/* ÉèÖÃÊ±¼ä */
-		unsigned int interval;/* Ê±¼ä¼ä¸ô,ºÁÃëÊı */
-		int status;	/* 	0: Ã¿¸öÊ±¼äÆ¬Í¨Öª(sinceºÍinterval¾ÍÓÃ×ÅÁË), 
-					1: Òª³¬Ê±Í¨Öª, Ö»Í¨¶ÌÒ»´Î
-					2: ÒÑ¾­³¬Ê±Í¨Öª¹ıÁË, ÒÔºó²»»áÔÙÍ¨Öª, Èç¹ûÊ¹ÓÃÕßÇå³ıÔòÒ»Ö±Õ¼×Å¿Õ¼ä
+		Amor *pupa;	/* è¦æ±‚ç»™äºˆTIMER/ALARMä¿¡å·çš„å¯¹è±¡æŒ‡é’ˆ */
+		struct timeb since;	/* è®¾ç½®æ—¶é—´ */
+		unsigned int interval;/* æ—¶é—´é—´éš”,æ¯«ç§’æ•° */
+		int status;	/* 	0: æ¯ä¸ªæ—¶é—´ç‰‡é€šçŸ¥(sinceå’Œintervalå°±ç”¨ç€äº†), 
+					1: è¦è¶…æ—¶é€šçŸ¥, åªé€šçŸ­ä¸€æ¬¡
+					2: å·²ç»è¶…æ—¶é€šçŸ¥è¿‡äº†, ä»¥åä¸ä¼šå†é€šçŸ¥, å¦‚æœä½¿ç”¨è€…æ¸…é™¤åˆ™ä¸€ç›´å ç€ç©ºé—´
 				*/
 		void clear ()
 		{
@@ -114,13 +114,13 @@ private:
 			clear();
 		}
 	};	
-	Timer_info *timer_infor;/* ÒªÇó¸øÓè¶¨Ê±ĞÅºÅµÄÊı×é, ÒÔ¿ÕÖ¸ÕëÎª½áÊø±êÖ¾ */
-	int infor_size;		/* timer_infor³ß´ç */
+	Timer_info *timer_infor;/* è¦æ±‚ç»™äºˆå®šæ—¶ä¿¡å·çš„æ•°ç»„, ä»¥ç©ºæŒ‡é’ˆä¸ºç»“æŸæ ‡å¿— */
+	int infor_size;		/* timer_inforå°ºå¯¸ */
 	
 	void run();
-	void sort();		//ÕûÀí
+	void sort();		//æ•´ç†
 	bool shouldEnd;
-	struct Describo::Pendor *pendors;	//ÑÓºóµ÷ÓÃµÄÊı×é£»
+	struct Describo::Pendor *pendors;	//å»¶åè°ƒç”¨çš„æ•°ç»„ï¼›
 	int pendor_size;
 	MY_FD_TYPE pendor_top;
 	void run_pendors();
@@ -156,7 +156,7 @@ void Sched::ignite(TiXmlElement *cfg)
 #endif 
 	timer_milli = DEFAULT_TIMER_MILLI;
 	if( (timer_str = cfg->Attribute("timer")) && atoi(timer_str) > 1 )
-		timer_milli = atoi(timer_str); //time_strÎªºÁÃëÊı
+		timer_milli = atoi(timer_str); //time_strä¸ºæ¯«ç§’æ•°
 
 	timer_sec = timer_milli/1000;
 	timer_usec = (timer_milli % 1000) * 1000;
@@ -177,7 +177,7 @@ bool Sched::sponte( Amor::Pius *apius)
 
 	switch ( apius->ordo )
 	{
-	case Notitia::FD_SETRD :	/* ÖÃ¶Á */
+	case Notitia::FD_SETRD :	/* ç½®è¯» */
 		tor = (Describo::Criptor *)(apius->indic);	
 		assert(tor);
 		WBUG("%p %s " TSOCKET_FMT, tor->pupa, "sponte FD_SETRD", tor->scanfd);
@@ -189,7 +189,7 @@ bool Sched::sponte( Amor::Pius *apius)
 			WLOG(CRIT, "FD_SETRD to max %d", TOR_SIZE);
 		break;
 
-	case Notitia::FD_SETWR :	/* ÖÃĞ´ */
+	case Notitia::FD_SETWR :	/* ç½®å†™ */
 		tor = (Describo::Criptor *)(apius->indic);	
 		assert(tor);
 		WBUG("%p %s " TSOCKET_FMT, tor->pupa, "sponte FD_SETWR", tor->scanfd);
@@ -211,14 +211,14 @@ bool Sched::sponte( Amor::Pius *apius)
 			WLOG(CRIT, "FD_SETEX to max %d", TOR_SIZE);
 		break;
 
-	case Notitia::FD_CLRRD :	/* Çå¿É¶Á */
+	case Notitia::FD_CLRRD :	/* æ¸…å¯è¯» */
 		tor = (Describo::Criptor *)(apius->indic);	
 		assert(tor);
 		WBUG("%p %s " TSOCKET_FMT, tor->pupa, "sponte FD_CLRRD", tor->scanfd);
 		rd_tors.clear(tor, &(tor->rd_index));
 		break;
 
-	case Notitia::FD_CLRWR :	/* Çå¿ÉĞ´ */
+	case Notitia::FD_CLRWR :	/* æ¸…å¯å†™ */
 		tor = (Describo::Criptor *)(apius->indic);	
 		assert(tor);
 		WBUG("%p %s " TSOCKET_FMT, tor->pupa, "sponte FD_CLRWR", tor->scanfd);
@@ -232,8 +232,8 @@ bool Sched::sponte( Amor::Pius *apius)
 		ex_tors.clear(tor, &(tor->ex_index));
 		break;
 
-	case Notitia::DMD_SET_TIMER :	/* ÖÃÊ±¼äÆ¬Í¨Öª¶ÔÏó */
-	case Notitia::DMD_SET_ALARM :	/* ÖÃ³¬Ê±Í¨Öª¶ÔÏó */
+	case Notitia::DMD_SET_TIMER :	/* ç½®æ—¶é—´ç‰‡é€šçŸ¥å¯¹è±¡ */
+	case Notitia::DMD_SET_ALARM :	/* ç½®è¶…æ—¶é€šçŸ¥å¯¹è±¡ */
 		switch ( apius->ordo )
 		{
 		case Notitia::DMD_SET_TIMER :	
@@ -266,12 +266,12 @@ bool Sched::sponte( Amor::Pius *apius)
 				break;
 		}
 
-		if ( i == infor_size ) 	/* ¿Õ¼ä²»¹»£¬À©ÕÅÖ® */
+		if ( i == infor_size ) 	/* ç©ºé—´ä¸å¤Ÿï¼Œæ‰©å¼ ä¹‹ */
 		{	
 			struct Timer_info *tmp = timer_infor;
-			timer_infor = new struct Timer_info [infor_size*2];	/* ·ÖÅä2±¶µÄ¿Õ¼ä */
-			memcpy(timer_infor, tmp, sizeof(struct Timer_info) * infor_size);/* ±£´æ¾ÉµÄÊı¾İ */
-			infor_size = infor_size*2;	/* ³ß´çÖµ¼Ó±¶ */
+			timer_infor = new struct Timer_info [infor_size*2];	/* åˆ†é…2å€çš„ç©ºé—´ */
+			memcpy(timer_infor, tmp, sizeof(struct Timer_info) * infor_size);/* ä¿å­˜æ—§çš„æ•°æ® */
+			infor_size = infor_size*2;	/* å°ºå¯¸å€¼åŠ å€ */
 		}
 
 		timer_infor[i].pupa = ask_pu;
@@ -282,14 +282,14 @@ bool Sched::sponte( Amor::Pius *apius)
 		ask_pu->facio(&tm_hd_ps);
 		break;
 
-	case Notitia::DMD_CLR_TIMER :	/* Çå¶¨Ê±Í¨Öª¶ÔÏó */
+	case Notitia::DMD_CLR_TIMER :	/* æ¸…å®šæ—¶é€šçŸ¥å¯¹è±¡ */
 		WBUG("%p sponte DMD_CLR_TIMER", apius->indic);
 		if ( apius->indic == 0  ) break;
 		for( i = 0 ;i < infor_size; i++)
 		{
 			MY_FD_TYPE j;
 			if ( timer_infor[i].pupa != (Amor*)(apius->indic) ) continue;
-			for ( j = i; j < infor_size-1; j++) /* ÁôÏÂÒ»¸ö¿ÕÎ»ÖÃ, Ç°ÒÆ */
+			for ( j = i; j < infor_size-1; j++) /* ç•™ä¸‹ä¸€ä¸ªç©ºä½ç½®, å‰ç§» */
 			{
 				timer_infor[j].pupa =  timer_infor[j+1].pupa;
 				timer_infor[j].since =  timer_infor[j+1].since;
@@ -304,17 +304,17 @@ bool Sched::sponte( Amor::Pius *apius)
 		}
 		break;
 
-	case Notitia::CMD_MAIN_EXIT :	/* ÖÕÖ¹³ÌĞò */
+	case Notitia::CMD_MAIN_EXIT :	/* ç»ˆæ­¢ç¨‹åº */
 		WBUG("CMD_MAIN_EXIT");
 		shouldEnd = true;
 		break;
 
-	case Notitia::CMD_GET_SCHED:	/* È¡µÃ±¾¶ÔÏóµØÖ· */
+	case Notitia::CMD_GET_SCHED:	/* å–å¾—æœ¬å¯¹è±¡åœ°å€ */
 		WBUG("CMD_GET_SCHED this = %p", this);
 		apius->indic = this;
 		break;
 
-	case Notitia::CMD_PUT_PENDOR:	/* ÉèÖÃĞèÒªµ÷¶ÈµÄ¶ÔÏó */
+	case Notitia::CMD_PUT_PENDOR:	/* è®¾ç½®éœ€è¦è°ƒåº¦çš„å¯¹è±¡ */
 #define POR ((struct Describo::Pendor*)apius->indic)
 		WBUG("CMD_PUT_PENDOR pupa=%p, dir=%d, from=%d, pius=%p", POR->pupa, POR->dir, POR->from, POR->pius);
 		for ( i = 0 ; i < pendor_size; i++ )
@@ -342,11 +342,11 @@ bool Sched::facio( Amor::Pius *pius)
 	assert(pius);
 	switch ( pius->ordo )
 	{
-	case Notitia::WINMAIN_PARA:	/* ÔÚÕû¸öÏµÍ³ÖĞ, ÕâÓ¦ÊÇ×îºó±»Í¨Öªµ½µÄ¡£ */
+	case Notitia::WINMAIN_PARA:	/* åœ¨æ•´ä¸ªç³»ç»Ÿä¸­, è¿™åº”æ˜¯æœ€åè¢«é€šçŸ¥åˆ°çš„ã€‚ */
 		WBUG("facio Notitia::WINMAIN_PARA");
 		goto MainPro;
 
-	case Notitia::MAIN_PARA:	/* ÔÚÕû¸öÏµÍ³ÖĞ, ÕâÓ¦ÊÇ×îºó±»Í¨Öªµ½µÄ¡£ */
+	case Notitia::MAIN_PARA:	/* åœ¨æ•´ä¸ªç³»ç»Ÿä¸­, è¿™åº”æ˜¯æœ€åè¢«é€šçŸ¥åˆ°çš„ã€‚ */
 		WBUG("facio Notitia::MAIN_PARA");
 MainPro:
 		run();
@@ -365,19 +365,19 @@ Amor* Sched::clone()
 
 MY_FD_TYPE Sched::Tor_Pool::setup (Describo::Criptor *tor, int *index)
 {
-	if ( *index >= 0 ) goto GIVE;	/* ²»ÅÂÖØ¸´ÉèÖÃ */
+	if ( *index >= 0 ) goto GIVE;	/* ä¸æ€•é‡å¤è®¾ç½® */
 	if ( top >=0 )
-	{	/* houseÖĞÖ¸Ê¾, poolÖĞÒÑÓĞ±»¿Õ³öÀ´µÄÎ»ÖÃ,ÕÒÕâ¸ö¿ÕÎ»ÖÃ¼´¿É */
+	{	/* houseä¸­æŒ‡ç¤º, poolä¸­å·²æœ‰è¢«ç©ºå‡ºæ¥çš„ä½ç½®,æ‰¾è¿™ä¸ªç©ºä½ç½®å³å¯ */
 		*index = house[top]; 
-		pool[house[top]] = tor; /* rd_house[rd_top]Îª¿ÕÎ»ÖÃË÷ÒıºÅ */
-		top--;	/* ÍËÕ» */
+		pool[house[top]] = tor; /* rd_house[rd_top]ä¸ºç©ºä½ç½®ç´¢å¼•å· */
+		top--;	/* é€€æ ˆ */
 
-	} else if (cur < TOR_SIZE) { 	/* ¿´À´Ç°ÃæµÄ¶¼ÂúÁË, ÅÅÒ»¸öĞÂÎ»ÖÃ */
+	} else if (cur < TOR_SIZE) { 	/* çœ‹æ¥å‰é¢çš„éƒ½æ»¡äº†, æ’ä¸€ä¸ªæ–°ä½ç½® */
 		*index =  cur;
 		pool[*index] = tor;
 		cur++;
 
-	} else 	/* ÏµÍ³´ïµ½×î´óÖµ, ·µ´í */
+	} else 	/* ç³»ç»Ÿè¾¾åˆ°æœ€å¤§å€¼, è¿”é”™ */
 		return -1;
 
 	FD_SET(tor->scanfd, &rwSet);
@@ -390,15 +390,15 @@ void Sched::Tor_Pool::clear (Describo::Criptor *tor, int *index)
 	FD_CLR(tor->scanfd, &rwSet);
 	if ( *index < 0 ) return;
 
-	pool[*index] = (Describo::Criptor *)0; /* ÌÚ³ö"¶Á"Î»ÖÃ */
-	if ( cur - *index == 1 ) /* ¸ÕºÃÊÇÔÚ×îºóµÄÄÇÒ»¸ö */
+	pool[*index] = (Describo::Criptor *)0; /* è…¾å‡º"è¯»"ä½ç½® */
+	if ( cur - *index == 1 ) /* åˆšå¥½æ˜¯åœ¨æœ€åçš„é‚£ä¸€ä¸ª */
 	{
 		cur--;
-	} else {	/* ÌÚ³öµÄÊÇÖĞ¼äµÄÎ»ÖÃ, ½«Ö®ÖÃÈë¶ÑÕ», ÒÔ±ã½«À´ÓÃ */
+	} else {	/* è…¾å‡ºçš„æ˜¯ä¸­é—´çš„ä½ç½®, å°†ä¹‹ç½®å…¥å †æ ˆ, ä»¥ä¾¿å°†æ¥ç”¨ */
 		top++;
 		house[top] = *index;
 	}
-	*index = -1;	/* ±ÜÃâÔÙ´Î²Ù×÷ */
+	*index = -1;	/* é¿å…å†æ¬¡æ“ä½œ */
 }
 
 void Sched::Tor_Pool::isset( fd_set* pset, Notitia::HERE_ORDO ordo, int& nready)
@@ -421,8 +421,8 @@ void Sched::Tor_Pool::isset( fd_set* pset, Notitia::HERE_ORDO ordo, int& nready)
 Sched::Sched()
 {
 	maxfd = -1;
-	timer_usec = 50*1000;	//Ä¬ÈÏ50ºÁÃë
-	timer_sec = 0;	//Ä¬ÈÏ50ºÁÃë
+	timer_usec = 50*1000;	//é»˜è®¤50æ¯«ç§’
+	timer_sec = 0;	//é»˜è®¤50æ¯«ç§’
 
 	infor_size = 64;
 	timer_infor = new struct Timer_info [infor_size];
@@ -458,7 +458,7 @@ void Sched::run_pendors()
 	}
 }
 
-/* ÕâÊÇÎ¨Ò»¸ö²»·µ»ØµÄº¯Êı  */
+/* è¿™æ˜¯å”¯ä¸€ä¸ªä¸è¿”å›çš„å‡½æ•°  */
 void Sched:: run()
 {
 bool should_click;
@@ -468,7 +468,7 @@ bool should_click;
 	fd_set eset;
 	struct timeval tv;	
 
-	int busy = 0 ;	//Ã¦¼ÆÊı, Ò»µ©ÓĞ¿Õ, ´ËÊı¸´Î»Îª0 
+	int busy = 0 ;	//å¿™è®¡æ•°, ä¸€æ—¦æœ‰ç©º, æ­¤æ•°å¤ä½ä¸º0 
 
 LOOP:
 	if ( pendor_top > -1 ) run_pendors();
@@ -490,7 +490,7 @@ LOOP:
 		nready = 0;
 	} else
 #endif
-	nready = select((maxfd+1), 	/* ¶ÔÓÚwin64, ÕâÃ´Ó²×ª»», ÓĞÃ»ÓĞÎÊÌâ£¿ÓĞÆäËüselectº¯Êı¿  */
+	nready = select((maxfd+1), 	/* å¯¹äºwin64, è¿™ä¹ˆç¡¬è½¬æ¢, æœ‰æ²¡æœ‰é—®é¢˜ï¼Ÿæœ‰å…¶å®ƒselectå‡½æ•°ï¿½  */
 		rd_tors.cur == 0 ? NULL: &rset,
 		wr_tors.cur == 0 ? NULL: &wset, 
 		ex_tors.cur == 0 ? NULL: &eset, &tv); 
@@ -498,16 +498,16 @@ LOOP:
 	if (nready > 0)
 	{
 		int nre = nready;
-		/* ÏÈÕÒ¿É¶ÁµÄ */
+		/* å…ˆæ‰¾å¯è¯»çš„ */
 		rd_tors.isset(&rset, Notitia::FD_PRORD, nready);	
-		/* ÔÙÕÒ¿ÉĞ´µÄ */
+		/* å†æ‰¾å¯å†™çš„ */
 		if ( nready > 0 ) wr_tors.isset(&wset, Notitia::FD_PROWR, nready);	
-		/* ÔÙÕÒÒì³£µÄ */
+		/* å†æ‰¾å¼‚å¸¸çš„ */
 		if ( nready > 0 ) ex_tors.isset(&eset, Notitia::FD_PROEX, nready);	
 
-		/* selectµÈ´ıÓÃÈ¥¶àÉÙÊ±¼ä, ºÁÃëÊı, ¼Æµ½busyÖĞ */
+		/* selectç­‰å¾…ç”¨å»å¤šå°‘æ—¶é—´, æ¯«ç§’æ•°, è®¡åˆ°busyä¸­ */
 		busy += timer_milli - tv.tv_sec*1000 - tv.tv_usec/1000 ;
-		/* ´¦Àí¸÷¸öÌ×½Ó×ÖÓÃÈ¥¶àÉÙÊ±¼ä, ºÁÃëÊı, 40ÊÇ¾­ÑéÖµ */
+		/* å¤„ç†å„ä¸ªå¥—æ¥å­—ç”¨å»å¤šå°‘æ—¶é—´, æ¯«ç§’æ•°, 40æ˜¯ç»éªŒå€¼ */
 		busy +=  (nre/40);
 		if ( busy > timer_milli) 
 		{
@@ -517,7 +517,7 @@ LOOP:
 	} else if ( nready == 0) {
 		should_click = true;
 		busy =0;
-	} else {	/* ·¢ÉúÁË´íÎó */
+	} else {	/* å‘ç”Ÿäº†é”™è¯¯ */
 	#if defined(_WIN32 )
 		char *s;
 		char errstr[1024];
@@ -549,7 +549,7 @@ LOOP:
 		FD_ZERO((&ex_tors.rwSet));
 	}
 
-	if ( should_click )/*  1:¶¨Ê±Æ÷´¥·¢, ±íÃ÷µ±Ç°ÏµÍ³±È½ÏÏĞ£¬2:Ã¦¹»Ò»¶¨ÊıÁË, ¹»Ê±¼äÁË */
+	if ( should_click )/*  1:å®šæ—¶å™¨è§¦å‘, è¡¨æ˜å½“å‰ç³»ç»Ÿæ¯”è¾ƒé—²ï¼Œ2:å¿™å¤Ÿä¸€å®šæ•°äº†, å¤Ÿæ—¶é—´äº† */
 		sort();
 
 	if ( !shouldEnd)
@@ -557,7 +557,7 @@ LOOP:
 }
 
 void Sched::sort()
-{	/* ÖØĞÂËãmaxfd, Êı×éÕûÀíÒÔÌá¸ßĞ§ÂÊ */
+{	/* é‡æ–°ç®—maxfd, æ•°ç»„æ•´ç†ä»¥æé«˜æ•ˆç‡ */
 	int i;
 	Amor::Pius timer_pius;
 	struct timeb now;
@@ -582,7 +582,7 @@ void Sched::sort()
 			if ( passed >= (TEXTUS_LONG) timer_infor[i].interval )
 			{
 				timer_infor[i].pupa->facio(&timer_pius);
-				timer_infor[i].status = 2; /* ³¬Ê±½ö×÷Ò»´ÎÍ¨Öª */
+				timer_infor[i].status = 2; /* è¶…æ—¶ä»…ä½œä¸€æ¬¡é€šçŸ¥ */
 			}
 			break;
 		case 3:
