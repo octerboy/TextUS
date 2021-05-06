@@ -21,4 +21,4 @@ _POST_RPO_SUB = cp $@ $(RELEASE_DIR)
 JDK_HOME=/etc/alternatives/java_sdk
 JDK_LIB=/etc/alternatives/java_sdk/lib/server
 JDK_INC_JNI=$(JDK_HOME)/include/linux
-PYTHON_HOME=/
+PYTHON_HOME=/usr
