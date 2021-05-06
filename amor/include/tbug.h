@@ -25,6 +25,7 @@
 		char msg[2048]; \
 		TEXTUS_SNPRINTF(msg, sizeof(msg)-1, __VA_ARGS__); \
 		TEXTUS_SNPRINTF(errMsg, sizeof(errMsg)-1, "%s(%d) %s", __FILE__, __LINE__, msg); \
+		printf("%s\n", errMsg); \
 		OutputDebugString(errMsg); \
 		}
 	#endif
