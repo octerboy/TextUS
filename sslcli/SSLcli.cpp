@@ -673,9 +673,7 @@ void SSLcli::outwbio(bool &has_ciph)
 #elif defined(__APPLE__)
 
 #else
-	int ret,how ;
 	int len;
-
 	bio_out_buf.grant(8192);
 	while ( (len = BIO_read(wbio, bio_out_buf.point, 8192)) > 0 ) 
 	{			
