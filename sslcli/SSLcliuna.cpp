@@ -216,23 +216,29 @@ bool SSLcliuna::facio( Amor::Pius *pius)
 
 bool SSLcliuna::sponte( Amor::Pius *pius)
 {
-	int len;
+	int ret;
+	bool has_plain, has_ciph;
 	assert(pius);
 		
 	switch ( pius->ordo )
 	{
 	case Notitia::PRO_TBUF :	//有密文收到
 		WBUG("sponte PRO_TBUF");
-		len = sslcli->decrypt(); /* 解密数据 */
+		ret = sslcli->decrypt(has_plain, has_ciph); /* 解密数据 */
 		errpro();
-		if ( sslcli->bio_out_buf.point > sslcli->bio_out_buf.base ) /* SSL有密文数据要发 */
+		//if ( sslcli->bio_out_buf.point > sslcli->bio_out_buf.base ) /* SSL有密文数据要发 */
+		if ( has_ciph)
 			aptus->facio(&pro_tbuf);
 
-		if ( len < 0 )
+		if ( has_plain )	/* 有明文可读 */
+			aptus->sponte(&pro_tbuf);
+
+		if ( ret < 0 )
 		{
-			sslcli->ssl_down();
+			sslcli->ssl_down(has_ciph);
 			errpro();
-			if ( sslcli->bio_out_buf.point > sslcli->bio_out_buf.base ) /* SSL有密文数据要发 */
+			//if ( sslcli->bio_out_buf.point > sslcli->bio_out_buf.base ) /* SSL有密文数据要发 */
+			if ( has_ciph)
 				aptus->facio(&pro_tbuf);
 		}
 
@@ -242,10 +248,7 @@ bool SSLcliuna::sponte( Amor::Pius *pius)
 			deliver( Notitia::START_SESSION );
 		}
 
-		if ( len > 0 )	/* 有明文可读 */
-			aptus->sponte(&pro_tbuf);
-
-		if (len < 0) //有错误, 会话被关闭
+		if (ret <= 0) //有错误, 会话被关闭
 			end();
 		break;
 
@@ -277,7 +280,7 @@ bool SSLcliuna::sponte( Amor::Pius *pius)
 
 	case Notitia::CMD_GET_SSL:	/* 取SSL通讯句柄 */
 		WBUG("sponte CMD_GET_SSL");
-		pius->indic = sslcli->ssl;
+		pius->indic = sslcli->get_ssl();
 		break;
 	default:
 		return false;
@@ -344,17 +347,20 @@ TINLINE void SSLcliuna::end()
 TINLINE void SSLcliuna::letgo()
 {
 	int ret;
-	ret = sslcli->encrypt();	//将输入数据加密,并待发送,这里包括ssl握手
+	bool has_c;
+	ret = sslcli->encrypt(has_c);	//将输入数据加密,并待发送,这里包括ssl握手
 	errpro();
 
-	if ( sslcli->bio_out_buf.point > sslcli->bio_out_buf.base )
+	//if ( sslcli->bio_out_buf.point > sslcli->bio_out_buf.base )
+	if ( has_c)
 	{	//SSL有密文数据要发
 		aptus->facio(&pro_tbuf);
 	}
-	if ( ret < 0 ) 
+	if ( ret <= 0 ) 
 	{
-		sslcli->ssl_down();
-		if ( sslcli->bio_out_buf.point > sslcli->bio_out_buf.base )
+		sslcli->ssl_down(has_c);
+		//if ( sslcli->bio_out_buf.point > sslcli->bio_out_buf.base )
+		if ( has_c)
 			aptus->facio(&pro_tbuf);
 		end();
 	}
@@ -371,9 +377,11 @@ TINLINE void SSLcliuna::errpro()
 		SLOG(NOTICE)
 		break;
 
+#ifndef NDEBUG
 	case 7:
 		SLOG(DEBUG)
 		break;
+#endif
 
 	default:
 		break;
