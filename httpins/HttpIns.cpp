@@ -320,7 +320,7 @@ CLI_PRO:
 			if ( hti->pro_chunk)
 				left_body_ok = chunk_all(rcv_buf);
 		} else {
-			left_body_ok = ( browser_req->content_length  > 0  && ( rcv_buf->point - rcv_buf->base >= browser_req->content_length ) );
+			left_body_ok = ( browser_req->content_length  >= 0  && ( rcv_buf->point - rcv_buf->base >= browser_req->content_length ) );
 		}
 		pro_ins();
 		break;
@@ -431,9 +431,9 @@ J_AGAIN:
 				hti = (struct HInsData *) cur_insway->dat->ext_ins;
 				if ( hti->pro_chunk) {
 					right_body_ok = chunk_all(&cli_rcv);
-				} else  {
-					right_body_ok = ( response.content_length  > 0  && (cli_rcv.point - cli_rcv.base) >= response.content_length );
 				}
+			} else  {
+				right_body_ok = ( response.content_length  >= 0  && (cli_rcv.point - cli_rcv.base) >= response.content_length );
 			}
 			pro_ins();
 		} else if ( (len = cli_rcv.point - cli_rcv.base) > 0 )
@@ -899,7 +899,7 @@ void HttpIns::pro_ins (bool pro_start)
 		break;
 
 	case INS_FromResponse:
-		//printf("from -- response\n");
+		//printf("from -- response hti->wait_right_body && !right_body_ok %d %d\n", hti->wait_right_body, right_body_ok );
 		if ( hti->wait_right_body && !right_body_ok ) return ;
 		err = pro_rply(cur_insway->psnap, cur_insway->dat, &response, has_head, body_buf);
 		log_ht(&response, "Client reply head", err, has_head);
