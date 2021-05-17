@@ -189,10 +189,12 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 		if ( aget->lpOverlapped == (void*)&(tcpcli->rcv_ovp) )
 		{
 			establish_done();
+			/*  it may be wrong 
 			if ( tcpcli->snd_buf->point != tcpcli->snd_buf->base )
 			{
 				if( (ret = tcpcli->transmitto_ex()) ) transmit_ep_err(ret);
 			}
+			*/
 		} else {
 			WLOG(ALERT, "accept_epoll: not my overlap");
 		}
