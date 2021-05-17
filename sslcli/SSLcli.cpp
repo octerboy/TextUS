@@ -91,6 +91,7 @@ int SSLcli::encrypt(bool &has_ciph)
 	if (!handshake_ok)
 	{	//没有握手就握手
 		ret = clasp( has_ciph);
+		//printf("--- encrypt clasp has_ciph %d , ret %d\n", has_ciph, ret);
 		if ( ret < 0 )
 			return ret;
 		else if ( ret == 0 )
@@ -139,6 +140,7 @@ int SSLcli::encrypt(bool &has_ciph)
 
 	snd_buf->commit_ack(-len);	/* 提交已取出的数据 */
 	bio_out_buf.commit_ack(data_len);  /* 指针向后移 */
+	has_ciph = true;
 #elif defined(__APPLE__)
 
 #else
@@ -221,13 +223,14 @@ int SSLcli::decrypt(bool &has_plain, bool &has_ciph)
 	if (!handshake_ok)
 	{	//没有握手就握手
 		ret = clasp (has_ciph);
+		//printf("--- decrypt clasp has_ciph %d , ret %d\n", has_ciph, ret);
 		if ( ret < 0 )
 			return ret;
-		else if ( ret == 0 )
+		else if ( ret >= 0 )
 			return 1;
 	}
-	ret = 0;
-
+D_AGAIN:
+	ret = 1;
 	inBuffers[0].BufferType= SECBUFFER_DATA;
 	inBuffers[0].pvBuffer	= bio_in_buf.base;
 	inBuffers[0].cbBuffer	= len;
@@ -246,15 +249,19 @@ int SSLcli::decrypt(bool &has_plain, bool &has_ciph)
 	case SEC_E_OK:
 		if (inBuffers[1].BufferType == SECBUFFER_DATA)
 		{
+			//printf("plain %d\n",  inBuffers[1].cbBuffer);
 			rcv_buf->input((unsigned char*)inBuffers[1].pvBuffer, (unsigned TEXTUS_LONG) inBuffers[1].cbBuffer);
-			ret += inBuffers[1].cbBuffer;
+			has_plain = true;
 		}
 		if (inBuffers[3].BufferType == SECBUFFER_EXTRA)
 		{
+			//printf("cipher remain %d\n",  inBuffers[3].cbBuffer);
 			bio_in_buf.commit(-((TEXTUS_LONG)(len - inBuffers[3].cbBuffer)));
-			TEXTUS_SPRINTF(errMsg, "DecryptMessage %d, left %ul", len, inBuffers[3].cbBuffer);
+			TEXTUS_SPRINTF(errMsg, "DecryptMessage %d, left %d", len, inBuffers[3].cbBuffer);
 			err_lev = 5;
+			ret = 2;
 		} else {
+			err_lev = -1;
 			bio_in_buf.reset();
 		}
 		switch ( scRet ) {
@@ -267,14 +274,26 @@ int SSLcli::decrypt(bool &has_plain, bool &has_ciph)
 		case SEC_I_CONTEXT_EXPIRED: 
 			TEXTUS_SPRINTF(errMsg, "DecryptMessage %s", "server closed the connection");
 			err_lev = 3;
+			ret = 0;
 			break;
 		}
 
 		break;
+	
+	case SEC_E_INCOMPLETE_MESSAGE:
+		ret = 1;
+		disp_err("DecryptMessage", scRet,0);
+		break;
 
 	default:	/* other error */
+		ret = -1;
 		disp_err("DecryptMessage", scRet);
 		break;
+	}
+	if ( ret == 2 ) { 
+		//printf("again-----\n"); 
+		len = static_cast<int>(bio_in_buf.point - bio_in_buf.base);
+		goto D_AGAIN;
 	}
 #elif defined(__APPLE__)
 
@@ -354,6 +373,7 @@ int SSLcli:: clasp(bool &has_ciph)
 #ifdef USE_WINDOWS_SSPI
 	SECURITY_STATUS scRet = SEC_E_OK;
 
+	//printf("shake_st %d\n", shake_st);
 	switch ( shake_st )
 	{
 	case 0:
@@ -399,6 +419,9 @@ int SSLcli:: clasp(bool &has_ciph)
 		bio_out_buf.grant(outBuf.cbBuffer);
 		memcpy(bio_out_buf.point, outBuffers[0].pvBuffer, outBuffers[0].cbBuffer);
 		bio_out_buf.commit_ack(outBuffers[0].cbBuffer);
+		//printf("------clasp(start) SEC_I_CONTINUE_NEEDED cbBuffer %d\n", outBuffers[0].cbBuffer);
+		has_ciph = true;
+		ret = 0;
 		gCFG->pSecFun->FreeContextBuffer(outBuffers[0].pvBuffer);
 		break;
 
@@ -413,7 +436,7 @@ int SSLcli:: clasp(bool &has_ciph)
  SHAKE_ST_Doing:
 //InitSecBuffer(&inbuf[0], SECBUFFER_TOKEN, malloc(BACKEND->encdata_offset), curlx_uztoul(BACKEND->encdata_offset));
 //InitSecBuffer(&inbuf[1], SECBUFFER_EMPTY, NULL, 0);
-
+	//printf("clasp doing...\n");
 	inBuffers[0].BufferType	= SECBUFFER_TOKEN;
 	inBuffers[0].pvBuffer	= bio_in_buf.base;
 	inBuffers[0].cbBuffer	= (unsigned long ) (bio_in_buf.point - bio_in_buf.base);
@@ -455,13 +478,17 @@ int SSLcli:: clasp(bool &has_ciph)
 	switch ( scRet )
 	{
 	case SEC_I_CONTINUE_NEEDED:
+		//printf("Doing SEC_I_CONTINUE_NEEDED\n");
+		ret = 0;
 		//The client must send the output token to the server and wait for a return token. The returned token is then passed in another call to InitializeSecurityContext (Schannel). The output token can be empty.
 #ifndef NDEBUG
 		TEXTUS_SPRINTF(errMsg, "InitializeSecurityContext(1) return SEC_I_CONTINUE_NEEDED:  send the output token to the server and wait for a return token");
 		goto OK_Pro;
 #endif
 	case SEC_E_OK:
+		//printf("Doing SEC_E_OK\n");
 		shake_st = 2;	/*  handshake is complete */
+		ret = 1;
 		//Curl_verify_certificate
   		/* if the answered attributes */
 		if( ansFlags != reqFlags) 
@@ -496,20 +523,22 @@ int SSLcli:: clasp(bool &has_ciph)
 			if(outBuffers[i].BufferType == SECBUFFER_TOKEN && outBuffers[i].cbBuffer > 0) 
 			{
 				bio_out_buf.input((unsigned char*)outBuffers[i].pvBuffer, (unsigned TEXTUS_LONG)outBuffers[i].cbBuffer);
+				has_ciph = true;
           			gCFG->pSecFun->FreeContextBuffer(outBuffers[i].pvBuffer);
 			}
 		}
-		ret = 0;
 		break;
 
 	case SEC_E_INCOMPLETE_MESSAGE:
 		//Data for the whole message was not read from the wire.
+		//printf("Doing  SEC_E_INCOMPLETE_MESSAGE\n");
 		ret = 0;
 		disp_err("InitializeSecurityContext(1)", scRet, ret);
 		err_lev = 5;	/* reading ? */
 		break;
 
 	case SEC_I_INCOMPLETE_CREDENTIALS:
+		//printf("Doing  SEC_I_INCOMPLETE_CREDENTIALS\n");
 		//The server has requested client authentication, and the supplied credentials either do not include a certificate or the certificate was not issued by a certification authority (CA) that is trusted by the server. For more information, see Remarks.
 		ret = 0;
 		disp_err("InitializeSecurityContext(1)", scRet, ret);
@@ -528,6 +557,7 @@ int SSLcli:: clasp(bool &has_ciph)
 
 	if ( inBuffers[1].BufferType == SECBUFFER_EXTRA && inBuffers[1].cbBuffer > 0 )
 	{
+		//printf("Doing   SECBUFFER_EXTRA\n");
 		bio_in_buf.commit(-(TEXTUS_LONG)(( (bio_in_buf.point - bio_in_buf.base) - inBuffers[1].cbBuffer)));
 		if ( scRet == SEC_I_CONTINUE_NEEDED )
 			goto SHAKE_ST_Doing;	/* should process the data immediately, for server may be done */
@@ -560,7 +590,7 @@ END_OF_Doing:
 
 	handshake_ok = true;
 	shake_st = 3;
-	ret = 0;
+	ret = 1;
 END_OF_2:
 	return ret;
 
