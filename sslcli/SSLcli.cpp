@@ -192,7 +192,7 @@ ErrorPro:
 	case SSL_ERROR_ZERO_RETURN:
 		/*  a closure alert has occurred in the protocol*/
 		TEXTUS_SPRINTF(errMsg,"SSL_write SSL_ERROR_ZERO_RETURN(%d)", how);
-		err_lev = 3;
+		err_lev = 5;
 		ret = 0;
 		break;
 	default:
@@ -218,7 +218,6 @@ int SSLcli::decrypt(bool &has_plain, bool &has_ciph)
 	len = static_cast<int>(bio_in_buf.point - bio_in_buf.base);
 #ifdef USE_WINDOWS_SSPI
 	SECURITY_STATUS	scRet;
-	size_t data_len = 0;
 
 	if (!handshake_ok)
 	{	//没有握手就握手
@@ -273,7 +272,7 @@ D_AGAIN:
 
 		case SEC_I_CONTEXT_EXPIRED: 
 			TEXTUS_SPRINTF(errMsg, "DecryptMessage %s", "server closed the connection");
-			err_lev = 3;
+			err_lev = 5;
 			ret = 0;
 			break;
 		}
@@ -348,7 +347,7 @@ D_AGAIN:
 	case SSL_ERROR_ZERO_RETURN:
 		/*  a closure alert has occurred in the protocol*/
 		TEXTUS_SPRINTF(errMsg,"SSL_read SSL_ERROR_ZERO_RETURN(%d)", how);
-		err_lev = 3;
+		err_lev = 5;
 		ret = 0;
 		break;
 	default:
@@ -483,8 +482,9 @@ int SSLcli:: clasp(bool &has_ciph)
 		//The client must send the output token to the server and wait for a return token. The returned token is then passed in another call to InitializeSecurityContext (Schannel). The output token can be empty.
 #ifndef NDEBUG
 		TEXTUS_SPRINTF(errMsg, "InitializeSecurityContext(1) return SEC_I_CONTINUE_NEEDED:  send the output token to the server and wait for a return token");
-		goto OK_Pro;
+		err_lev = 7;
 #endif
+		goto OK_Pro;
 	case SEC_E_OK:
 		//printf("Doing SEC_E_OK\n");
 		shake_st = 2;	/*  handshake is complete */
@@ -515,8 +515,8 @@ int SSLcli:: clasp(bool &has_ciph)
 #ifndef NDEBUG
 		TEXTUS_SPRINTF(errMsg, "InitializeSecurityContext(1) return SEC_E_OK");
 		err_lev = 7;
-	OK_Pro:
 #endif
+	OK_Pro:
 		for(int i = 0; i < 3; i++) 
 		{
   		      /* look  for tokens to be sent */
