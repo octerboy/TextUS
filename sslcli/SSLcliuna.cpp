@@ -24,9 +24,6 @@
 #include "textus_string.h"
 #include "TBuffer.h"
 #include "casecmp.h"
-#ifndef TINLINE
-#define TINLINE inline
-#endif
 class SSLcliuna: public Amor
 {
 public:
@@ -41,10 +38,10 @@ private:
 	void *arr[3];
 	char *errMsg;
 	SSLcli *sslcli;
-	TINLINE void deliver(Notitia::HERE_ORDO aordo);
-	TINLINE void end();
-	TINLINE void errpro();
-	TINLINE void letgo();	/* 让明文数据 */
+	void deliver(Notitia::HERE_ORDO aordo);
+	void end();
+	void errpro();
+	void letgo();	/* 让明文数据 */
 
 	Amor::Pius pro_tbuf;
 	Amor::Pius dmd_start;
@@ -143,7 +140,7 @@ bool SSLcliuna::facio( Amor::Pius *pius)
 				if( gCFG->expired > 0 )			/* 如果设了超时 */
 					aptus->sponte(&alarm_pius);
 			}
-			break;
+			break;	//通道未开,不发数据
 		}
 	
 		letgo();
@@ -226,30 +223,33 @@ bool SSLcliuna::sponte( Amor::Pius *pius)
 		WBUG("sponte PRO_TBUF");
 		ret = sslcli->decrypt(has_plain, has_ciph); /* 解密数据 */
 		errpro();
-		//if ( sslcli->bio_out_buf.point > sslcli->bio_out_buf.base ) /* SSL有密文数据要发 */
 		if ( has_ciph)
 			aptus->facio(&pro_tbuf);
 
 		if ( has_plain )	/* 有明文可读 */
 			aptus->sponte(&pro_tbuf);
 
-		if ( ret < 0 )
+		switch ( ret )
 		{
+		case -1:
 			sslcli->ssl_down(has_ciph);
 			errpro();
-			//if ( sslcli->bio_out_buf.point > sslcli->bio_out_buf.base ) /* SSL有密文数据要发 */
 			if ( has_ciph)
 				aptus->facio(&pro_tbuf);
-		}
+		case 0: //有错误, 会话被关闭, 包括 -1
+			end();
+			break;
+		default:
+			break;
+		} 
 
 		if ( sslcli->handshake_ok && !sessioning ) 
 		{	//ssl握手成功, 但这里还未标识, 所以设置会话标志, 并通知高层(左节点)
 			sessioning = true;
+			if ( sslcli->snd_buf->point > sslcli->snd_buf->base ) letgo();
 			deliver( Notitia::START_SESSION );
 		}
 
-		if (ret <= 0) //有错误, 会话被关闭
-			end();
 		break;
 
 	case Notitia::DMD_END_SESSION:	/* 底层会话关闭了 */
@@ -326,7 +326,7 @@ SSLcliuna::~SSLcliuna()
 	if ( sslcli ) delete sslcli;
 }
 
-TINLINE void SSLcliuna::end()
+void SSLcliuna::end()
 {
 	Amor::Pius tmp_pius;
 	tmp_pius.ordo = Notitia::END_SESSION;
@@ -344,29 +344,32 @@ TINLINE void SSLcliuna::end()
 	aptus->facio(&tmp_pius);	/* send END_SESSION to right node */
 }
 
-TINLINE void SSLcliuna::letgo()
+void SSLcliuna::letgo()
 {
 	int ret;
 	bool has_c;
 	ret = sslcli->encrypt(has_c);	//将输入数据加密,并待发送,这里包括ssl握手
 	errpro();
 
-	//if ( sslcli->bio_out_buf.point > sslcli->bio_out_buf.base )
 	if ( has_c)
 	{	//SSL有密文数据要发
 		aptus->facio(&pro_tbuf);
 	}
-	if ( ret <= 0 ) 
+	switch ( ret )
 	{
+	case -1:
 		sslcli->ssl_down(has_c);
-		//if ( sslcli->bio_out_buf.point > sslcli->bio_out_buf.base )
 		if ( has_c)
 			aptus->facio(&pro_tbuf);
+	case 0:	//包括-1
 		end();
+		break;
+	default:
+		break;
 	}
 }
 
-TINLINE void SSLcliuna::errpro()
+void SSLcliuna::errpro()
 {
 	switch( sslcli->err_lev )
 	{
@@ -389,7 +392,7 @@ TINLINE void SSLcliuna::errpro()
 }
 		
 /* 向接力者提交 */
-TINLINE void SSLcliuna::deliver(Notitia::HERE_ORDO aordo)
+void SSLcliuna::deliver(Notitia::HERE_ORDO aordo)
 {
 	Amor::Pius tmp_pius;
 	TBuffer *tb[3];
