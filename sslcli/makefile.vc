@@ -3,20 +3,27 @@
 # Build: B01:created by octerboy 2009/08/21, Guangzhou
 
 include ..\Rules.basemod.vc
-CFLAGS  =  $(CFLAGS) -I..\baselib\include -I../logdata\include -I$(OPENSSL_DIR)\include  
-LDLIB = $(LDLIB) ..\baselib\libbase.lib $(OPENSSL_DIR)\lib\libeay32.lib $(OPENSSL_DIR)\lib\ssleay32.lib
+CFLAGS_SSPI  =  $(CFLAGS) -DUSE_WINDOWS_SSPI -I..\baselib\include -I../logdata\include 
+CFLAGS_OPENSSL  =  $(CFLAGS) -I..\baselib\include -I../logdata\include -I$(OPENSSL_DIR)\include  
+LDLIB_OPENSSL = $(LDLIB) ..\baselib\libbase.lib $(OPENSSL_DIR)\lib\libeay32.lib $(OPENSSL_DIR)\lib\ssleay32.lib
+LDLIB = $(LDLIB) ..\baselib\libbase.lib 
 AMOROBJS=SSLcli.obj SSLcliuna.obj
 
-all:sslcli.dll
+all:sslcli.dll 
 
 SSLcli.obj: SSLcli.cpp
-	$(CC) $(CFLAGS) $(INCLUDE_DIR) $(DEBUG_FLAG) SSLcli.cpp
+	$(CC) $(CFLAGS_OPENSSL) $(INCLUDE_DIR) $(DEBUG_FLAG) SSLcli.cpp
+	move SSLcli.obj SSLcli_openssl.obj
+	$(CC) $(CFLAGS_SSPI) $(INCLUDE_DIR) $(DEBUG_FLAG) SSLcli.cpp
 
 SSLcliuna.obj: SSLcliuna.cpp
-	$(CC) $(CFLAGS) $(INCLUDE_DIR) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=SSLcliuna SSLcliuna.cpp
+	$(CC) $(CFLAGS_OPENSSL) $(INCLUDE_DIR) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=SSLcliuna SSLcliuna.cpp
+	move SSLcliuna.obj SSLcliuna_openssl.obj
+	$(CC) $(CFLAGS_SSPI) $(INCLUDE_DIR) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=SSLcliuna SSLcliuna.cpp
 
 sslcli.dll: $(AMOROBJS)
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(LD) $(LDFLAGS) -out:sslcli_openssl.dll SSLcli_openssl.obj SSLcliuna_openssl.obj $(LDLIB_OPENSSL)
 	$(_VC_MANIFEST_PRO)
 	$(_POST_RPO_SUB)
 
