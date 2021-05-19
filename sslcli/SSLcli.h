@@ -19,7 +19,7 @@
 #include <wincrypt.h>
 #include <security.h>
 #include <sspi.h>
-#include <rpc.h>
+#include <schannel.h>
 #include "textus_load_mod.h"
 
 #elif defined(__APPLE__)
@@ -135,12 +135,6 @@ public:
 	DWORD   ansFlags;
 	DWORD   reqFlags;
 	TimeStamp tsExp;
-
-	SecBuffer outBuf;
-	SecBufferDesc outBufMsg;
-
-	SecBuffer inBuf;
-	SecBufferDesc inBufMsg;
 
 	SecPkgContext_StreamSizes  outSize;
 	SecBufferDesc              outMessage;

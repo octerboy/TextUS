@@ -34,12 +34,13 @@ public:
 	SSLcliuna();
 	~SSLcliuna();
 private:
+	enum ACT_TYPE { FromSelf=0, FromFac=1, FromSpo=2 };
 	Amor::Pius clr_timer_pius, alarm_pius;	/* 清超时, 设超时 */
 	void *arr[3];
 	char *errMsg;
 	SSLcli *sslcli;
 	void deliver(Notitia::HERE_ORDO aordo);
-	void end();
+	void end(enum ACT_TYPE);
 	void errpro();
 	void letgo();	/* 让明文数据 */
 
@@ -201,8 +202,15 @@ bool SSLcliuna::facio( Amor::Pius *pius)
 
 	case Notitia::DMD_END_SESSION:	
 		WBUG("facio DMD_END_SESSION");
-		aptus->sponte(&clr_timer_pius);	/* 清除定时 */
-		end();
+		if ( sessioning )
+		{
+			bool has_c;
+			sslcli->ssl_down(has_c);
+			errpro();
+			if ( has_c)
+				aptus->facio(&pro_tbuf);
+		}
+		end(FromFac);
 		break;
 
 	default:
@@ -237,7 +245,7 @@ bool SSLcliuna::sponte( Amor::Pius *pius)
 			if ( has_ciph)
 				aptus->facio(&pro_tbuf);
 		case 0: //有错误, 会话被关闭, 包括 -1
-			end();
+			end(FromSelf);
 			break;
 		default:
 			break;
@@ -252,7 +260,7 @@ bool SSLcliuna::sponte( Amor::Pius *pius)
 
 		break;
 
-	case Notitia::DMD_END_SESSION:	/* 底层会话关闭了 */
+	case Notitia::DMD_END_SESSION:	/* 底层要求关闭 */
 		WBUG("sponte DMD_END_SESSION");
 		aptus->sponte(&clr_timer_pius);	/* 清除定时 */
 		if ( demanding )
@@ -261,8 +269,15 @@ bool SSLcliuna::sponte( Amor::Pius *pius)
 		//	if( gCFG->expired > 0 )			不必要了
 		//		aptus->sponte(&clr_timer_pius);
 		}
-		end();
-		alive = false;
+		end(FromSpo);
+		if ( sessioning )
+		{
+			bool has_c;
+			sslcli->ssl_down(has_c);
+			errpro();
+			if ( has_c)
+				aptus->facio(&pro_tbuf);
+		}
 		break;
 
 	case Notitia::START_SESSION:	/* 底层通讯建立, 阻止其传递 */
@@ -276,6 +291,11 @@ bool SSLcliuna::sponte( Amor::Pius *pius)
 		//		aptus->sponte(&clr_timer_pius);
 		}
 		letgo();	 //即使没有明文数据,也建立SSL连接
+		break;
+	
+	case Notitia::END_SESSION:	/* 底层会话关闭了 */
+		alive = false;
+		aptus->sponte(&clr_timer_pius);
 		break;
 
 	case Notitia::CMD_GET_SSL:	/* 取SSL通讯句柄 */
@@ -326,7 +346,7 @@ SSLcliuna::~SSLcliuna()
 	if ( sslcli ) delete sslcli;
 }
 
-void SSLcliuna::end()
+void SSLcliuna::end(enum ACT_TYPE act)
 {
 	Amor::Pius tmp_pius;
 	tmp_pius.ordo = Notitia::END_SESSION;
@@ -339,9 +359,20 @@ void SSLcliuna::end()
 	if (sessioning )
 	{
 		sessioning = false;
-		aptus->sponte(&tmp_pius);
+		switch ( act ) 
+		{
+		case FromSelf:
+			aptus->sponte(&tmp_pius);
+			aptus->facio(&tmp_pius);	/* send END_SESSION to right node */
+			break;
+		case FromFac:
+			aptus->facio(&tmp_pius);	/* send END_SESSION to right node */
+			break;
+		case FromSpo:
+			aptus->sponte(&tmp_pius);
+			break;
+		}
 	}
-	aptus->facio(&tmp_pius);	/* send END_SESSION to right node */
 }
 
 void SSLcliuna::letgo()
@@ -359,10 +390,11 @@ void SSLcliuna::letgo()
 	{
 	case -1:
 		sslcli->ssl_down(has_c);
+		errpro();
 		if ( has_c)
 			aptus->facio(&pro_tbuf);
 	case 0:	//包括-1
-		end();
+		end(FromSelf);
 		break;
 	default:
 		break;

@@ -415,7 +415,7 @@ int SSLcli:: clasp(bool &has_ciph)
 	{
 	case SEC_I_CONTINUE_NEEDED:
 		//The client must send the output token to the server and wait for a return token. The returned token is then passed in another call to InitializeSecurityContext (Schannel). The output token can be empty.
-		bio_out_buf.grant(outBuf.cbBuffer);
+		bio_out_buf.grant(outBuffers[0].cbBuffer);
 		memcpy(bio_out_buf.point, outBuffers[0].pvBuffer, outBuffers[0].cbBuffer);
 		bio_out_buf.commit_ack(outBuffers[0].cbBuffer);
 		//printf("------clasp(start) SEC_I_CONTINUE_NEEDED cbBuffer %d\n", outBuffers[0].cbBuffer);
@@ -635,6 +635,54 @@ End:
 void SSLcli::ssl_down(bool &has_ciph)
 {
 #ifdef USE_WINDOWS_SSPI
+	DWORD	shut = SCHANNEL_SHUTDOWN;
+	DWORD	scRet;
+
+	has_ciph = false;
+	err_lev = -1;
+
+	inBuffers[0].pvBuffer = &shut;
+	inBuffers[0].BufferType = SECBUFFER_TOKEN;
+	inBuffers[0].cbBuffer = sizeof(DWORD);
+
+	inMessage.cBuffers = 1;
+	inMessage.pBuffers = inBuffers;
+	inMessage.ulVersion = SECBUFFER_VERSION;
+
+	scRet = gCFG->pSecFun->ApplyControlToken(&ssl, &inMessage);
+	if ( scRet != SEC_E_OK ) {
+		disp_err("ApplyControlToken (ssl_down) ", scRet);
+		return ;
+	}
+
+	outBuffers[0].pvBuffer = NULL;
+	outBuffers[0].BufferType = SECBUFFER_EMPTY;
+	outBuffers[0].cbBuffer = 0;
+
+	outMessage.cBuffers = 1;
+	outMessage.pBuffers = outBuffers;
+	outMessage.ulVersion = SECBUFFER_VERSION;
+
+	reqFlags = gCFG->reqFlags;
+	scRet = gCFG->pSecFun->InitializeSecurityContext( &gCFG->cred_hnd, &ssl, NULL, reqFlags, 0,0, 
+		NULL, 0, &ssl, &outMessage, &ansFlags, &tsExp);
+
+	switch ( scRet )
+	{
+	case SEC_I_CONTINUE_NEEDED:
+	case SEC_E_OK:
+		bio_out_buf.grant(outBuffers[0].cbBuffer);
+		memcpy(bio_out_buf.point, outBuffers[0].pvBuffer, outBuffers[0].cbBuffer);
+		bio_out_buf.commit_ack(outBuffers[0].cbBuffer);
+		//printf("------ssl_down SEC_I_CONTINUE_NEEDED cbBuffer %d\n", outBuffers[0].cbBuffer);
+		has_ciph = true;
+		gCFG->pSecFun->FreeContextBuffer(outBuffers[0].pvBuffer);
+		break;
+
+	default:
+		disp_err("InitializeSecurityContext(ssl_down)", scRet);
+		break;
+	}
 
 #elif defined(__APPLE__)
 
@@ -662,8 +710,8 @@ void SSLcli::ssl_down(bool &has_ciph)
 		endssl();
 		return ;
 	}
-#endif
 	outwbio( has_ciph ); /* Êä³öÃÜÎÄ */
+#endif
 }
 
 void SSLcli::outwbio(bool &has_ciph)
@@ -723,7 +771,8 @@ void SSLcli::endssl()
 {
 #ifdef USE_WINDOWS_SSPI
 	shake_st = 0;
-
+	gCFG->pSecFun->DeleteSecurityContext(&ssl);
+	memset(&ssl, 0, sizeof(CtxtHandle));
 #elif defined(__APPLE__)
 
 #else
