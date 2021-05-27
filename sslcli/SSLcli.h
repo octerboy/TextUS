@@ -16,9 +16,9 @@
 #undef SECURITY_WIN32
 #undef SECURITY_KERNEL
 #define SECURITY_WIN32 1
-#include <wincrypt.h>
+//#include <wincrypt.h>
 #include <security.h>
-#include <sspi.h>
+//#include <sspi.h>
 #include <schannel.h>
 #include "textus_load_mod.h"
 
@@ -71,6 +71,14 @@ public:
 		CredHandle  cred_hnd; 	//¹²Ïí
 		bool isALPN;
 		DWORD   reqFlags;
+		SCHANNEL_CRED schCred;
+
+		char alg_str[512]; 
+		char proto_str[128]; 
+		ALG_ID all_algs[45];
+		char cert_store[16];
+		char cert_sub[256];
+
 #elif defined(__APPLE__)
 		SSLContextRef ssl_ref;
 
@@ -88,17 +96,19 @@ public:
 			BZERO(secdll_fn);
 			BZERO(secface_fn);
 			BZERO(provider);
+			BZERO(alg_str);
+			BZERO(cert_store);
+			BZERO(cert_sub);
 			memcpy(&secface_fn[0], "InitSecurityInterfaceA", 22);
-			memcpy(&secdll_fn[0], "secur32.dll", 11);
+			//memcpy(&secdll_fn[0], "secur32.dll", 11);
+			memcpy(&secdll_fn[0], "security.dll", 12);
 			memcpy(&provider[0], "Microsoft Unified Security Protocol Provider", 44);
+			memcpy(&cert_store[0], "MY", 2);
 			pSecFun = NULL;
 			secdll = NULL;
 			BZERO(&cred_hnd);
+			BZERO(&schCred);
 			isALPN = false;
-			reqFlags = ISC_REQ_SEQUENCE_DETECT | ISC_REQ_REPLAY_DETECT | ISC_REQ_CONFIDENTIALITY | ISC_REQ_EXTENDED_ERROR |
-					ISC_REQ_ALLOCATE_MEMORY |
-					ISC_REQ_MANUAL_CRED_VALIDATION | // We'll check the certificate ourselves
-					ISC_REQ_STREAM;
 #elif defined(__APPLE__)
 
 #else
@@ -144,6 +154,7 @@ public:
 	SecBuffer                  inBuffers[4];
 	
 	void disp_err(const char *fun_str, SECURITY_STATUS status, int ret=-1);
+	void show_err(const char *fun_str, const char *para);
 	
 #elif defined(__APPLE__)
 	SSLContextRef ssl;
