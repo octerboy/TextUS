@@ -22,16 +22,154 @@
 #include "SSLcli.h"
 #include <assert.h>
 
-#ifdef USE_WINDOWS_SSPI
-
-#elif defined(__APPLE__)
-
-#else
-
-#endif
-
 #define SND_LEN (snd_buf->point - snd_buf->base)
 #define RCV_LEN (rcv_buf->point - rcv_buf->base)
+
+#ifdef USE_WINDOWS_SSPI
+#pragma comment(lib,"Crypt32.lib")
+#include "casecmp.h"
+
+static int alg_id(char *name)
+{
+#define GetAlgID(X)                         \
+  if(strcasecmp(name, #X) == 0)                      \
+	return CALG_##X
+
+	GetAlgID(3DES);
+	GetAlgID(3DES_112);
+	GetAlgID(AES);
+	GetAlgID(AES_128);
+	GetAlgID(AES_192);
+	GetAlgID(AES_256);
+	GetAlgID(AGREEDKEY_ANY);
+	GetAlgID(CYLINK_MEK);
+
+	GetAlgID(DES);
+	GetAlgID(DESX);
+	GetAlgID(DH_EPHEM);
+	GetAlgID(DH_SF);
+	GetAlgID(DSS_SIGN);
+
+	GetAlgID(ECDH);
+	GetAlgID(ECDH_EPHEM);
+	GetAlgID(ECDSA);
+	GetAlgID(ECMQV);
+
+	GetAlgID(HASH_REPLACE_OWF);
+	GetAlgID(HUGHES_MD5);
+	GetAlgID(HMAC);
+
+	GetAlgID(KEA_KEYX);
+	GetAlgID(MAC);
+	GetAlgID(MD2);
+	GetAlgID(MD4);
+	GetAlgID(MD5);
+
+	GetAlgID(NO_SIGN);
+	GetAlgID(OID_INFO_CNG_ONLY);
+	GetAlgID(OID_INFO_PARAMETERS);
+	GetAlgID(PCT1_MASTER);
+
+	GetAlgID(RC2);
+	GetAlgID(RC4);
+	GetAlgID(RC5);
+
+	GetAlgID(RSA_KEYX);
+	GetAlgID(RSA_SIGN);
+
+	GetAlgID(SCHANNEL_ENC_KEY);
+	GetAlgID(SCHANNEL_MAC_KEY);
+	GetAlgID(SCHANNEL_MASTER_HASH);
+
+	GetAlgID(SEAL);
+	GetAlgID(SHA);
+	GetAlgID(SHA1);
+
+	GetAlgID(SHA_256);
+	GetAlgID(SHA_384);
+	GetAlgID(SHA_512);
+
+	GetAlgID(SKIPJACK);
+	GetAlgID(SSL2_MASTER);
+	GetAlgID(SSL3_MASTER);
+	GetAlgID(SSL3_SHAMD5);
+
+	GetAlgID(TEK);
+	GetAlgID(TLS1_MASTER);
+	GetAlgID(TLS1PRF);
+
+	return 0;
+}
+
+static int proto_id(char *name)
+{
+#define GetProtID(X)                         \
+  if(strcasecmp(name, #X) == 0)                      \
+	return SP_PROT_##X##_CLIENT
+
+	GetProtID(PCT1);
+	GetProtID(SSL2);
+	GetProtID(SSL3);
+	GetProtID(TLS1);
+	GetProtID(TLS1_0);
+	GetProtID(TLS1_1);
+	GetProtID(TLS1_2);
+	GetProtID(DTLS);
+	GetProtID(DTLS1_0);
+	GetProtID(DTLS1_2);
+	GetProtID(DTLS1_X);
+	return 0;
+}
+
+void set_proto(SCHANNEL_CRED *scred, char *str)
+{
+	char pro_str[512], *p, *q, *t;
+	int prot;
+	TEXTUS_STRCPY(pro_str,  str);
+	p = &pro_str[strlen(pro_str)];
+	*p++ = ' ';
+	*p = '\0';	//add a space
+	p = &pro_str[0];
+	while ( 1) {
+		q = strpbrk( p, " |\t" );
+		if ( q == (char*) 0 ) break;
+		*q++ = '\0';
+		for ( t =p ; t < q; t++) {
+			if ( *t == '.' ) *t = '_';
+		}
+		//printf("proto %s\n", p);
+      		prot = proto_id(p);
+		if ( prot ) {
+			scred->grbitEnabledProtocols |= prot;
+		}
+		p = ( q += strspn( q, " |\t" ));
+	}
+}
+
+void set_algs(SCHANNEL_CRED *scred, char *str,  ALG_ID *all_algs)
+{
+	char alg_str[512], *p, *q;
+	int alg, count;
+	TEXTUS_STRCPY(alg_str,  str);
+	p = &alg_str[strlen(alg_str)];
+	*p++ = ' ';
+	*p = '\0';	//add a space
+	count = 0 ; p = &alg_str[0];
+	while ( 1) {
+		q = strpbrk( p, " |\t" );
+		if ( q == (char*) 0 ) break;
+		*q++ = '\0';
+      		alg = alg_id(p);
+		if ( alg ) {
+      			all_algs[count++] = alg;
+		}
+		p = ( q += strspn( q, " |\t" ));
+	}
+	scred->palgSupportedAlgs = all_algs;
+	scred->cSupportedAlgs = count;
+}
+
+#endif
 
 SSLcli::SSLcli():bio_in_buf(8192),bio_out_buf(8192)
 {
@@ -106,30 +244,25 @@ int SSLcli::encrypt(bool &has_ciph)
 #ifdef USE_WINDOWS_SSPI
 
 	/* setup output buffers (header, data, trailer, empty) */
-	//InitSecBuffer(&outbuf[0], SECBUFFER_STREAM_HEADER, ptr, BACKEND->stream_sizes.cbHeader);
 	data_len = outSize.cbHeader + len + outSize.cbTrailer;
 	bio_out_buf.grant(data_len);
 	outBuffers[0].BufferType= SECBUFFER_STREAM_HEADER;
 	outBuffers[0].pvBuffer	= bio_out_buf.point;
 	outBuffers[0].cbBuffer	= outSize.cbHeader;
 
-	//InitSecBuffer(&outbuf[1], SECBUFFER_DATA, ptr + BACKEND->stream_sizes.cbHeader, curlx_uztoul(len));
 	outBuffers[1].BufferType= SECBUFFER_DATA;
 	outBuffers[1].pvBuffer	= bio_out_buf.point + outSize.cbHeader;
 	outBuffers[1].cbBuffer	= len;
 	memcpy( outBuffers[1].pvBuffer, snd_buf->base, len);
 
-	//InitSecBuffer(&outbuf[2], SECBUFFER_STREAM_TRAILER, ptr + BACKEND->stream_sizes.cbHeader + len, BACKEND->stream_sizes.cbTrailer);
 	outBuffers[2].BufferType= SECBUFFER_STREAM_TRAILER;
 	outBuffers[2].pvBuffer	= bio_out_buf.point + outSize.cbHeader + len;
 	outBuffers[2].cbBuffer	= outSize.cbTrailer;
 
-	//InitSecBuffer(&outbuf[3], SECBUFFER_EMPTY, NULL, 0);
 	outBuffers[3].BufferType= SECBUFFER_EMPTY;
 	outBuffers[3].pvBuffer	= NULL;
 	outBuffers[3].cbBuffer	= 0;
 
-	//InitSecBufferDesc(&outbuf_desc, outbuf, 4);
 	outMessage.ulVersion	= SECBUFFER_VERSION;
 	outMessage.cBuffers	= 4;
 	outMessage.pBuffers	= outBuffers;
@@ -248,13 +381,11 @@ D_AGAIN:
 	case SEC_E_OK:
 		if (inBuffers[1].BufferType == SECBUFFER_DATA)
 		{
-			//printf("plain %d\n",  inBuffers[1].cbBuffer);
 			rcv_buf->input((unsigned char*)inBuffers[1].pvBuffer, (unsigned TEXTUS_LONG) inBuffers[1].cbBuffer);
 			has_plain = true;
 		}
 		if (inBuffers[3].BufferType == SECBUFFER_EXTRA)
 		{
-			//printf("cipher remain %d\n",  inBuffers[3].cbBuffer);
 			bio_in_buf.commit(-((TEXTUS_LONG)(len - inBuffers[3].cbBuffer)));
 			TEXTUS_SPRINTF(errMsg, "DecryptMessage %d, left %d", len, inBuffers[3].cbBuffer);
 			err_lev = 5;
@@ -290,7 +421,6 @@ D_AGAIN:
 		break;
 	}
 	if ( ret == 2 ) { 
-		//printf("again-----\n"); 
 		len = static_cast<int>(bio_in_buf.point - bio_in_buf.base);
 		goto D_AGAIN;
 	}
@@ -387,22 +517,18 @@ int SSLcli:: clasp(bool &has_ciph)
 	}
 
  SHAKE_ST_Start:
-//InitSecBuffer(&inbuf, SECBUFFER_EMPTY, NULL, 0);
 	inBuffers[0].BufferType = SECBUFFER_EMPTY;
 	inBuffers[0].pvBuffer	= NULL;
 	inBuffers[0].cbBuffer	= 0;
 
-//InitSecBufferDesc(&inbuf_desc, &inbuf, 1);
 	inMessage.ulVersion	= SECBUFFER_VERSION;
 	inMessage.cBuffers	= 1;
 	inMessage.pBuffers	= inBuffers;
 
-//InitSecBuffer(&outbuf, SECBUFFER_EMPTY, NULL, 0);
 	outBuffers[0].BufferType= SECBUFFER_EMPTY;
 	outBuffers[0].pvBuffer	= NULL;
 	outBuffers[0].cbBuffer	= 0;
 
-//InitSecBufferDesc(&outbuf_desc, &outbuf, 1);
 	outMessage.ulVersion	= SECBUFFER_VERSION;
 	outMessage.cBuffers	= 1;
 	outMessage.pBuffers	= outBuffers;
@@ -433,9 +559,6 @@ int SSLcli:: clasp(bool &has_ciph)
 	return ret;	/* END OF 0 */
 
  SHAKE_ST_Doing:
-//InitSecBuffer(&inbuf[0], SECBUFFER_TOKEN, malloc(BACKEND->encdata_offset), curlx_uztoul(BACKEND->encdata_offset));
-//InitSecBuffer(&inbuf[1], SECBUFFER_EMPTY, NULL, 0);
-	//printf("clasp doing...\n");
 	inBuffers[0].BufferType	= SECBUFFER_TOKEN;
 	inBuffers[0].pvBuffer	= bio_in_buf.base;
 	inBuffers[0].cbBuffer	= (unsigned long ) (bio_in_buf.point - bio_in_buf.base);
@@ -443,16 +566,9 @@ int SSLcli:: clasp(bool &has_ciph)
 	inBuffers[1].pvBuffer	= NULL;
 	inBuffers[1].cbBuffer	= 0;
 
-//    InitSecBufferDesc(&inbuf_desc, inbuf, 2);
 	inMessage.ulVersion	= SECBUFFER_VERSION;
 	inMessage.cBuffers	= 2;
 	inMessage.pBuffers	= inBuffers;
-
-    /* setup output buffers */
-    //InitSecBuffer(&outbuf[0], SECBUFFER_TOKEN, NULL, 0);
-    //InitSecBuffer(&outbuf[1], SECBUFFER_ALERT, NULL, 0);
-    //InitSecBuffer(&outbuf[2], SECBUFFER_EMPTY, NULL, 0);
-    //InitSecBufferDesc(&outbuf_desc, outbuf, 3);
 
 	outBuffers[0].BufferType= SECBUFFER_TOKEN;
 	outBuffers[0].pvBuffer	= NULL;
@@ -470,14 +586,10 @@ int SSLcli:: clasp(bool &has_ciph)
 	outMessage.cBuffers	= 3;
 	outMessage.pBuffers	= outBuffers;
 
-//sspi_status = s_pSecFn->InitializeSecurityContext( &BACKEND->cred->cred_handle, &BACKEND->ctxt->ctxt_handle, host_name, BACKEND->req_flags, 0, 0, &inbuf_desc, 0, NULL, &outbuf_desc, &BACKEND->ret_flags, &BACKEND->ctxt->time_stamp);
-	scRet = gCFG->pSecFun->InitializeSecurityContext( &gCFG->cred_hnd, &ssl, NULL, reqFlags, 0, 0,
-		&inMessage, 0, NULL, &outMessage, &ansFlags, &tsExp);
-	
+	scRet = gCFG->pSecFun->InitializeSecurityContext( &gCFG->cred_hnd, &ssl, NULL, reqFlags, 0, 0, &inMessage, 0, NULL, &outMessage, &ansFlags, &tsExp);
 	switch ( scRet )
 	{
 	case SEC_I_CONTINUE_NEEDED:
-		//printf("Doing SEC_I_CONTINUE_NEEDED\n");
 		ret = 0;
 		//The client must send the output token to the server and wait for a return token. The returned token is then passed in another call to InitializeSecurityContext (Schannel). The output token can be empty.
 #ifndef NDEBUG
@@ -486,11 +598,8 @@ int SSLcli:: clasp(bool &has_ciph)
 #endif
 		goto OK_Pro;
 	case SEC_E_OK:
-		//printf("Doing SEC_E_OK\n");
 		shake_st = 2;	/*  handshake is complete */
 		ret = 1;
-		//Curl_verify_certificate
-  		/* if the answered attributes */
 		if( ansFlags != reqFlags) 
 		{
 			ret = -1;
@@ -531,14 +640,12 @@ int SSLcli:: clasp(bool &has_ciph)
 
 	case SEC_E_INCOMPLETE_MESSAGE:
 		//Data for the whole message was not read from the wire.
-		//printf("Doing  SEC_E_INCOMPLETE_MESSAGE\n");
 		ret = 0;
 		disp_err("InitializeSecurityContext(1)", scRet, ret);
 		err_lev = 5;	/* reading ? */
 		break;
 
 	case SEC_I_INCOMPLETE_CREDENTIALS:
-		//printf("Doing  SEC_I_INCOMPLETE_CREDENTIALS\n");
 		//The server has requested client authentication, and the supplied credentials either do not include a certificate or the certificate was not issued by a certification authority (CA) that is trusted by the server. For more information, see Remarks.
 		ret = 0;
 		disp_err("InitializeSecurityContext(1)", scRet, ret);
@@ -557,7 +664,6 @@ int SSLcli:: clasp(bool &has_ciph)
 
 	if ( inBuffers[1].BufferType == SECBUFFER_EXTRA && inBuffers[1].cbBuffer > 0 )
 	{
-		//printf("Doing   SECBUFFER_EXTRA\n");
 		bio_in_buf.commit(-(TEXTUS_LONG)(( (bio_in_buf.point - bio_in_buf.base) - inBuffers[1].cbBuffer)));
 		if ( scRet == SEC_I_CONTINUE_NEEDED )
 			goto SHAKE_ST_Doing;	/* should process the data immediately, for server may be done */
@@ -572,15 +678,6 @@ END_OF_Doing:
 	return ret;	/* END OF 1 */
 
  SHAKE_ST_Done:
-	// if (gCFG->isALPN ) { } 
-
-	// scRet = gCFG->pSecFun->QueryContextAttributes(&ssl, SECPKG_ATTR_REMOTE_CERT_CONTEXT, &ccert_context);
-/*
-    if((scRet != SEC_E_OK) || (ccert_context == NULL)) {
-      failf(data, "schannel: failed to retrieve remote cert context");
-      return CURLE_PEER_FAILED_VERIFICATION;
-    }
-*/
 	scRet = gCFG->pSecFun->QueryContextAttributes(&ssl, SECPKG_ATTR_STREAM_SIZES, &outSize);
 	if( scRet != SEC_E_OK) {
 		ret = -1;
@@ -728,9 +825,7 @@ void SSLcli::outwbio(bool &has_ciph)
 		has_ciph = true;
 		bio_out_buf.commit(len);  /* Ö¸ÕëÏòºóÒÆ */
 	}
-	
 #endif
-
 	return ;
 }
 
@@ -763,7 +858,6 @@ void SSLcli::novo()
 	SSL_set_bio(ssl, rbio, wbio);
 
 #endif
-
 	return ;
 }
 
@@ -792,24 +886,13 @@ bool SSLcli::initio()
 	err_lev = -1;
 
 #ifdef USE_WINDOWS_SSPI
-	/*
-	SCHANNEL_CRED   auth = { 0 };
-	auth.dwVersion = SCHANNEL_CRED_VERSION;
-	if (pCertContext)
-	{
-		auth.cCreds = 1;
-		auth.paCred = &pCertContext;
-	}
-	auth.grbitEnabledProtocols = SP_PROT_TLS1_2_CLIENT;
-	auth.dwFlags = SCH_CRED_MANUAL_CRED_VALIDATION | SCH_CRED_NO_DEFAULT_CREDS | SCH_USE_STRONG_CRYPTO;
-	*/
-
-
 	SECURITY_STATUS status;
 	TimeStamp       expiry;
 	typedef PSecurityFunctionTable (APIENTRY *FACE_FUN)(VOID);
 	FACE_FUN pface =NULL;
+	HCERTSTORE cStore;
 	if ( !gCFG ) return false;
+
 	gCFG->secdll = TEXTUS_LOAD_MOD( gCFG->secdll_fn, 0);
     	if(!gCFG->secdll) {
 		TEXTUS_SPRINTF(errMsg, "load %s failed, error %d", gCFG->secdll_fn, GetLastError());
@@ -830,16 +913,96 @@ bool SSLcli::initio()
 		err_lev = 3;
 		return false;
 	}
-	
-	status = gCFG->pSecFun->AcquireCredentialsHandle(NULL, gCFG->provider,
-                                         SECPKG_CRED_OUTBOUND, NULL,
-                                         NULL, NULL, NULL,
+	memset(&gCFG->schCred, 0, sizeof(gCFG->schCred));
+	gCFG->schCred.dwVersion = SCHANNEL_CRED_VERSION;
+	set_algs(&gCFG->schCred, gCFG->alg_str, &gCFG->all_algs[0]);
+	set_proto(&gCFG->schCred, gCFG->proto_str);
+	//set_proto(&gCFG->schCred, "tls1.1 tls1.0");
+	//set_algs(&gCFG->schCred, "desx des", &gCFG->all_algs[0]);
+
+	gCFG->schCred.dwMinimumCipherStrength =0;
+	gCFG->schCred.dwMaximumCipherStrength =0;
+	gCFG->schCred.dwSessionLifespan =0;
+	gCFG->schCred.dwCredFormat =SCH_CRED_FORMAT_CERT_HASH;
+
+	gCFG->reqFlags = ISC_REQ_SEQUENCE_DETECT | ISC_REQ_REPLAY_DETECT | ISC_REQ_CONFIDENTIALITY | ISC_REQ_EXTENDED_ERROR |
+			ISC_REQ_ALLOCATE_MEMORY | ISC_REQ_STREAM;
+			//ISC_REQ_MANUAL_CRED_VALIDATION | // We'll check the certificate ourselves
+	if ( gCFG->isVpeer )
+	{
+		gCFG->schCred.dwFlags = SCH_CRED_AUTO_CRED_VALIDATION | SCH_CRED_NO_DEFAULT_CREDS | SCH_USE_STRONG_CRYPTO;
+		if ( gCFG->crl_file[0] == 'y' || gCFG->crl_file[0] == 'Y'  ) 
+			gCFG->schCred.dwFlags |= SCH_CRED_REVOCATION_CHECK_CHAIN;
+		else
+			gCFG->schCred.dwFlags |= SCH_CRED_IGNORE_NO_REVOCATION_CHECK;
+	} else {
+		gCFG->schCred.dwFlags = SCH_CRED_MANUAL_CRED_VALIDATION | SCH_CRED_IGNORE_NO_REVOCATION_CHECK | SCH_CRED_IGNORE_REVOCATION_OFFLINE;
+	}
+	gCFG->schCred.dwFlags |= SCH_CRED_NO_SERVERNAME_CHECK;
+
+	PCCERT_CONTEXT prevCtx = NULL;
+	PCCERT_CONTEXT ctx = NULL;
+	char sub[126];
+	CERT_NAME_BLOB *pblob =NULL;
+/*
+	gCFG->schCred.hRootStore = CertOpenStore(CERT_STORE_PROV_SYSTEM_A, 0, (HCRYPTPROV)NULL,
+                        CERT_STORE_OPEN_EXISTING_FLAG | CERT_SYSTEM_STORE_LOCAL_MACHINE, "Disallowed");
+	if ( gCFG->schCred.hRootStore ) 
+	{
+	while (1 ) {
+		ctx = CertEnumCertificatesInStore(gCFG->schCred.hRootStore, prevCtx);
+		if ( !ctx ) break;
+		CertNameToStrA(X509_ASN_ENCODING, &(ctx->pCertInfo->Subject), CERT_X500_NAME_STR, sub, 126);
+		printf("sub %s\n", sub);
+		prevCtx = ctx;	
+	}
+	}
+*/
+        cStore = CertOpenStore(CERT_STORE_PROV_SYSTEM_A, 0, (HCRYPTPROV)NULL,
+                        CERT_STORE_OPEN_EXISTING_FLAG | CERT_SYSTEM_STORE_CURRENT_USER, gCFG->cert_store);
+        if(!cStore) {
+		show_err("CertOpenStore", gCFG->cert_store);
+		return false;
+	}
+
+	while (1 ) {
+		ctx = CertEnumCertificatesInStore(cStore, prevCtx);
+		if ( !ctx ) break;
+		CertNameToStrA(X509_ASN_ENCODING, &(ctx->pCertInfo->Subject), CERT_X500_NAME_STR, sub, 126);
+		//printf("sub %s\n", sub);
+		if ( strcasecmp(sub, gCFG->cert_sub) ==0 ) { 
+			pblob =  &(ctx->pCertInfo->Subject);
+			break;
+		}
+		prevCtx = ctx;	
+	}
+	PCCERT_CONTEXT client_certs[1] = { NULL };
+	if ( pblob ) {
+		client_certs[0] = CertFindCertificateInStore( cStore, X509_ASN_ENCODING | PKCS_7_ASN_ENCODING, 0,
+			//CERT_FIND_SUBJECT_STR, sub, NULL);
+			CERT_FIND_SUBJECT_NAME, pblob, NULL);
+		if(client_certs[0] == NULL) {
+			show_err("CertFindCertificateInStore", sub);
+			return false;
+		}
+		gCFG->schCred.cCreds =1;
+		gCFG->schCred.paCred =client_certs;
+		//printf("has my certfile!!\n");
+	} else {
+		//printf("no my certfile\n");
+		gCFG->schCred.cCreds =0;
+		gCFG->schCred.paCred =NULL;
+	}
+	status = gCFG->pSecFun->AcquireCredentialsHandle(NULL, gCFG->provider, SECPKG_CRED_OUTBOUND, NULL, &gCFG->schCred, NULL, NULL,
                                          &gCFG->cred_hnd, &expiry);
+
 	if (status != SEC_E_OK)
 	{
 		disp_err("AcquireCredentialsHandle", status );
 		return false;
 	}
+	CertCloseStore(cStore, 0);
+	CertFreeCertificateContext(client_certs[0]);
 
 #elif defined(__APPLE__)
 
@@ -863,7 +1026,7 @@ bool SSLcli::initio()
 		endctx();
 		return false;
 	}
-			
+
 	if ( gCFG->isVpeer )
 		SSL_CTX_set_verify( gCFG->ssl_ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
 
@@ -879,7 +1042,6 @@ bool SSLcli::initio()
 
 	if ( strlen(gCFG->my_key_file) > 0 ) 
 	if ( SSL_CTX_use_PrivateKey_file( gCFG->ssl_ctx,  gCFG->my_key_file, SSL_FILETYPE_PEM) == 0 
-		
 		|| SSL_CTX_check_private_key( gCFG->ssl_ctx ) == 0 )
 	{
 		int err = ERR_get_error();
@@ -888,7 +1050,6 @@ bool SSLcli::initio()
 		endctx();
 		return false;
 	}
-
 #endif
 	matris = true;
 	return true;
@@ -920,6 +1081,15 @@ void SSLcli::herit(SSLcli *child)
 }
 
 #ifdef USE_WINDOWS_SSPI
+void SSLcli::show_err(const char* fun_str, const char *info)
+{
+	DWORD dw = GetLastError();
+	char errstr[1024];
+	FormatMessage( FORMAT_MESSAGE_FROM_SYSTEM, NULL, dw, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), errstr, 1024, NULL );
+	TEXTUS_SPRINTF(errMsg, "%s (%s) error: %d %s", fun_str, info, dw, errstr);
+	err_lev = 3;
+}
+
 void SSLcli::disp_err(const char* fun_str, SECURITY_STATUS status, int ret )
 {
 	DWORD dw = GetLastError();
@@ -1067,8 +1237,42 @@ void SSLcli::disp_err(const char* fun_str, SECURITY_STATUS status, int ret )
 		}
 		break;
 	
+	case SEC_E_ALGORITHM_MISMATCH:
+		TEXTUS_SPRINTF(errMsg, "%s error: The client and server cannot communicate because they do not possess a common algorithm", fun_str);
+		break;
+
+	case SEC_E_BAD_BINDINGS:
+		TEXTUS_SPRINTF(errMsg, "%s error: The SSPI channel bindings supplied by the client are incorrect", fun_str);
+		break;
+
+	case SEC_E_BAD_PKGID:
+		TEXTUS_SPRINTF(errMsg, "%s error: The requested package identifier does not exist.", fun_str);
+		break;
+
+	case SEC_E_CANNOT_PACK:
+		TEXTUS_SPRINTF(errMsg, "%s error: The package is unable to pack the context.", fun_str);
+		break;
+
+	case SEC_E_CANNOT_INSTALL:
+		TEXTUS_SPRINTF(errMsg, "%s error: The security package cannot initialize successfully and should not be installed", fun_str);
+		break;
+	case SEC_E_CERT_EXPIRED:
+		TEXTUS_SPRINTF(errMsg, "%s error: The received certificate has expired.", fun_str);
+		break;
+	case SEC_E_CERT_UNKNOWN:
+		TEXTUS_SPRINTF(errMsg, "%s error: An unknown error occurred while processing the certificate.", fun_str);
+		break;
+	case SEC_E_CERT_WRONG_USAGE:
+		TEXTUS_SPRINTF(errMsg, "%s error: The certificate is not valid for the requested usage.", fun_str);
+		break;
+	case SEC_E_CROSSREALM_DELEGATION_FAILURE:
+		TEXTUS_SPRINTF(errMsg, "%s error: The server attempted to make a Kerberos-constrained delegation request for a target outside the server's realm.", fun_str);
+		break;
+	case CRYPT_E_NO_REVOCATION_CHECK:
+		TEXTUS_SPRINTF(errMsg, "%s error: The revocation function was unable to check revocation for the certificate.", fun_str);
+		break;
 /*
-        case :
+	case :
 		TEXTUS_SPRINTF(errMsg, "%s error: ", fun_str);
 		break;
 */

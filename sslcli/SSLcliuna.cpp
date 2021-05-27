@@ -94,7 +94,29 @@ void SSLcliuna::ignite(TiXmlElement *cfg)
 	{
 		sslcli->gCFG = new struct SSLcli::G_CFG();
 	}
+
 #define NCOPY(X) TEXTUS_STRNCPY(X, str, sizeof(X)-1)
+#ifdef USE_WINDOWS_SSPI
+	if( (str = cfg->Attribute("security_dll") ) )
+		NCOPY(sslcli->gCFG->secdll_fn);
+
+	if( (str = cfg->Attribute("security_face") ) )
+		NCOPY(sslcli->gCFG->secface_fn);
+
+	if( (str = cfg->Attribute("security_provider") ) )
+		NCOPY(sslcli->gCFG->provider);
+
+	if( (str = cfg->Attribute("protocol") ) )
+		NCOPY(sslcli->gCFG->proto_str);
+
+	if( (str = cfg->Attribute("alog") ) )
+		NCOPY(sslcli->gCFG->alg_str);
+
+	if( (str = cfg->Attribute("subject") ) )
+		NCOPY(sslcli->gCFG->cert_sub);
+
+#endif
+
 	if( (str = cfg->Attribute("ca") ) )
 		NCOPY(sslcli->gCFG->ca_cert_file);
 
@@ -125,12 +147,12 @@ bool SSLcliuna::facio( Amor::Pius *pius)
 	switch ( pius->ordo )
 	{
 	case Notitia::PRO_TBUF:	/* TBuffer中有数据,进行处理 */
-		WBUG("facio PRO_TBUF");
 		if ( !sslcli->rcv_buf || !sslcli->snd_buf )
 		{	//当然输入输出得已经准备好
 			WLOG(NOTICE,"facio PRO_TBUF null.");
 			break;
 		}
+		WBUG("facio PRO_TBUF " TLONG_FMT " bytes", sslcli->snd_buf->point - sslcli->snd_buf->base);
 
 		if ( !alive ) 
 		{	/* 要求打开通道 */
