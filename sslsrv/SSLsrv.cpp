@@ -417,7 +417,7 @@ int SSLsrv:: clasp( bool &has_ciph)
 	switch ( scRet )
 	{
 	case SEC_I_CONTINUE_NEEDED:
-		//The client must send the output token to the server and wait for a return token. The returned token is then passed in another call to InitializeSecurityContext (Schannel). The output token can be empty.
+		//The client must send the output token to the server and wait for a return token. The returned token is then passed in another call to AcceptSecurityContext (Schannel). The output token can be empty.
 		bio_out_buf->grant(outBuffers[0].cbBuffer);
 		memcpy(bio_out_buf->point, outBuffers[0].pvBuffer, outBuffers[0].cbBuffer);
 		bio_out_buf->commit_ack(outBuffers[0].cbBuffer);
@@ -470,7 +470,7 @@ int SSLsrv:: clasp( bool &has_ciph)
 	{
 	case SEC_I_CONTINUE_NEEDED:
 		ret = 0;
-		//The client must send the output token to the server and wait for a return token. The returned token is then passed in another call to InitializeSecurityContext (Schannel). The output token can be empty.
+		//The client must send the output token to the server and wait for a return token. The returned token is then passed in another call to AcceptSecurityContext (Schannel). The output token can be empty.
 #ifndef NDEBUG
 		TEXTUS_SPRINTF(errMsg, "AcceptSecurityContext(1) return SEC_I_CONTINUE_NEEDED:  send the output token to the server and wait for a return token");
 		err_lev = 7;
@@ -484,19 +484,19 @@ int SSLsrv:: clasp( bool &has_ciph)
 			ret = -1;
 			err_lev = 3;
 			if(!(ansFlags & ISC_RET_STREAM))
-				TEXTUS_SPRINTF(errMsg, "InitializeSecurityContext(2) error: failed to setup stream orientation (ISC_RET_STREAM)");
+				TEXTUS_SPRINTF(errMsg, "AcceptSecurityContext(2) error: failed to setup stream orientation (ISC_RET_STREAM)");
 
 			if(!(ansFlags & ISC_RET_REPLAY_DETECT))
-				TEXTUS_SPRINTF(errMsg, "InitializeSecurityContext(2) error: failed to setup replay detection (ISC_RET_REPLAY_DETECT)");
+				TEXTUS_SPRINTF(errMsg, "AcceptSecurityContext(2) error: failed to setup replay detection (ISC_RET_REPLAY_DETECT)");
 
 			if(!(ansFlags & ISC_RET_SEQUENCE_DETECT))
-				TEXTUS_SPRINTF(errMsg, "InitializeSecurityContext(2) error: failed to setup sequence detection (ISC_RET_SEQUENCE_DETECT)");
+				TEXTUS_SPRINTF(errMsg, "AcceptSecurityContext(2) error: failed to setup sequence detection (ISC_RET_SEQUENCE_DETECT)");
 
 			if(!(ansFlags & ISC_RET_ALLOCATED_MEMORY))
-				TEXTUS_SPRINTF(errMsg, "InitializeSecurityContext(2) error: failed to setup memory allocation (ISC_RET_ALLOCATED_MEMORY)");
+				TEXTUS_SPRINTF(errMsg, "AcceptSecurityContext(2) error: failed to setup memory allocation (ISC_RET_ALLOCATED_MEMORY)");
 
 			if(!(ansFlags & ISC_RET_CONFIDENTIALITY))
-				TEXTUS_SPRINTF(errMsg, "InitializeSecurityContext(2) error: failed to setup confidentiality (ISC_RET_CONFIDENTIALITY)");
+				TEXTUS_SPRINTF(errMsg, "AcceptSecurityContext(2) error: failed to setup confidentiality (ISC_RET_CONFIDENTIALITY)");
 
 			goto END_OF_Doing;
 		}
@@ -515,6 +515,7 @@ int SSLsrv:: clasp( bool &has_ciph)
           			gCFG->pSecFun->FreeContextBuffer(outBuffers[i].pvBuffer);
 			}
 		}
+		if ( ret == -1 ) goto END_OF_Doing; //may from other error 
 		break;
 
 	case SEC_E_INCOMPLETE_MESSAGE:
@@ -522,6 +523,7 @@ int SSLsrv:: clasp( bool &has_ciph)
 		ret = 0;
 		disp_err("AcceptSecurityContext(1)", scRet, ret);
 		err_lev = 5;	/* reading ? */
+		if  (0 != (ansFlags & ASC_RET_EXTENDED_ERROR) ) goto OK_Pro;
 		break;
 
 	case SEC_I_INCOMPLETE_CREDENTIALS:
@@ -532,11 +534,13 @@ int SSLsrv:: clasp( bool &has_ciph)
 		if ( ! (reqFlags & ISC_REQ_USE_SUPPLIED_CREDS) ) {
 			reqFlags |= ISC_REQ_USE_SUPPLIED_CREDS;	/* writing? */
 		}
+		if  (0 != (ansFlags & ASC_RET_EXTENDED_ERROR) ) goto OK_Pro;
 		break;
 
 	default:
 		ret = -1;
 		disp_err("AcceptSecurityContext(1)", scRet);
+		if  (0 != (ansFlags & ASC_RET_EXTENDED_ERROR) ) goto OK_Pro;
 		goto END_OF_Doing;
 		break;
 	}
@@ -1107,10 +1111,10 @@ void SSLsrv::disp_err(const char* fun_str, SECURITY_STATUS status, int ret )
 		break;
 
 	case SEC_I_COMPLETE_AND_CONTINUE: 
-		//The client must call CompleteAuthToken and then pass the output to the server. The client then waits for a returned token and passes it, in another call, to InitializeSecurityContext (Schannel).
+		//The client must call CompleteAuthToken and then pass the output to the server. The client then waits for a returned token and passes it, in another call, to AcceptSecurityContext (Schannel).
 		switch ( ret ) {
 		case 0:
-			TEXTUS_SPRINTF(errMsg, "%s return SEC_I_COMPLETE_AND_CONTINUE. The client must call CompleteAuthToken and then pass the output to the server. The client then waits for a returned token and passes it, in another call, to InitializeSecurityContext (Schannel).", fun_str);
+			TEXTUS_SPRINTF(errMsg, "%s return SEC_I_COMPLETE_AND_CONTINUE. The client must call CompleteAuthToken and then pass the output to the server. The client then waits for a returned token and passes it, in another call, to AcceptSecurityContext (Schannel).", fun_str);
 			err_lev = 5;
 			break;
 
