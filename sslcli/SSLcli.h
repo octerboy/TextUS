@@ -118,7 +118,6 @@ public:
 	};
 
 	struct G_CFG *gCFG;
-	
 	char errMsg[1024];	//错误信息缓冲区	
 	int err_lev;
 
@@ -132,7 +131,6 @@ public:
 
 	void endssl();	/* 结束SSL会话 */
 	void endctx();	/* 结束整个SSL环境 */
-	bool isVpeer;	/* 是否要验客户端证书 */
 	void ssl_down(bool &has_ciph);	//ssl关闭时, 向客户端通知
 
 	bool handshake_ok;	/* false: 还需要SSL_connect()

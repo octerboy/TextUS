@@ -24,6 +24,12 @@
 #include "textus_string.h"
 #include "TBuffer.h"
 #include "casecmp.h"
+#define SLOG(Z) { Amor::Pius log_pius; \
+		log_pius.ordo = Notitia::LOG_##Z; \
+		log_pius.indic = errMsg; \
+		aptus->sponte(&log_pius); \
+		}
+
 class SSLcliuna: public Amor
 {
 public:
@@ -41,7 +47,27 @@ private:
 	SSLcli *sslcli;
 	void deliver(Notitia::HERE_ORDO aordo);
 	void end(enum ACT_TYPE);
-	void errpro();
+	void errpro()
+	{
+		switch( sslcli->err_lev )
+		{
+		case 3:
+			SLOG(ERR)
+		break;
+		case 5:
+			SLOG(NOTICE)
+		break;
+
+#ifndef NDEBUG
+		case 7:
+			SLOG(DEBUG)
+		break;
+#endif
+
+		default:
+			break;
+		}
+	};
 	void letgo();	/* 让明文数据 */
 
 	Amor::Pius pro_tbuf;
@@ -70,12 +96,6 @@ private:
 
 #include "textus_string.h"
 #include <assert.h>
-
-#define SLOG(Z) { Amor::Pius log_pius; \
-		log_pius.ordo = Notitia::LOG_##Z; \
-		log_pius.indic = errMsg; \
-		aptus->sponte(&log_pius); \
-		}
 
 #define BZERO(X) memset(X, 0 ,sizeof(X))
 void SSLcliuna::ignite(TiXmlElement *cfg)
@@ -422,7 +442,7 @@ void SSLcliuna::letgo()
 		break;
 	}
 }
-
+/*
 void SSLcliuna::errpro()
 {
 	switch( sslcli->err_lev )
@@ -444,6 +464,7 @@ void SSLcliuna::errpro()
 		break;
 	}
 }
+*/
 		
 /* 向接力者提交 */
 void SSLcliuna::deliver(Notitia::HERE_ORDO aordo)
