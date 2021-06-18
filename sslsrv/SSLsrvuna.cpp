@@ -23,6 +23,12 @@
 #include "Notitia.h"
 #include "TBuffer.h"
 #include "casecmp.h"
+#define SLOG(Z) { Amor::Pius log_pius; \
+		log_pius.ordo = Notitia::LOG_##Z; \
+		log_pius.indic = errMsg; \
+		aptus->sponte(&log_pius); \
+		}
+
 class SSLsrvuna: public Amor
 {
 public:
@@ -33,6 +39,7 @@ public:
 	SSLsrvuna();
 	~SSLsrvuna();
 private:
+	enum ACT_TYPE { FromSelf=0, FromFac=1, FromSpo=2 };
 	char *errMsg;
 
 	Amor::Pius local_pius;	//仅用于向mary传回数据
@@ -41,19 +48,31 @@ private:
 
 	SSLsrv *sslsrv;
 	void deliver(Notitia::HERE_ORDO aordo);
-	void end();
-	void errpro();
+	void end(enum ACT_TYPE);
+	void errpro()
+	{
+		switch( sslsrv->err_lev )
+		{
+		case 3:
+			SLOG(ERR)
+			break;
+
+		case 5:
+			SLOG(NOTICE)
+			break;
+
+		case 7:
+			SLOG(DEBUG)
+			break;
+		default:
+			break;
+		}
+	};
 #include "wlog.h"
 };
 
 #include "textus_string.h"
 #include <assert.h>
-
-#define SLOG(Z) { Amor::Pius log_pius; \
-		log_pius.ordo = Notitia::LOG_##Z; \
-		log_pius.indic = errMsg; \
-		aptus->sponte(&log_pius); \
-		}
 
 #define BZERO(X) memset(X, 0 ,sizeof(X))
 void SSLsrvuna::ignite(TiXmlElement *cfg)
@@ -61,30 +80,51 @@ void SSLsrvuna::ignite(TiXmlElement *cfg)
 	const char *str ;
 	
 #define NCOPY(X) TEXTUS_STRNCPY(X, str, sizeof(X)-1)
-	if( (str = cfg->Attribute("ca") ) )
-		NCOPY(sslsrv->ca_cert_file);
+#ifdef USE_WINDOWS_SSPI
+	if( (str = cfg->Attribute("security_dll") ) )
+		NCOPY(sslsrv->gCFG->secdll_fn);
 
-	if( ( str = cfg->Attribute("cert") )) 
-		NCOPY(sslsrv->my_cert_file);
+	if( (str = cfg->Attribute("security_face") ) )
+		NCOPY(sslsrv->gCFG->secface_fn);
 
-	if( (str = cfg->Attribute("key") ))
-		NCOPY(sslsrv->my_key_file);
+	if( (str = cfg->Attribute("security_provider") ) )
+		NCOPY(sslsrv->gCFG->provider);
 
-	if( (str = cfg->Attribute("crl") ))
-		NCOPY(sslsrv->crl_file);
+	if( (str = cfg->Attribute("protocol") ) )
+		NCOPY(sslsrv->gCFG->proto_str);
 
-	if( (str = cfg->Attribute("path") ))
-		NCOPY(sslsrv->capath);
+	if( (str = cfg->Attribute("alog") ) )
+		NCOPY(sslsrv->gCFG->alg_str);
 
+	if( (str = cfg->Attribute("subject") ) )
+		NCOPY(sslsrv->gCFG->cert_sub);
+#elif defined(__APPLE__)
+
+#else
 	if( (str = cfg->Attribute("engine") ))
-		NCOPY(sslsrv->engine_id);
+		NCOPY(sslsrv->gCFG->engine_id);
 
 	if( (str = cfg->Attribute("dso") ))
-		NCOPY(sslsrv->dso);
+		NCOPY(sslsrv->gCFG->dso);
+#endif
+	if( (str = cfg->Attribute("ca") ) )
+		NCOPY(sslsrv->gCFG->ca_cert_file);
+
+	if( ( str = cfg->Attribute("cert") )) 
+		NCOPY(sslsrv->gCFG->my_cert_file);
+
+	if( (str = cfg->Attribute("key") ))
+		NCOPY(sslsrv->gCFG->my_key_file);
+
+	if( (str = cfg->Attribute("crl") ))
+		NCOPY(sslsrv->gCFG->crl_file);
+
+	if( (str = cfg->Attribute("path") ))
+		NCOPY(sslsrv->gCFG->capath);
 
 	if( (str = cfg->Attribute("vpeer") ) )
 		if ( strcasecmp(str, "no") ==0 )
-			sslsrv->isVpeer = false;
+			sslsrv->gCFG->isVpeer = false;
 	/* 自身设定结束 */
 	
 	isPoineer = true;	/* 认为自己是开拓者 */
@@ -93,7 +133,8 @@ void SSLsrvuna::ignite(TiXmlElement *cfg)
 bool SSLsrvuna::facio( Amor::Pius *pius)
 {
 	TBuffer **tb = 0;
-	int len = 0;
+	int ret;
+	bool has_plain, has_ciph;
 
 	assert(pius);
 	
@@ -107,21 +148,10 @@ bool SSLsrvuna::facio( Amor::Pius *pius)
 			break;
 		}
 	
-		len = sslsrv->decrypt();	//将输入数据解密
-		WBUG("decrypted len is %d", len);
+		ret = sslsrv->decrypt(has_plain, has_ciph);	//将输入数据解密
 		errpro();
-		if ( sslsrv->bio_out_buf->point > sslsrv->bio_out_buf->base ) //SSL有密文数据要发回
+		if ( has_ciph) //SSL有密文数据要发回
 			aptus->sponte(&local_pius);
-
-		if ( len < 0 )
-		{
-			sslsrv->ssl_down();
-			errpro();
-			if ( sslsrv->bio_out_buf->point > sslsrv->bio_out_buf->base )
-			{	//SSL有密文数据要发回
-				aptus->sponte(&local_pius);
-			}
-		}
 
 		if ( sslsrv->handshake_ok && !sessioning ) 
 		{	//ssl握手成功, 但这里还未标识, 所以设置会话标志, 并通知高层(右节点)
@@ -129,11 +159,23 @@ bool SSLsrvuna::facio( Amor::Pius *pius)
 			deliver( Notitia::START_SESSION );
 		}
 
-		if ( len > 0 ) /* SSL有明文输出,由接力者处理 */
-			deliver( Notitia::PRO_TBUF );
+		if ( has_plain )	/* 有明文可读 */
+			aptus->facio(&local_pius);
 
-		if ( len < 0 ) 
-			end();
+		switch ( ret )
+		{
+		case -1:
+			sslsrv->ssl_down(has_ciph);
+			errpro();
+			if ( has_ciph)
+				aptus->sponte(&local_pius);
+		case 0: //有错误, 会话被关闭, 包括 -1
+			end(FromSelf);
+			break;
+		default:	//其它正常
+			break;
+		} 
+
 		break;
 
 	case Notitia::SET_TBUF:	/* 取得输入TBuffer地址 */
@@ -170,7 +212,7 @@ bool SSLsrvuna::facio( Amor::Pius *pius)
 
 	case Notitia::DMD_END_SESSION:	
 		WBUG("facio DMD_END_SESSION");
-		end();
+		end(FromFac);
 		break;
 
 	case Notitia::START_SESSION:	
@@ -185,43 +227,51 @@ bool SSLsrvuna::facio( Amor::Pius *pius)
 
 bool SSLsrvuna::sponte( Amor::Pius *pius)
 {
-	bool ret;
+	int ret;
+	bool has_c;
 	assert(pius);
-		
+
 	switch ( pius->ordo )
 	{
 	case Notitia::PRO_TBUF :	//有明文回来了
 		WBUG("sponte PRO_TBUF");
-		ret = sslsrv->encrypt();	//将输入数据加密
-		WBUG("encrypt ret=%d", ret);
+		ret = sslsrv->encrypt(has_c);	//将输入数据加密
 		errpro();
 
-		if ( ret )	//将输入数据加密
-		{
-			if ( sslsrv->bio_out_buf->point > sslsrv->bio_out_buf->base )
-			{	//SSL有密文数据要发回
-				aptus->sponte(&local_pius);
-			}
-		}  else {
-			sslsrv->ssl_down();
-			errpro();
-			if ( sslsrv->bio_out_buf->point > sslsrv->bio_out_buf->base )
-			{	//SSL有密文数据要发回
-				aptus->sponte(&local_pius);
-			}
+		if ( has_c)
+		{	//SSL有密文数据要发
+			aptus->sponte(&local_pius);
 		}
-		if (!ret) //有错误, 会话被关闭
-			end();
+		switch ( ret )
+		{
+		case -1:
+			sslsrv->ssl_down(has_c);
+			errpro();
+			if ( has_c)
+				aptus->sponte(&local_pius);
+		case 0:	//包括-1
+			end(FromSelf);
+			break;
+		default:
+			break;
+		}
 		break;
 
 	case Notitia::DMD_END_SESSION:	/* 高级会话关闭了 */
 		WBUG("sponte DMD_END_SESSION");
-		end();
+		if ( sessioning )
+		{
+			sslsrv->ssl_down(has_c);
+			errpro();
+			if ( has_c)
+				aptus->facio(&local_pius);
+		}
+		end(FromSpo);
 		break;
 
 	case Notitia::CMD_GET_SSL:	/* 取SSL通讯句柄 */
 		WBUG("sponte CMD_GET_SSL");
-		pius->indic = sslsrv->ssl;
+		pius->indic = sslsrv->get_ssl();
 		break;
 	default:
 		return false;
@@ -278,7 +328,7 @@ void SSLsrvuna::deliver(Notitia::HERE_ORDO aordo)
 	return ;
 }
 
-void SSLsrvuna::end()
+void SSLsrvuna::end(enum ACT_TYPE act)
 {
 	Amor::Pius tmp_pius;
 	tmp_pius.ordo = Notitia::END_SESSION;
@@ -294,11 +344,22 @@ void SSLsrvuna::end()
 	if (sessioning )
 	{
 		sessioning = false;
-		deliver(Notitia::END_SESSION);
+		switch ( act ) 
+		{
+		case FromSelf:
+			aptus->sponte(&tmp_pius);
+			aptus->facio(&tmp_pius);	/* send END_SESSION to right node */
+			break;
+		case FromFac:
+			aptus->facio(&tmp_pius);	/* send END_SESSION to right node */
+			break;
+		case FromSpo:
+			aptus->sponte(&tmp_pius);
+			break;
+		}
 	}
-	aptus->sponte(&tmp_pius);	/* send END_SESSION to left node */
 }
-
+/*
 void SSLsrvuna::errpro()
 {
 	switch( sslsrv->err_lev )
@@ -319,5 +380,6 @@ void SSLsrvuna::errpro()
 		break;
 	}
 }
+*/
 		
 #include "hook.c"
