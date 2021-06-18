@@ -288,8 +288,12 @@ void TPoll::ignite(TiXmlElement *cfg)
 			ERROR_PRO("NtSetTimerResolution not found");
 			return ;
 		}
-		nStatus = NtSetTimerResolution(10000, true, &cur_time_res);
+		//nStatus = NtSetTimerResolution(10000, true, &cur_time_res);
+		nStatus = NtSetTimerResolution(timer_resolution, true, &cur_time_res);
+		//printf("nStatus %d\n", nStatus);
+		
 	}
+	//cur_time_res = ExSetTimerResolution(timer_resolution, true); wdm.h is for driver
 	iocp_port = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, number_threads); 
 	if (iocp_port == NULL)  
 	{
@@ -400,7 +404,7 @@ bool TPoll::sponte( Amor::Pius *apius)
 		ppo = (DPoll::Pollor *)apius->indic;	
 		assert(ppo);
 #if defined(__sun)
-		WBUG("%p %s", ppo->pupa, "sponte CLR_EPOLL(port_dissociate)");
+		WBUG("%p %s fd=%d", ppo->pupa, "sponte CLR_EPOLL(port_dissociate)", ppo->fd);
 		if( !port_dissociate(ev_port, PORT_SOURCE_FD, ppo->fd) )
 		{
 			ERROR_PRO("port_dissociate(PORT_SOURCE_FD) failed");
