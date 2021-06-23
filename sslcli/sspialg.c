@@ -73,26 +73,6 @@ static int alg_id(char *name)
 	return 0;
 }
 
-static int proto_id(char *name)
-{
-#define GetProtID(X)                         \
-  if(strcasecmp(name, #X) == 0)                      \
-	return SP_PROT_##X##_CLIENT
-
-	GetProtID(PCT1);
-	GetProtID(SSL2);
-	GetProtID(SSL3);
-	GetProtID(TLS1);
-	GetProtID(TLS1_0);
-	GetProtID(TLS1_1);
-	GetProtID(TLS1_2);
-	GetProtID(DTLS);
-	GetProtID(DTLS1_0);
-	GetProtID(DTLS1_2);
-	GetProtID(DTLS1_X);
-	return 0;
-}
-
 void set_proto(SCHANNEL_CRED *scred, char *str)
 {
 	char pro_str[512], *p, *q, *t;

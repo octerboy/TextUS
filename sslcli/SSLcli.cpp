@@ -20,12 +20,34 @@
 /* $NoKeywords: $ */
 
 #include "SSLcli.h"
+#include "casecmp.h"
 #include <assert.h>
 
 #define SND_LEN (snd_buf->point - snd_buf->base)
 #define RCV_LEN (rcv_buf->point - rcv_buf->base)
 
 #ifdef USE_WINDOWS_SSPI
+
+static int proto_id(char *name)
+{
+#define GetProtID(X)                         \
+  if(strcasecmp(name, #X) == 0)                      \
+	return SP_PROT_##X##_CLIENT
+
+	GetProtID(PCT1);
+	GetProtID(SSL2);
+	GetProtID(SSL3);
+	GetProtID(TLS1);
+	GetProtID(TLS1_0);
+	GetProtID(TLS1_1);
+	GetProtID(TLS1_2);
+	GetProtID(DTLS);
+	GetProtID(DTLS1_0);
+	GetProtID(DTLS1_2);
+	GetProtID(DTLS1_X);
+	return 0;
+}
+
 #include "sspialg.c"
 #endif
 
