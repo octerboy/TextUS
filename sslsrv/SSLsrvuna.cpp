@@ -78,7 +78,11 @@ private:
 void SSLsrvuna::ignite(TiXmlElement *cfg)
 {
 	const char *str ;
-	
+	if ( !sslsrv->gCFG )
+	{
+		sslsrv->gCFG = new struct SSLsrv::G_CFG();
+	}
+
 #define NCOPY(X) TEXTUS_STRNCPY(X, str, sizeof(X)-1)
 #ifdef USE_WINDOWS_SSPI
 	if( (str = cfg->Attribute("security_dll") ) )
@@ -217,6 +221,12 @@ bool SSLsrvuna::facio( Amor::Pius *pius)
 
 	case Notitia::START_SESSION:	
 		WBUG("facio START_SESSION");	/* 阻止START的传递, 向后传递由本类特别决定 */
+		if ( !isPoineer)
+			sslsrv->endssl();
+		else
+			sslsrv->endctx();
+		sslsrv->rcv_buf->reset();
+		sslsrv->snd_buf->reset();
 		break;
 
 	default:
@@ -318,6 +328,9 @@ void SSLsrvuna::deliver(Notitia::HERE_ORDO aordo)
 		tb[1] = sslsrv->snd_buf;
 		tb[2] = 0;
 		tmp_pius.indic = &tb[0];
+		break;
+	case Notitia::START_SESSION:
+		WBUG("deliver START_SESSION");
 		break;
 
 	default:

@@ -20,12 +20,34 @@
 /* $NoKeywords: $ */
 
 #include "SSLsrv.h"
+#include "casecmp.h"
 #include <assert.h>
 
 #define BZERO(X) memset(X, 0 ,sizeof(X))
 #define SND_LEN (snd_buf->point - snd_buf->base)
 #define RCV_LEN (rcv_buf->point - rcv_buf->base)
 #ifdef USE_WINDOWS_SSPI
+
+static int proto_id(char *name)
+{
+#define GetProtID(X)                         \
+  if(strcasecmp(name, #X) == 0)                      \
+	return SP_PROT_##X##_SERVER
+
+	GetProtID(PCT1);
+	GetProtID(SSL2);
+	GetProtID(SSL3);
+	GetProtID(TLS1);
+	GetProtID(TLS1_0);
+	GetProtID(TLS1_1);
+	GetProtID(TLS1_2);
+	GetProtID(DTLS);
+	GetProtID(DTLS1_0);
+	GetProtID(DTLS1_2);
+	GetProtID(DTLS1_X);
+	return 0;
+}
+
 #include "sspialg.c"
 #endif
 
@@ -88,6 +110,7 @@ int SSLsrv::encrypt(bool &has_ciph)
 #ifdef USE_WINDOWS_SSPI
 
 	/* setup output buffers (header, data, trailer, empty) */
+	printf("cb %d len %d trail %d\n", outSize.cbHeader, len , outSize.cbTrailer);
 	data_len = outSize.cbHeader + len + outSize.cbTrailer;
 	bio_out_buf->grant(data_len);
 	outBuffers[0].BufferType= SECBUFFER_STREAM_HEADER;
@@ -231,6 +254,7 @@ D_AGAIN:
 			&& p[5] == 0 // it is a "close notify" (aka shutdown) message
 		) {
 		//DebugMsg("Looks like a concatenated shutdown message and something else");
+			printf("---------Looks like a concatenated shutdown message and something else\n");
 		//PrintHexDump(readBufferBytes, readPtr, true);
 			inBuffers[0].cbBuffer = shutLen + headLen;
 			scRet = gCFG->pSecFun->DecryptMessage(&ssl, &inMessage, 0, NULL);
@@ -241,10 +265,11 @@ D_AGAIN:
 				inBuffers[3].pvBuffer = p + headLen + shutLen;
 				inBuffers[3].cbBuffer = len - headLen - shutLen;
 			}
+			goto WHAT_RET;
 		}
-	} else {
-		scRet = gCFG->pSecFun->DecryptMessage(&ssl, &inMessage, 0, NULL);
 	}
+	scRet = gCFG->pSecFun->DecryptMessage(&ssl, &inMessage, 0, NULL);
+WHAT_RET:
 	switch ( scRet ) {
 	case SEC_I_RENEGOTIATE:
 	case SEC_I_CONTEXT_EXPIRED: 
@@ -316,7 +341,7 @@ D_AGAIN:
 	if (!handshake_ok)
 	{	//没有握手就握手
 		ret = clasp( has_ciph );
-		if ( ret <= 0 )
+		if ( ret < 0 )
 			return ret;
 		else if ( ret == 0 )
 			return 1;
@@ -324,7 +349,7 @@ D_AGAIN:
 
 	/* 现在开始试图读取明文 */
 	rcv_buf->grant(8192);   //保证有足够空间
-	ret = 0;
+	ret =1;
 	while ( (reqLen = SSL_read( ssl, rcv_buf->point, 8192)) > 0 )
 	{
 		has_plain = true;
@@ -433,6 +458,7 @@ int SSLsrv:: clasp( bool &has_ciph)
 		break;
 	}
 	shake_st = 1;
+	bio_in_buf->reset();
 	return ret;	/* END OF 0 */
 
  SHAKE_ST_Doing:
@@ -469,6 +495,7 @@ int SSLsrv:: clasp( bool &has_ciph)
 	switch ( scRet )
 	{
 	case SEC_I_CONTINUE_NEEDED:
+		printf("--------- sec_i_continue \n");
 		ret = 0;
 		//The client must send the output token to the server and wait for a return token. The returned token is then passed in another call to AcceptSecurityContext (Schannel). The output token can be empty.
 #ifndef NDEBUG
@@ -477,27 +504,29 @@ int SSLsrv:: clasp( bool &has_ciph)
 #endif
 		goto OK_Pro;
 	case SEC_E_OK:
+		//printf("--------- sec_ok \n");
 		shake_st = 2;	/*  handshake is complete */
 		ret = 1;
-		if( ansFlags != reqFlags) 
+		if( ansFlags != reqFlags )
 		{
+			//printf("-------ansFlags != reqFlagsk \n");
 			ret = -1;
 			err_lev = 3;
-			if(!(ansFlags & ISC_RET_STREAM))
-				TEXTUS_SPRINTF(errMsg, "AcceptSecurityContext(2) error: failed to setup stream orientation (ISC_RET_STREAM)");
-
-			if(!(ansFlags & ISC_RET_REPLAY_DETECT))
-				TEXTUS_SPRINTF(errMsg, "AcceptSecurityContext(2) error: failed to setup replay detection (ISC_RET_REPLAY_DETECT)");
-
-			if(!(ansFlags & ISC_RET_SEQUENCE_DETECT))
-				TEXTUS_SPRINTF(errMsg, "AcceptSecurityContext(2) error: failed to setup sequence detection (ISC_RET_SEQUENCE_DETECT)");
-
-			if(!(ansFlags & ISC_RET_ALLOCATED_MEMORY))
-				TEXTUS_SPRINTF(errMsg, "AcceptSecurityContext(2) error: failed to setup memory allocation (ISC_RET_ALLOCATED_MEMORY)");
-
-			if(!(ansFlags & ISC_RET_CONFIDENTIALITY))
-				TEXTUS_SPRINTF(errMsg, "AcceptSecurityContext(2) error: failed to setup confidentiality (ISC_RET_CONFIDENTIALITY)");
-
+			if(!(ansFlags & ASC_RET_STREAM)) {
+				TEXTUS_SPRINTF(errMsg, "AcceptSecurityContext(2) error: failed to setup stream orientation (ASC_RET_STREAM)");
+			} else if(!(ansFlags & ASC_RET_REPLAY_DETECT)) {
+				TEXTUS_SPRINTF(errMsg, "AcceptSecurityContext(2) error: failed to setup replay detection (ASC_RET_REPLAY_DETECT)");
+			} else if(!(ansFlags & ASC_RET_SEQUENCE_DETECT)) {
+				TEXTUS_SPRINTF(errMsg, "AcceptSecurityContext(2) error: failed to setup sequence detection (ASC_RET_SEQUENCE_DETECT)");
+			} else if(!(ansFlags & ASC_RET_ALLOCATED_MEMORY)) {
+				TEXTUS_SPRINTF(errMsg, "AcceptSecurityContext(2) error: failed to setup memory allocation (ASC_RET_ALLOCATED_MEMORY)");
+			} else if(!(ansFlags & ASC_RET_CONFIDENTIALITY)) {
+				TEXTUS_SPRINTF(errMsg, "AcceptSecurityContext(2) error: failed to setup confidentiality (ASC_RET_CONFIDENTIALITY)");
+			} else if(!(ansFlags & ASC_RET_EXTENDED_ERROR)) {
+				TEXTUS_SPRINTF(errMsg, "AcceptSecurityContext(2) error: failed to setup extended error (ASC_RET_EXTENDED_ERROR)");
+			} else {
+				TEXTUS_SPRINTF(errMsg, "AcceptSecurityContext(2) error: failed to setup other error");
+			}
 			goto END_OF_Doing;
 		}
 #ifndef NDEBUG
@@ -519,6 +548,7 @@ int SSLsrv:: clasp( bool &has_ciph)
 		break;
 
 	case SEC_E_INCOMPLETE_MESSAGE:
+		//printf("--------- sec_i_inc \n");
 		//Data for the whole message was not read from the wire.
 		ret = 0;
 		disp_err("AcceptSecurityContext(1)", scRet, ret);
@@ -527,6 +557,7 @@ int SSLsrv:: clasp( bool &has_ciph)
 		break;
 
 	case SEC_I_INCOMPLETE_CREDENTIALS:
+		//printf("--------- sec_i_cre \n");
 		//The server has requested client authentication, and the supplied credentials either do not include a certificate or the certificate was not issued by a certification authority (CA) that is trusted by the server. For more information, see Remarks.
 		ret = 0;
 		disp_err("AcceptSecurityContext(1)", scRet, ret);
@@ -538,9 +569,11 @@ int SSLsrv:: clasp( bool &has_ciph)
 		break;
 
 	default:
-		ret = -1;
-		disp_err("AcceptSecurityContext(1)", scRet);
+		//printf("--------- default err\n");
+		disp_err("AcceptSecurityContext(defulat 1)", scRet);
+		ret = 1;
 		if  (0 != (ansFlags & ASC_RET_EXTENDED_ERROR) ) goto OK_Pro;
+		ret = -1;
 		goto END_OF_Doing;
 		break;
 	}
@@ -563,10 +596,12 @@ END_OF_Doing:
  SHAKE_ST_Done:
 	scRet = gCFG->pSecFun->QueryContextAttributes(&ssl, SECPKG_ATTR_STREAM_SIZES, &outSize);
 	if( scRet != SEC_E_OK) {
+		printf("QueryContextAttributes err\n");
 		ret = -1;
 		disp_err("QueryContextAttributes for SHAKE_ST_Done", scRet);
 		goto END_OF_2;
 	}
+		printf("QueryContextAttributes ok\n");
 
 	handshake_ok = true;
 	shake_st = 3;
@@ -590,6 +625,7 @@ END_OF_2:
 	how = SSL_get_error(ssl, err_ret);
 	if ( how ==  SSL_ERROR_WANT_READ )
 	{	/* 还想读数据, 回去再等就是了 */
+		ret = 0;
 	} else if ( how == SSL_ERROR_WANT_WRITE)
 	{	/* 要出数据? 奇怪 */
 		TEXTUS_SPRINTF(errMsg, "SSL acccept  SSL_ERROR_WANT_WRITE");
@@ -803,8 +839,8 @@ bool SSLsrv::initio()
 	gCFG->schCred.dwSessionLifespan =0;
 	gCFG->schCred.dwCredFormat =SCH_CRED_FORMAT_CERT_HASH;
 
-	gCFG->reqFlags = ISC_REQ_SEQUENCE_DETECT | ISC_REQ_REPLAY_DETECT | ISC_REQ_CONFIDENTIALITY | ISC_REQ_EXTENDED_ERROR |
-			ISC_REQ_ALLOCATE_MEMORY | ISC_REQ_STREAM;
+	gCFG->reqFlags = ASC_REQ_SEQUENCE_DETECT | ASC_REQ_REPLAY_DETECT | ASC_REQ_CONFIDENTIALITY |ASC_REQ_EXTENDED_ERROR |
+			ASC_REQ_ALLOCATE_MEMORY | ASC_REQ_STREAM;
 			//ISC_REQ_MANUAL_CRED_VALIDATION | // We'll check the certificate ourselves
 	if ( gCFG->isVpeer )
 	{
@@ -824,17 +860,19 @@ bool SSLsrv::initio()
 	char sub[126];
 	CERT_NAME_BLOB *pblob =NULL;
 	gCFG->schCred.hRootStore = CertOpenStore(CERT_STORE_PROV_SYSTEM_A, 0, (HCRYPTPROV)NULL,
-                        CERT_STORE_OPEN_EXISTING_FLAG | CERT_SYSTEM_STORE_LOCAL_MACHINE,  (strlen(gCFG->ca_cert_file) > 0 ? gCFG->ca_cert_file:"CA"));
+                        CERT_STORE_OPEN_EXISTING_FLAG | CERT_SYSTEM_STORE_LOCAL_MACHINE,  (strlen(gCFG->ca_cert_file) > 0 ? gCFG->ca_cert_file:"Root"));
 	if ( gCFG->schCred.hRootStore ) 
 	{
 	while (1 ) {
 		ctx = CertEnumCertificatesInStore(gCFG->schCred.hRootStore, prevCtx);
 		if ( !ctx ) break;
 		CertNameToStrA(X509_ASN_ENCODING, &(ctx->pCertInfo->Subject), CERT_X500_NAME_STR, sub, 126);
-		printf("sub %s\n", sub);
+		//printf("root sub %s\n", sub);
 		prevCtx = ctx;	
 	}
 	}
+	
+		printf("cStrore %s\n",  gCFG->cert_store);
         cStore = CertOpenStore(CERT_STORE_PROV_SYSTEM_A, 0, (HCRYPTPROV)NULL,
                         CERT_STORE_OPEN_EXISTING_FLAG | CERT_SYSTEM_STORE_CURRENT_USER, gCFG->cert_store);
         if(!cStore) {
@@ -842,11 +880,12 @@ bool SSLsrv::initio()
 		return false;
 	}
 
+	prevCtx = NULL;
 	while (1 ) {
 		ctx = CertEnumCertificatesInStore(cStore, prevCtx);
 		if ( !ctx ) break;
 		CertNameToStrA(X509_ASN_ENCODING, &(ctx->pCertInfo->Subject), CERT_X500_NAME_STR, sub, 126);
-		//printf("sub %s\n", sub);
+		printf("%s sub %s\n", gCFG->cert_store, sub);
 		if ( strcasecmp(sub, gCFG->cert_sub) ==0 ) { 
 			pblob =  &(ctx->pCertInfo->Subject);
 			break;
@@ -864,7 +903,7 @@ bool SSLsrv::initio()
 		}
 		gCFG->schCred.cCreds =1;
 		gCFG->schCred.paCred =client_certs;
-		//printf("has my certfile!!\n");
+		printf("has my certfile!!\n");
 	} else {
 		//printf("no my certfile\n");
 		gCFG->schCred.cCreds =0;
@@ -939,7 +978,10 @@ bool SSLsrv::initio()
 	}
 
 	if ( ! gCFG->ssl_ctx )
-		 gCFG->ssl_ctx = SSL_CTX_new( SSLv23_server_method() );
+		 gCFG->ssl_ctx = SSL_CTX_new( SSLv23_method() );
+		 //gCFG->ssl_ctx = SSL_CTX_new( DTLS_method() );
+		 //gCFG->ssl_ctx = SSL_CTX_new( SSLv23_server_method() );
+		 //gCFG->ssl_ctx = SSL_CTX_new( TLSv1_2_server_method() );
 	SSL_CTX_set_session_id_context(gCFG->ssl_ctx, (unsigned char *)&sid, sizeof(sid));
 	if ( gCFG->isVpeer )
 	if ( SSL_CTX_load_verify_locations(  gCFG->ssl_ctx, (strlen( gCFG->ca_cert_file) > 0 ?  gCFG->ca_cert_file:NULL), 
