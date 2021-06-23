@@ -264,7 +264,6 @@ END:
 		aptus->sponte(&clr_timer_pius);
 		channel_isAlive = true;
 		reset();
-		WBUG("facio START_SESSION");
 		break;
 
 	case Notitia::TIMER:
