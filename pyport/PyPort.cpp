@@ -251,12 +251,12 @@ static PyObject *python_log(PyObject *self, PyObject *args, TEXTUS_ORDO lev)
 	return Py_True;
 }
 
+#ifndef NDEBUG
 static PyObject *python_log_bug(PyObject *self, PyObject *args)
 {
-#ifndef NDEBUG
-		return python_log(self, args, Notitia::LOG_DEBUG);
-#endif
+	return python_log(self, args, Notitia::LOG_DEBUG);
 }
+#endif
 
 static PyObject *python_log_info(PyObject *self, PyObject *args)
 {
@@ -296,7 +296,9 @@ static PyObject *python_log_emerg(PyObject *self, PyObject *args)
 static PyMethodDef py_amor_methods[] = {
 	{"aptus_facio", python_facio, METH_VARARGS, "Execute facio command"},
 	{"aptus_sponte", python_sponte, METH_VARARGS, "Execute sponte command"},
+#ifndef NDEBUG
 	{"aptus_log_bug", python_log_bug, METH_VARARGS, "Execute log bug command"},
+#endif
 	{"aptus_log_info", python_log_info, METH_VARARGS, "Execute log infomation command"},
 	{"aptus_log_notice", python_log_notice, METH_VARARGS, "Execute log notice command"},
 	{"aptus_log_warn", python_log_warn, METH_VARARGS, "Execute log warning command"},
