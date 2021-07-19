@@ -71,7 +71,7 @@ public:
 		char crl_file[256]; 
 		bool isVpeer;
 #ifdef USE_WINDOWS_SSPI
-		char secdll_fn[32];
+		char secdll_fn[1024];
 		char provider[256];
 		char secface_fn[32];
 		PSecurityFunctionTable pSecFun;
@@ -159,10 +159,10 @@ public:
 
 	SecPkgContext_StreamSizes  outSize;
 	SecBufferDesc              outMessage;
-	SecBuffer                  outBuffers[4];
+	SecBuffer                  outBuffers[5];
 
 	SecBufferDesc              inMessage;
-	SecBuffer                  inBuffers[4];
+	SecBuffer                  inBuffers[5];
 	
 	void disp_err(const char *fun_str, SECURITY_STATUS status, int ret=-1);
 	void show_err(const char *fun_str, const char *para);

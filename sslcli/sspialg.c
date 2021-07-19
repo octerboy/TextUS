@@ -1,5 +1,7 @@
 #pragma comment(lib,"Crypt32.lib")
+#pragma comment(lib,"Cryptui.lib")
 #include "casecmp.h"
+#include <Cryptuiapi.h>
 
 static int alg_id(char *name)
 {
@@ -119,4 +121,197 @@ void set_algs(SCHANNEL_CRED *scred, char *str,  ALG_ID *all_algs)
 	}
 	scred->palgSupportedAlgs = all_algs;
 	scred->cSupportedAlgs = count;
+}
+
+// Display a UI with the certificate info and also write it to the debug output
+HRESULT ShowCertInfo(PCCERT_CONTEXT pCertContext, const char* Title)
+{
+	WCHAR pszNameString[256] {};
+	void*            pvData;
+	DWORD            cbData {};
+	DWORD            dwPropId = 0;
+
+
+	//  Display the certificate.
+	if (!CryptUIDlgViewContext(
+		CERT_STORE_CERTIFICATE_CONTEXT,
+		pCertContext,
+		nullptr,
+		(LPCWSTR)Title,
+		0,
+		pszNameString // Dummy parameter just to avoid a warning
+	))
+	{
+		printf("UI failed.\n");
+	}
+
+	if (CertGetNameString(
+		pCertContext,
+		CERT_NAME_SIMPLE_DISPLAY_TYPE,
+		0,
+		nullptr,
+		(LPSTR)pszNameString,
+		128))
+	{
+		printf("Certificate for %s\n", (char*)pszNameString);
+	}
+	else
+		printf("CertGetName failed.\n");
+
+
+	int Extensions = pCertContext->pCertInfo->cExtension;
+
+	auto *p = pCertContext->pCertInfo->rgExtension;
+	for (int i = 0; i < Extensions; i++)
+	{
+		printf("Extension %s\n", (p++)->pszObjId);
+	}
+
+	//-------------------------------------------------------------------
+	// Loop to find all of the property identifiers for the specified  
+	// certificate. The loop continues until 
+	// CertEnumCertificateContextProperties returns zero.
+	while (0 != (dwPropId = CertEnumCertificateContextProperties(
+		pCertContext, // The context whose properties are to be listed.
+		dwPropId)))    // Number of the last property found.  
+		// This must be zero to find the first 
+		// property identifier.
+	{
+		//-------------------------------------------------------------------
+		// When the loop is executed, a property identifier has been found.
+		// Print the property number.
+
+		printf("Property # %d found->\n", dwPropId);
+
+		//-------------------------------------------------------------------
+		// Indicate the kind of property found.
+
+		switch (dwPropId)
+		{
+		case CERT_FRIENDLY_NAME_PROP_ID:
+		{
+			printf("Friendly name: ");
+			break;
+		}
+		case CERT_SIGNATURE_HASH_PROP_ID:
+		{
+			printf("Signature hash identifier ");
+			break;
+		}
+		case CERT_KEY_PROV_HANDLE_PROP_ID:
+		{
+			printf("KEY PROVE HANDLE");
+			break;
+		}
+		case CERT_KEY_PROV_INFO_PROP_ID:
+		{
+			printf("KEY PROV INFO PROP ID ");
+			break;
+		}
+		case CERT_SHA1_HASH_PROP_ID:
+		{
+			printf("SHA1 HASH identifier");
+			break;
+		}
+		case CERT_MD5_HASH_PROP_ID:
+		{
+			printf("md5 hash identifier ");
+			break;
+		}
+		case CERT_KEY_CONTEXT_PROP_ID:
+		{
+			printf("KEY CONTEXT PROP identifier");
+			break;
+		}
+		case CERT_KEY_SPEC_PROP_ID:
+		{
+			printf("KEY SPEC PROP identifier");
+			break;
+		}
+		case CERT_ENHKEY_USAGE_PROP_ID:
+		{
+			printf("ENHKEY USAGE PROP identifier");
+			break;
+		}
+		case CERT_NEXT_UPDATE_LOCATION_PROP_ID:
+		{
+			printf("NEXT UPDATE LOCATION PROP identifier");
+			break;
+		}
+		case CERT_PVK_FILE_PROP_ID:
+		{
+			printf("PVK FILE PROP identifier ");
+			break;
+		}
+		case CERT_DESCRIPTION_PROP_ID:
+		{
+			printf("DESCRIPTION PROP identifier ");
+			break;
+		}
+		case CERT_ACCESS_STATE_PROP_ID:
+		{
+			printf("ACCESS STATE PROP identifier ");
+			break;
+		}
+		case CERT_SMART_CARD_DATA_PROP_ID:
+		{
+			printf("SMART_CARD DATA PROP identifier ");
+			break;
+		}
+		case CERT_EFS_PROP_ID:
+		{
+			printf("EFS PROP identifier ");
+			break;
+		}
+		case CERT_FORTEZZA_DATA_PROP_ID:
+		{
+			printf("FORTEZZA DATA PROP identifier ");
+			break;
+		}
+		case CERT_ARCHIVED_PROP_ID:
+		{
+			printf("ARCHIVED PROP identifier ");
+			break;
+		}
+		case CERT_KEY_IDENTIFIER_PROP_ID:
+		{
+			printf("KEY IDENTIFIER PROP identifier ");
+			break;
+		}
+		case CERT_AUTO_ENROLL_PROP_ID:
+		{
+			printf("AUTO ENROLL identifier. ");
+			break;
+		}
+		case CERT_ISSUER_PUBLIC_KEY_MD5_HASH_PROP_ID:
+		{
+			printf("ISSUER PUBLIC KEY MD5 HASH identifier. ");
+			break;
+		}
+		} // End switch.
+
+		//-------------------------------------------------------------------
+		// Retrieve information on the property by first getting the 
+		// property size. 
+		// For more information, see CertGetCertificateContextProperty.
+
+		if (CertGetCertificateContextProperty(
+			pCertContext,
+			dwPropId,
+			nullptr,
+			&cbData))
+		{
+			//  Continue.
+		}
+		else
+		{
+			// If the first call to the function failed,
+			// exit to an error routine.
+			printf("Call #1 to CertGetCertificateContextProperty failed.");
+			return E_FAIL;
+		}
+		//-------------------------------------------------------------------
+		// The call succeeded. Use the size to allocate memory 
+	}
+	return S_OK;
 }
