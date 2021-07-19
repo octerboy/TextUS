@@ -60,8 +60,10 @@ public:
 	~Tcpsrvuna();
 	
 private:
+	Amor::Pius clr_timer_pius, alarm_pius;	/* 清超时, 设超时 */
 	bool has_config;
 	struct G_CFG {
+		int down_delay; 
 		bool on_start ;
 		bool lonely;
 		int back_log;
@@ -69,6 +71,7 @@ private:
 		Amor *sch;
 		struct DPoll::PollorBase lor; /* 探询 */
 		G_CFG() {
+			down_delay = 3000; 	//3 seconds
 			on_start = true;
 			back_log = 100;
 			use_epoll = false;
@@ -78,6 +81,7 @@ private:
 		};
 	};
 	struct G_CFG *gCFG;
+	void *arr[3];
 
 	Amor::Pius local_pius;
 	char errMsg[1024];
@@ -104,6 +108,7 @@ private:
 	void new_conn_pro();
 #if defined (_WIN32 )	
 	void do_accept_ex();
+	//bool end_to_wait_send;
 #endif	//for WIN32
 #include "wlog.h"
 };
@@ -125,6 +130,12 @@ void Tcpsrvuna::ignite(TiXmlElement *cfg)
 
 	if ( (comm_str = cfg->Attribute("lonely") ) && strcmp(comm_str, "yes") ==0 )
 		gCFG->lonely = true; /* 在建立一个连接后, 即关闭 */
+
+	if( (comm_str = cfg->Attribute("delay")) )
+	{
+		if ( atoi(comm_str) > 0 )
+			gCFG->down_delay = atoi(comm_str);
+	}
 
 	/* 开始对Tcpsrv类的变量进行赋值 */
 	tcpsrv->srvport = 0;
@@ -243,6 +254,11 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 		} else if ( aget->lpOverlapped == &(tcpsrv->snd_ovp) ) {
 			WBUG("child PRO_EPOLL sent %d bytes", aget->dwNumberOfBytesTransferred); //写数据完成
 			tcpsrv->m_snd_buf.commit_ack(-(TEXTUS_LONG)aget->dwNumberOfBytesTransferred);
+			/*
+			if ( end_to_wait_send ) {
+				end();
+			} else 
+			*/
 			if ( tcpsrv->snd_buf->point != tcpsrv->snd_buf->base )
 			{
 				if( (ret = tcpsrv->transmitto_ex()) ) child_transmit_ep_err(ret);
@@ -377,8 +393,30 @@ LOOP:
 			end();
 		break;
 		
+	case Notitia::CMD_TIMER_TO_RELEASE:
+		WBUG("facio CMD_TIMER_TO_RELEASE");
+		gCFG->sch->sponte(&alarm_pius); /* 定时后关闭 */
+		break;
+
+	case Notitia::TIMER:
+		WBUG("facio TIMER");
+		if ( tcpsrv->connfd != INVALID_SOCKET )
+		{
+			end(true);
+		}
+		break;
+
+	case Notitia::TIMER_HANDLE:
+		WBUG("facio TIMER_HANDLE");
+		clr_timer_pius.indic = pius->indic;
+		break;
+
 	case Notitia::IGNITE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY");		
+		arr[0] = this;
+		arr[1] = &(gCFG->down_delay);
+		//arr[2] = &(gCFG->down_delay);
+		arr[2] = 0;
 		tmp_p.ordo = Notitia::CMD_GET_SCHED;
 		aptus->sponte(&tmp_p);	//向tpoll, 取得sched
 		gCFG->sch = (Amor*)tmp_p.indic;
@@ -409,6 +447,10 @@ LOOP:
 
 	case Notitia::CLONE_ALL_READY:
 		WBUG("facio CLONE_ALL_READY " TLONG_FMTu, pius->ordo);			
+		arr[0] = this;
+		arr[1] = &(gCFG->down_delay);
+		//arr[2] = &(gCFG->down_delay);
+		arr[2] = 0;
 		deliver(Notitia::SET_TBUF);
 		break;
 
@@ -500,6 +542,11 @@ bool Tcpsrvuna::sponte( Amor::Pius *pius)
 		}
 		break;
 
+	case Notitia::CMD_TIMER_TO_RELEASE:
+		WBUG("sponte CMD_TIMER_TO_RELEASE");
+		gCFG->sch->sponte(&alarm_pius); /* 定时后关闭 */
+		break;
+
 	default:
 		return false;
 	}
@@ -535,6 +582,8 @@ Tcpsrvuna::Tcpsrvuna()
 
 	gCFG = 0;
 	has_config = false;
+	alarm_pius.ordo = Notitia::DMD_SET_ALARM;
+	alarm_pius.indic = &arr[0];
 #if  defined(__linux__)
 	pollor.ev.data.ptr = &pollor;
 #endif	//for linux
@@ -655,6 +704,7 @@ void Tcpsrvuna::child_begin()
 		tcpsrv->m_snd_buf.reset();
 		pollor.hnd.sock = tcpsrv->connfd;
 		pollor.pro_ps.ordo = Notitia::PRO_EPOLL;
+		//end_to_wait_send = false;
 #else
 		pollor.pro_ps.ordo = Notitia::RD_EPOLL;
 #endif
@@ -879,7 +929,17 @@ void Tcpsrvuna::end(bool down)
 	
 		local_pius.ordo = Notitia::FD_CLREX;
 		gCFG->sch->sponte(&local_pius);	//向Sched, 以清exSet.
-	} 
+	}
+#if 0
+	  else {	//gCFG->use_epoll
+		if ( tcpsrv->m_snd_buf.point != tcpsrv->m_snd_buf.base ) /* not empty, wait */
+		{ 
+			end_to_wait_send = true;
+			return ;
+		}
+	}
+#endif
+	
 	// else gCFG->sch->sponte(&epl_clr_ps);	//向tpoll,  注销
 	/* just close for all kinds of system ?  */
 

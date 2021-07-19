@@ -390,9 +390,11 @@ SSLcliuna::~SSLcliuna()
 
 void SSLcliuna::end(enum ACT_TYPE act)
 {
-	Amor::Pius tmp_pius;
+	Amor::Pius tmp_pius, tps;
 	tmp_pius.ordo = Notitia::END_SESSION;
 	tmp_pius.indic = 0;
+	tps.ordo = Notitia::CMD_TIMER_TO_RELEASE;
+	tps.indic = 0;
 
 	sslcli->endssl();
 	//sslcli->rcv_buf->reset();
@@ -404,14 +406,14 @@ void SSLcliuna::end(enum ACT_TYPE act)
 		switch ( act ) 
 		{
 		case FromSelf:
-			aptus->sponte(&tmp_pius);
-			aptus->facio(&tmp_pius);	/* send END_SESSION to right node */
+			aptus->sponte(&tmp_pius);	/* send END_SESSION to left node */
+			aptus->facio(&tps);
 			break;
 		case FromFac:
-			aptus->facio(&tmp_pius);	/* send END_SESSION to right node */
+			aptus->facio(&tps);	
 			break;
 		case FromSpo:
-			aptus->sponte(&tmp_pius);
+			aptus->sponte(&tmp_pius);	/* send END_SESSION to left node */
 			break;
 		}
 	}

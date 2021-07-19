@@ -361,11 +361,18 @@ LOOP:
 		release();
 		break;
 
+	case Notitia::CMD_TIMER_TO_RELEASE:
+		WBUG("facio CMD_TIMER_TO_RELEASE");
+		gCFG->sch->sponte(&alarm_pius); /* 定时后关闭 */
+		break;
+
 	case Notitia::TIMER:
 		WBUG("facio TIMER");
 		if ( tcpcli->connfd == INVALID_SOCKET )
 		{	//最近发生一次连接, 而且连接失败, 间隔时间到达设定值
 			establish();		//开始建立连接
+		} else {	//关闭
+			end(true);
 		}
 		break;
 
@@ -511,6 +518,11 @@ bool Tcpcliuna::sponte( Amor::Pius *pius)
 	case Notitia::CMD_RELEASE_SESSION:
 		WBUG("sponte CMD_RELEASE_SESSION");
 		release();
+		break;
+
+	case Notitia::CMD_TIMER_TO_RELEASE:
+		WBUG("sponte CMD_TIMER_TO_RELEASE");
+		gCFG->sch->sponte(&alarm_pius); /* 定时后关闭 */
 		break;
 
 	default:

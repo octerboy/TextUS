@@ -1,7 +1,7 @@
 /**
  Title: pius class for Java
  Build:created by octerboy 2007/10/27, Panyu
- $Id: Pius.java 244 2017-12-23 03:38:31Z octerboy $
+ $Id$
 */
 package textor.jvmport;
 import java.lang.Object;
@@ -99,6 +99,7 @@ public class Pius {
 	public static final long NEW_SESSION 	=80;	/* listener info when a new session */
 	public static final long END_SERVICE 	=81;	/* */
 	public static final long CMD_RELEASE_SESSION	=82;	/* release a sesion which may not to be end */
+	public static final long CMD_TIMER_TO_RELEASE	=83;	/* release a sesion which may not to be end wait for some time*/
 
 	public static final long NT_SERVICE_PAUSE	=86;
 	public static final long NT_SERVICE_RESUME	=87;

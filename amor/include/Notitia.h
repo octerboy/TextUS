@@ -101,6 +101,7 @@ enum HERE_ORDO {
 	NEW_SESSION 		=80,	/* listener info when a new session */
 	END_SERVICE 		=81,	/* */
 	CMD_RELEASE_SESSION	=82,	/* release a sesion which may not to be end */
+	CMD_TIMER_TO_RELEASE	=83,	/* release a sesion which may not to be end wait for some time */
 
 	NT_SERVICE_PAUSE	=86,	/* NT service pause */
 	NT_SERVICE_RESUME	=87,	/* NT service resume */
