@@ -731,9 +731,9 @@ END_ALARM_PRO:
 		break;
 
 	case Notitia::DMD_CLR_TIMER :	/* 清定时通知对象 */
-		WBUG("%p sponte DMD_CLR_TIMER", apius->indic);
 		aor = (struct Timor *)apius->indic;
 		if ( !aor ) break;
+		WBUG("%p sponte DMD_CLR_TIMER", aor->pupa);
 #if defined(__linux__)
 		if ( -1 == close(aor->fd) )
 		{
