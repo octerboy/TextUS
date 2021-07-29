@@ -100,14 +100,14 @@ int SSLsrv::encrypt(bool &has_ciph)
 	int how, err;
 	int puttedLen;
 
-	if ( !ssl) return false;
+	if ( !ssl) return -2;
 #endif
 	/* 灌明文,从snd_buf取出数据 */	
 	len = static_cast<int> SND_LEN;
 	has_ciph=false;
 	if (!handshake_ok)
-	{	//没有握手就握手
-		return -1;
+	{	//没有握手
+		return -2;
 	}
 
 #ifdef USE_WINDOWS_SSPI
@@ -129,6 +129,8 @@ int SSLsrv::encrypt(bool &has_ciph)
 	outBuffers[2].BufferType= SECBUFFER_STREAM_TRAILER;
 	outBuffers[2].pvBuffer	= bio_out_buf->point + outSize.cbHeader + len;
 	outBuffers[2].cbBuffer	= outSize.cbTrailer;
+	memset(outBuffers[0].pvBuffer, 0, outSize.cbHeader);
+	memset(outBuffers[2].pvBuffer, 0, outSize.cbTrailer);
 
 	unsigned char sig[64];
 	memset(sig, 0, 64);
@@ -176,7 +178,7 @@ int SSLsrv::encrypt(bool &has_ciph)
 
 	outwbio( has_ciph); /* 输出密文 */
 #endif
-	return true;
+	return 1;
 
 ErrorPro:
 	/* 有错误了 */
@@ -269,7 +271,7 @@ D_AGAIN:
 	inBuffers[4].cbBuffer	= 0;
 
 	inMessage.ulVersion	= SECBUFFER_VERSION;
-	inMessage.cBuffers	= 5;
+	inMessage.cBuffers	= 4;
 	inMessage.pBuffers	= inBuffers;
 
 	if ( bio_in_buf->base[0] == 21 ) // Alert message type
@@ -342,6 +344,7 @@ WHAT_RET:
 		ret = -1;
 		printf("scRet %08x --\n", scRet);
 		disp_err("DecryptMessage (OTHER)", scRet);
+		bio_in_buf->reset();
 		break;
 	}
 	if ( ret == 2 ) { 
@@ -355,7 +358,7 @@ WHAT_RET:
 	int reqLen;
 	int puttedLen;
 	if (!ssl) novo();
-	if (!ssl ) return -1;		//出现严重错误
+	if (!ssl ) return -2;		//出现严重错误
 	puttedLen = BIO_write(rbio, bio_in_buf->base, len);
 	
 	assert( puttedLen >= 0 );
@@ -579,6 +582,15 @@ int SSLsrv:: clasp( bool &has_ciph)
           			gCFG->pSecFun->FreeContextBuffer(outBuffers[i].pvBuffer);
 			}
 		}
+
+		if ( inBuffers[1].BufferType == SECBUFFER_EXTRA && inBuffers[1].cbBuffer > 0 )
+		{
+			bio_in_buf->commit(-(TEXTUS_LONG)(( (bio_in_buf->point - bio_in_buf->base) - inBuffers[1].cbBuffer)));
+			if ( scRet == SEC_I_CONTINUE_NEEDED )
+				goto SHAKE_ST_Doing;	/* should process the data immediately, for server may be done */
+		} else {
+			bio_in_buf->reset();
+		}
 		if ( ret == -1 ) goto END_OF_Doing; //may from other error 
 		break;
 
@@ -608,18 +620,10 @@ int SSLsrv:: clasp( bool &has_ciph)
 		disp_err("AcceptSecurityContext(defulat 1)", scRet);
 		ret = 1;
 		if  (0 != (ansFlags & ASC_RET_EXTENDED_ERROR) ) goto OK_Pro;
+		bio_in_buf->reset();
 		ret = -1;
 		goto END_OF_Doing;
 		break;
-	}
-
-	if ( inBuffers[1].BufferType == SECBUFFER_EXTRA && inBuffers[1].cbBuffer > 0 )
-	{
-		bio_in_buf->commit(-(TEXTUS_LONG)(( (bio_in_buf->point - bio_in_buf->base) - inBuffers[1].cbBuffer)));
-		if ( scRet == SEC_I_CONTINUE_NEEDED )
-			goto SHAKE_ST_Doing;	/* should process the data immediately, for server may be done */
-	} else {
-		bio_in_buf->reset();
 	}
 	if ( shake_st == 2 )	/*  handshake is complete */
 	{

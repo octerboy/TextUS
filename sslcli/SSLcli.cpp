@@ -102,7 +102,7 @@ int SSLcli::encrypt(bool &has_ciph)
 	int how, err;
 	int puttedLen;
 	if (!ssl) novo();
-	if (!ssl ) return -1;		//出现严重错误
+	if (!ssl ) return -2;		//出现严重错误
 #endif
 
 	has_ciph=false;
@@ -310,7 +310,7 @@ D_AGAIN:
 	int how, err;
 	int reqLen;
 	int puttedLen;
-	if ( !ssl) return -1;
+	if ( !ssl) return -2;
 	puttedLen = BIO_write(rbio, bio_in_buf.base, len);	//write cipher data
 
 	assert( puttedLen >= 0 );
@@ -366,6 +366,7 @@ D_AGAIN:
 		TEXTUS_SPRINTF(errMsg,"SSL_read err=%d: %s", how, ERR_error_string(err, (char *)NULL));
 		err_lev = 3;
 		ret = -1;
+		return ret;
 	}
 
 	//也许有数据要发出去的, 
@@ -668,9 +669,9 @@ void SSLcli::ssl_down(bool &has_ciph)
 
 	err_lev = -1;
 	ret = SSL_shutdown(ssl);
-	if ( ret > 0 )
+	if ( ret >= 0 )
 	{
-		return;
+		goto LAST_OUT;
 	}
 
 	how = SSL_get_error(ssl, ret);
@@ -687,6 +688,7 @@ void SSLcli::ssl_down(bool &has_ciph)
 		endssl();
 		return ;
 	}
+LAST_OUT:
 	outwbio( has_ciph ); /* 输出密文 */
 #endif
 }

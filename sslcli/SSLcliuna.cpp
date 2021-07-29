@@ -273,6 +273,7 @@ bool SSLcliuna::sponte( Amor::Pius *pius)
 		WBUG("sponte PRO_TBUF");
 		ret = sslcli->decrypt(has_plain, has_ciph); /* 解密数据 */
 		errpro();
+		printf("has_ciph %d, has_plain %d\n", has_ciph, has_plain);
 		if ( has_ciph)
 			aptus->facio(&pro_tbuf);
 
@@ -281,12 +282,16 @@ bool SSLcliuna::sponte( Amor::Pius *pius)
 
 		switch ( ret )
 		{
-		case -1:
+		case -2:	//ssl is 0
+			sslcli->bio_in_buf.reset();	//discard
+			break;
+		case -1://有错误, 会话被关闭, 包括 -1
+		printf("------ret %d--will  ssl_down \n", ret);
 			sslcli->ssl_down(has_ciph);
 			errpro();
 			if ( has_ciph)
 				aptus->facio(&pro_tbuf);
-		case 0: //有错误, 会话被关闭, 包括 -1
+		case 0: //对方完成关闭
 			end(FromSelf);
 			break;
 		default:
@@ -406,16 +411,21 @@ void SSLcliuna::end(enum ACT_TYPE act)
 		switch ( act ) 
 		{
 		case FromSelf:
-			aptus->sponte(&tmp_pius);	/* send END_SESSION to left node */
-			aptus->facio(&tps);
-			break;
-		case FromFac:
-			aptus->facio(&tps);	
-			break;
 		case FromSpo:
 			aptus->sponte(&tmp_pius);	/* send END_SESSION to left node */
 			break;
+		case FromFac:
+			break;
 		}
+	}
+	switch ( act ) 
+	{
+	case FromSelf:
+	case FromFac:
+		aptus->facio(&tps);
+		break;
+	case FromSpo:
+		break;
 	}
 }
 

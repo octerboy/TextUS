@@ -49,18 +49,15 @@ private:
 	SSLsrv *sslsrv;
 	void deliver(Notitia::HERE_ORDO aordo);
 	void end(enum ACT_TYPE);
-	void errpro()
-	{
+	void errpro() {
 		switch( sslsrv->err_lev )
 		{
 		case 3:
 			SLOG(ERR)
 			break;
-
 		case 5:
 			SLOG(NOTICE)
 			break;
-
 #ifndef NDEBUG
 		case 7:
 			SLOG(DEBUG)
@@ -172,14 +169,18 @@ bool SSLsrvuna::facio( Amor::Pius *pius)
 		if ( has_plain )	/* 有明文可读 */
 			aptus->facio(&local_pius);
 
+		printf("decrypt ret %d\n", ret);
 		switch ( ret )
 		{
-		case -1:
+		case -2:
+			sslsrv->bio_in_buf->reset();     //discard
+			break;
+		case -1://有错误, 会话被关闭
 			sslsrv->ssl_down(has_ciph);
 			errpro();
 			if ( has_ciph)
 				aptus->sponte(&local_pius);
-		case 0: //有错误, 会话被关闭, 包括 -1
+		case 0: 	//对方结束
 			end(FromSelf);
 			break;
 		default:	//其它正常
@@ -260,12 +261,14 @@ bool SSLsrvuna::sponte( Amor::Pius *pius)
 		}
 		switch ( ret )
 		{
+		case -2:
+			break;
 		case -1:
 			sslsrv->ssl_down(has_c);
 			errpro();
 			if ( has_c)
 				aptus->sponte(&local_pius);
-		case 0:	//包括-1
+		case 0:	
 			end(FromSelf);
 			break;
 		default:
@@ -362,45 +365,28 @@ void SSLsrvuna::end(enum ACT_TYPE act)
 	sslsrv->rcv_buf->reset();
 	sslsrv->snd_buf->reset();
 
+	//printf("sessiong %d\n", sessioning);
 	if (sessioning )
 	{
 		sessioning = false;
 		switch ( act ) 
 		{
 		case FromSelf:
-			aptus->sponte(&tps);
-			aptus->facio(&tmp_pius);	/* send END_SESSION to right node */
-			break;
 		case FromFac:
 			aptus->facio(&tmp_pius);	/* send END_SESSION to right node */
 			break;
 		case FromSpo:
-			aptus->sponte(&tps);
 			break;
 		}
 	}
-}
-/*
-void SSLsrvuna::errpro()
-{
-	switch( sslsrv->err_lev )
+	switch ( act ) 
 	{
-	case 3:
-		SLOG(ERR)
+	case FromSelf:
+	case FromSpo:
+		aptus->sponte(&tps);
 		break;
-
-	case 5:
-		SLOG(NOTICE)
-		break;
-
-	case 7:
-		SLOG(DEBUG)
-		break;
-
-	default:
+	case FromFac:
 		break;
 	}
 }
-*/
-		
 #include "hook.c"
