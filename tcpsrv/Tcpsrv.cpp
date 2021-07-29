@@ -96,8 +96,10 @@ Tcpsrv::Tcpsrv()
 #if defined (_WIN32)
 	memset(&rcv_ovp, 0, sizeof(OVERLAPPED));
 	memset(&snd_ovp, 0, sizeof(OVERLAPPED));
+	memset(&fin_ovp, 0, sizeof(OVERLAPPED));
 	wsa_rcv.len = rcv_frame_size;
 	wsa_snd.buf = (char*)snd_buf->base;
+	gCFG = 0;
 #endif
 }
 
@@ -111,30 +113,41 @@ Tcpsrv::~Tcpsrv()
 bool Tcpsrv::sock_start()
 {
 	WSADATA wsaData;
+	GUID GuidDisconnectEx = WSAID_DISCONNECTEX;
 	GUID GuidAcceptEx = WSAID_ACCEPTEX;
-	DWORD dwBytes;
+	DWORD dwBytes =0;
 	BOOL bRetVal = FALSE;
-	SOCKET fd;
+	if (!gCFG ) 
+		gCFG = new struct G_CFG();
+	gCFG->fnfd = 0;
 	int iResult = WSAStartup(MAKEWORD(2,2), &wsaData);
 	if (iResult != NO_ERROR)
 	{
 		ERROR_PRO("Error at WSAStartup()");
 		return false;
 	}
-	lpfnAcceptEx = NULL;
+	gCFG->fnAcceptEx = NULL;
+	gCFG->fnDisconnectEx = NULL;
 #if defined(_MSC_VER) && (_MSC_VER >= 1800 )
-	if ((fd = WSASocketW(AF_INET,SOCK_STREAM, IPPROTO_TCP, NULL,0,WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET )
+	if (( gCFG->fnfd = WSASocketW(AF_INET,SOCK_STREAM, IPPROTO_TCP, NULL,0,WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET )
 #else
-	if ((fd = WSASocket(AF_INET,SOCK_STREAM, IPPROTO_TCP, NULL,0,WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET )
+	if (( gCFG->fnfd = WSASocket(AF_INET,SOCK_STREAM, IPPROTO_TCP, NULL,0,WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET )
 #endif
 	{
 		ERROR_PRO("create socket")
 		return false;
 	}
-	iResult = WSAIoctl(fd, SIO_GET_EXTENSION_FUNCTION_POINTER,  &GuidAcceptEx, sizeof (GuidAcceptEx),  
-						&lpfnAcceptEx, sizeof (lpfnAcceptEx), &dwBytes, NULL, NULL);
+	iResult = WSAIoctl(gCFG->fnfd, SIO_GET_EXTENSION_FUNCTION_POINTER,  &GuidDisconnectEx, sizeof (GuidDisconnectEx),  
+						&gCFG->fnDisconnectEx, sizeof (gCFG->fnDisconnectEx), &dwBytes, NULL, NULL);
 	if (iResult == SOCKET_ERROR) {
-		ERROR_PRO("WSAIoctl");
+		ERROR_PRO("WSAIoctl DisconnectEx");
+		return false;
+	}
+
+	iResult = WSAIoctl(gCFG->fnfd, SIO_GET_EXTENSION_FUNCTION_POINTER,  &GuidAcceptEx, sizeof (GuidAcceptEx),  
+						&gCFG->fnAcceptEx, sizeof (gCFG->fnAcceptEx), &dwBytes, NULL, NULL);
+	if (iResult == SOCKET_ERROR) {
+		ERROR_PRO("WSAIoctl AccpetEx");
 		return false;
 	}
 
@@ -284,7 +297,7 @@ int Tcpsrv::accept_ex()
 
 	// Empty our overlapped structure and accept connections.
 	memset(&rcv_ovp, 0, sizeof(OVERLAPPED));
-	bRetVal = lpfnAcceptEx(listenfd, connfd, accept_buf, 0, /* 0 means AcceptEx completes  without waiting for any data*/
+	bRetVal = gCFG->fnAcceptEx(listenfd, connfd, accept_buf, 0, /* 0 means AcceptEx completes  without waiting for any data*/
 					sizeof (sockaddr_in) + 16, sizeof (sockaddr_in) + 16, &dwBytes, &rcv_ovp);
 	if (bRetVal == FALSE) { 
 		if (  ERROR_IO_PENDING  == WSAGetLastError() ) {
@@ -412,6 +425,24 @@ void Tcpsrv::endListen()
 }
 
 #if defined(_WIN32)
+bool Tcpsrv::finis_ex()
+{	
+	BOOL rc;
+
+	memset(&fin_ovp, 0, sizeof(OVERLAPPED));
+	shutdown(connfd, SHUT_RDWR);
+	rc = gCFG->fnDisconnectEx(connfd, &fin_ovp, 0, 0);
+	if ( !rc )
+	{
+		if ( WSA_IO_PENDING == WSAGetLastError() ) {
+			return true; //»ØÈ¥µÈ
+		} else {
+			ERROR_PRO ("DisconnectEx");
+		}
+	}
+	return rc;
+}
+
 bool Tcpsrv::recito_ex()
 {	
 	int rc;
@@ -424,7 +455,7 @@ bool Tcpsrv::recito_ex()
 	if ( rc != 0 )
 	{
 		if ( WSA_IO_PENDING != WSAGetLastError() ) {
-			ERROR_PRO ("WSARecv when connected");
+			ERROR_PRO ("WSARecv");
 			return false;
 		}
 	}
@@ -620,5 +651,8 @@ void Tcpsrv::herit(Tcpsrv *child)
 	memcpy (child->srvip, srvip, sizeof(srvip));
 	child->srvport = srvport;
 	child->connfd = connfd;
+#if defined(_WIN32)
+	child->gCFG = gCFG;
+#endif
 	return ;
 }

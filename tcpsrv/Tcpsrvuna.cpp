@@ -98,17 +98,19 @@ private:
 	void child_begin();
 	void parent_begin();
 	void end_service();	/* 关闭侦听套接字 */
-	void end(bool down=true);		/* 关闭连接 或 只释放套接字 */
+	void end(bool at_once=true);	/* 关闭连接 或 只释放套接字 */
+	void end_release();		/* 释放套接字 */
 
-	void child_rcv_pro(TEXTUS_LONG len, const char *msg);
 	void parent_accept();
 	void child_transmit_err(int);
 	void child_transmit_ep_err(int);
 	void deliver(Notitia::HERE_ORDO aordo);
 	void new_conn_pro();
-#if defined (_WIN32 )	
+#if defined (_WIN32)	
 	void do_accept_ex();
-	//bool end_to_wait_send;
+	bool shuting;
+	bool shutted;
+	bool zeroed;
 #endif	//for WIN32
 #include "wlog.h"
 };
@@ -157,8 +159,6 @@ void Tcpsrvuna::ignite(TiXmlElement *cfg)
 
 	isPioneer = true;	/* 以此标志自己为父实例 */
 	isListener = true;	/* listener object */
-
-	end();
 }
 
 bool Tcpsrvuna::facio( Amor::Pius *pius)
@@ -168,7 +168,7 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 	TEXTUS_LONG tlen, len;
 	int ret;
 
-#if defined (_WIN32 )	
+#if defined (_WIN32)	
 	OVERLAPPED_ENTRY *aget;
 #endif	//for WIN32
 
@@ -181,13 +181,33 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 		{
 			parent_accept(); /* 既然由侦听实例, 必是建立新连接 */
 		} else {
-			child_rcv_pro(tcpsrv->recito(), "child_pro FD_PROFD recv bytes"); /* 子实例, 应当是读 */		
+			switch ( (len = tcpsrv->recito()) ) 
+			{
+			case 0:	//Pending
+				SLOG(INFO)
+				break;
+
+			case -1://disconnected
+				SLOG(INFO)
+				end(true);	//at once
+				break;
+
+			case -2://Error
+				SLOG(NOTICE)
+				end(true);	//失败即关闭, at once
+				break;
+
+			default:	
+				WBUG(" FD_PROFD recv " TLONG_FMT " bytes", len);
+				aptus->facio(&pro_tbuf_ps);
+				break;
+			}
 		}
 		break;
 
 	case Notitia::ACCEPT_EPOLL:
 		WBUG("facio ACCEPT_EPOLL");
-#if defined (_WIN32 )	
+#if defined (_WIN32)	
 		aget = (OVERLAPPED_ENTRY *)pius->indic;
 		/* 已经建立连接 */
 		if ( aget->lpOverlapped == (void*)&(tcpsrv->rcv_ovp) )
@@ -214,10 +234,10 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 	case Notitia::ERR_EPOLL:
 		WBUG("facio ERR_EPOLL");
 		WLOG(WARNING, (char*)pius->indic);	
-		end();	//直接关闭就可.
+		end(true);	//at once
 		break;
 
-#if defined (_WIN32 )	
+#if defined (_WIN32)	
 	case Notitia::MORE_DATA_EPOLL:
 		WBUG("facio MORE_DATA_EPOLL");
 		WLOG(WARNING, (char*)pius->indic);	
@@ -226,7 +246,7 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 		if ( !tcpsrv->recito_ex())
 		{
 			SLOG(ERR)
-			end();	//失败即关闭
+			end(true);	//失败即关闭
 		}
 		break;
 
@@ -237,8 +257,9 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 		{	//已读数据,  不失败并有数据才向接力者传递
 			if ( aget->dwNumberOfBytesTransferred ==0 ) 
 			{
-				WLOG(INFO, "IOCP recv 0 disconnected");
-				end();
+				WLOG(INFO, "IOCP recv 0 byte");
+				zeroed = true;
+				end(false);	
 			} else {
 				WBUG("child PRO_EPOLL recv %d bytes", aget->dwNumberOfBytesTransferred);
 				tcpsrv->m_rcv_buf.commit_ack(aget->dwNumberOfBytesTransferred);
@@ -246,7 +267,7 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 				if ( !tcpsrv->recito_ex())
 				{
 					SLOG(ERR)
-					end();	//失败即关闭
+					end(true);	//失败即关闭 at once
 				}
 				aptus->facio(&pro_tbuf_ps);
 				return true;
@@ -254,15 +275,14 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 		} else if ( aget->lpOverlapped == &(tcpsrv->snd_ovp) ) {
 			WBUG("child PRO_EPOLL sent %d bytes", aget->dwNumberOfBytesTransferred); //写数据完成
 			tcpsrv->m_snd_buf.commit_ack(-(TEXTUS_LONG)aget->dwNumberOfBytesTransferred);
-			/*
-			if ( end_to_wait_send ) {
-				end();
-			} else 
-			*/
 			if ( tcpsrv->snd_buf->point != tcpsrv->snd_buf->base )
 			{
 				if( (ret = tcpsrv->transmitto_ex()) ) child_transmit_ep_err(ret);
 			}
+		} else if ( aget->lpOverlapped == &(tcpsrv->fin_ovp) ) {
+			WBUG("IOCP DisconnectEx finished"); //disconnect完成
+			shutted = true;
+			end(false);	
 		} else {
 			WLOG(ALERT, "not my overlap");
 		}
@@ -281,18 +301,18 @@ LOOP:
 			gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
 			break;
 
-		case -1://Close
+		case -1://disconnected
 			SLOG(INFO)
-			end();	//失败即关闭
+			end(false);	//normal
 			break;
 
 		case -2://Error
 			SLOG(NOTICE)
-			end();	//失败即关闭
+			end(true);	//失败即关闭, at once
 			break;
 
 		default:	
-			WBUG("child recv " TLONG_FMT " bytes", len);
+			WBUG("RD_EPOLL recv " TLONG_FMT " bytes", len);
 			if ( len <  tcpsrv->rcv_frame_size ) { 
 				/* action flags and filter for event remain unchanged */
 				gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册, 最多就是这个情况
@@ -312,7 +332,7 @@ LOOP:
 
 	case Notitia::WR_EPOLL:
 		WBUG("facio WR_EPOLL");
-#if defined (_WIN32 )	
+#if defined (_WIN32)	
 		if( (ret = tcpsrv->transmitto_ex()) )
 #else
 		if( (ret = tcpsrv->transmitto()) )
@@ -323,7 +343,7 @@ LOOP:
 	case Notitia::EOF_EPOLL:
 		WBUG("facio EOF_EPOLL");
 		WLOG(INFO, "peer disconnected.");
-		end();
+		end(true); //at once
 		break;
 
 	case Notitia::CMD_NEW_SERVICE:
@@ -390,7 +410,7 @@ LOOP:
 	case Notitia::FD_PROEX:
 		WBUG("facio FD_PROEX");	
 		if (!isListener)	 /* 子实例, 应当是写 */
-			end();
+			end(true);	//at once
 		break;
 		
 	case Notitia::CMD_TIMER_TO_RELEASE:
@@ -400,10 +420,7 @@ LOOP:
 
 	case Notitia::TIMER:
 		WBUG("facio TIMER");
-		if ( tcpsrv->connfd != INVALID_SOCKET )
-		{
-			end(true);
-		}
+		end(false);	//have shut_down
 		break;
 
 	case Notitia::TIMER_HANDLE:
@@ -470,7 +487,7 @@ bool Tcpsrvuna::sponte( Amor::Pius *pius)
 	case Notitia::PRO_TBUF :	//处理一帧数据而已
 		WBUG("sponte PRO_TBUF");	
 		assert(!isListener);	//侦听实例不干这事儿.
-#if defined (_WIN32 )	
+#if defined (_WIN32)	
 		if( (ret = tcpsrv->transmitto_ex()) )
 #else
 		if( (ret = tcpsrv->transmitto()) )
@@ -495,14 +512,14 @@ bool Tcpsrvuna::sponte( Amor::Pius *pius)
 
 	case Notitia::DMD_END_SESSION:	//强制关闭，等同主动关闭，要通知别人
 		WLOG(INFO,"DMD_END_SESSION, close %d", tcpsrv->connfd);
-		end();
+		end(false);	//have down process
 		break;
 
 	case Notitia::CMD_RELEASE_SESSION:	/* 释放连接, 如果还有进程引用此套接字, 则连接不关闭 */
 		if ( !isListener)
 		{
 			WLOG(INFO,"CMD_RELEASE_SESSION, close %d", tcpsrv->connfd);
-			end(false);
+			end_release();
 		}
 		break;
 
@@ -584,10 +601,11 @@ Tcpsrvuna::Tcpsrvuna()
 	has_config = false;
 	alarm_pius.ordo = Notitia::DMD_SET_ALARM;
 	alarm_pius.indic = &arr[0];
+	clr_timer_pius.ordo = Notitia::DMD_CLR_TIMER;
+	clr_timer_pius.indic = 0;
 #if  defined(__linux__)
 	pollor.ev.data.ptr = &pollor;
 #endif	//for linux
-
 }
 
 Tcpsrvuna::~Tcpsrvuna()
@@ -603,7 +621,6 @@ void Tcpsrvuna::parent_begin()
 {	/* 服务开启 */
 	if ( tcpsrv->listenfd !=INVALID_SOCKET )
 		return ;
-
 	if (!tcpsrv->servio(false))
 	{
 		SLOG(EMERG)
@@ -616,7 +633,7 @@ void Tcpsrvuna::parent_begin()
 		gCFG->sch->sponte(&local_pius);	//向Sched, 以设置rdSet.
 	} else {
 		pollor.pro_ps.ordo = Notitia::ACCEPT_EPOLL;
-#if defined (_WIN32 )	
+#if defined (_WIN32)	
 		pollor.hnd.sock = tcpsrv->listenfd;
 #endif
 
@@ -642,30 +659,12 @@ void Tcpsrvuna::parent_begin()
 		pollor.op = EPOLL_CTL_MOD; //以后操作就是修改了。
 #endif	//for linux
 
-#if defined (_WIN32 )	
+#if defined (_WIN32)	
 		do_accept_ex();
 #endif
 	}
 	deliver(Notitia::START_SERVICE); //向接力者发出通知, 本对象开始服务
 	return ;
-}
-
-void Tcpsrvuna::child_rcv_pro(TEXTUS_LONG len, const char *msg)
-{
-	if ( len > 0 ) 
-	{
-		WBUG("%s " TLONG_FMT, msg, len);
-		aptus->facio(&pro_tbuf_ps);
-	} else {
-		if ( len == 0 || len == -1)	/* 记日志 */
-		{
-			SLOG(INFO)
-		} else
-		{
-			SLOG(NOTICE)
-		}
-		if ( len < 0 )  end();	//失败即关闭
-	}
 }
 
 #if defined (_WIN32 )	
@@ -677,7 +676,7 @@ void Tcpsrvuna::do_accept_ex()
 		switch ( ret) {
 		case -1:
 			SLOG(ALERT)
-			end();
+			end(true);	//at once
 			break;
 		case 1:
 			if( tcpsrv->post_accept_ex() )
@@ -704,7 +703,9 @@ void Tcpsrvuna::child_begin()
 		tcpsrv->m_snd_buf.reset();
 		pollor.hnd.sock = tcpsrv->connfd;
 		pollor.pro_ps.ordo = Notitia::PRO_EPOLL;
-		//end_to_wait_send = false;
+		shuting = false;
+		shutted = false;
+		zeroed = false;
 #else
 		pollor.pro_ps.ordo = Notitia::RD_EPOLL;
 #endif
@@ -737,7 +738,7 @@ void Tcpsrvuna::child_begin()
 		if ( !tcpsrv->recito_ex())
 		{
 			SLOG(ERR)
-			end();	//失败即关闭
+			end(true);	//失败即关闭, at once
 			return;
 		}
 #endif	//for WIN32
@@ -748,7 +749,6 @@ void Tcpsrvuna::child_begin()
 		local_pius.ordo = Notitia::FD_SETEX;
 		gCFG->sch->sponte(&local_pius);	//向Sched, 以设置rdSet.
 	}
-
 	deliver(Notitia::START_SESSION); //向接力者发出通知, 本对象开始会话
 	return;
 }
@@ -835,7 +835,7 @@ void Tcpsrvuna::child_transmit_ep_err(int mret)
 	
 	case -1://有严重错误, 关闭
 		SLOG(WARNING)
-		end();
+		end(true); //at once
 		break;
 
 	case 4:	//IOCP wait
@@ -873,7 +873,7 @@ void Tcpsrvuna::child_transmit_err(int mret)
 		
 	case -1://有严重错误, 关闭
 		SLOG(WARNING)
-		end();
+		end(true);	//at ocne
 		break;
 	default:
 		break;
@@ -897,9 +897,10 @@ void Tcpsrvuna::end_service()
 		/* BSD: Calling close() on a file descriptor wil remove any kevents that reference the descriptor 
 		  Events which are attached to file descriptors are automatically deleted on the last close of the descriptor.
 		*/
-		/* linux: closing a file descriptor cause it to be removed from all epoll sets */
+		/* linux: shuting a file descriptor cause it to be removed from all epoll sets */
 		/*sun: The association is also  removed  if  the  port  gets  closed */
 
+	deliver(Notitia::END_SERVICE); //向下一级传递本类的会话关闭信号
 	if ( !isPioneer )
 	{	/* 根实例不被收回, 且仍是侦听实例 */
 		isListener = false;
@@ -907,11 +908,73 @@ void Tcpsrvuna::end_service()
 		tmp_p.indic = this;
 		aptus->sponte(&tmp_p);
 	}
-	deliver(Notitia::END_SERVICE); //向下一级传递本类的会话关闭信号
 }
 
-void Tcpsrvuna::end(bool down)
-{	/* 服务关闭 */
+void Tcpsrvuna::end(bool at_once)
+{
+	Amor::Pius tmp_p;
+	if ( isListener )
+		return;
+
+	if ( tcpsrv->connfd == INVALID_SOCKET ) 	/* 已经关闭或未开始 */
+		return;
+	if (gCFG->use_epoll) 
+	{
+#if defined(_WIN32)	
+		if ( !at_once ) 
+		{
+			if ( !shuting ) {
+				shuting = true;
+				shutted = false;
+				if ( !tcpsrv->finis_ex())
+				{
+					SLOG(ERR)
+					tcpsrv->release();	//Tcpsrv放弃
+					goto POST;
+				}
+			} else if ( shutted)  {		//shuting, shutted
+				if ( zeroed ) {
+					tcpsrv->release();	//Tcpsrv放弃
+					goto POST;
+				} else {	//shuting, shutted, not zeroed, just waiting
+					return ;
+				}
+			} else if ( zeroed ) {	//shuting, not shutted, zeroed, just waiting
+				return ;
+			}
+			return; //shuting, not shutted, not zeroed, just waiting
+		}
+#endif
+	} else {
+		local_pius.ordo = Notitia::FD_CLRRD;
+		gCFG->sch->sponte(&local_pius);	//向Sched, 以清rdSet.
+	
+		local_pius.ordo = Notitia::FD_CLRWR;
+		gCFG->sch->sponte(&local_pius);	//向Sched, 以清wrSet.
+	
+		local_pius.ordo = Notitia::FD_CLREX;
+		gCFG->sch->sponte(&local_pius);	//向Sched, 以清exSet.
+	}
+
+	// else gCFG->sch->sponte(&epl_clr_ps);	//向tpoll,  注销
+	/* just close for all kinds of system ?  */
+
+	if ( at_once)
+		tcpsrv->release();	//Tcpsrv放弃
+	else
+		tcpsrv->end();		//Tcpsrv也关闭
+#if defined(_WIN32)	
+POST:
+#endif
+	gCFG->sch->sponte(&clr_timer_pius);
+	deliver(Notitia::END_SESSION); //向下一级传递本类的会话关闭信号
+	tmp_p.ordo = Notitia::CMD_FREE_IDLE;
+	tmp_p.indic = this;
+	aptus->sponte(&tmp_p);
+}
+
+void Tcpsrvuna::end_release()
+{
 	Amor::Pius tmp_p;
 	if ( isListener )
 		return;
@@ -930,30 +993,10 @@ void Tcpsrvuna::end(bool down)
 		local_pius.ordo = Notitia::FD_CLREX;
 		gCFG->sch->sponte(&local_pius);	//向Sched, 以清exSet.
 	}
-#if 0
-	  else {	//gCFG->use_epoll
-		if ( tcpsrv->m_snd_buf.point != tcpsrv->m_snd_buf.base ) /* not empty, wait */
-		{ 
-			end_to_wait_send = true;
-			return ;
-		}
-	}
-#endif
-	
-	// else gCFG->sch->sponte(&epl_clr_ps);	//向tpoll,  注销
-	/* just close for all kinds of system ?  */
-
-	if ( down)
-		tcpsrv->end();		//Tcpsrv也关闭
-	else
-		tcpsrv->release();	//Tcpsrv放弃
-
+	tcpsrv->release();	//Tcpsrv放弃
 	tmp_p.ordo = Notitia::CMD_FREE_IDLE;
 	tmp_p.indic = this;
 	aptus->sponte(&tmp_p);
-
-	if ( down)
-		deliver(Notitia::END_SESSION); //向下一级传递本类的会话关闭信号
 }
 
 Amor* Tcpsrvuna::clone()
@@ -978,6 +1021,9 @@ void Tcpsrvuna::deliver(Notitia::HERE_ORDO aordo)
 		tb_arr[1] = tcpsrv->snd_buf;
 		tb_arr[2] = 0;
 		tmp_pius.indic = &tb_arr[0];
+		break;
+	case Notitia::END_SESSION:
+		WBUG("deliver END_SESSION");
 		break;
 	default:
 		WBUG("deliver Notitia::%d", aordo);

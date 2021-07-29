@@ -60,6 +60,7 @@ public:
 				*/
 					
 	void end(bool down=true);	/*  结束 或 释放当前的连接 */
+	void release();	/*  only shut_down */
 	void herit(Tcpcli *son); //继承
 	void  setPort(const char *portname);    /* 其实是端口名称 */
 
@@ -77,11 +78,12 @@ public:
 #if defined (_WIN32 )
 	bool sock_start();
 	bool annecto_ex(); /* 发起一个连接 */
-	OVERLAPPED rcv_ovp, snd_ovp;
+	OVERLAPPED rcv_ovp, snd_ovp, fin_ovp;
 	WSABUF wsa_snd, wsa_rcv;
 	DWORD flag;
 	bool recito_ex();		//接收数据, 返回<0时建议关闭套接字 
 	int transmitto_ex();
+	bool finis_ex();
 	TBuffer m_rcv_buf, m_snd_buf;	/* OVERLAP*/
 #if defined( _MSC_VER ) && (_MSC_VER < 1400 )
 typedef
@@ -95,8 +97,15 @@ BOOL (PASCAL FAR * LPFN_CONNECTEX) (
     IN LPOVERLAPPED lpOverlapped
     );
 #endif
-	LPFN_CONNECTEX lpfnConnectEx;
 	bool tbind();
+	struct G_CFG {
+		LPFN_CONNECTEX fnConnectEx;
+		LPFN_DISCONNECTEX fnDisconnectEx;
+#if defined(_WIN64)
+		SOCKET fnfd;
+#endif
+	};
+	struct G_CFG *gCFG;
 #endif	//for WIN32
 
 private:

@@ -66,7 +66,7 @@ private:
 		bool block_mode;	//是否为阻塞, 默认为非阻塞
 		bool on_start;
 		bool on_start_poineer;
-		int try_interval;	//连接失败后，下一次再发起连接的时间间隔(秒)
+		int try_interval;	//连接失败后，下一次再发起连接的时间间隔(m秒)
 		bool use_epoll;
 		Amor *sch;
 		struct DPoll::PollorBase lor; /* 探询 */
@@ -87,11 +87,15 @@ private:
 	void establish_done();
 	void establish();
 	void deliver(Notitia::HERE_ORDO aordo);
-	void end(bool outer=false);
+	void end(bool at_once=false);
 	void release();
 	void errpro();
-	void rcv_pro(TEXTUS_LONG len, const char *msg, bool outer=false);
-
+#if defined (_WIN32)
+	bool shuting;
+	bool shutted;
+	bool zeroed;
+#endif
+	bool attempt;
 #include "wlog.h"
 };
 
@@ -189,12 +193,6 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 		if ( aget->lpOverlapped == (void*)&(tcpcli->rcv_ovp) )
 		{
 			establish_done();
-			/*  it may be wrong 
-			if ( tcpcli->snd_buf->point != tcpcli->snd_buf->base )
-			{
-				if( (ret = tcpcli->transmitto_ex()) ) transmit_ep_err(ret);
-			}
-			*/
 		} else {
 			WLOG(ALERT, "accept_epoll: not my overlap");
 		}
@@ -209,14 +207,34 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 		if ( tcpcli->isConnecting) //试图完成连接
 			establish_done();
 		else {
-			rcv_pro(tcpcli->recito(), "FD_PROFD recv bytes", true);
+			switch ( (len = tcpcli->recito()) ) 
+			{
+			case 0:	//Pending
+				SLOG(INFO)
+				break;
+
+			case -1://disconnected
+				SLOG(INFO)
+				end(true);	//normal, treated as outer
+				break;
+
+			case -2://Error
+				SLOG(NOTICE)
+				end(false);	//just close
+				break;
+
+			default:
+				WBUG("FD_PROFD recv " TLONG_FMT " bytes", len);
+				aptus->sponte(&pro_tbuf_ps);
+				break;
+			}
 		}
 		break;
 
 	case Notitia::ERR_EPOLL:
 		WBUG("facio ERR_EPOLL");
 		WLOG(WARNING, (char*)pius->indic);	
-		end(true);	//直接关闭就可.
+		end(false);	//just close, no reconnect
 		break;
 
 #if defined (_WIN32 )	
@@ -232,7 +250,7 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 			if ( !tcpcli->recito_ex())
 			{
 				SLOG(ERR)
-				end();	//失败即关闭
+				end(false);	//即刻关闭,也不重连
 			}
 		} else {
 			WLOG(ALERT, "not my overlap");
@@ -247,7 +265,8 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 			if ( aget->dwNumberOfBytesTransferred ==0 ) 
 			{
 				WLOG(INFO, "IOCP recv 0 disconnected");
-				end();
+				zeroed = true;
+				end(true);	//normal, treated as outer
 			} else {
 				WBUG("PRO_EPOLL recv %d bytes", aget->dwNumberOfBytesTransferred);
 				tcpcli->m_rcv_buf.commit_ack(aget->dwNumberOfBytesTransferred);
@@ -255,7 +274,7 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 				if ( !tcpcli->recito_ex())
 				{
 					SLOG(ERR)
-					end();	//失败即关闭
+					end(false);	//just close, no reconnect
 				}
 				aptus->sponte(&pro_tbuf_ps);
 				return true;
@@ -267,6 +286,10 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 			{
 				if( (ret = tcpcli->transmitto_ex()) ) transmit_ep_err(ret);
 			}
+		} else if ( aget->lpOverlapped == &(tcpcli->fin_ovp) ) {
+			WBUG("IOCP DisconnectEx finished"); //disconnect完成
+			shutted = true;
+			end(true);	
 		} else {
 			WLOG(ALERT, "not my overlap");
 		}
@@ -285,18 +308,18 @@ LOOP:
 			gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
 			break;
 
-		case -1://Close
+		case -1://disconnected
 			SLOG(INFO)
-			end();	//失败即关闭
+			end(true);	//normal, treated as outer
 			break;
 
 		case -2://Error
 			SLOG(NOTICE)
-			end();	//失败即关闭
+			end(false);	//失败即关闭
 			break;
 
-		default:	
-			WBUG("client recv " TLONG_FMT " bytes", len);
+		default:
+			WBUG("RD_EPOLL recv " TLONG_FMT " bytes", len);
 			if ( len <  tcpcli->rcv_frame_size ) { 
 				/* action flags and filter for event remain unchanged */
 				gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
@@ -335,8 +358,7 @@ LOOP:
 
 	case Notitia::EOF_EPOLL:
 		WBUG("facio EOF_EPOLL");
-		WLOG(INFO, "peer disconnected.");
-		end();
+		end(true);	//treated as outer
 		break;
 
 	case Notitia::FD_PROWR:
@@ -353,12 +375,12 @@ LOOP:
 	case Notitia::DMD_END_SESSION:
 		WBUG("facio DMD_END_SESSION");
 		gCFG->sch->sponte(&clr_timer_pius); /* 清除定时 */
-		end(true);
+		end(true);	//outer
 		break;
 
 	case Notitia::CMD_RELEASE_SESSION:
 		WBUG("facio CMD_RELEASE_SESSION");
-		release();
+		release();	//针对多进程的 parent
 		break;
 
 	case Notitia::CMD_TIMER_TO_RELEASE:
@@ -412,7 +434,6 @@ LOOP:
 		else
 			gCFG->use_epoll = false;
 
-
 		if ( gCFG->on_start_poineer )
 			establish();		//开始建立连接
 
@@ -426,7 +447,6 @@ LOOP:
 		arr[2] = 0;
 		if ( gCFG->on_start )
 			establish();		//开始建立连接
-
 		break;
 
 	case Notitia::SET_TBUF:	/* 取得输入TBuffer地址 */
@@ -512,12 +532,12 @@ bool Tcpcliuna::sponte( Amor::Pius *pius)
 	case Notitia::DMD_END_SESSION:
 		WBUG("facio DMD_END_SESSION");
 		gCFG->sch->sponte(&clr_timer_pius); /* 清除定时 */
-		end(true);
+		end(true);	//outer
 		break;
 
 	case Notitia::CMD_RELEASE_SESSION:
 		WBUG("sponte CMD_RELEASE_SESSION");
-		release();
+		release();	//multi process, for parent
 		break;
 
 	case Notitia::CMD_TIMER_TO_RELEASE:
@@ -564,11 +584,10 @@ Tcpcliuna::Tcpcliuna()
 #if  defined(__linux__)
 	pollor.ev.data.ptr = &pollor;
 #endif	//for linux
-
 }
 
 Tcpcliuna::~Tcpcliuna()
-{	
+{
 	gCFG->sch->sponte(&clr_timer_pius); /* 清除定时 */
 	delete tcpcli;
 	if (has_config )
@@ -601,7 +620,7 @@ void Tcpcliuna::establish()
 			if ( !tcpcli->recito_ex())
 			{
 				SLOG(ERR)
-				end();	//失败即关闭
+				end(false);	//失败即关闭, 不重连
 				return;
 			}
 		} else {
@@ -671,7 +690,11 @@ void Tcpcliuna::establish_done()
 	if (tcpcli->isConnecting ) if ( !tcpcli->annecto_done())
 	{	//在建立连接的过程中出错
 		errpro();
-		end();	/* 自动重连 */
+		tcpcli->end(false);
+		if (gCFG->try_interval > 0 ) {	//时间值大于0时, 才有是否重连的考虑
+			WBUG("will connect again after %d ms...", gCFG->try_interval );
+			gCFG->sch->sponte(&alarm_pius); /* 这将使得重连服务端 */
+		}
 		return ;
 	}
 
@@ -700,7 +723,7 @@ void Tcpcliuna::establish_done()
 		if ( !tcpcli->recito_ex())
 		{
 			SLOG(ERR)
-			end();	//失败即关闭
+			end(false);	//失败即关闭
 			return;
 		}
 #else
@@ -718,6 +741,11 @@ void Tcpcliuna::establish_done()
 	//if ( tcpcli->snd_buf) tcpcli->snd_buf->reset();
 	gCFG->sch->sponte(&clr_timer_pius); /* 清除定时 */
 	WLOG(INFO, "estabish %s:%d ok!", tcpcli->server_ip, tcpcli->server_port);
+#if defined (_WIN32 )	
+	shuting = false;
+	shutted = false;
+	zeroed = false;
+#endif
 	deliver(Notitia::START_SESSION); //向接力者发出通知, 本对象开始
 }
 
@@ -744,7 +772,7 @@ void Tcpcliuna::transmit_err(int mret)
 		break;
 	case -1://有严重错误, 关闭
 		errpro();
-		end(true);	/* 不再自动重连 */
+		end(false);	/* 不再自动重连 */
 		break;
 	default:
 		break;
@@ -798,7 +826,7 @@ void Tcpcliuna::transmit_ep_err(int mret)
 	
 	case -1://有严重错误, 关闭
 		SLOG(WARNING)
-		end(true);
+		end(false);
 		break;
 
 	case 4:	//IOCP wait
@@ -809,31 +837,54 @@ void Tcpcliuna::transmit_ep_err(int mret)
 	}
 }
 
-void Tcpcliuna::end(bool outer)
+void Tcpcliuna::end(bool at_once)
 {
-	WBUG("end%s", outer? " (won't connect again)" : (gCFG->try_interval > 0 ? " (will connect again ...)" : "ed." ));
 	if ( tcpcli->connfd == INVALID_SOCKET ) return;	/* 不重复关闭 */
-	if ( !gCFG->use_epoll ) 
+	if (gCFG->use_epoll) 
 	{
+#if defined(_WIN32)
+		if ( at_once ) 
+		{
+			tcpcli->end(false);
+			goto POST;
+		} else {
+			if ( !shuting ) {
+				shuting = true;
+				shutted = false;
+				if ( !tcpcli->finis_ex())
+				{
+					SLOG(ERR)
+					tcpcli->end(false);		//just close
+					goto POST;
+				}
+			} else if ( shutted)  {		//shuting, shutted
+				if ( zeroed ) {
+					tcpcli->end(false);		//just close
+					goto POST;
+				} else {	//shuting, shutted, not zeroed, just waiting
+					return ;
+				}
+			} else if ( zeroed ) {	//shuting, not shutted, zeroed, just waiting
+				return ;
+			}
+			return ;
+		}
+#else
+		tcpcli->end(!at_once);		//if !at_once, down & close , or just close
+#endif
+	} else {
 		deliver(Notitia::FD_CLRWR);
 		deliver(Notitia::FD_CLREX);
 		deliver(Notitia::FD_CLRRD);
+		tcpcli->end(!at_once);		//if !at_once, down & close , or just close
 	}
-	
-	tcpcli->end();		//Tcpcli也关闭
-	if (gCFG->try_interval > 0 ) {	//时间值大于0时, 才有是否重连的考虑
-		if (outer )
-		{
-			gCFG->sch->sponte(&clr_timer_pius); /* 清除定时, 不再重连服务端 */
-		} else {
-			gCFG->sch->sponte(&alarm_pius); /* 这将使得重连服务端 */
-		}
-	}
-
+#if defined(_WIN32)
+POST:
+#endif
 	deliver(Notitia::END_SESSION);/* 向左、右传递本类的会话关闭信号 */
 }
 
-void Tcpcliuna::release()
+void Tcpcliuna::release()	//for multi process
 {
 	WBUG("release().....");
 	if ( tcpcli->connfd == INVALID_SOCKET ) return;	/* 不重复 */
@@ -923,21 +974,4 @@ void Tcpcliuna::errpro()
 	}
 }
 
-void Tcpcliuna::rcv_pro(TEXTUS_LONG len, const char *msg, bool outer)
-{
-	if ( len > 0 ) 
-	{
-		WBUG("%s " TLONG_FMT, msg, len);
-		aptus->sponte(&pro_tbuf_ps);
-	} else {
-		if ( len == 0 || len == -1)	/* 记日志 */
-		{
-			SLOG(INFO)
-		} else
-		{
-			SLOG(NOTICE)
-		}
-		if ( len < 0 )  end(outer);	//失败即关闭
-	}
-}
 #include "hook.c"

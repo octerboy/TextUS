@@ -89,8 +89,8 @@ bool Tcpcli::sock_start()
     {0x25a207b9,0xddf3,0x4660,{0x8e,0xe9,0x76,0xe5,0x8c,0x74,0x06,0x3e}}
 #endif
 	GUID GuidConnectEx = WSAID_CONNECTEX;
+	GUID GuidDisconnectEx = WSAID_DISCONNECTEX;
 	DWORD dwBytes = 0;
-	SOCKET fd;
 	int iResult = WSAStartup(MAKEWORD(2,2), &wsaData);
 	if (iResult != NO_ERROR)
 	{
@@ -98,23 +98,32 @@ bool Tcpcli::sock_start()
 		return false;
 	}
 	
-	lpfnConnectEx = NULL;
+	gCFG->fnConnectEx = NULL;
+	gCFG->fnDisconnectEx = NULL;
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1800 )
-	if ((fd = WSASocketW(AF_INET,SOCK_STREAM, IPPROTO_TCP, NULL,0,WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET )
+	if ((gCFG->fnfd = WSASocketW(AF_INET,SOCK_STREAM, IPPROTO_TCP, NULL,0,WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET )
 #else
-	if ((fd = WSASocket(AF_INET,SOCK_STREAM, IPPROTO_TCP, NULL,0,WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET )
+	if ((gCFG->fnfd = WSASocket(AF_INET,SOCK_STREAM, IPPROTO_TCP, NULL,0,WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET )
 #endif
 	{
 		ERROR_PRO("WSASocket")
 		return false;
 	}
-	iResult = WSAIoctl(fd, SIO_GET_EXTENSION_FUNCTION_POINTER,  &GuidConnectEx, sizeof (GuidConnectEx),  
-						&lpfnConnectEx, sizeof (lpfnConnectEx), &dwBytes, NULL, NULL);
+	iResult = WSAIoctl(gCFG->fnfd, SIO_GET_EXTENSION_FUNCTION_POINTER,  &GuidConnectEx, sizeof (GuidConnectEx),  
+						&gCFG->fnConnectEx, sizeof (gCFG->fnConnectEx), &dwBytes, NULL, NULL);
 	if (iResult == SOCKET_ERROR) {
-		ERROR_PRO("WSAIoctl");
+		ERROR_PRO("WSAIoctl ConnectEx");
 		return false;
 	}
+
+	iResult = WSAIoctl(gCFG->fnfd, SIO_GET_EXTENSION_FUNCTION_POINTER,  &GuidDisconnectEx, sizeof (GuidDisconnectEx),  
+						&gCFG->fnDisconnectEx, sizeof (gCFG->fnDisconnectEx), &dwBytes, NULL, NULL);
+	if (iResult == SOCKET_ERROR) {
+		ERROR_PRO("WSAIoctl DisconnectEx");
+		return false;
+	}
+
 	return true;
 }
 
@@ -141,10 +150,10 @@ bool Tcpcli::annecto_ex()
 
 	// Empty our overlapped structure and connections.
 	memset(&rcv_ovp, 0, sizeof(OVERLAPPED));
-	bRetVal = lpfnConnectEx(connfd, (struct sockaddr *)&servaddr, sizeof(servaddr), NULL, 0, NULL, &rcv_ovp);
+	bRetVal = gCFG->fnConnectEx(connfd, (struct sockaddr *)&servaddr, sizeof(servaddr), NULL, 0, NULL, &rcv_ovp);
 	if ( !bRetVal ) { 
 		if (  ERROR_IO_PENDING  != WSAGetLastError() ) {
-			ERROR_PRO("lpfnConnectEx")
+			ERROR_PRO("fnConnectEx")
 			printf("err %s\n", errMsg);
 			err_lev = 3;
 			this->end(false);
@@ -392,6 +401,7 @@ void Tcpcli::end(bool down)
 
 	return ;
 }
+
 void Tcpcli::setPort(const char *port_str)
 {
 	int port;
@@ -413,12 +423,29 @@ void Tcpcli::herit(Tcpcli *child)
 	memcpy(child->server_ip, server_ip,sizeof(server_ip));
 	child->server_port = server_port;
 #if defined(_WIN32)
-	child->lpfnConnectEx = lpfnConnectEx;
+	child->gCFG = gCFG;
 #endif
 	return ;
 }
 
 #if defined(_WIN32)
+bool Tcpcli::finis_ex()
+{	
+	BOOL rc;
+	memset(&fin_ovp, 0, sizeof(OVERLAPPED));
+	shutdown(connfd, SHUT_RDWR);
+	rc = gCFG->fnDisconnectEx(connfd, &fin_ovp, 0, 0);
+	if ( !rc )
+	{
+		if ( WSA_IO_PENDING == WSAGetLastError() ) {
+			return true; //ªÿ»•µ»
+		} else {
+			ERROR_PRO ("DisconnectEx");
+		}
+	}
+	return rc;
+}
+
 bool Tcpcli::recito_ex()
 {	
 	int rc;

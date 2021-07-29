@@ -42,6 +42,7 @@ public:
 #else
 	int connfd; 	//-1表示本实例空闲, 每个子实例不同,负责侦听的实例保存最近一次的连接
 	int listenfd;	//侦听
+	//int fnfd;
 #endif
 
 	int rcv_frame_size;
@@ -56,18 +57,26 @@ public:
 				   3、client_port有值
 				   4、client_mac有值
 				*/
-#if defined (_WIN32 )
+#if defined(_WIN32)
 	int accept_ex();
 	bool post_accept_ex();
-	OVERLAPPED rcv_ovp, snd_ovp;
+	OVERLAPPED rcv_ovp, snd_ovp, fin_ovp;
 	char accept_buf[8];
 	WSABUF wsa_snd, wsa_rcv;
 	DWORD flag;
 	bool sock_start();
-	LPFN_ACCEPTEX lpfnAcceptEx ;
 	bool recito_ex();		//接收数据, 返回<0时建议关闭套接字 
 	int transmitto_ex();	
+	bool finis_ex();	
 	TBuffer m_rcv_buf, m_snd_buf;	/* OVERLAP*/
+	struct G_CFG {
+		LPFN_ACCEPTEX fnAcceptEx ;
+		LPFN_DISCONNECTEX fnDisconnectEx;
+#if defined(_WIN64)
+		SOCKET fnfd;
+#endif
+	};
+	struct G_CFG *gCFG;
 #endif
 
 	TEXTUS_LONG recito();		//接收数据, 返回-1或0时建议关闭套接字 
