@@ -132,7 +132,7 @@ void Tcpcliuna::ignite(TiXmlElement *cfg)
 
 	gCFG->on_start_poineer = gCFG->on_start;
 	if ( (on_start_str = cfg->Attribute("start_poineer") ) && strcasecmp(on_start_str, "no") ==0 )
-		gCFG->on_start_poineer = false;	/* 并非一开始就启动 */
+		gCFG->on_start_poineer = false;	
 
 	if( (try_str = cfg->Attribute("try")) )
 	{
@@ -141,7 +141,7 @@ void Tcpcliuna::ignite(TiXmlElement *cfg)
 	}
 
 	if ( (comm_str = cfg->Attribute("block") ) && strcasecmp(comm_str, "yes") ==0 )
-		gCFG->block_mode = true;	/* 并非一开始就启动 */
+		gCFG->block_mode = true;
 }
 
 bool Tcpcliuna::facio( Amor::Pius *pius)
