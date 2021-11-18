@@ -62,7 +62,7 @@ public:
 		char crl_file[256]; 
 		bool isVpeer;
 #ifdef USE_WINDOWS_SSPI
-		char secdll_fn[32];
+		char secdll_fn[1024];
 		char provider[256];
 		char secface_fn[32];
 		PSecurityFunctionTable pSecFun;
