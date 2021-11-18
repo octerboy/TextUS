@@ -75,6 +75,7 @@ Tcpcli::Tcpcli()
 #if defined (_WIN32)
 	memset(&rcv_ovp, 0, sizeof(OVERLAPPED));
 	memset(&snd_ovp, 0, sizeof(OVERLAPPED));
+	gCFG = 0;
 #endif
 }
 
@@ -91,15 +92,20 @@ bool Tcpcli::sock_start()
 	GUID GuidConnectEx = WSAID_CONNECTEX;
 	GUID GuidDisconnectEx = WSAID_DISCONNECTEX;
 	DWORD dwBytes = 0;
-	int iResult = WSAStartup(MAKEWORD(2,2), &wsaData);
+	int iResult;
+
+	if (!gCFG)
+		gCFG = new struct G_CFG();
+	gCFG->fnfd = 0;
+	gCFG->fnConnectEx = NULL;
+	gCFG->fnDisconnectEx = NULL;
+
+	iResult = WSAStartup(MAKEWORD(2,2), &wsaData);
 	if (iResult != NO_ERROR)
 	{
 		ERROR_PRO("Error at WSAStartup()");
 		return false;
 	}
-	
-	gCFG->fnConnectEx = NULL;
-	gCFG->fnDisconnectEx = NULL;
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1800 )
 	if ((gCFG->fnfd = WSASocketW(AF_INET,SOCK_STREAM, IPPROTO_TCP, NULL,0,WSA_FLAG_OVERLAPPED)) == INVALID_SOCKET )
