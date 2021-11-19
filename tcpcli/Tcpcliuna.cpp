@@ -52,7 +52,7 @@ public:
 	~Tcpcliuna();
 
 private:
-	Amor::Pius clr_timer_pius, alarm_pius;	/* 清超时, 设超时 */
+	Amor::Pius clr_timer_pius, alarm_pius, delay_pius;	/* 清超时, 设超时 */
 	Amor::Pius local_pius;
 	Describo::Criptor mytor; //保存套接字, 各实例不同
 	DPoll::Pollor pollor; /* 保存事件句柄, 各子实例不同 */
@@ -63,6 +63,7 @@ private:
 
 	bool has_config;
 	struct G_CFG {
+		int down_delay;
 		bool block_mode;	//是否为阻塞, 默认为非阻塞
 		bool on_start;
 		bool on_start_poineer;
@@ -71,6 +72,7 @@ private:
 		Amor *sch;
 		struct DPoll::PollorBase lor; /* 探询 */
 		G_CFG() {
+			down_delay = 3000;      //3 seconds
 			block_mode = false;
 			on_start =  true;
 			try_interval = 0;
@@ -81,6 +83,7 @@ private:
 	};
 	struct G_CFG *gCFG;
 	void *arr[3];
+	void *arr_delay[3];
 
 	void transmit_err(int);
 	void transmit_ep_err(int);
@@ -138,6 +141,12 @@ void Tcpcliuna::ignite(TiXmlElement *cfg)
 	{
 		if ( atoi(try_str) > 0 )
 			gCFG->try_interval = atoi(try_str);
+	}
+
+	if( (comm_str = cfg->Attribute("delay")) )
+	{
+		if ( atoi(comm_str) > 0 )
+			gCFG->down_delay = atoi(comm_str);
 	}
 
 	if ( (comm_str = cfg->Attribute("block") ) && strcasecmp(comm_str, "yes") ==0 )
@@ -215,12 +224,12 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 
 			case -1://disconnected
 				SLOG(INFO)
-				end(true);	//normal, treated as outer
+				end(false);	//!at once, down close
 				break;
 
 			case -2://Error
 				SLOG(NOTICE)
-				end(false);	//just close
+				end(true);	//at once
 				break;
 
 			default:
@@ -234,7 +243,7 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 	case Notitia::ERR_EPOLL:
 		WBUG("facio ERR_EPOLL");
 		WLOG(WARNING, (char*)pius->indic);	
-		end(false);	//just close, no reconnect
+		end(true);	//at once
 		break;
 
 #if defined (_WIN32 )	
@@ -250,7 +259,7 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 			if ( !tcpcli->recito_ex())
 			{
 				SLOG(ERR)
-				end(false);	//即刻关闭,也不重连
+				end(true);	//at once
 			}
 		} else {
 			WLOG(ALERT, "not my overlap");
@@ -266,7 +275,7 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 			{
 				WLOG(INFO, "IOCP recv 0 disconnected");
 				zeroed = true;
-				end(true);	//normal, treated as outer
+				end(false);	//not at once, down close
 			} else {
 				WBUG("PRO_EPOLL recv %d bytes", aget->dwNumberOfBytesTransferred);
 				tcpcli->m_rcv_buf.commit_ack(aget->dwNumberOfBytesTransferred);
@@ -274,7 +283,7 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 				if ( !tcpcli->recito_ex())
 				{
 					SLOG(ERR)
-					end(false);	//just close, no reconnect
+					end(true);	//just close, no reconnect
 				}
 				aptus->sponte(&pro_tbuf_ps);
 				return true;
@@ -289,7 +298,7 @@ bool Tcpcliuna::facio( Amor::Pius *pius)
 		} else if ( aget->lpOverlapped == &(tcpcli->fin_ovp) ) {
 			WBUG("IOCP DisconnectEx finished"); //disconnect完成
 			shutted = true;
-			end(true);	
+			end(false);	//just close
 		} else {
 			WLOG(ALERT, "not my overlap");
 		}
@@ -310,12 +319,12 @@ LOOP:
 
 		case -1://disconnected
 			SLOG(INFO)
-			end(true);	//normal, treated as outer
+			end();	//!at once, will down and close
 			break;
 
 		case -2://Error
 			SLOG(NOTICE)
-			end(false);	//失败即关闭
+			end(true);	//at once
 			break;
 
 		default:
@@ -358,7 +367,7 @@ LOOP:
 
 	case Notitia::EOF_EPOLL:
 		WBUG("facio EOF_EPOLL");
-		end(true);	//treated as outer
+		end(false);	//down & close
 		break;
 
 	case Notitia::FD_PROWR:
@@ -375,7 +384,7 @@ LOOP:
 	case Notitia::DMD_END_SESSION:
 		WBUG("facio DMD_END_SESSION");
 		gCFG->sch->sponte(&clr_timer_pius); /* 清除定时 */
-		end(true);	//outer
+		end(false);	//down close
 		break;
 
 	case Notitia::CMD_RELEASE_SESSION:
@@ -385,12 +394,12 @@ LOOP:
 
 	case Notitia::CMD_TIMER_TO_RELEASE:
 		WBUG("facio CMD_TIMER_TO_RELEASE");
-		gCFG->sch->sponte(&alarm_pius); /* 定时后关闭 */
+		gCFG->sch->sponte(&delay_pius); /* 定时后关闭 */
 		break;
 
 	case Notitia::TIMER:
 		WBUG("facio TIMER");
-		if ( tcpcli->connfd == INVALID_SOCKET )
+		if ( attempt && tcpcli->connfd == INVALID_SOCKET )
 		{	//最近发生一次连接, 而且连接失败, 间隔时间到达设定值
 			establish();		//开始建立连接
 		} else {	//关闭
@@ -409,6 +418,9 @@ LOOP:
 		arr[1] = &(gCFG->try_interval);
 		//arr[2] = &(gCFG->try_interval);
 		arr[2] = 0;
+		arr_delay[0] = this;
+		arr_delay[1] = &(gCFG->down_delay);
+		arr_delay[2] = 0;
 #if defined (_WIN32)
 		if ( !tcpcli->sock_start() ) 
 		{
@@ -443,8 +455,10 @@ LOOP:
 		WBUG("facio CLONE_ALL_READY");
 		arr[0] = this;
 		arr[1] = &(gCFG->try_interval);
-		//arr[2] = &(gCFG->try_interval);
 		arr[2] = 0;
+		arr_delay[0] = this;
+		arr_delay[1] = &(gCFG->down_delay);
+		arr_delay[2] = 0;
 		if ( gCFG->on_start )
 			establish();		//开始建立连接
 		break;
@@ -532,7 +546,7 @@ bool Tcpcliuna::sponte( Amor::Pius *pius)
 	case Notitia::DMD_END_SESSION:
 		WBUG("facio DMD_END_SESSION");
 		gCFG->sch->sponte(&clr_timer_pius); /* 清除定时 */
-		end(true);	//outer
+		end(false);	//down close
 		break;
 
 	case Notitia::CMD_RELEASE_SESSION:
@@ -542,7 +556,7 @@ bool Tcpcliuna::sponte( Amor::Pius *pius)
 
 	case Notitia::CMD_TIMER_TO_RELEASE:
 		WBUG("sponte CMD_TIMER_TO_RELEASE");
-		gCFG->sch->sponte(&alarm_pius); /* 定时后关闭 */
+		gCFG->sch->sponte(&delay_pius); /* 定时后关闭 */
 		break;
 
 	default:
@@ -581,6 +595,9 @@ Tcpcliuna::Tcpcliuna()
 
 	alarm_pius.ordo = Notitia::DMD_SET_ALARM;
 	alarm_pius.indic = &arr[0];
+
+	delay_pius.ordo = Notitia::DMD_SET_ALARM;
+	delay_pius.indic = &arr_delay[0];
 #if  defined(__linux__)
 	pollor.ev.data.ptr = &pollor;
 #endif	//for linux
@@ -597,7 +614,7 @@ Tcpcliuna::~Tcpcliuna()
 void Tcpcliuna::establish()
 {
 	WLOG(INFO, "estabish to %s:%d  .....", tcpcli->server_ip, tcpcli->server_port);
-
+	attempt = false;
 	if ( gCFG->use_epoll ) 
 	{
 		if (!tcpcli->clio(false))
@@ -687,11 +704,13 @@ void Tcpcliuna::establish()
 
 void Tcpcliuna::establish_done()
 {
+	attempt = false;
 	if (tcpcli->isConnecting ) if ( !tcpcli->annecto_done())
 	{	//在建立连接的过程中出错
 		errpro();
 		tcpcli->end(false);
 		if (gCFG->try_interval > 0 ) {	//时间值大于0时, 才有是否重连的考虑
+			attempt = true;
 			WBUG("will connect again after %d ms...", gCFG->try_interval );
 			gCFG->sch->sponte(&alarm_pius); /* 这将使得重连服务端 */
 		}
@@ -881,6 +900,7 @@ void Tcpcliuna::end(bool at_once)
 #if defined(_WIN32)
 POST:
 #endif
+	gCFG->sch->sponte(&clr_timer_pius); /* 清除定时 */
 	deliver(Notitia::END_SESSION);/* 向左、右传递本类的会话关闭信号 */
 }
 

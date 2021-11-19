@@ -189,7 +189,7 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 
 			case -1://disconnected
 				SLOG(INFO)
-				end(true);	//at once
+				end(false);	//!at once down & close
 				break;
 
 			case -2://Error
@@ -246,7 +246,7 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 		if ( !tcpsrv->recito_ex())
 		{
 			SLOG(ERR)
-			end(true);	//Ê§°Ü¼´¹Ø±Õ
+			end(true);	//at once
 		}
 		break;
 
@@ -267,7 +267,7 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 				if ( !tcpsrv->recito_ex())
 				{
 					SLOG(ERR)
-					end(true);	//Ê§°Ü¼´¹Ø±Õ at once
+					end(true);	//at once
 				}
 				aptus->facio(&pro_tbuf_ps);
 				return true;
@@ -282,7 +282,7 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 		} else if ( aget->lpOverlapped == &(tcpsrv->fin_ovp) ) {
 			WBUG("IOCP DisconnectEx finished"); //disconnectÍê³É
 			shutted = true;
-			end(false);	
+			end(false);	//!at once
 		} else {
 			WLOG(ALERT, "not my overlap");
 		}
@@ -303,12 +303,12 @@ LOOP:
 
 		case -1://disconnected
 			SLOG(INFO)
-			end(false);	//normal
+			end(false);	//down & close
 			break;
 
 		case -2://Error
 			SLOG(NOTICE)
-			end(true);	//Ê§°Ü¼´¹Ø±Õ, at once
+			end(true);	//at once
 			break;
 
 		default:	
@@ -343,7 +343,7 @@ LOOP:
 	case Notitia::EOF_EPOLL:
 		WBUG("facio EOF_EPOLL");
 		WLOG(INFO, "peer disconnected.");
-		end(true); //at once
+		end(false); //down & close
 		break;
 
 	case Notitia::CMD_NEW_SERVICE:
@@ -420,7 +420,7 @@ LOOP:
 
 	case Notitia::TIMER:
 		WBUG("facio TIMER");
-		end(false);	//have shut_down
+		end(true);	//have shut_down
 		break;
 
 	case Notitia::TIMER_HANDLE:
