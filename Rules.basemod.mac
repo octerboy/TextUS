@@ -2,25 +2,33 @@
 TEXTUS_DIR = $(HOME)/Tasks/textus
 RELEASE_DIR = $(HOME)/lib
 CC=clang
-CXX=clang -lstdc++ -mmacosx-version-min=10.10
+#CXX=clang -lstdc++ -mmacosx-version-min=10.10
+CXX=clang -lc++ -lc -mmacosx-version-min=10.10
 LD=ld
+#CFLAGS  = -g -c -O3 -mmacosx-version-min=10.10  -Wnullability-completeness
 CFLAGS  = -g -c -O3 -mmacosx-version-min=10.10 
 #INCLUDE_DIR = -I$(TEXTUS_DIR)/tinyxml -I$(TEXTUS_DIR)/amor/include -I//Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-migrator/sdk/MacOSX.sdk/usr/include
-#SDK_ROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
-SDK_ROOT= //Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-migrator/sdk/MacOSX.sdk
+SDK_ROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+#SDK_ROOT=//Library/Developer/CommandLineTools/SDKs/MacOSX.sdk
+#SDK_ROOT= //Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-migrator/sdk/MacOSX.sdk
 #INCLUDE_DIR = -I$(TEXTUS_DIR)/tinyxml -I$(TEXTUS_DIR)/amor/include -I//Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include
 INCLUDE_DIR = -I$(TEXTUS_DIR)/tinyxml -I$(TEXTUS_DIR)/amor/include -I$(SDK_ROOT)/usr/include
-LDFLAGS = -dylib -macosx_version_min 10.10 -L$(HOME)/lib
+LDFLAGS = -dylib -macosx_version_min 10.10 -L$(HOME)/lib -L$(SDK_ROOT)/usr/lib
+#LDFLAGS = -dylib -macosx_version_min 10.10 -L$(HOME)/lib 
 ALONE_LDFLAGS = -dylib -macosx_version_min 10.10 
 #LDFLAGS = -dylib
-LDLIBS = -lanimus -lc -lstdc++ 
-ALONE_LDLIBS = -lc -lstdc++ 
+#LDLIBS = -lanimus -lc -lstdc++ 
+LDLIBS = -lanimus -lc++ -lc
+#LDLIBS = -lanimus  
+#ALONE_LDLIBS = -lc -lstdc++ 
+ALONE_LDLIBS = -lc -lc++ 
 CRYPTO_LIB = -lSystem 
 MAKE = make
 
 DEBUG_FLAG= -DNNDEBUG 
 
-LIBSOCKET= -lresolv
+#LIBSOCKET= -lresolv
+LIBSOCKET= 
 _POST_RPO_SUB = cp $@ $(RELEASE_DIR)
 
 #JDK_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0_92.jdk/Contents/Home
