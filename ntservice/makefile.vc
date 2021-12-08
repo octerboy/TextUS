@@ -8,11 +8,17 @@ AMOROBJS=NTSvc.obj
 
 all: ntservice.dll
 
+ntservice.res:ntservice.rc
+	rc ntservice.rc
+
 NTSvc.obj: NTSvc.cpp
 	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=NTSvc NTSvc.cpp
 
-ntservice.dll: $(AMOROBJS)
-	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+md5.obj: md5.c
+	$(CC) $(CFLAGS) md5.c 
+
+ntservice.dll: $(AMOROBJS) ntservice.res md5.obj
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS) ntservice.res md5.obj $(LDLIB)
 	$(_VC_MANIFEST_PRO)
 	$(_POST_RPO_SUB)
 
