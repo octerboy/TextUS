@@ -254,7 +254,7 @@ bool HttpSrvBody::facio( Amor::Pius *pius)
 
 		mth = static_cast<int>(getHeadInt("method"));
 		content_length = getContentSize();
-		if ( mth ==  2 ) //GET
+		if ( mth ==  8 ) //GET
 		{
 			if ( lookSocket() )
 			{	/* look for websocket  */
