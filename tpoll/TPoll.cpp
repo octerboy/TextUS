@@ -356,10 +356,8 @@ void TPoll::ignite(TiXmlElement *cfg)
 				return ;
 		}
 
-		//aio_ctx = 0;
 		memset(&aio_ctx, 0, sizeof(aio_ctx));
 		if (io_setup(16384, &aio_ctx)) {
-		//if (io_setup(16, &aio_ctx)) {
 				ERROR_PRO("io_setup");
 				return ;
 		}
@@ -1335,6 +1333,9 @@ LOOP:
 
 		case DPoll::User:
 			WBUG("get DPoll:User");
+			poll_ps.ordo = Notitia::PRO_EPOLL;
+			poll_ps.indic = 0;
+			AOR->pupa->facio(&poll_ps);
 			break;
 		default:
 			WBUG("ngeti %d, unkown type %d", geti, AOR->type);
