@@ -119,6 +119,7 @@ unsigned int validate(char* filename, int row, const char *sum)
 		return 2;
   }
 
+#if 0
   /* 有效期检验 */
   if ( expired ) {
 	expired_time = 0;
@@ -141,6 +142,7 @@ unsigned int validate(char* filename, int row, const char *sum)
 	}
   }
   
+#endif
   if ( !check ) { return runtimes;}
   /* 将解密的8个字节作为校验块的初始块 */
   for ( i = 0 ; i < 8 ; i ++ ) {

@@ -798,6 +798,7 @@ LAST:
 inline bool Animus::facio(Amor::Pius *pius)
 {
 	register unsigned int i;
+#if 0
 	if ( all_runtimes != 0 ) 	/* for all_runtimes == 0 , it will not run out */
 	{ 	
 		if ( period_runtimes == 0 )
@@ -813,6 +814,7 @@ inline bool Animus::facio(Amor::Pius *pius)
 			exit(1);
 		}
 	}
+#endif
 
 	for (i = 0 ; i < num_fac; i++ )
 		if ( cons_fac[i]->facio_n(pius,i) ) 
