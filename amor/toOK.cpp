@@ -267,15 +267,7 @@ int main (int argc, char *argv[] )
 
   if ( (argc < 3 || argc > 5) || (argc == 3 && argv[2][0] != '9' && argv[2][0] != 'a') ) {
 	printf ( "usage: %s filename method days ?runtimes?\n",argv[0]);
-	printf ( "method '1':   受时间限制, 无次数限制, 不作全文校验\n");
-	printf ( "method '2':   受时间限制, 无次数限制,   作全文校验\n");
-	printf ( "method '3': 不受时间限制, 无次数限制, 不作全文校验\n");
 	printf ( "method '4': 不受时间限制, 无次数限制,   作全文校验\n");
-	printf ( "method '5':   受时间限制,   次数限制, 不作全文校验\n");
-
-	printf ( "method '6':   受时间限制,   次数限制,   作全文校验\n");
-	printf ( "method '7': 不受时间限制,   次数限制, 不作全文校验\n");
-	printf ( "method '8': 不受时间限制,   次数限制,   作全文校验\n");
 	printf ( "method '9': 对各模块签名\n");
 	printf ( "method 'a': 取消各模块签名\n");
 	exit(0);
