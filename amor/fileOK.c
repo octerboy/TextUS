@@ -58,28 +58,6 @@ unsigned int validate(char* filename, int row, const char *sum)
   /* offset为十六进制表达 */
   if ( lrc != t || offset [0] != offset[1] ) { return 2; }
   switch ( offset[0] ) {
-	case  '1':
-	/* 受时间限制,无次数限制,不作全文校验 */
-		expired =1;
-		runtimes = 0;
-		check = 0;
-		encrypt = 0;
-		break;
-	case  '2':
-	/* 受时间限制,无次数限制,作全文校验 */
-		expired =1;
-		runtimes = 0;
-		check = 1;
-		encrypt = 0;
-		break;
-	case  '3':
- 	/* 不受时间限制,无次数限制,不作全文校验 */
-		expired =0;
-		runtimes = 0;
-		check = 0; 
-		encrypt = 0;
-		/* 算了吧,这种方法还是禁止的好 */
-			return 3;
 	case  '4':
  	/* 不受时间限制, 无次数限制,作全文校验 */
 		expired = 0;
@@ -87,62 +65,10 @@ unsigned int validate(char* filename, int row, const char *sum)
 		check = 1;
 		encrypt = 0;
 		break;
-	case  '5':
-	/* 受时间限制,不作全文校验,作运行次数限制 */
-		expired =1;
-		check = 0;
-		runtimes = 1;
-		encrypt = 0;
-		break;
-	case  '6':
-	/* 受时间限制,作全文校验,作运行次数限制 */
-		expired =1;
-		check = 1;
-		runtimes = 1;
-		encrypt = 0;
-		break;
-	case  '7':
-	/* 不受时间限制,不作全文校验,作运行次数限制 */
-		expired = 0;
-		check = 0;
-		runtimes = 1;
-		encrypt = 0;
-		break;
-	case  '8':
-	/* 不受时间限制,作全文校验,作运行次数限制 */
-		expired = 0;
-		check = 1;
-		runtimes = 1;
-		encrypt = 0;
-		break;
 	default :
 		return 2;
   }
 
-#if 0
-  /* 有效期检验 */
-  if ( expired ) {
-	expired_time = 0;
-	/* 计算预定时间 */
-	for ( i = 2; i < 10; i ++ ) {
-	    expired_time = expired_time*16 + 
-	     (offset[i] > '9' ? offset[i]-'A'+10: offset[i] -'0');
-	}
-	if ( time(&mtime) > expired_time ) { return 1; }
-  }
-  /* 有效期检验结束 */
-
-  /* 运行次数检查 */
-  if ( runtimes ) {
-	runtimes = 0;
-	/* 计算预定时间 */
-	for ( i = 10; i < 13; i ++ ) {
-	    runtimes = runtimes*16 + 
-	     (offset[i] > '9' ? offset[i]-'A'+10: offset[i] -'0');
-	}
-  }
-  
-#endif
   if ( !check ) { return runtimes;}
   /* 将解密的8个字节作为校验块的初始块 */
   for ( i = 0 ; i < 8 ; i ++ ) {
