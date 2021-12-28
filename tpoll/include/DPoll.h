@@ -59,11 +59,12 @@ public:
 #if !defined(_WIN32)
 	struct PollorAio : PollorBase {
 		Amor::Pius pro_ps;
-		struct aiocb aiocb_W, aiocb_R;
 #if defined(__linux__)
 		struct iocb aiocb_W, aiocb_R;
 		struct iocb *iocbpp[2];
 		aio_context_t ctx;
+#else
+		struct aiocb aiocb_W, aiocb_R;
 #endif
 
 #if defined(__sun)

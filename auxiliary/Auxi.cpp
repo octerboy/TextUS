@@ -132,12 +132,12 @@ void Auxi::ignite_t (TiXmlElement *cfg, TiXmlElement *aux_ele)
 		}
 		o_ele = o_ele->NextSiblingElement("catch");
 	}
-
+/* not needed more
 	if ( aux_ele->Attribute("tag"))
 		TEXTUS_STRNCPY(assist->module_tag, aux_ele->Attribute("tag"), sizeof(assist->module_tag)-2);
 	else
 		TEXTUS_STRCPY(assist->module_tag, "Module");
-
+*/
 	comm_str = aux_ele->Attribute("prius");
 	if ( comm_str && strcasecmp(comm_str, "yes" ) == 0 )
 		gCFG->has_pri = true;

@@ -18,7 +18,7 @@
 extern "C"  {
 
 #ifdef TEXTUS_APTUS_TAG
-TEXTUS_AMOR_EXPORT char textus_aptus_tag[256] = TEXTUS_APTUS_TAG;
+TEXTUS_AMOR_EXPORT char textus_aptus_tag[64] = TEXTUS_APTUS_TAG;
 #endif
 
 #ifdef TEXTUS_APTUS_MUST_IGNITE
