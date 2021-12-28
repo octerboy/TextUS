@@ -186,7 +186,6 @@ void Animus::emunio(const char *ext_mod)
  /* Load the modules of a child node */
 void Animus::tolero(const char *ext_mod)
 {
-	printf("mod %s\n", ext_mod);
 	TiXmlElement *amod;
 	const char* disable_str;
 	int mod_num =0, index = 0;
