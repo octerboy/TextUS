@@ -53,7 +53,7 @@ private:
 	bool get_file_all;
 	Amor::Pius epl_set_ps, epl_clr_ps, pro_tbuf_ps, tmp_ps;
 
-	char file_name[1024];
+	char file_name[992];
 	int block_size;
 	PacketObj *fname_pac;
 	void epoll_launch();
@@ -409,7 +409,7 @@ void Aio::a_close()
 
 bool Aio::a_open()
 {
-	char msg[128];
+	char msg[1000];
 #if defined(_WIN32)
 	if ( this->hdev  != INVALID_HANDLE_VALUE ) return false;
 	/* to do SecurityAttributes .... */
@@ -487,18 +487,15 @@ void Aio::ignite(TiXmlElement *cfg)
 
 bool Aio::facio( Amor::Pius *pius)
 {
+	int get_bytes;
 #if defined(_WIN32)
 	OVERLAPPED_ENTRY *aget;
 	DWORD dwPtr;
-	int get_bytes;
 #else
 	off_t offset;
 #endif
 #if defined(__linux__)
 	struct io_event *io_evp;
-#endif
-#if defined(__sun) || defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
-	int get_bytes;
 #endif
 	TBuffer **tb;
 	assert(pius);
@@ -547,7 +544,8 @@ bool Aio::facio( Amor::Pius *pius)
 #if defined(__linux__)
 		io_evp = (struct io_event*)pius->indic;
 		if ( (void*)io_evp->obj == (void*)aiocbp_R ) {
-			WBUG("io_submit(read) return %ld bytes", io_evp->res);
+			//WBUG("io_submit(read) return " TLONG_FMT " bytes", io_evp->res);
+			WBUG("io_submit(read) return %lld bytes", io_evp->res);
 			switch ( io_evp->res) {
 			case 0:
 				WLOG(INFO, "end of file");
@@ -570,7 +568,7 @@ bool Aio::facio( Amor::Pius *pius)
 				break;
 			}
 		} else if ( (void*)io_evp->obj == (void*)aiocbp_W ) {
-			WBUG("io_submit(write) return %ld bytes", io_evp->res);
+			WBUG("io_submit(write) return %lld bytes", io_evp->res);
 			if ( io_evp->res <= 0 )	{
 				WLOG_OSERR("io_submit(write)");
 				a_close();

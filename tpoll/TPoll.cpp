@@ -1138,15 +1138,15 @@ LOOP:
 							break;
 						case EINPROGRESS:
 						case EINVAL:
-							TEXTUS_SNPRINTF(errMsg, errstr_len, "errno %ld, %s.", io_evs[geti].res2, strerror(io_evs[geti].res2));
+							TEXTUS_SNPRINTF(errMsg, errstr_len, "errno %lld, %s.", io_evs[geti].res2, strerror(io_evs[geti].res2));
 							WLOG(WARNING, errMsg);
 							break;
 						default:
 							poll_ps.ordo = Notitia::ERR_EPOLL;
 							if ( (void*)(io_evs[geti].obj) == (void*)&(AIOR->aiocb_W))
-								TEXTUS_SNPRINTF(errMsg, errstr_len, "write errno %ld, %s.", io_evs[geti].res2, strerror(io_evs[geti].res2));
+								TEXTUS_SNPRINTF(errMsg, errstr_len, "write errno %lld, %s.", io_evs[geti].res2, strerror(io_evs[geti].res2));
 							else
-								TEXTUS_SNPRINTF(errMsg, errstr_len, "read errno %ld, %s.", io_evs[geti].res2, strerror(io_evs[geti].res2));
+								TEXTUS_SNPRINTF(errMsg, errstr_len, "read errno %lld, %s.", io_evs[geti].res2, strerror(io_evs[geti].res2));
 							poll_ps.indic = errMsg;
 							PPO->pupa->facio(&poll_ps);
 							poll_ps.indic = 0;
