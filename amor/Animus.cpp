@@ -186,6 +186,7 @@ void Animus::emunio(const char *ext_mod)
  /* Load the modules of a child node */
 void Animus::tolero(const char *ext_mod)
 {
+	printf("mod %s\n", ext_mod);
 	TiXmlElement *amod;
 	const char* disable_str;
 	int mod_num =0, index = 0;
@@ -666,7 +667,7 @@ Animus::Animus()
 	aptus = 0;
 	consors = 0;	
 	num_real_ext = 0;
-	memset(module_tag, 0, sizeof(module_tag));
+	//memset(module_tag, 0, sizeof(module_tag));
 	
 	cons_spo = cons_fac = cons_lae = cons_dex = (Aptus **)0;
 	num_spo = num_fac = num_lae = num_dex = 0;
