@@ -84,7 +84,7 @@ static TiXmlElement* get_out_prop(TiXmlElement *cfg);
 static char ld_lib_path[2048] = {0};
 static unsigned int all_runtimes = 0;
 #define RUN_PERIOD 100000000
-static unsigned int period_runtimes = RUN_PERIOD;
+//static unsigned int period_runtimes = RUN_PERIOD;
 
 unsigned int Animus::num_extension = 0;	
 bool Animus::pst_added= false;	/* Not loaded any aptus module yet */
@@ -117,7 +117,7 @@ void Animus::emunio(const char *ext_mod)
 
 	/* Loading the so/dll file of Aptus extension. positor is the array */
 	positor = new struct Aptus_Positor [mod_num];
-	memset(positor, 0, mod_num * sizeof(struct Aptus_Positor));
+	//memset(positor, 0,  sizeof(struct Aptus_Positor)*mod_num); no needed more for new struct before
 	index = 0;  amod = carbo->FirstChildElement(ext_mod); 
 	for (; amod; amod = amod->NextSiblingElement(ext_mod) )
 	{
@@ -271,7 +271,7 @@ void Animus::tolero(const char *ext_mod)
 		) {
 			WBUG4("Load '%s' %s is %p", ext_mod, so_file, ext);
 			compactor[index] = new Animus();			
-			memcpy(((Animus*)(compactor[index]))->module_tag, module_tag, sizeof(module_tag));
+			//memcpy(((Animus*)(compactor[index]))->module_tag, module_tag, sizeof(module_tag));
 			compactor[index]->prius	= this;
 			compactor[index]->genero= create_let;
 			compactor[index]->casso	= destroy_let;
@@ -929,6 +929,7 @@ inline bool Animus::branch_pro( Amor::Pius *pius, enum BRA_DIRECT dir)
 }
 
 char Animus::ver_buf[] = "";
+char Animus::module_tag[] = "";
 static TiXmlDocument doc;
 static Animus *apt=0;
 static  int go(char *xml_file, Amor::Pius &para)
@@ -936,7 +937,7 @@ static  int go(char *xml_file, Amor::Pius &para)
 	TiXmlElement *root;
 	int ret = 0;
 
-	char time_str[512], *p;
+	char time_str[64], *p;
 	char ver_str[64];
 	char scmid_str[64];
 

@@ -41,8 +41,8 @@ public:
 	~Animus();
 
 	/* this class special definition */
-	static char ver_buf[128];	/* version infomation */
-	char module_tag[128];		/* often is "Module" */
+	static char ver_buf[256];	/* version infomation */
+	static char module_tag[128];		/* often is "Module" */
 
 	struct  Aptus_Positor  {		/* the structure of Aptus extension module */
 		Aptus* (*genero)();		/* the function pointer to create Aptus object */
