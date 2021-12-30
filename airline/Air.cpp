@@ -177,6 +177,7 @@ protected:
 
 		unsigned int num_fac;	/* facio函数的ordo数 */
 		Flyer *fly_spo;
+		bool lonely;	//only one for ignite
 
 		inline _GCFG( TiXmlElement *sz_ele, Group *here_grp) 
 		{
@@ -195,6 +196,11 @@ protected:
 			isCause = false;
 			isLast = false;
 			del_noCause= false;
+			lonely = false;
+
+			comm_str = sz_ele->Attribute("lonely");
+			if ( comm_str ) 
+				lonely = ( strcmp(comm_str, "yes") == 0  );
 
 			comm_str = sz_ele->Attribute("where");
 			if ( comm_str ) 
@@ -378,10 +384,15 @@ Amor *Air::clone()
 	char idStr[10];
 	Air *child = 0;
 	Group *here_grp = (Group*) 0;
-
 	child = new Air();
 	Aptus::inherit((Aptus*) child);
 	child->gcfg = gcfg;
+
+	if ( gcfg->lonely) {
+		WBUG("I'am lonely, child can't be accessed. ");
+		child->canAccessed = false;
+		return (Amor*) child ;
+	}
 
 	/* 以下的for, 子实例先与本实例有相同的航线终点集, 而后在joint()中更新. 
 	这一点很重要,因为:
@@ -481,7 +492,7 @@ void Air::joint(Group *here_grp)
 
 bool Air::sponte_n ( Amor::Pius *pius, unsigned int from)
 {	/* 在owner向左发出数据前的处理 */
-	WBUG("sponte ordo %d, owner %p", pius->ordo, owner);
+	WBUG("sponte ordo "TLONG_FMTu", owner %p", pius->ordo, owner);
 
 	if (ends.top > 0 )
 	for ( unsigned int i =0; i < gcfg->num_spo; i++)
@@ -513,7 +524,7 @@ bool Air::sponte_n ( Amor::Pius *pius, unsigned int from)
 
 bool Air::facio_n ( Amor::Pius *pius, unsigned int from)
 {	/* 在owner向右发出数据前的处理 */
-	WBUG("facio ordo %d, owner %p, serial_no %ld", pius->ordo, owner, serial_no);
+	WBUG("facio ordo "TLONG_FMTu", owner %p, serial_no %ld", pius->ordo, owner, serial_no);
 
 	if( ends.top > 0) 
 	for ( unsigned int i =0; i < gcfg->num_fac; i++)
