@@ -10,12 +10,12 @@
 /**
  Title: NT Serivce Pro 
  Build:created by octerboy 2007/01/11
- $Id$
+ $Id: NTSvc.cpp 561 2022-01-03 03:01:48Z octerboy $
 */
 
-#define SCM_MODULE_ID  "$Id$"
-#define TEXTUS_MODTIME  "$Date$"
-#define TEXTUS_BUILDNO  "$Revision$"
+#define SCM_MODULE_ID  "$Id: NTSvc.cpp 561 2022-01-03 03:01:48Z octerboy $"
+#define TEXTUS_MODTIME  "$Date: 2022-01-03 11:01:48 +0800 (??, 03 1? 2022) $"
+#define TEXTUS_BUILDNO  "$Revision: 561 $"
 /* $NoKeywords: $ */
 
 #include "Amor.h"
@@ -42,7 +42,7 @@ void error_pro(const char* msg)
 	DWORD dw = GetLastError();
 
 	FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, dw,
-		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US),
 		errstr, 1024, NULL);
 
 	wsprintf(dispstr, "%s with error %d: %s", (char*)msg, dw, errstr);
@@ -287,10 +287,12 @@ bool NTSvc::facio( Amor::Pius *pius)
 		tmp_ps.indic = 0;
 		aptus->sponte(&tmp_ps);	//Ïòtpoll, È¡µÃsched
 		sch = (Amor*)tmp_ps.indic;
-		if ( !sch ) 
+		if (!sch)
 		{
 			WLOG(ERR, "no sched or tpoll");
 			break;
+		} else {
+			WBUG("get tpoll %p", sch);
 		}
 		if (!ifree)
 		{
@@ -300,10 +302,17 @@ bool NTSvc::facio( Amor::Pius *pius)
 				has_authed = false;
 			}	else  {
 				has_authed = true;
-				WLOG(INFO, "this software authroized!");
+				WLOG(INFO, "this software is authroized!");
 			}
 		}
-
+		else {
+			has_authed = true;
+			WLOG(INFO, "this software is free.");
+		}
+		break;
+	case Notitia::PRO_EPOLL:
+		WBUG("facio PRO_EPOLL, will END");
+		break;
 	default:
 		return false;
 	}
@@ -370,12 +379,13 @@ void NTSvc::my_main(DWORD dwArgc, LPTSTR* lpszArgv)
         m_Status.dwWin32ExitCode = 0;
         m_Status.dwCheckPoint = 0;
         m_Status.dwWaitHint = 0;
-	aptus->facio(&para);	
+		aptus->facio(&para);
     }
 
     // Tell the service manager we are stopped
     setStatus(SERVICE_STOPPED);
-//    WBUG("Leaving NTSvc::ServiceMain()");
+    WBUG("Leaving NTSvc::ServiceMain()");
+	//Sleep(3000);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -433,9 +443,9 @@ bool NTSvc::initialize()
     bool bResult = onInit(); 
     
     // Set final state
-    m_Status.dwWin32ExitCode = GetLastError();
+	m_Status.dwWin32ExitCode = 0;// GetLastError();
     m_Status.dwCheckPoint = 0;
-    m_Status.dwWaitHint = 0;
+    m_Status.dwWaitHint = 1;
     if (!bResult) {
 		logEvent(EVENTLOG_ERROR_TYPE, EVMSG_FAILEDINIT);
 		WLOG_OSERR("service init failed")
@@ -535,7 +545,7 @@ bool NTSvc::onInit()
 	} else  {
 		char *s;
 		char error_string[1024];
-		FormatMessage( FORMAT_MESSAGE_FROM_SYSTEM, NULL, lst, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR) error_string, 1024, NULL );
+		FormatMessage( FORMAT_MESSAGE_FROM_SYSTEM, NULL, lst, MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), (LPTSTR) error_string, 1024, NULL );
 		s= strstr(error_string, "\r\n") ;
 		if (s )  *s = '\0';
 		WLOG(ERR, " RegOpenKeyEx error %d %s", lst, error_string);
@@ -551,9 +561,9 @@ bool NTSvc::onInit()
 void NTSvc::OnStop()
 {
 	Amor::Pius tmp_pius;
-	tmp_pius.indic = 0;
+	tmp_pius.indic = this;
 	tmp_pius.ordo = Notitia::CMD_MAIN_EXIT;
-	WLOG(INFO, "service %s is stopping", service_name);
+	WLOG(INFO, "sch %p service %s is stopping", sch, service_name);
 	sch->sponte(&tmp_pius);
 }
 
@@ -621,7 +631,22 @@ void NTSvc::saveStatus()
 
 void NTSvc::setStatus(DWORD dwState)
 {
+	static DWORD hCheckPoint = 1;
+	if (dwState == SERVICE_RUNNING ||
+		dwState == SERVICE_STOPPED)
+		m_Status.dwCheckPoint = 1;
+	else
+		m_Status.dwCheckPoint = hCheckPoint++;
+	if (dwState == SERVICE_START_PENDING )
+		m_Status.dwControlsAccepted = 0;
+	else
+		m_Status.dwControlsAccepted = SERVICE_ACCEPT_STOP;
+
     m_Status.dwCurrentState = dwState;
+	m_Status.dwWin32ExitCode = NO_ERROR;
+	m_Status.dwServiceSpecificExitCode = NO_ERROR;
+	m_Status.dwWaitHint = 1;
+	 
     ::SetServiceStatus(m_hServiceStatus, &m_Status);
 }
 

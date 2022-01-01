@@ -10,12 +10,12 @@
 /**
  Title: Select Descriptors
  Build: created by octerboy, 2005/06/10
- $Id$
+ $Id: TPoll.cpp 561 2022-01-03 03:01:48Z octerboy $
 */
 
-#define SCM_MODULE_ID  "$Id$"
-#define TEXTUS_MODTIME  "$Date$"
-#define TEXTUS_BUILDNO  "$Revision$"
+#define SCM_MODULE_ID  "$Id: TPoll.cpp 561 2022-01-03 03:01:48Z octerboy $"
+#define TEXTUS_MODTIME  "$Date: 2022-01-03 11:01:48 +0800 (??, 03 1? 2022) $"
+#define TEXTUS_BUILDNO  "$Revision: 561 $"
 /* $NoKeywords: $ */
 
 #if defined(_WIN32)
@@ -778,6 +778,7 @@ END_ALARM_PRO:
 	case Notitia::CMD_MAIN_EXIT :	/* ÖÕÖ¹³ÌÐò */
 		WBUG("CMD_MAIN_EXIT");
 		shouldEnd = true;
+		a_basp.pupa = (Amor*)apius->indic;
 #if defined (_WIN32)
 		PostQueuedCompletionStatus(g_poll->iocp_port, 0, (ULONG_PTR)&a_basp, 0);
 #endif
@@ -1344,6 +1345,7 @@ LOOP:
 	}
 
 	if ( !shouldEnd) goto LOOP;
+	WBUG("will exit.... ");
 }
 #include "hook.c"
 

@@ -12,7 +12,7 @@ ntservice.res:ntservice.rc
 	rc ntservice.rc
 
 NTSvc.obj: NTSvc.cpp
-	$(CC) $(CFLAGS) -DNNDEBUG -DAMOR_CLS_TYPE=NTSvc NTSvc.cpp
+	$(CC) $(CFLAGS) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=NTSvc NTSvc.cpp
 
 md5.obj: md5.c
 	$(CC) $(CFLAGS) md5.c 
