@@ -19,7 +19,7 @@ JvmPort.o: JvmPort.cpp
 	${CC} ${CFLAGS} $(INCLUDE_DIR) -I../unipac/include $(DEBUG_FLAG) -DAMOR_CLS_TYPE=JvmPort -o $@ $^
 
 jvmport.so: JvmPort.o 
-	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase -L$(JDK_HOME)/jre/lib/server -ljvm
+	${LD} $(LDFLAGS) -o $@ $^ $(LDLIBS) -lbase -L$(JVM_LIB) -ljvm
 	$(_POST_RPO_SUB)
 
 libjvmport.dylib: JvmPort.o 
