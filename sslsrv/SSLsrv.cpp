@@ -987,7 +987,11 @@ bool SSLsrv::initio()
 #else
 	ENGINE *e;
 	unsigned TEXTUS_LONG sid = 0;
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
 	CRYPTO_malloc_init();
+#else
+	OPENSSL_malloc_init();
+#endif
 	ERR_load_crypto_strings();
 	SSL_load_error_strings();
 	SSL_library_init();
