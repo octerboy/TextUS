@@ -492,7 +492,7 @@ void Air::joint(Group *here_grp)
 
 bool Air::sponte_n ( Amor::Pius *pius, unsigned int from)
 {	/* 在owner向左发出数据前的处理 */
-	WBUG("sponte ordo "TLONG_FMTu", owner %p", pius->ordo, owner);
+	WBUG("sponte ordo " TLONG_FMTu ", owner %p", pius->ordo, owner);
 
 	if (ends.top > 0 )
 	for ( unsigned int i =0; i < gcfg->num_spo; i++)
@@ -524,7 +524,7 @@ bool Air::sponte_n ( Amor::Pius *pius, unsigned int from)
 
 bool Air::facio_n ( Amor::Pius *pius, unsigned int from)
 {	/* 在owner向右发出数据前的处理 */
-	WBUG("facio ordo "TLONG_FMTu", owner %p, serial_no %ld", pius->ordo, owner, serial_no);
+	WBUG("facio ordo " TLONG_FMTu ", owner %p, serial_no %ld", pius->ordo, owner, serial_no);
 
 	if( ends.top > 0) 
 	for ( unsigned int i =0; i < gcfg->num_fac; i++)
