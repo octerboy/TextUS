@@ -10,12 +10,12 @@
 /**
  Title: Select Descriptors
  Build: created by octerboy, 2005/06/10
- $Id: TPoll.cpp 561 2022-01-03 03:01:48Z octerboy $
+ $Id$
 */
 
-#define SCM_MODULE_ID  "$Id: TPoll.cpp 561 2022-01-03 03:01:48Z octerboy $"
-#define TEXTUS_MODTIME  "$Date: 2022-01-03 11:01:48 +0800 (??, 03 1? 2022) $"
-#define TEXTUS_BUILDNO  "$Revision: 561 $"
+#define SCM_MODULE_ID  "$Id$"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #if defined(_WIN32)
@@ -71,10 +71,10 @@ public:
 	Amor* clone();
 
 	TPoll();
+	struct DPoll::PollorBase  a_basp;
 #if defined (_WIN32)
 	HANDLE iocp_port,timer_queue;
 	DWORD dw_error;
-	struct DPoll::PollorBase  a_basp;
 	typedef NTSTATUS (CALLBACK* NTSETTIMERRESOLUTION)
 	(
 		IN ULONG DesiredTime,
@@ -880,9 +880,9 @@ TPoll::TPoll()
 	stack_top = -1;
 	init_ok = false;
 
+	a_basp.type = DPoll::User;
 #if defined(_WIN32)
 	iocp_port = NULL;
-	a_basp.type = DPoll::User;
 #endif
 
 #if defined(__linux__)
