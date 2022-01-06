@@ -395,8 +395,7 @@ bool TPoll::sponte( Amor::Pius *apius)
 #endif	//for linux
 
 	struct Timor *aor;
-	struct DPoll::PollorBase *baspo=0;
-		assert(apius);
+	assert(apius);
 
 	switch ( apius->ordo )
 	{
