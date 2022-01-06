@@ -71,8 +71,8 @@ public:
 	Amor* clone();
 
 	TPoll();
-	struct DPoll::PollorBase  a_basp;
 #if defined (_WIN32)
+	struct DPoll::PollorBase  lor_exit;
 	HANDLE iocp_port,timer_queue;
 	DWORD dw_error;
 	typedef NTSTATUS (CALLBACK* NTSETTIMERRESOLUTION)
@@ -91,6 +91,8 @@ public:
 	);
 	NTQUERYTIMERRESOLUTION NtQueryTimerResolution;
 	ULONG cur_time_res;
+#else
+	struct DPoll::Pollor lor_exit;
 #endif
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
 	int kq;
@@ -472,16 +474,48 @@ bool TPoll::sponte( Amor::Pius *apius)
 		break;
 
 	case Notitia::POST_EPOLL :	/* user post  */
-		baspo = (DPoll::PollorBase *)apius->indic;	
-		WBUG("%p %s", baspo->pupa, "sponte POST_EPOLL");
-		switch ( baspo->type )
+		WBUG("%p %s", ((DPoll::PollorBase *)apius->indic)->pupa, "sponte POST_EPOLL");
+		switch (  ((DPoll::PollorBase *)apius->indic)->type )
 		{
 		case DPoll::NotUsed:
-			apius->indic = this;
+			apius->indic = this;	//Just prove that I am tpoll 
 			break;
 		case DPoll::User:
 #if defined (_WIN32)
-			PostQueuedCompletionStatus(g_poll->iocp_port, 0, (ULONG_PTR)baspo, 0);
+			PostQueuedCompletionStatus(g_poll->iocp_port, 0, (ULONG_PTR)apius->indic, 0);
+#endif
+#if defined(__linux__)
+		ppo = (DPoll::Pollor *)apius->indic;	
+		if ( ppo->fd == -1 )
+		{
+			ppo->fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC); 
+			if (ppo->fd == -1) {
+				ERROR_PRO("eventfd for POST_EPOLL (User)");
+				break;
+			}
+			ppo->op = EPOLL_CTL_ADD;
+			ppo->ev.events = EPOLLIN | EPOLLET |EPOLLONESHOT;
+		} else {
+			ppo->op = EPOLL_CTL_MOD;
+		}
+		ppo->ev.data.ptr = ppo;
+		if( epoll_ctl(epfd, ppo->op, ppo->fd, &ppo->ev)  != 0 )
+		{
+			ERROR_PRO("epoll_ctl failed");
+			WLOG(WARNING, errMsg);
+			break;
+		}
+		{
+			unsigned char cnt[8];
+			TEXTUS_LONG a = 1;	
+			if ( sizeof(a) == 8 ) {
+				memcpy(cnt, &a, 8);
+			} else {	//32 bits platform
+				memset(cnt, 0, 8);
+				memcpy(cnt, &a, 4);
+			}
+			write (ppo->fd , cnt, 8);
+		}
 #endif
 			break;
 		default:
@@ -778,9 +812,41 @@ END_ALARM_PRO:
 	case Notitia::CMD_MAIN_EXIT :	/* ÖÕÖ¹³ÌÐò */
 		WBUG("CMD_MAIN_EXIT");
 		shouldEnd = true;
-		a_basp.pupa = (Amor*)apius->indic;
+		lor_exit.pupa = (Amor*)apius->indic;
 #if defined (_WIN32)
-		PostQueuedCompletionStatus(g_poll->iocp_port, 0, (ULONG_PTR)&a_basp, 0);
+		PostQueuedCompletionStatus(g_poll->iocp_port, 0, (ULONG_PTR)&lor_exit, 0);
+#endif
+#if defined(__linux__)
+		if ( lor_exit.fd == -1 )
+		{
+			lor_exit.fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC); 
+			if (evt_fd == -1) {
+				ERROR_PRO("eventfd for CMD_MAIN_EXIT");
+				break;
+			}
+			lor_exit.op = EPOLL_CTL_ADD;
+			lor_exit.ev.events = EPOLLIN | EPOLLET |EPOLLONESHOT;
+		} else {
+			lor_exit.op = EPOLL_CTL_MOD;
+		}
+		lor_exit.ev.data.ptr=&lor_exit;
+		if( epoll_ctl(epfd, lor_exit.op, lor_exit.fd, &lor_exit.ev)  != 0 )
+		{
+			ERROR_PRO("epoll_ctl failed");
+			WLOG(WARNING, errMsg);
+			break;
+		}
+		{
+			unsigned char cnt[8];
+			TEXTUS_LONG a = 1;	
+			if ( sizeof(a) == 8 ) {
+				memcpy(cnt, &a, 8);
+			} else {	//32 bits platform
+				memset(cnt, 0, 8);
+				memcpy(cnt, &a, 4);
+			}
+			write ( lor_exit.fd , cnt, 8);
+		}
 #endif
 		break;
 
@@ -880,7 +946,7 @@ TPoll::TPoll()
 	stack_top = -1;
 	init_ok = false;
 
-	a_basp.type = DPoll::User;
+	lor_exit.type = DPoll::SysExit;
 #if defined(_WIN32)
 	iocp_port = NULL;
 #endif
@@ -888,6 +954,7 @@ TPoll::TPoll()
 #if defined(__linux__)
 	epfd = -1;
 	use_evtfd = false;
+	lor_exit.fd = -1;
 #endif
 
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
@@ -1332,10 +1399,14 @@ LOOP:
 
 			break;
 
+		case DPoll::SysExit:
+			WBUG("get DPoll:SysExit");
+			goto  USR_PRO;
 		case DPoll::User:
 			WBUG("get DPoll:User");
-			poll_ps.ordo = Notitia::PRO_EPOLL;
-			poll_ps.indic = 0;
+		USR_PRO:
+			poll_ps.ordo = Notitia::PRO_EVENT_HD;
+			poll_ps.indic = AOR;
 			AOR->pupa->facio(&poll_ps);
 			break;
 		default:

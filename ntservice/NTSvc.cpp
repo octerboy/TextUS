@@ -10,12 +10,12 @@
 /**
  Title: NT Serivce Pro 
  Build:created by octerboy 2007/01/11
- $Id: NTSvc.cpp 561 2022-01-03 03:01:48Z octerboy $
+ $Id$
 */
 
-#define SCM_MODULE_ID  "$Id: NTSvc.cpp 561 2022-01-03 03:01:48Z octerboy $"
-#define TEXTUS_MODTIME  "$Date: 2022-01-03 11:01:48 +0800 (??, 03 1? 2022) $"
-#define TEXTUS_BUILDNO  "$Revision: 561 $"
+#define SCM_MODULE_ID  "$Id$"
+#define TEXTUS_MODTIME  "$Date$"
+#define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
 #include "Amor.h"
@@ -310,8 +310,8 @@ bool NTSvc::facio( Amor::Pius *pius)
 			WLOG(INFO, "this software is free.");
 		}
 		break;
-	case Notitia::PRO_EPOLL:
-		WBUG("facio PRO_EPOLL, will END");
+	case Notitia::PRO_EVENT_HD:
+		WBUG("facio PRO_EVENT_HD, will END");
 		break;
 	default:
 		return false;

@@ -41,6 +41,7 @@ class DPoll
 public:
 	enum Poll_Type {
 		NotUsed =  -1,
+		SysExit = 0,
 		User = 6,
 		Alarm = 7,
 		Timer = 8,
@@ -122,6 +123,11 @@ public:
 			pupa = 0;
 			pro_ps.indic = 0;
 			type = FileD;
+#if defined(_WIN32)
+			hnd.file = INVALID_HANDLE_VALUE;
+#else
+			fd = -1;
+#endif
 		};
 	};
 };
