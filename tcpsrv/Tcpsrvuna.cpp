@@ -101,11 +101,11 @@ private:
 	void end(bool at_once=true);	/* 关闭连接 或 只释放套接字 */
 	void end_release();		/* 释放套接字 */
 
-	void parent_accept();
+	Tcpsrvuna* parent_accept();
 	void child_transmit_err(int);
 	void child_transmit_ep_err(int);
 	void deliver(Notitia::HERE_ORDO aordo);
-	void new_conn_pro();
+	Tcpsrvuna* new_conn_pro();
 #if defined (_WIN32)	
 	void do_accept_ex();
 	bool shuting;
@@ -225,9 +225,12 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 		}
 		do_accept_ex();
 #else
-		parent_accept(); /* 既然由侦听实例, 必是建立新连接 */
+		last_child = parent_accept(); /* 既然由侦听实例, 必是建立新连接 */
 		/* action flags and filter for event remain unchanged */
 		gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
+		tmp_p.ordo = Notitia::RD_EPOLL;
+		tmp_p.indic= 0;
+		last_child->facio(&tmp_p);
 #endif
 		break;
 
@@ -377,7 +380,7 @@ LOOP:
 			if ( (ip_str = cfg->Attribute("ip")) )
 				TEXTUS_STRNCPY(neo->tcpsrv->srvip, ip_str, sizeof(neo->tcpsrv->srvip)-1);
 			else
-				TEXTUS_STRNCPY(neo->tcpsrv->srvip, tcpsrv->srvip, sizeof(neo->tcpsrv->srvip)-1);
+				TEXTUS_STRNCPY(neo->tcpsrv->srvip, tcpsrv->srvip, sizeof(neo->tcpsrv->srvip));
 
 			if ( (eth_str = cfg->Attribute("eth")) )
 			{ 	/* 确定服务于哪个网口，网口设置有较高优先权 */
@@ -753,23 +756,23 @@ void Tcpsrvuna::child_begin()
 	return;
 }
 
-void Tcpsrvuna::parent_accept()
+Tcpsrvuna* Tcpsrvuna::parent_accept()
 {
 	if ( !tcpsrv->accipio(false)) 
 	{	/* 接收新连接失败, 回去吧 */
 		SLOG(ALERT)
-		return;	
+		return 0;	
 	}
 
 	if ( tcpsrv->connfd ==INVALID_SOCKET ) 
 	{	
 		SLOG(INFO)
-		return;	/* 连接还未建立好, 回去再等 */
+		return 0;	/* 连接还未建立好, 回去再等 */
 	}
-	new_conn_pro();
+	return new_conn_pro();
 }
 
-void Tcpsrvuna::new_conn_pro()
+Tcpsrvuna* Tcpsrvuna::new_conn_pro()
 {
 	Amor::Pius tmp_p;
 	WLOG(INFO,"create socket %d", tcpsrv->connfd);
@@ -777,6 +780,7 @@ void Tcpsrvuna::new_conn_pro()
 	tmp_p.indic = this;
 	aptus->sponte(&tmp_p);
 	/* 请求空闲的子实例, 将刚建立了连接的信息传过去, 然后由它工作 */
+	last_child = 0;
 	if ( !(tmp_p.indic) || this == ( Amor* ) (tmp_p.indic) )
 	{	/* 实例没有增加, 已经到达最大连接数，故关闭刚才的连接 */
 		WLOG(NOTICE, "limited connections for neo_conn, to max");
@@ -789,6 +793,7 @@ void Tcpsrvuna::new_conn_pro()
 		if ( gCFG->lonely )
 			end_service();
 	}
+	return last_child;
 }
 
 void Tcpsrvuna::child_transmit_ep_err(int mret)
