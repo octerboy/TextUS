@@ -225,12 +225,16 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 		}
 		do_accept_ex();
 #else
+	ACC_LOOP:
 		last_child = parent_accept(); /* 既然由侦听实例, 必是建立新连接 */
 		/* action flags and filter for event remain unchanged */
 		gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
-		tmp_p.ordo = Notitia::RD_EPOLL;
-		tmp_p.indic= 0;
-		last_child->facio(&tmp_p);
+		if ( last_child ) {
+			tmp_p.ordo = Notitia::RD_EPOLL;
+			tmp_p.indic= 0;
+			last_child->facio(&tmp_p);
+			goto ACC_LOOP;
+		}
 #endif
 		break;
 
