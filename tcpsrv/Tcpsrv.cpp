@@ -247,6 +247,8 @@ bool Tcpsrv::servio( bool block)
 	setsockopt(listenfd, SOL_SOCKET, SO_KEEPALIVE, (SETSOCK_OPT_TYPE)&on, sizeof(int));
 	/* µÿ÷∑÷ÿ”√ */
 	setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, (SETSOCK_OPT_TYPE)&on, sizeof(int));
+	setsockopt(listenfd, SOL_SOCKET, SO_REUSEPORT, (SETSOCK_OPT_TYPE)&on, sizeof(int));
+
 
 	if ((bind (listenfd, (struct sockaddr *)&servaddr, sizeof (servaddr)) ) != 0 )
 	{
