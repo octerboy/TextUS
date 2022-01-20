@@ -101,11 +101,11 @@ private:
 	void end(bool at_once=true);	/* 关闭连接 或 只释放套接字 */
 	void end_release();		/* 释放套接字 */
 
-	Tcpsrvuna* parent_accept();
+	void parent_accept();
 	void child_transmit_err(int);
 	void child_transmit_ep_err(int);
 	void deliver(Notitia::HERE_ORDO aordo);
-	Tcpsrvuna* new_conn_pro();
+	void new_conn_pro();
 #if defined (_WIN32)	
 	void do_accept_ex();
 	bool shuting;
@@ -225,16 +225,9 @@ bool Tcpsrvuna::facio( Amor::Pius *pius)
 		}
 		do_accept_ex();
 #else
-	ACC_LOOP:
-		last_child = parent_accept(); /* 既然由侦听实例, 必是建立新连接 */
+		parent_accept(); /* 既然由侦听实例, 必是建立新连接 */
 		/* action flags and filter for event remain unchanged */
 		gCFG->sch->sponte(&epl_set_ps);	//向tpoll,  再一次注册
-		if ( last_child ) {
-			tmp_p.ordo = Notitia::RD_EPOLL;
-			tmp_p.indic= 0;
-			last_child->facio(&tmp_p);
-			goto ACC_LOOP;
-		}
 #endif
 		break;
 
@@ -646,7 +639,8 @@ void Tcpsrvuna::parent_begin()
 
 #if  defined(__linux__)
 		pollor.fd = tcpsrv->listenfd;
-		pollor.ev.events = EPOLLIN | EPOLLET |EPOLLONESHOT | EPOLLRDHUP ;
+		//pollor.ev.events = EPOLLIN | EPOLLET |EPOLLONESHOT | EPOLLRDHUP ;
+		pollor.ev.events = EPOLLIN | EPOLLRDHUP ;
 		pollor.op = EPOLL_CTL_ADD;
 #endif	//for linux
 
@@ -719,7 +713,7 @@ void Tcpsrvuna::child_begin()
 
 #if  defined(__linux__)
 		pollor.fd = tcpsrv->connfd;
-		pollor.ev.events = EPOLLIN | EPOLLET |EPOLLONESHOT;
+		pollor.ev.events = EPOLLIN |EPOLLRDHUP;
 		pollor.op = EPOLL_CTL_ADD;
 #endif	//for linux
 
@@ -737,6 +731,7 @@ void Tcpsrvuna::child_begin()
 		/* 以下是后续操作 */
 
 #if  defined(__linux__)
+		pollor.ev.events = EPOLLIN | EPOLLET |EPOLLONESHOT|EPOLLRDHUP;
 		pollor.op = EPOLL_CTL_MOD; //以后操作就是修改了。
 #endif	//for linux
 
@@ -760,23 +755,23 @@ void Tcpsrvuna::child_begin()
 	return;
 }
 
-Tcpsrvuna* Tcpsrvuna::parent_accept()
+void Tcpsrvuna::parent_accept()
 {
 	if ( !tcpsrv->accipio(false)) 
 	{	/* 接收新连接失败, 回去吧 */
 		SLOG(ALERT)
-		return 0;	
+		return;	
 	}
 
 	if ( tcpsrv->connfd ==INVALID_SOCKET ) 
 	{	
 		SLOG(INFO)
-		return 0;	/* 连接还未建立好, 回去再等 */
+		return;	/* 连接还未建立好, 回去再等 */
 	}
-	return new_conn_pro();
+	new_conn_pro();
 }
 
-Tcpsrvuna* Tcpsrvuna::new_conn_pro()
+void Tcpsrvuna::new_conn_pro()
 {
 	Amor::Pius tmp_p;
 	WLOG(INFO,"create socket %d", tcpsrv->connfd);
@@ -784,7 +779,6 @@ Tcpsrvuna* Tcpsrvuna::new_conn_pro()
 	tmp_p.indic = this;
 	aptus->sponte(&tmp_p);
 	/* 请求空闲的子实例, 将刚建立了连接的信息传过去, 然后由它工作 */
-	last_child = 0;
 	if ( !(tmp_p.indic) || this == ( Amor* ) (tmp_p.indic) )
 	{	/* 实例没有增加, 已经到达最大连接数，故关闭刚才的连接 */
 		WLOG(NOTICE, "limited connections for neo_conn, to max");
@@ -797,7 +791,6 @@ Tcpsrvuna* Tcpsrvuna::new_conn_pro()
 		if ( gCFG->lonely )
 			end_service();
 	}
-	return last_child;
 }
 
 void Tcpsrvuna::child_transmit_ep_err(int mret)
