@@ -1022,17 +1022,16 @@ void Aio::transmitto_ex()
 		}
 	}
 #else
-	TEXTUS_LONG snd_len = wk_snd_buf.point - wk_snd_buf.base;	//·¢ËÍ³¤¶È
 #if  defined(__linux__)
 	aiocbp_W->aio_reqprio = 0;
-	aiocbp_W->aio_buf = (u_int64_t) snd_buf->base;
-	aiocbp_W->aio_nbytes = snd_len;
+	aiocbp_W->aio_buf = (u_int64_t) wk_snd_buf.base;
+	aiocbp_W->aio_nbytes = wk_snd_buf.point - wk_snd_buf.base;
 	//aiocbp_W->aio_offset = 0; absolute pos?
 	if (io_submit(pollor.ctx, 1, iocbp_W) <= 0) {
 		WLOG_OSERR("io_submit(write)");
 #else
-	aiocbp_W->aio_nbytes = snd_len;
-        aiocbp_W->aio_buf = snd_buf->base;
+	aiocbp_W->aio_nbytes = wk_snd_buf.point - wk_snd_buf.base;
+        aiocbp_W->aio_buf = wk_snd_buf.base;
 	if ( aio_write(aiocbp_W) == -1 )
 	{
 		WLOG_OSERR("aio_write");
