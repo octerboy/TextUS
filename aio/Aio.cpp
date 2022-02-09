@@ -582,6 +582,7 @@ bool Aio::facio( Amor::Pius *pius)
 			{
 				transmitto_ex();
 			}
+			goto H_END;
 		} else {
 			WLOG(EMERG, "not my iocb");
 			goto H_END;
@@ -628,7 +629,7 @@ bool Aio::facio( Amor::Pius *pius)
 				{
 					transmitto_ex();
 				}
-				break;
+				goto H_END;
 			}
 		} else {
 			WLOG(EMERG, "not my aiocb");
