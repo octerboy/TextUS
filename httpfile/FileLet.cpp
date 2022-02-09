@@ -211,6 +211,23 @@ bool FileLet::sponte( Amor::Pius *pius)
 		WBUG("has sent the file of %s", file);
 		break;
 
+#ifdef TEXTUS_AIO_WRITE_TEST
+	case Notitia::PRO_TBUF:	//EOF
+		WBUG("sponte PRO_TBUF");	
+	{
+		#define MLen TEXTUS_AIO_WRITE_TEST*1024*1024
+		char *tmp_str =0;
+		tmp_str = new char[MLen+1];
+	printf("tmp_str %p\n", tmp_str);
+		
+		tmp_str[MLen] = 0;
+		memset(tmp_str, '-', MLen+1);
+		req_body->input((unsigned char*)tmp_str, MLen);
+	}
+		aptus->facio(pius);
+		//exit(0);
+		return false;
+#endif
 	default:
 		return false;
 	}

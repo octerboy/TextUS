@@ -38,6 +38,16 @@
 #include <unistd.h>
 #endif
 
+#ifdef AIO_WRITE_TEST
+#if !defined(_WIN32)
+#include <sys/timeb.h>
+#include <sys/time.h>
+#else
+#include <time.h>
+#include <realtimeapiset.h>
+#endif
+#endif
+
 class Aio: public Amor
 {
 public:
@@ -392,6 +402,7 @@ private:
 void Aio::a_close()
 {
 	WBUG("a_close(%s).....", file_name);
+#if !defined(AIO_WRITE_TEST)
 #if defined(_WIN32)
 	if ( !CloseHandle(hdev) )
 	{
@@ -404,6 +415,7 @@ void Aio::a_close()
 		WLOG_OSERR("close");
 	}
 	fd = -1;
+#endif
 #endif
 }
 
@@ -1003,16 +1015,29 @@ Aio::~Aio()
 
 void Aio::transmitto_ex()
 {
+#ifdef AIO_WRITE_TEST
+#if defined(_WIN32)
+	//ULONGLONG now1, now2;
+	FILETIME now1, now2;
+#else
+	struct timeval now1, now2;
+#endif
+#endif
 	if ( wk_snd_buf.point != wk_snd_buf.base ) {
 		WBUG("last writing is still pending");
 		return ;	/* not empty, wait */
 	}
 	TBuffer::pour(wk_snd_buf, *snd_buf);
 #if defined(_WIN32)
+	
 	DWORD snd_len = (DWORD)(wk_snd_buf.point - wk_snd_buf.base);	//·¢ËÍ³¤¶È
 	memset(&ovlpW, 0, sizeof(OVERLAPPED));
 	ovlpW.Offset = (DWORD) (ovlpW_offset & 0xFFFFFFFF);
 	ovlpW.OffsetHigh = (DWORD)(ovlpW_offset >> 32);
+#ifdef AIO_WRITE_TEST
+	//QueryUnbiasedInterruptTime(&now1);
+	GetSystemTimePreciseAsFileTime(&now1);
+#endif
 	if ( !WriteFile(hdev, wk_snd_buf.base, snd_len, NULL, &ovlpW) )
 	{
 		if ( ERROR_IO_PENDING != GetLastError() ) {
@@ -1021,12 +1046,22 @@ void Aio::transmitto_ex()
 			goto ERR_RET;
 		}
 	}
+#ifdef AIO_WRITE_TEST
+	//QueryUnbiasedInterruptTime(&now2);
+	GetSystemTimePreciseAsFileTime(&now2);
+	//WBUG("------tme --------- %I64d (us)", (now2- now1)/10);
+	WBUG("------tme --------- %I64d (us) ", ((long long)((now2.dwHighDateTime- now1.dwHighDateTime)<<32) + (long long)(now2.dwLowDateTime - now1.dwLowDateTime))/10);
+#endif
 #else
+#ifdef AIO_WRITE_TEST
+	gettimeofday(&now1,0);
+#endif
 #if  defined(__linux__)
 	aiocbp_W->aio_reqprio = 0;
 	aiocbp_W->aio_buf = (u_int64_t) wk_snd_buf.base;
 	aiocbp_W->aio_nbytes = wk_snd_buf.point - wk_snd_buf.base;
 	//aiocbp_W->aio_offset = 0; absolute pos?
+	//	
 	if (io_submit(pollor.ctx, 1, iocbp_W) <= 0) {
 		WLOG_OSERR("io_submit(write)");
 #else
@@ -1039,6 +1074,11 @@ void Aio::transmitto_ex()
 		a_close();
 		goto ERR_RET;
 	}
+#ifdef AIO_WRITE_TEST
+	gettimeofday(&now2,0);
+	WBUG("------tme --------- %ld ", now2.tv_sec*1000000+now2.tv_usec- now1.tv_sec*1000000- now1.tv_usec);
+	WBUG("------tme --------- %ld %ld %ld %ld", now2.tv_sec, now2.tv_usec, now1.tv_sec, now1.tv_usec);
+#endif
 #endif
 	return;
 ERR_RET:

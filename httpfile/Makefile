@@ -5,7 +5,7 @@
 
 include ../Rules.basemod
 INCLUDE_DIR += -I../httpsrvhead/include -I../baselib/include -I../logdata/include
-all:httpfile.so httpfileaio.so
+all:httpfile.so httpfileaio.so httpfileaiotest.so
 
 FileLet.o:FileLet.cpp
 	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG) -DAMOR_CLS_TYPE=FileLet -o $@ $^
@@ -13,11 +13,18 @@ FileLet.o:FileLet.cpp
 FileLetAio.o:FileLet.cpp
 	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG) -DUSE_TEXTUS_AIO -DAMOR_CLS_TYPE=FileLet -o $@ $^
 
+FileLetAioTest.o:FileLet.cpp
+	${CC} ${CFLAGS} $(INCLUDE_DIR) $(DEBUG_FLAG) -DUSE_TEXTUS_AIO -DAMOR_CLS_TYPE=FileLet -DTEXTUS_AIO_WRITE_TEST=1024 -o $@ $^
+
 httpfile.so: FileLet.o 
 	${LD} $(LDFLAGS) -o $@ $^  $(LDLIBS) -lbase
 	$(_POST_RPO_SUB)
 
 httpfileaio.so: FileLetAio.o 
+	${LD} $(LDFLAGS) -o $@ $^  $(LDLIBS) -lbase
+	$(_POST_RPO_SUB)
+
+httpfileaiotest.so: FileLetAioTest.o 
 	${LD} $(LDFLAGS) -o $@ $^  $(LDLIBS) -lbase
 	$(_POST_RPO_SUB)
 

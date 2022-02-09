@@ -7,12 +7,20 @@ CFLAGS =$(CFLAGS) -I..\logdata\include  -I..\baselib\include -I..\unipac\include
 LDLIB =$(LDLIB) ..\baselib\libbase.lib
 AMOROBJS=Aio.obj
 
-all: aio.dll
+all: aio.dll aiotest.dll
 
 Aio.obj: Aio.cpp
 	$(CC) $(CFLAGS) -I..\tpoll\include -DNNDEBUG -DAMOR_CLS_TYPE=Aio Aio.cpp
 
+Aiotest.obj: Aio.cpp
+	$(CC) $(CFLAGS) -I..\tpoll\include -DNNDEBUG -DAMOR_CLS_TYPE=Aio -DAIO_WRITE_TEST Aio.cpp
+
 aio.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+	
+aiotest.dll: Aiotest.obj
 	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB)
 	$(_VC_MANIFEST_PRO)
 	$(_POST_RPO_SUB)
