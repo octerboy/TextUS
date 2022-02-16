@@ -220,12 +220,15 @@ bool FileLet::sponte( Amor::Pius *pius)
 		size_t slen = 1024*1024;
 		slen *= TEXTUS_AIO_WRITE_TEST;
 		tmp_str = new char[slen+1];
-	printf("tmp_str %p\n", tmp_str);
+		printf("tmp_str %p new ok\n", tmp_str);
 		
 		tmp_str[slen] = 0;
 		memset(tmp_str, '-', slen);
+		printf("tmp_str %p memset ok\n", tmp_str);
 		req_body->input((unsigned char*)tmp_str, slen);
+		printf("tmp_str %p input ok\n", tmp_str);
 		delete tmp_str;
+		printf("tmp_str deleted!\n");
 	}
 		aptus->facio(pius);
 		//exit(0);
