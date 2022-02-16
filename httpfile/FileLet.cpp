@@ -217,12 +217,15 @@ bool FileLet::sponte( Amor::Pius *pius)
 	{
 		#define MLen TEXTUS_AIO_WRITE_TEST*1024*1024
 		char *tmp_str =0;
-		tmp_str = new char[MLen+1];
+		size_t slen = 1024*1024;
+		slen *= TEXTUS_AIO_WRITE_TEST;
+		tmp_str = new char[slen+1];
 	printf("tmp_str %p\n", tmp_str);
 		
-		tmp_str[MLen] = 0;
-		memset(tmp_str, '-', MLen+1);
-		req_body->input((unsigned char*)tmp_str, MLen);
+		tmp_str[slen] = 0;
+		memset(tmp_str, '-', slen);
+		req_body->input((unsigned char*)tmp_str, slen);
+		delete tmp_str;
 	}
 		aptus->facio(pius);
 		//exit(0);
