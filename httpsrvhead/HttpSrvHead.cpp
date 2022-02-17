@@ -37,23 +37,92 @@ public:
 	HttpSrvHead();
 	~HttpSrvHead();
 
-	char server_name[64];
+	Amor::Pius alarm_pius;	/* 设置超时 */
+	Amor::Pius clr_timer_pius;	/* 清超时 */
+	void *tarr[3];
+	bool has_config;
+	struct G_CFG {
+		Amor::Pius tmp_pius;	/* 清超时 */
+		char server_name[64];
+		int head_time_out;	/* 接收head的超时毫秒数 */
+		char **ext_method;	/* 扩展method */
+		bool isAgent;	/* 是否要保存http请求头的原始数据，通常为否 */
+		Amor *sch;
+		G_CFG( TiXmlElement *cfg) {
+			const char *iscopy_str, *svr_str, *time_str, *name_str;
+			TiXmlElement *mth_ele;
+			int m;
+			size_t len;
+			TEXTUS_LONG i=0;
+			char *p=(char*)0, **q=(char**)0;
+
+			sch = 0;
+			iscopy_str = cfg->Attribute("agent");
+			if ( iscopy_str && strcasecmp(iscopy_str,"yes") == 0)
+				isAgent = true;
+		
+			memset(server_name, 0, sizeof(server_name));
+			if ( (svr_str = cfg->Attribute("server")) )
+				TEXTUS_STRNCPY(server_name, svr_str, sizeof(server_name));
+
+			head_time_out = 32000;
+			if ( (time_str = cfg->Attribute("time_out")) &&  atoi(time_str) > 0 )
+				head_time_out = atoi(time_str);
+
+			tmp_pius.ordo = Notitia::CMD_GET_SCHED;
+			tmp_pius.indic = 0;
+
+			ext_method = 0;
+			mth_ele = cfg->FirstChildElement("method"); m = 0; len=0;
+			while(mth_ele)
+			{
+				name_str = mth_ele->Attribute("name") ;
+				if ( name_str )
+				{
+					len += strlen(name_str)+1;
+					m++;
+				}
+				mth_ele = mth_ele->NextSiblingElement("method");
+			}
+
+			if ( m  > 0 )
+			{
+				i = sizeof(char*)*(m+1);
+				p =  new char[i+len];
+				q =  ext_method = (char**) p;
+				q[m] = (char*) 0;
+			}
+
+			mth_ele = cfg->FirstChildElement("method"); m = 0;
+			while(mth_ele)
+			{
+				name_str = mth_ele->Attribute("name") ;
+				if ( name_str )
+				{
+					q[m] = &p[i];
+					TEXTUS_STRCPY(q[m], name_str);
+					i += strlen(name_str)+1;
+					m++;
+				}
+				mth_ele = mth_ele->NextSiblingElement("method");
+			}
+		};
+		 ~G_CFG() {
+			if ( ext_method)
+				delete[] (char*)ext_method;
+		};
+	};
+	struct G_CFG *gCFG;
 private:
 	Amor::Pius local_pius;	//仅用于向左边传回数据
 	
-	bool isPoineer;
 	bool session;
 	bool channel_isAlive;
-	int head_time_out;	/* 接收head的超时毫秒数 */
-	void *tarr[3];
-	Amor::Pius alarm_pius;	/* 设置超时 */
 	bool hasTimer;	/* 已设定时否? */
-	Amor::Pius clr_timer_pius;	/* 清超时 */
 		
 	TEXTUS_LONG body_sent_len;	/* http体已发送字节数,以此决定是否结束当前session */
 	TEXTUS_LONG content_length;	/* 请求http体的字节数, rcv_buf中可能没有这么多字节 */
 	
-	char **ext_method;	/* 扩展method */
 
 	TBuffer req_head_dup;	/* http头原始副本 */	
 	TBuffer *rcv_buf;	/* 在http头完成后，这将是http体的内容 */
@@ -66,7 +135,6 @@ private:
 
 	TBuffer *res_head_buf;	/* http响应头, 用于直接设置而不用response的内容 */
 	
-	bool isAgent;	/* 是否要保存http请求头的原始数据，通常为否 */
 	bool body_clean;	/* true: rcv_buf is empty. */
 	
 	TINLINE void end(bool force=false);
@@ -83,61 +151,12 @@ private:
 
 void HttpSrvHead::ignite(TiXmlElement *cfg)
 {
-	const char *iscopy_str, *svr_str, *time_str, *name_str;
-	TiXmlElement *mth_ele;
-	int m;
-	size_t len;
-	TEXTUS_LONG i=0;
-	char *p=(char*)0, **q=(char**)0;
-	
-	iscopy_str = cfg->Attribute("agent");
-	if ( iscopy_str && strcasecmp(iscopy_str,"yes") == 0)
-		isAgent = true;
-		
-	if ( (svr_str = cfg->Attribute("server")) )
-		TEXTUS_STRNCPY(server_name, svr_str, sizeof(server_name));
-
-	if ( (time_str = cfg->Attribute("time_out")) &&  atoi(time_str) > 0 )
-		head_time_out = atoi(time_str);
-
-	if (ext_method)
-		delete[] (char*) ext_method;
-	ext_method = 0;
-
-	mth_ele = cfg->FirstChildElement("method"); m = 0; len=0;
-	while(mth_ele)
+	if (!cfg) return;
+	if ( !gCFG ) 
 	{
-		name_str = mth_ele->Attribute("name") ;
-		if ( name_str )
-		{
-			len += strlen(name_str)+1;
-			m++;
-		}
-		mth_ele = mth_ele->NextSiblingElement("method");
+		gCFG = new struct G_CFG(cfg);
+		has_config = true;
 	}
-
-	if ( m  > 0 )
-	{
-		i = sizeof(char*)*(m+1);
-		p =  new char[i+len];
-		q =  ext_method = (char**) p;
-		q[m] = (char*) 0;
-	}
-
-	mth_ele = cfg->FirstChildElement("method"); m = 0;
-	while(mth_ele)
-	{
-		name_str = mth_ele->Attribute("name") ;
-		if ( name_str )
-		{
-			q[m] = &p[i];
-			TEXTUS_STRCPY(q[m], name_str);
-			i += strlen(name_str)+1;
-			m++;
-		}
-		mth_ele = mth_ele->NextSiblingElement("method");
-	}
-	isPoineer = true;
 }
 
 bool HttpSrvHead::facio( Amor::Pius *pius)
@@ -166,8 +185,9 @@ bool HttpSrvHead::facio( Amor::Pius *pius)
 HEADPRO:
 		if ( request.state == DeHead::HeadOK ) /* Http head is ready, rest data still in rcv_buf */
 		{
+			WBUG("session %d, rest buf " TLONG_FMT " bytes", session, rcv_buf->point - rcv_buf->base);
 			deliver(Notitia::PRO_TBUF);
-			goto END;
+			break;
 		}
 		
 		pre_state = request.state;
@@ -177,7 +197,7 @@ HEADPRO:
 		{	/* feed data into the object of request */
 			TEXTUS_LONG fed_len;
 			fed_len = request.feed((char*)rcv_buf->base, len);
-			if ( isAgent ) /* save the http head data */
+			if ( gCFG->isAgent ) /* save the http head data */
 				req_head_dup.input(rcv_buf->base, fed_len);
 			
 			rcv_buf->commit(-fed_len); /* clear the head data  */
@@ -190,7 +210,7 @@ HEADPRO:
 				if ( hasTimer )
 				{	/* clear timer */
 					hasTimer = false;
-					aptus->sponte(&clr_timer_pius);
+					gCFG->sch->sponte(&clr_timer_pius);
 				}
 
 				session = true;	
@@ -213,7 +233,7 @@ HEADPRO:
 				//ftime(&now);
 				time(&now);
 				response.setHeadTime("Date", now);
-				response.setHead("Server", server_name);
+				response.setHead("Server", gCFG->server_name);
 
 				deliver(Notitia::PRO_HTTP_HEAD); /* the right node can process http head */
 
@@ -221,7 +241,7 @@ HEADPRO:
 				&& request.state == DeHead::Heading )
 			{	/* set timer for the whole head */
 				hasTimer = true;
-				aptus->sponte(&alarm_pius);
+				gCFG->sch->sponte(&alarm_pius);
 			}
 		}
 END:
@@ -247,21 +267,42 @@ END:
 		} else 
 			WLOG(WARNING, "facio SET_TBUF null");
 		break;
-
-	case Notitia::IGNITE_ALL_READY:	
-		WLOG(INFO,"%s","http server started.");
+	
+	case Notitia::IGNITE_ALL_READY:
+		WBUG("facio IGNITE_ALL_READY");
+		if ( gCFG ) {
+			tarr[1] = &gCFG->head_time_out;
+		}
+		aptus->sponte(&(gCFG->tmp_pius));	//向tpoll, 取得sched
+		gCFG->sch = (Amor*)(gCFG->tmp_pius.indic);
+		if ( !gCFG->sch ) 
+		{
+			WLOG(ERR, "no sched or tpoll");
+		}
+		WBUG("get sched = %p", gCFG->sch);
+		reset();
+		request.ext_method = &gCFG->ext_method;
 		break;
-		
+
+        case Notitia::CLONE_ALL_READY:
+		WBUG("facio CLONE_ALL_READY");
+		if ( gCFG ) {
+			tarr[1] = &gCFG->head_time_out;
+		}
+		reset();
+		request.ext_method = &gCFG->ext_method;
+		break;
+
 	case Notitia::DMD_END_SESSION:
 		WBUG("facio DMD_END_SESSION");
-		aptus->sponte(&clr_timer_pius);
+		gCFG->sch->sponte(&clr_timer_pius);
 		channel_isAlive = false;
 		reset();
 		break;
 
 	case Notitia::START_SESSION:	/* 底层通信初始 */
 		WBUG("facio START_SESSION");
-		aptus->sponte(&clr_timer_pius);
+		gCFG->sch->sponte(&clr_timer_pius);
 		channel_isAlive = true;
 		reset();
 		break;
@@ -501,25 +542,18 @@ HttpSrvHead::HttpSrvHead():req_head_dup(512), res_entity(8192),
 
 	rcv_buf = 0;
 	snd_buf = 0;
-	isPoineer = false;	/* 开始认为自己不是开拓者 */
-	isAgent = false;	/* 通常不用保存请求头的原始数据 */
-	memset(server_name, 0, sizeof(server_name));
+	gCFG = 0;
+	has_config = false;	/* 开始认为自己不是开拓者 */
 
+	hasTimer = false;
+	channel_isAlive = false;
 	clr_timer_pius.ordo = Notitia::DMD_CLR_TIMER;
 	clr_timer_pius.indic = 0;	/* shed or tpoll give*/
-
+			
 	alarm_pius.ordo = Notitia::DMD_SET_ALARM;
 	alarm_pius.indic = &tarr[0];
 	tarr[0] = this;
-	tarr[1] = &head_time_out;
 	tarr[2] = 0;
-	head_time_out = 32000;
-	hasTimer = false;
-
-	ext_method = 0;
-	request.ext_method = &ext_method;
-
-	channel_isAlive = false;
 	reset();
 }
 
@@ -551,20 +585,17 @@ void HttpSrvHead::reset()
 }
 
 HttpSrvHead::~HttpSrvHead() {
-	if ( isPoineer)
+	if ( has_config)
 	{
-		if ( ext_method)
-			delete[] (char*)ext_method;
+		if(gCFG) delete gCFG;
+		gCFG = 0;
 	}
 }
 
 Amor* HttpSrvHead::clone()
 {
 	HttpSrvHead *child = new HttpSrvHead();
-	child->isAgent = isAgent;
-	child->head_time_out = head_time_out;
-	child->ext_method = ext_method;
-	memcpy(child->server_name, server_name, sizeof(server_name));
+	child->gCFG = gCFG;
 	return (Amor*) child;
 }
 
