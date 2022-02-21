@@ -333,7 +333,7 @@ private:
 					oflag |= O_CREAT;
 				if ( strcasecmp(str, "excl" ) == 0 )	
 					oflag |= O_EXCL;
-#if !defined(__APPLE__)
+#if !defined(__APPLE__) && !defined(__FreeBSD__)  && !defined(__NetBSD__)  && !defined(__OpenBSD__)
 				if ( strcasecmp(str, "largefile" ) == 0 )	
 					oflag |= O_LARGEFILE;
 #endif
