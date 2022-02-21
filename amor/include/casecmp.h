@@ -1,5 +1,5 @@
 /*
- $Header: /export/home/octerboy/Tasks/textus/amor/include/casecmp.h    $
+ $Id$
  $Date$
  $Revision$
 */
