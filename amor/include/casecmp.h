@@ -1,5 +1,5 @@
 /*
- $Header: /textus/amor/include/casecmp.h 6     07-12-31 21:37 Octerboy $
+ $Header: /export/home/octerboy/Tasks/textus/amor/include/casecmp.h    $
  $Date$
  $Revision$
 */
@@ -9,7 +9,7 @@
 #if defined(_WIN32)
 #define strcasecmp _stricmp
 #define strncasecmp _strnicmp
-#elif !defined(__linux__) && !defined(_AIX) && !defined(__hpux) && !defined(__sun) && !defined(__APPLE__)
+#elif !defined(__linux__) && !defined(_AIX) && !defined(__hpux) && !defined(__sun) && !defined(__APPLE__)  && !defined(__FreeBSD__)  && !defined(__NetBSD__)  && !defined(__OpenBSD__)
 #include <ctype.h>
 static int strcasecmp(const char *s1, const char *s2)
 {
