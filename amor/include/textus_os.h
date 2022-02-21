@@ -111,4 +111,9 @@
 #define TEXTUS_AMOR_STORAGE
 #endif
 #endif
+
+#if __cplusplus >= 201103L
+#define register      // Deprecated in C++11.
+#endif  // #if __cplusplus > 199711L
+
 #endif
