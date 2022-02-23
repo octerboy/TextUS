@@ -36,6 +36,12 @@
 #define DEFAULT_TBUFFER_SIZE     4096
 #include <string.h>
 
+#if __cplusplus >= 201103L
+#if !defined(registre)
+#define register      // Deprecated in C++11.
+#endif
+#endif  // #if __cplusplus > 201103L
+
 class TEXTUS_AMOR_STORAGE TBuffer
 {
 public:

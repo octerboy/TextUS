@@ -342,7 +342,7 @@ bool Tcpcli::annecto_done()
 {
 	int error = 0;
 	err_lev = -1;
-#if defined(__linux__) || defined(_AIX) || defined(__APPLE__) || defined(__SUNPRO_CC)
+#if defined(__linux__) || defined(_AIX) || defined(__APPLE__) || defined(__SUNPRO_CC) || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
 	socklen_t len = sizeof(error);
 #else
 	int len = sizeof(error); //WIN32, SCO¶¼ÕâÑù

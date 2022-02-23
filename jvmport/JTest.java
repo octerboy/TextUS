@@ -24,8 +24,8 @@ public class JTest {
 	public int count;
 	public DBFace face;
 
-	public static final String JETUS_MODTIME = "$Date: 07-11-16 8:39 $";
-	public static final String JETUS_BUILDNO =  "$Revision: 3 $";
+	public static final String JETUS_MODTIME = "$Date$";
+	public static final String JETUS_BUILDNO =  "$Revision$";
 
 	public JTest () { count = 0;}
 
@@ -171,7 +171,7 @@ public static void main(String[] args) {
 	test.aptus = new Amor();
 	String nstr = "<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?><root>this is OK root</root>";
 	test.ignite(test.parseXmlFile(nstr,true));
-	test.facio(ps);
+	//test.facio(ps);
         }
 
 }

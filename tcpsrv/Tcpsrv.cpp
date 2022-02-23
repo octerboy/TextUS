@@ -342,7 +342,7 @@ bool Tcpsrv::post_accept_ex()
 /* 接受一个TCP连接 */
 bool Tcpsrv::accipio( bool block )
 {
-#if defined(__linux__) || defined(_AIX) || defined(__APPLE__) || defined(__SUNPRO_CC)
+#if defined(__linux__) || defined(_AIX) || defined(__APPLE__) || defined(__SUNPRO_CC) || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
 #define	CLI_TYPE socklen_t 
 #else
 #define	CLI_TYPE int 
@@ -589,7 +589,7 @@ SendAgain:
 unsigned short Tcpsrv::getSrvPort()
 {
 	struct sockaddr_in name1;
-#if defined(__linux__) || defined(_AIX) || defined(__APPLE__) || defined(__SUNPRO_CC)
+#if defined(__linux__) || defined(_AIX) || defined(__APPLE__) || defined(__SUNPRO_CC) || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
 	socklen_t clilen; 
 #else
 	int clilen;
@@ -613,7 +613,7 @@ char * Tcpsrv::getSrvIP()
 	char *str = 0;
 #endif
 	struct sockaddr_in name1;
-#if defined(__linux__) || defined(_AIX) || defined(__APPLE__) || defined(__SUNPRO_CC)
+#if defined(__linux__) || defined(_AIX) || defined(__APPLE__) || defined(__SUNPRO_CC) || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
 	socklen_t clilen; 
 #else
 	int clilen;

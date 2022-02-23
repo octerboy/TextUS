@@ -1460,7 +1460,7 @@ struct INS_Set {
 					mor = cor;
 					vmany++;
 				} else if ( !(IS_VAR(com_nm))) { 
-					TEXTUS_SNPRINTF(macro_nm, sizeof(macro_nm)-1, "%s"MACRO_SUFFIX, com_nm);
+					TEXTUS_SNPRINTF(macro_nm, sizeof(macro_nm)-1, "%s" MACRO_SUFFIX, com_nm);
 					macro_ele= map_root->FirstChildElement(macro_nm); //map_root中找宏定义
 					if ( !macro_ele) continue;
 					m_usr_ele->QueryIntAttribute("order", &(cor)); 
@@ -1484,7 +1484,7 @@ struct INS_Set {
 				if (yes_ins(m_usr_ele, map_root, var_set) )
 					refny++;				
 				else if ( !(IS_VAR(com_nm))) { 
-					TEXTUS_SNPRINTF(macro_nm, sizeof(macro_nm)-1, "%s"MACRO_SUFFIX, com_nm);
+					TEXTUS_SNPRINTF(macro_nm, sizeof(macro_nm)-1, "%s" MACRO_SUFFIX, com_nm);
 					macro_ele= map_root->FirstChildElement(macro_nm); //map_root中找宏定义
 					if ( !macro_ele) continue;
 					ev_num(macro_ele, var_set, map_root, refny);

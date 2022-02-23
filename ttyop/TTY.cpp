@@ -348,6 +348,7 @@ private:
 				Set_OutputMode(OCRNL)
 				Set_OutputMode(ONOCR)
 				Set_OutputMode(ONLRET)
+#if !defined(__APPLE__) && !defined(__FreeBSD__)  && !defined(__NetBSD__)  && !defined(__OpenBSD__)
 				Set_OutputMode(OFILL)
 				Set_OutputMode(OFDEL)
 				Set_OutputMode(NLDLY)
@@ -358,11 +359,8 @@ private:
 				Set_OutputMode(CR1)
 				Set_OutputMode(CR2)
 				Set_OutputMode(CR3)
-				Set_OutputMode(TABDLY)
-				Set_OutputMode(TAB0)
 				Set_OutputMode(TAB1)
 				Set_OutputMode(TAB2)
-				Set_OutputMode(TAB3)
 				Set_OutputMode(BSDLY)
 				Set_OutputMode(BS0)
 				Set_OutputMode(BS1)
@@ -372,6 +370,10 @@ private:
 				Set_OutputMode(VTDLY)
 				Set_OutputMode(VT0)
 				Set_OutputMode(VT1)
+#endif
+				Set_OutputMode(TABDLY)
+				Set_OutputMode(TAB0)
+				Set_OutputMode(TAB3)
 			#ifdef OXTABS
 				Set_OutputMode(OXTABS)
 			#endif
@@ -388,6 +390,7 @@ private:
 				Set_OutputMode(OCRNL)
 				Set_OutputMode(ONOCR)
 				Set_OutputMode(ONLRET)
+#if !defined(__APPLE__) && !defined(__FreeBSD__)  && !defined(__NetBSD__)  && !defined(__OpenBSD__)
 				Set_OutputMode(OFILL)
 				Set_OutputMode(OFDEL)
 				Set_OutputMode(NLDLY)
@@ -398,11 +401,8 @@ private:
 				Set_OutputMode(CR1)
 				Set_OutputMode(CR2)
 				Set_OutputMode(CR3)
-				Set_OutputMode(TABDLY)
-				Set_OutputMode(TAB0)
 				Set_OutputMode(TAB1)
 				Set_OutputMode(TAB2)
-				Set_OutputMode(TAB3)
 				Set_OutputMode(BSDLY)
 				Set_OutputMode(BS0)
 				Set_OutputMode(BS1)
@@ -412,6 +412,10 @@ private:
 				Set_OutputMode(VTDLY)
 				Set_OutputMode(VT0)
 				Set_OutputMode(VT1)
+#endif
+				Set_OutputMode(TABDLY)
+				Set_OutputMode(TAB0)
+				Set_OutputMode(TAB3)
 			#ifdef OXTABS
 				Set_OutputMode(OXTABS)
 			#endif

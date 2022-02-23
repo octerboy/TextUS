@@ -58,7 +58,7 @@ void Signal::ignite(TiXmlElement *cfg)
 		#ifdef _WIN32
 			MYIGNORE(SIGBREAK);       
 		#else
-		#if !defined(__APPLE__)
+		#if !defined(__APPLE__)  && !defined(__FreeBSD__)  && !defined(__NetBSD__)  && !defined(__OpenBSD__)
 			MYIGNORE(	SIGCLD );       
 			MYIGNORE(	SIGPOLL);       
 			MYIGNORE(	SIGPWR );       

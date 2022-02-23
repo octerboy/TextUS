@@ -158,7 +158,7 @@ void TCtrl::ignite(TiXmlElement *cfg)
 bool TCtrl::facio( Amor::Pius *pius)
 {
 	Amor::Pius tmp_pius;
-#if defined(__linux__) || defined(_AIX) || defined(__APPLE__) || defined(__SUNPRO_CC)
+#if defined(__linux__) || defined(_AIX) || defined(__APPLE__) || defined(__SUNPRO_CC) || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
 	socklen_t clilen; 
 #else
 	int clilen;
