@@ -22,7 +22,11 @@
 #include "BTool.h"
 #include <time.h>
 #include <sys/types.h>
+#if defined(TEXTUS_PLATFORM_64) && !defined(_WIN32)
+#include <sys/time.h>
+#else
 #include <sys/timeb.h>
+#endif
 #include <stdio.h>
 #include <stdarg.h>
 
@@ -51,7 +55,7 @@ protected:
 	static bool detect_modified;		/* 是否防篡改内容 */
 	static char hostname[64];	/* 主机名，在 logdata 这个 Attachment 元素中用属性说明 */
 	static time_t lastSec;		/* 最后的秒数 */
-	static unsigned short lastMilli;/* 最后的毫秒数 */
+	static unsigned int lastMilli;/* 最后的毫(微)秒数 */
 	static int serialNo;		/* 如果毫秒数都相同，则采用序列号 */
 	static char last_md_sum[8];	/* 上一次日志的MD5值 */
 	static char md_magic[64];	/*默认是MD_MAGIC */
@@ -85,7 +89,7 @@ protected:
 char Logdata::hostname[] = "";
 time_t Logdata::lastSec = 0;
 bool Logdata::hasPid = false;
-unsigned short Logdata::lastMilli = 0;
+unsigned int Logdata::lastMilli = 0;
 int Logdata::serialNo = 0;
 Aptus** Logdata::channels = (Aptus **)0;
 int Logdata::chnnls_num = CHNNL_NUM;
@@ -261,7 +265,12 @@ bool Logdata::sponte_n ( Amor::Pius *pius, unsigned int from)
 #if defined(_WIN32) && (_MSC_VER < 1400 )
 	struct _timeb now;
 #else
+#if defined(TEXTUS_PLATFORM_64) && !defined(_WIN32)
+	struct timeval now;
+#else
 	struct timeb now;
+#endif
+
 #endif
 	struct tm *tdatePtr;
 #if defined(_MSC_VER) && (_MSC_VER >= 1400 )
@@ -270,7 +279,7 @@ bool Logdata::sponte_n ( Amor::Pius *pius, unsigned int from)
 
 	char timestr[64];
 	char ftmstr[128];
-	char millstr[16];
+	char millstr[24];
 
 	char levelstr[16];
 	LogLevel level;
@@ -313,29 +322,44 @@ bool Logdata::sponte_n ( Amor::Pius *pius, unsigned int from)
 #if defined(_WIN32) && (_MSC_VER < 1400 )
 	_ftime(&now);
 #else
+#if defined(TEXTUS_PLATFORM_64) && !defined(_WIN32)
+	gettimeofday(&now,0);
+#define NOW_TIME now.tv_sec
+#define NOW_MILLITM now.tv_usec
+#else
 	ftime(&now);
+#define NOW_TIME now.time
+#define NOW_MILLITM now.millitm
+#define GET_MILLSTR TEXTUS_SPRINTF(millstr, ".%03d.%d", (int)NOW_MILLITM);
+#endif
 #endif
 #if defined(_MSC_VER) && (_MSC_VER >= 1400 )
 	tdatePtr = &tdate;
 	localtime_s(tdatePtr, &now.time);
 #else
-	tdatePtr = localtime(&now.time);
+	tdatePtr = localtime(&NOW_TIME);
 #endif
 
-	if ( lastSec == now.time && lastMilli == now.millitm)
+	if ( lastSec == NOW_TIME && lastMilli == NOW_MILLITM)
 	{
 		serialNo++;
+#if defined(TEXTUS_PLATFORM_64) && !defined(_WIN32)
+		TEXTUS_SPRINTF(millstr, ".%03d.%d.%d", (int)(NOW_MILLITM/1000), (int)(NOW_MILLITM%1000), serialNo);
+#else
+		TEXTUS_SPRINTF(millstr, ".%03d.%d", (int)NOW_MILLITM,serialNo);
+#endif
 	} else
 	{
-		lastSec = now.time;
-		lastMilli = now.millitm;
+		lastSec = NOW_TIME;
+		lastMilli =  NOW_MILLITM;
 		serialNo = 0;
+#if defined(TEXTUS_PLATFORM_64) && !defined(_WIN32)
+		TEXTUS_SPRINTF(millstr, ".%03d.%d", (int)(NOW_MILLITM/1000), (int)(NOW_MILLITM%1000));
+#else
+		TEXTUS_SPRINTF(millstr, ".%03d", (int)NOW_MILLITM);
+#endif
 	}
 
-	if ( serialNo == 0 )
-		TEXTUS_SPRINTF(millstr, ".%03d", now.millitm);
-	else 
-		TEXTUS_SPRINTF(millstr, ".%03d.%d", now.millitm,serialNo);
 
 	TEXTUS_STRCPY(ftmstr,"%y-%m-%d %H:%M:%S");
 	strftime(timestr, 64, ftmstr, tdatePtr);
