@@ -83,7 +83,6 @@ protected:
 #include "textus_string.h"
 #include <stdio.h>
 #include <string.h>
-#include <sys/timeb.h>
 #define CHNNL_NUM 0
 
 char Logdata::hostname[] = "";
