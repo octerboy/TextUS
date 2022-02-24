@@ -329,7 +329,6 @@ bool Logdata::sponte_n ( Amor::Pius *pius, unsigned int from)
 	ftime(&now);
 #define NOW_TIME now.time
 #define NOW_MILLITM now.millitm
-#define GET_MILLSTR TEXTUS_SPRINTF(millstr, ".%03d.%d", (int)NOW_MILLITM);
 #endif
 #endif
 #if defined(_MSC_VER) && (_MSC_VER >= 1400 )
