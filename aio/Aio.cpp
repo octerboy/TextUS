@@ -40,8 +40,11 @@
 
 #ifdef AIO_WRITE_TEST
 #if !defined(_WIN32)
-#include <sys/timeb.h>
+#if defined(TEXTUS_PLATFORM_64) && !defined(_WIN32)
 #include <sys/time.h>
+#else
+#include <sys/timeb.h>
+#endif
 #else
 #include <time.h>
 #include <realtimeapiset.h>
@@ -635,6 +638,7 @@ bool Aio::facio( Amor::Pius *pius)
 				tmp_ps.indic = 0;
 				goto ERR_END;
 			default:
+	printf("---- wk_snd_buf point %p  base %p, len %ld\n",  wk_snd_buf.point, wk_snd_buf.base, wk_snd_buf.point -wk_snd_buf.base);
 				aiocbp_W->aio_offset +=get_bytes ;
 				wk_snd_buf.commit(-(TEXTUS_LONG)get_bytes);	//已经到了系统
 				if ( snd_buf->point != snd_buf->base )
@@ -1078,6 +1082,7 @@ void Aio::transmitto_ex()
 	gettimeofday(&now2,0);
 	WBUG("------tme --------- %ld ", now2.tv_sec*1000000+now2.tv_usec- now1.tv_sec*1000000- now1.tv_usec);
 	WBUG("------tme --------- %ld %ld %ld %ld", now2.tv_sec, now2.tv_usec, now1.tv_sec, now1.tv_usec);
+	printf("++++++ wk_snd_buf point %p  base %p, len %ld\n",  wk_snd_buf.point, wk_snd_buf.base, wk_snd_buf.point -wk_snd_buf.base);
 #endif
 #endif
 	return;
