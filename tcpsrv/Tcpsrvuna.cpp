@@ -635,17 +635,17 @@ void Tcpsrvuna::parent_begin()
 		pollor.pro_ps.ordo = Notitia::ACCEPT_EPOLL;
 #if defined (_WIN32)	
 		pollor.hnd.sock = tcpsrv->listenfd;
+#else
+		pollor.fd = tcpsrv->listenfd;
 #endif
 
 #if  defined(__linux__)
-		pollor.fd = tcpsrv->listenfd;
 		//pollor.ev.events = EPOLLIN | EPOLLET |EPOLLONESHOT | EPOLLRDHUP ;
 		pollor.ev.events = EPOLLIN | EPOLLRDHUP ;
 		pollor.op = EPOLL_CTL_ADD;
 #endif	//for linux
 
 #if  defined(__sun)
-		pollor.fd = tcpsrv->listenfd;
 		//pollor.events = POLLIN|POLLOUT;
 		pollor.events = POLLIN;
 #endif	//for sun
@@ -708,17 +708,16 @@ void Tcpsrvuna::child_begin()
 		shutted = false;
 		zeroed = false;
 #else
+		pollor.fd = tcpsrv->connfd;
 		pollor.pro_ps.ordo = Notitia::RD_EPOLL;
 #endif
 
 #if  defined(__linux__)
-		pollor.fd = tcpsrv->connfd;
 		pollor.ev.events = EPOLLIN |EPOLLRDHUP;
 		pollor.op = EPOLL_CTL_ADD;
 #endif	//for linux
 
 #if  defined(__sun)
-		pollor.fd = tcpsrv->connfd;
 		pollor.events = POLLIN;
 #endif	//for sun
 
