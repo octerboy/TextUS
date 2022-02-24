@@ -21,11 +21,7 @@
 #include "casecmp.h"
 #include "TBuffer.h"
 #include "DeHead.h"
-#include <sys/timeb.h>
 #include <stdarg.h>
-#ifndef TINLINE
-#define TINLINE inline
-#endif
 class HttpSrvHead: public Amor
 {
 public:
@@ -137,12 +133,12 @@ private:
 	
 	bool body_clean;	/* true: rcv_buf is empty. */
 	
-	TINLINE void end(bool force=false);
-	TINLINE void req_reset();
-	TINLINE void reset();
-	TINLINE void clean_req();
-	TINLINE bool requestError();
-	TINLINE void deliver(Notitia::HERE_ORDO aordo);
+	void end(bool force=false);
+	void req_reset();
+	void reset();
+	void clean_req();
+	bool requestError();
+	void deliver(Notitia::HERE_ORDO aordo);
 #include "httpsrv_obj.h"
 #include "wlog.h"
 };
@@ -230,7 +226,6 @@ HEADPRO:
 				else
 					response.setHead("Connection", "close");
 
-				//ftime(&now);
 				time(&now);
 				response.setHeadTime("Date", now);
 				response.setHead("Server", gCFG->server_name);
@@ -599,7 +594,7 @@ Amor* HttpSrvHead::clone()
 	return (Amor*) child;
 }
 
-TINLINE void HttpSrvHead::end(bool force)
+void HttpSrvHead::end(bool force)
 {
 	if ( channel_isAlive)
 	if ( force || (session && strcasecmp(response.getHead("Connection"), "keep-alive") != 0) )
@@ -616,7 +611,7 @@ TINLINE void HttpSrvHead::end(bool force)
 }
 
 /* 向接力者提交 */
-TINLINE void HttpSrvHead::deliver(Notitia::HERE_ORDO aordo)
+void HttpSrvHead::deliver(Notitia::HERE_ORDO aordo)
 {
 	Amor::Pius tmp_pius;
 	TBuffer *tb[3];
@@ -642,7 +637,7 @@ TINLINE void HttpSrvHead::deliver(Notitia::HERE_ORDO aordo)
 }
 
 /* Set the response, send it and stop communication if HTTP head has error */
-TINLINE bool HttpSrvHead::requestError()
+bool HttpSrvHead::requestError()
 {
 	if ( request.status == 200 ) return false;
 		
