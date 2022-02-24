@@ -29,7 +29,11 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <time.h>
+#if defined(TEXTUS_PLATFORM_64) && !defined(_WIN32)
+#include <sys/time.h>
+#else
 #include <sys/timeb.h>
+#endif
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stdarg.h>
@@ -423,7 +427,11 @@ bool Bu2File::get_file_name()
 #if defined(_WIN32) && (_MSC_VER < 1400 )
 	struct _timeb now;
 #else
+#if defined(TEXTUS_PLATFORM_64) && !defined(_WIN32)
+	struct timeval now;
+#else
 	struct timeb now;
+#endif
 #endif
 		struct tm *tdatePtr;
 #if defined(_MSC_VER) && (_MSC_VER >= 1400 )
@@ -435,14 +443,22 @@ bool Bu2File::get_file_name()
 #if defined(_WIN32) && (_MSC_VER < 1400 )
 	_ftime(&now);
 #else
+#if defined(TEXTUS_PLATFORM_64) && !defined(_WIN32)
+	gettimeofday(&now,0);
+#define NOW_TIME now.tv_sec
+#define NOW_MILLITM now.tv_usec
+#else
 	ftime(&now);
+#define NOW_TIME now.time
+#define NOW_MILLITM now.millitm
+#endif
 #endif
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1400 )
 		tdatePtr = &tdate;
-		localtime_s(tdatePtr, &now.time);
+		localtime_s(tdatePtr, &NOW_TIME);
 #else
-		tdatePtr = localtime(&now.time);
+		tdatePtr = localtime(&NOW_TIME);
 #endif
 		here_day=tdatePtr->tm_mday;
 		if ( gCFG->last_day != here_day)

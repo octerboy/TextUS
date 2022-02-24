@@ -26,7 +26,11 @@
 #include "DeHead.h"
 #include <stdlib.h>
 #include <time.h>
+#if defined(TEXTUS_PLATFORM_64) && !defined(_WIN32)
+#include <sys/time.h>
+#else
 #include <sys/timeb.h>
+#endif
 #include <ctype.h>
 #include <assert.h>
 #include <errno.h>
@@ -709,7 +713,12 @@ void HttpIns::get_snd_buf(struct DyVarBase **psnap, struct InsData *insd, DeHead
 #if defined(_WIN32) && (_MSC_VER < 1400 )
 	struct _timeb now;
 #else
+#if defined(TEXTUS_PLATFORM_64) && !defined(_WIN32)
+	struct timeval now;
+#else
 	struct timeb now;
+#endif
+
 #endif
 
 	hti = (struct HInsData *)insd->ext_ins;
@@ -801,12 +810,18 @@ void HttpIns::get_snd_buf(struct DyVarBase **psnap, struct InsData *insd, DeHead
 		case Head_Now:
 			//printf("Now name ------- %s\n", h_fld->name);
 			headp->setField(h_fld->name, 0, 0, 0, 2);
-#if defined(_WIN32) && (_MSC_VER < 1400 )
+	#if defined(_WIN32) && (_MSC_VER < 1400 )
 			_ftime(&now);
-#else
+	#else
+	#if defined(TEXTUS_PLATFORM_64) && !defined(_WIN32)
+			gettimeofday(&now,0);
+			#define NOW_TIME now.tv_sec
+	#else
 			ftime(&now);
-#endif
-			headp->setHeadTime(h_fld->name, now.time);
+			#define NOW_TIME now.time
+	#endif
+	#endif
+			headp->setHeadTime(h_fld->name, NOW_TIME);
 			break;
 		case Head_Time:
 			headp->setHeadTime (h_fld->name, atol((const char*)house.base));
