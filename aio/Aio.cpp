@@ -62,9 +62,12 @@ public:
 	Aio();
 	~Aio();
 private:
-	bool should_spo;
-	bool get_file_all;
-	Amor::Pius epl_set_ps, epl_clr_ps, pro_tbuf_ps, tmp_ps;
+	unsigned should_spo:1;
+	unsigned get_file_all:1;
+	unsigned async_reading:1;
+	unsigned async_writing:1;
+	unsigned will_end:1;
+	Amor::Pius epl_set_ps, pro_tbuf_ps, tmp_ps;
 
 	char file_name[992];
 	int block_size;
@@ -406,6 +409,10 @@ void Aio::a_close()
 {
 	WBUG("a_close(%s).....", file_name);
 #if !defined(AIO_WRITE_TEST)
+	if ( async_reading || async_writing ) { 
+		will_end = true;
+		return;
+	}
 #if defined(_WIN32)
 	if ( !CloseHandle(hdev) )
 	{
@@ -439,6 +446,11 @@ bool Aio::a_open()
 	}
 	//ovlpR.hEvent = hEvent;
 #elif defined(__sun) || defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__) || defined(__linux__)
+	if ( fd != - 1 ) {
+		WLOG(NOTICE, "fd is still open.");
+		WBUG("===== wk_snd_buf point %p  base %p, len %ld",  wk_snd_buf.point, wk_snd_buf.base, wk_snd_buf.point -wk_snd_buf.base);
+		return false;
+	}
 	fd = open(file_name,  gCFG->oflag, gCFG->mode);
 	if ( fd == -1 )
 	{
@@ -456,6 +468,9 @@ void Aio::epoll_launch()
 	/* 接收(发送)缓冲区清空 */
 	wk_rcv_buf.reset();	
 	wk_snd_buf.reset();
+	async_reading = false;
+        async_writing = false;
+	will_end = false;
 
 #if defined(_WIN32)
 	memset(&ovlpW, 0, sizeof(OVERLAPPED));
@@ -528,6 +543,7 @@ bool Aio::facio( Amor::Pius *pius)
 		aget = (OVERLAPPED_ENTRY *)pius->indic;
 		if ( aget->lpOverlapped == &ovlpR )
 		{	//已读数据,  不失败并有数据才向接力者传递
+			async_reading = 0;
 			if ( aget->dwNumberOfBytesTransferred ==0 ) 
 			{
 				WBUG("IOCP read 0 bytes, EOF");
@@ -542,10 +558,11 @@ bool Aio::facio( Amor::Pius *pius)
 				TBuffer::pour(*rcv_buf, wk_rcv_buf);
 			}
 		} else if ( aget->lpOverlapped == &ovlpW ) {
+			async_writing = 0;
 			WLOG(INFO, "write completed");
 			ovlpW_offset += aget->dwNumberOfBytesTransferred;
 			wk_snd_buf.commit_ack(-(TEXTUS_LONG)aget->dwNumberOfBytesTransferred);	//已经到了系统
-			if ( snd_buf->point != snd_buf->base )
+			if ( snd_buf->point != snd_buf->base  && !will_end)
 			{
 				transmitto_ex();
 			}
@@ -560,6 +577,7 @@ bool Aio::facio( Amor::Pius *pius)
 		io_evp = (struct io_event*)pius->indic;
 		if ( (void*)io_evp->obj == (void*)aiocbp_R ) {
 			//WBUG("io_submit(read) return " TLONG_FMT " bytes", io_evp->res);
+			async_reading = 0;
 			WBUG("io_submit(read) return %lld bytes", io_evp->res);
 			switch ( io_evp->res) {
 			case 0:
@@ -583,6 +601,7 @@ bool Aio::facio( Amor::Pius *pius)
 				break;
 			}
 		} else if ( (void*)io_evp->obj == (void*)aiocbp_W ) {
+			async_writing = 0;
 			WBUG("io_submit(write) return %lld bytes", io_evp->res);
 			if ( io_evp->res <= 0 )	{
 				WLOG_OSERR("io_submit(write)");
@@ -593,7 +612,7 @@ bool Aio::facio( Amor::Pius *pius)
 			}
 			aiocbp_W->aio_offset += io_evp->res ;
 			wk_snd_buf.commit_ack(-(TEXTUS_LONG)io_evp->res);	//已经到了系统
-			if ( snd_buf->point != snd_buf->base )
+			if ( snd_buf->point != snd_buf->base  && !will_end )
 			{
 				transmitto_ex();
 			}
@@ -606,6 +625,7 @@ bool Aio::facio( Amor::Pius *pius)
 
 #if defined(__sun) || defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
 		if (  (struct aiocb*)pius->indic == aiocbp_R) {
+			async_reading = 0;
 			get_bytes = aio_return(aiocbp_R);
 			WBUG("aio_return(read) %d bytes", get_bytes);
 			switch ( get_bytes) {
@@ -628,6 +648,7 @@ bool Aio::facio( Amor::Pius *pius)
 				break;
 			}
 		} else if(  (struct aiocb*)pius->indic == aiocbp_W) {
+			async_writing = 0;
 			get_bytes = aio_return(aiocbp_W);
 			WBUG("aio_return(write) %d bytes", get_bytes);
 			switch ( get_bytes) {
@@ -638,10 +659,10 @@ bool Aio::facio( Amor::Pius *pius)
 				tmp_ps.indic = 0;
 				goto ERR_END;
 			default:
-	printf("---- wk_snd_buf point %p  base %p, len %ld\n",  wk_snd_buf.point, wk_snd_buf.base, wk_snd_buf.point -wk_snd_buf.base);
+	WBUG("---- wk_snd_buf point %p  base %p, len %ld",  wk_snd_buf.point, wk_snd_buf.base, wk_snd_buf.point -wk_snd_buf.base);
 				aiocbp_W->aio_offset +=get_bytes ;
 				wk_snd_buf.commit(-(TEXTUS_LONG)get_bytes);	//已经到了系统
-				if ( snd_buf->point != snd_buf->base )
+				if ( snd_buf->point != snd_buf->base && !will_end)
 				{
 					transmitto_ex();
 				}
@@ -652,6 +673,10 @@ bool Aio::facio( Amor::Pius *pius)
 			goto H_END;
 		}
 #endif
+		if ( will_end ) {
+			a_close();
+			break;
+		}
 		DELI(pro_tbuf_ps)
 		if ( get_file_all )
 			recito_ex();
@@ -659,6 +684,9 @@ bool Aio::facio( Amor::Pius *pius)
 ERR_END:
 		DELI(tmp_ps)
 H_END:
+		if ( will_end ) {
+			a_close();
+		}
 		break;
 
 	case Notitia::SET_TBUF:	/* 取得输入TBuffer地址 */
@@ -888,17 +916,6 @@ A_OPEN_PRO:
 		a_close();
 		deliver(Notitia::END_SESSION);/* 向左、右传递本类的会话关闭信号 */
 		break;
-#if 0
-	case Notitia::CMD_CHANNEL_PAUSE :
-		WBUG("facio CMD_CHANNEL_PAUSE");
-		gCFG->sch->sponte(&epl_clr_ps); //向tpoll,  注销
-		break;
-
-	case Notitia::CMD_CHANNEL_RESUME :
-		WBUG("sponte CMD_CHANNEL_RESUME");
-		gCFG->sch->sponte(&epl_set_ps); //向tpoll,  注册
-		break;
-#endif
 	default:
 		return false;
 	}	
@@ -942,17 +959,6 @@ bool Aio::sponte( Amor::Pius *pius)
 		if ( a_open() )
 			deliver(Notitia::START_SESSION); //向接力者发出通知, 本对象开始
 		break;
-#if 0
-	case Notitia::CMD_CHANNEL_PAUSE :
-		WBUG("sponte CMD_CHANNEL_PAUSE");
-		gCFG->sch->sponte(&epl_clr_ps); //向tpoll,  注销
-		break;
-
-	case Notitia::CMD_CHANNEL_RESUME :
-		WBUG("sponte CMD_CHANNEL_RESUME");
-		gCFG->sch->sponte(&epl_set_ps); //向tpoll,  注册
-		break;
-#endif
 	default:
 		return false;
 	}	
@@ -972,8 +978,6 @@ Aio::Aio()
 #endif
 	epl_set_ps.ordo = Notitia::AIO_EPOLL;
 	epl_set_ps.indic = &pollor;
-	epl_clr_ps.ordo = Notitia::CLR_EPOLL;
-	epl_clr_ps.indic = &pollor;
 	pro_tbuf_ps.ordo = Notitia::PRO_TBUF;
 	pro_tbuf_ps.indic = 0;
 
@@ -1082,9 +1086,10 @@ void Aio::transmitto_ex()
 	gettimeofday(&now2,0);
 	WBUG("------tme --------- %ld ", now2.tv_sec*1000000+now2.tv_usec- now1.tv_sec*1000000- now1.tv_usec);
 	WBUG("------tme --------- %ld %ld %ld %ld", now2.tv_sec, now2.tv_usec, now1.tv_sec, now1.tv_usec);
-	printf("++++++ wk_snd_buf point %p  base %p, len %ld\n",  wk_snd_buf.point, wk_snd_buf.base, wk_snd_buf.point -wk_snd_buf.base);
+	WBUG("++++++ wk_snd_buf point %p  base %p, len %ld",  wk_snd_buf.point, wk_snd_buf.base, wk_snd_buf.point -wk_snd_buf.base);
 #endif
 #endif
+	async_writing = 1;
 	return;
 ERR_RET:
 	tmp_ps.ordo = Notitia::Pro_File_Err;
@@ -1108,6 +1113,7 @@ void Aio::recito_ex()
                     	WBUG("ReadFile returned EOF %s", file_name);
 			goto EOF_RET;
                 case ERROR_IO_PENDING: 	/* do nothing */
+			async_reading = 1;
                     	WBUG("ReadFile returned IO_PENDING %s", file_name);
 			break;
 		default:
@@ -1130,7 +1136,8 @@ void Aio::recito_ex()
 			}
 			}
 		}
-	}  else { printf("Read ok\n");}
+	} 
+	/* else { printf("Read ok\n");} */
 #elif  defined(__linux__)
 	aiocbp_R->aio_reqprio = 0;
 	aiocbp_R->aio_buf = (u_int64_t) wk_rcv_buf.point;
@@ -1150,6 +1157,7 @@ void Aio::recito_ex()
 		goto ERR_RET;
 	}
 #endif
+	async_reading = 1;
 	return;
 ERR_RET:
 	a_close();
