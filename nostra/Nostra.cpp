@@ -122,7 +122,6 @@ protected:
 
 		G_CFG ( TiXmlElement *nos_ele ) {
 			const char* rad, *add_str, *max_str, *comm_str;
-			size_t  i;
 			cursor = -1;
 			child_num = 0;
 
