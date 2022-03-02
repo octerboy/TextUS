@@ -187,10 +187,10 @@ void Nostra::ignite_t (TiXmlElement *cfg, TiXmlElement *nos_ele)
 	need_spo = true;
 }
 
+Amor::Pius ready2_ps = Amor::Pius(Notitia::CLONE_ALL_READY) ;
+Amor::Pius cln_ps =   Amor::Pius(Notitia::DMD_CLONE_OBJ) ;
 bool Nostra::facio( Amor::Pius *pius)
 {
-	Amor::Pius ready2;
-	ready2.ordo = Notitia::CLONE_ALL_READY;
 	switch(pius->ordo)
 	{
 	case Notitia::IGNITE_ALL_READY:
@@ -204,7 +204,7 @@ bool Nostra::facio( Amor::Pius *pius)
 			ans = (Animus*) aptus->clone();
 			gCFG->isHunter = false;
 			if ( ans ) 
-				ans->info(ready2);
+				ans->info(ready2_ps);
 		}
 		break;
 
@@ -217,9 +217,6 @@ bool Nostra::facio( Amor::Pius *pius)
 bool Nostra::sponte_n (Amor::Pius *pius, unsigned int from)
 {
 	int here_num;
-	Amor::Pius ready2,cln_ps;
-	ready2.ordo = Notitia::CLONE_ALL_READY;
-	cln_ps.ordo = Notitia::DMD_CLONE_OBJ;
 	int i;
 
 	switch(pius->ordo)
@@ -248,7 +245,7 @@ bool Nostra::sponte_n (Amor::Pius *pius, unsigned int from)
 			Animus *ans;
 			ans = (Animus *)aptus->clone();
 			if ( ans ) 
-				ans->info(ready2);
+				ans->info(ready2_ps);
 
 		} else if( ((Aptus*)aptus)->prius) { 	//本aptus不是根,所以向左边传
 			((Aptus*)aptus)->prius->sponte(pius);
@@ -303,7 +300,7 @@ bool Nostra::sponte_n (Amor::Pius *pius, unsigned int from)
 			Animus *ans;
 			ans = (Animus *)aptus->clone();
 			if ( ans ) 
-				ans->info(ready2);
+				ans->info(ready2_ps);
 		} else if( ((Aptus*)aptus)->prius) 	/* 本aptus不是根,所以向左边传 */
 		{
 			((Aptus*)aptus)->prius->sponte(&cln_ps);	/* 不用laeve(), 直接调用父节点 */
