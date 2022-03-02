@@ -35,11 +35,12 @@ public:
 
 	/* Amor objects communicate by Pius object */
 	struct Pius {
-		 TEXTUS_ORDO ordo;	/* the type of inidc */
-		 int subor;		/* the sub type of inidc, 此量区分不同的Module. */
+		TEXTUS_ORDO ordo;	/* the type of inidc */
+		int subor;		/* the sub type of inidc, 此量区分不同的Module. */
 						
-		 void *indic;		/* data pointer for any type */
-		Pius() { subor = CAN_ALL; indic=0;};	
+		void *indic;		/* data pointer for any type */
+		Pius() { ordo = 0; subor = CAN_ALL; indic=0;};	
+		Pius( TEXTUS_ORDO odo) { ordo = odo ; subor = CAN_ALL; indic=0;};	
 	};
 	virtual bool facio( Pius *) = 0 ;
 	virtual bool sponte( Pius *) = 0;
