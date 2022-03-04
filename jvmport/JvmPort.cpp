@@ -191,6 +191,14 @@ public:
 				if (strcmp(comm_str, "1.8") == 0 )
 					vm_args.version=JNI_VERSION_1_8;
 #endif
+#ifdef JNI_VERSION_9
+				if (strcmp(comm_str, "9") == 0 )
+					vm_args.version = JNI_VERSION_9;
+#endif
+#ifdef JNI_VERSION_10
+				if (strcmp(comm_str, "10") == 0 )
+					vm_args.version= JNI_VERSION_10;
+#endif
 			}
 
 			/* 先计算有多少个options */
