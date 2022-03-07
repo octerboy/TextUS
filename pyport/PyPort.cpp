@@ -1,4 +1,4 @@
-/* Copyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
+/* Copng_FromStringyright (c) 2005-2017 by Ju Haibo (octerboy@gmail.com)
  * All rights reserved.
  *
  * This file is part of the TextUS.
@@ -31,6 +31,38 @@
 #include <stdarg.h>
 #include <Python.h>
 #include <structmember.h>
+
+static PyMethodDef module_null_methods[] = {
+    {NULL}  
+};
+
+#if PY_MAJOR_VERSION >= 3
+static PyModuleDef EmbModule = {
+    PyModuleDef_HEAD_INIT, "textor", NULL, -1, module_null_methods,
+    NULL, NULL, NULL, NULL
+};
+
+#define TextUS_PyStr_AsStr PyUnicode_AsUTF8String 
+#define TextUS_PyObj_Compare PyUnicode_Compare
+#define TextUS_PyObj_Compare PyUnicode_Compare
+#define TextUS_PyStr_Chk PyUnicode_Check
+#define TextUS_PyInt_Chk PyLong_Check
+#define TextUS_PyStr_Size PyObject_Size
+#define TextUS_PyStr_FromStringAndSize PyUnicode_FromStringAndSize
+#define TextUS_PyStr_FromString PyUnicode_FromString
+#define TextUS_PyInteger_FromLong PyLong_FromLong
+#define TextUS_PyInteger_AS_LONG PyLong_AS_LONG
+#else	//2.7
+#define TextUS_PyStr_AsStr PyString_AsString
+#define TextUS_PyObj_Compare PyObject_Compare
+#define TextUS_PyStr_Chk PyString_Check
+#define TextUS_PyInt_Chk PyInt_Check
+#define TextUS_PyStr_Size PyString_Size
+#define TextUS_PyStr_FromStringAndSize PyString_FromStringAndSize
+#define TextUS_PyStr_FromString PyString_FromString
+#define TextUS_PyInteger_FromLong PyInt_FromLong
+#define TextUS_PyInteger_AS_LONG PyInt_AS_LONG
+#endif
 
 class PyPort :public Amor
 {
@@ -239,7 +271,7 @@ static PyObject *python_log(PyObject *self, PyObject *args, TEXTUS_ORDO lev)
 	msg_arr = new char* [args_num];
 	for ( i = 0 ; i < args_num; i++)
 	{
-		msg_arr[i] = (char*)PyString_AsString(PyObject_Str(PyTuple_GetItem(args, i)));
+		msg_arr[i] = (char*)TextUS_PyStr_AsStr(PyObject_Str(PyTuple_GetItem(args, i)));
 		buf.input((unsigned char*)msg_arr[i], strlen(msg_arr[i]));
 	}
 	buf.input((unsigned char*)"\0",1);
@@ -431,9 +463,9 @@ static PyObject *py_tb_input(PyObject *self, PyObject *args)
 		if ( PyByteArray_Check(o) )
 		{
 			((PyTBufferObj*)self)->tb->input((unsigned char*)PyByteArray_AsString(o), PyByteArray_Size(o));
-		}  else if ( PyString_Check(o) )
+		}  else if ( TextUS_PyStr_Chk(o) )
 		{
-			((PyTBufferObj*)self)->tb->input((unsigned char*)PyString_AsString(o), PyString_Size(o));
+			((PyTBufferObj*)self)->tb->input((unsigned char*)TextUS_PyStr_AsStr(o), TextUS_PyStr_Size(o));
 		}  else {
 			PyErr_SetString(aptus_error, "not supported data type when textor.TBuffer.input()");
 			return NULL;
@@ -444,7 +476,7 @@ static PyObject *py_tb_input(PyObject *self, PyObject *args)
 
 static PyObject *py_tb_get(PyObject *self)
 {
-	return PyString_FromStringAndSize((const char*)(((PyTBufferObj*)self)->tb->base), ((PyTBufferObj*)self)->tb->point - ((PyTBufferObj*)self)->tb->base);
+	return TextUS_PyStr_FromStringAndSize((const char*)(((PyTBufferObj*)self)->tb->base), ((PyTBufferObj*)self)->tb->point - ((PyTBufferObj*)self)->tb->base);
 }
 
 static PyObject *py_tb_getbytes(PyObject *self)
@@ -552,10 +584,10 @@ static PyObject *py_pac_set_ajp(PyObject *self, int fld, PyObject *on, PyObject 
 	{
 		sc = (const char*)PyByteArray_AsString(on);
 		nlen = (unsigned short)PyByteArray_Size(on) & 0xFF;
-	}  else if ( PyString_Check(on) )
+	}  else if ( TextUS_PyStr_Chk(on) )
 	{
-		sc = (const char*)PyString_AsString(on);
-		nlen = (unsigned short)PyString_Size(on) & 0xFF;
+		sc = (const char*)TextUS_PyStr_AsStr(on);
+		nlen = (unsigned short)TextUS_PyStr_Size(on) & 0xFF;
 	}  else {
 		PyErr_SetString(aptus_error, "not supported data type of the 2nd parameter when textor.Packet.set()");
 		return NULL;
@@ -565,10 +597,10 @@ static PyObject *py_pac_set_ajp(PyObject *self, int fld, PyObject *on, PyObject 
 	{
 		val = (const char*)PyByteArray_AsString(ov);
 		vlen = (unsigned short)PyByteArray_Size(ov) & 0xFF;
-	}  else if ( PyString_Check(ov) )
+	}  else if ( TextUS_PyStr_Chk(ov) )
 	{
-		val = (const char*)PyString_AsString(ov);
-		vlen = (unsigned short)PyString_Size(ov) & 0xFF;
+		val = (const char*)TextUS_PyStr_AsStr(ov);
+		vlen = (unsigned short)TextUS_PyStr_Size(ov) & 0xFF;
 	}  else {
 		PyErr_SetString(aptus_error, "not supported data type of the 3rd parameter when textor.Packet.set()");
 		return NULL;
@@ -589,9 +621,9 @@ static PyObject *py_pac_set(PyObject *self, PyObject *args)
 		if ( PyByteArray_Check(o) )
 		{
 			((PyPacketObj*)self)->pac->input(fld, (unsigned char*)PyByteArray_AsString(o), PyByteArray_Size(o));
-		}  else if ( PyString_Check(o) )
+		}  else if ( TextUS_PyStr_Chk(o) )
 		{
-			((PyPacketObj*)self)->pac->input(fld, (unsigned char*)PyString_AsString(o), PyString_Size(o));
+			((PyPacketObj*)self)->pac->input(fld, (unsigned char*)TextUS_PyStr_AsStr(o), TextUS_PyStr_Size(o));
 		}  else {
 			PyErr_SetString(aptus_error, "not supported data type when textor.Packet.set()");
 			return NULL;
@@ -608,13 +640,13 @@ static PyObject *py_pac_get(PyObject *self, PyObject *args)
 	{
 		p = ((PyPacketObj*)self)->pac->getfld(fld, &len);
 		if ( p )
-			return PyString_FromStringAndSize((const char*)p, (Py_ssize_t)len);
+			return TextUS_PyStr_FromStringAndSize((const char*)p, (Py_ssize_t)len);
 		else {
 			PyErr_SetString(aptus_error, "no such field when textor.Packet.get()");
 			return NULL;
 		}
 	} else return NULL;
-	//return PyString_FromStringAndSize((const char*)p, (Py_ssize_t)0);
+	//return TextUS_PyStr_FromStringAndSize((const char*)p, (Py_ssize_t)0);
 }
 
 static PyObject *py_pac_getbytes(PyObject *self, PyObject *args)
@@ -631,7 +663,7 @@ static PyObject *py_pac_getbytes(PyObject *self, PyObject *args)
 			return NULL;
 		}
 	} else return NULL;
-	//return PyString_FromStringAndSize((const char*)p, (Py_ssize_t)0);
+	//return TextUS_PyStr_FromStringAndSize((const char*)p, (Py_ssize_t)0);
 }
 
 static PyMethodDef pypac_methods[] = {
@@ -682,10 +714,6 @@ static PyTypeObject PyPacketType = {
     (initproc)PyPacket_init,	/* tp_init */
     0,                         /* tp_alloc */
     PyPacket_new                 /* tp_new */
-};
-
-static PyMethodDef module_null_methods[] = {
-    {NULL}  
 };
 
 void PyPort::ignite(TiXmlElement *cfg) 
@@ -748,7 +776,11 @@ bool PyPort::facio( Amor::Pius *pius)
 		if (PyType_Ready(&PyTBufferType) < 0) break;
 		if (PyType_Ready(&PyPacketType) < 0) break;
 
+#if PY_MAJOR_VERSION >= 3
+		m = PyModule_Create(&EmbModule);
+#else
 		m = Py_InitModule("textor", module_null_methods);
+#endif
 		if ( !m ) {
 			WLOG(WARNING,"Py_InitModule of (textor) failed");
 			break;
@@ -1028,10 +1060,10 @@ bool PyPort::facio( Amor::Pius *pius)
 		}
 */
 
-		m_name = PyString_FromString(gCFG->pyMod_str);
+		m_name = TextUS_PyStr_FromString(gCFG->pyMod_str);
 		if ( !m_name ) 
 		{
-			WLOG(WARNING,"PyString_FromString (%s) failed", gCFG->pyMod_str);
+			WLOG(WARNING,"TextUS_PyStr_FromString (%s) failed", gCFG->pyMod_str);
 			break;
 		}
 		gCFG->pModule = PyImport_Import(m_name);      
@@ -1254,21 +1286,21 @@ bool PyPort::get_aps(Amor::Pius &aps, PyObject *args, const char *err_msg)
 		/* ps.indic 是一个PyObject*, 转成unsigned char*, 并且还要加一个jvmport的指针 */
 	{
 		unsigned char *opcode = new unsigned char;
-		if ( !PyInt_Check(ps_obj->indic) ) {
+		if ( !TextUS_PyInt_Chk(ps_obj->indic) ) {
 			WLOG(WARNING,"aps.indic is not of PyInt_Type! when Get/Set_WS_MsgType");
 			return false;
 		}
-		*opcode = (unsigned char)(PyInt_AS_LONG(ps_obj->indic)&0xFF);
+		*opcode = (unsigned char)(TextUS_PyInteger_AS_LONG(ps_obj->indic)&0xFF);
 		aps.indic = opcode;
 	}
 		break;
 
 	case Notitia::PRO_FILE:
-		if ( !PyString_Check(ps_obj->indic)) {
+		if ( !TextUS_PyStr_Chk(ps_obj->indic)) {
 			WLOG(WARNING,"aps.indic is not of PyString_Type! when PRO_FILE");
 			return false;
 		}
-		aps.indic = PyString_AsString(ps_obj->indic);
+		aps.indic = TextUS_PyStr_AsStr(ps_obj->indic);
 		break;
 
 	case Notitia::DMD_SET_ALARM:
@@ -1284,12 +1316,12 @@ bool PyPort::get_aps(Amor::Pius &aps, PyObject *args, const char *err_msg)
 		c1 = PyList_GetItem(ps_obj->indic, 0);
 		c2 = PyList_GetItem(ps_obj->indic, 1);
 
-		if ( !PyInt_Check(c1)  || !PyInt_Check(c2) ) {
+		if ( !TextUS_PyInt_Chk(c1)  || !TextUS_PyInt_Chk(c2) ) {
 			WLOG(WARNING,"aps.indic is not of PyInt_Type! when DMD_SET_ALARM");
 			return false;
 		}
-		click[0] = static_cast<int>(PyInt_AS_LONG(c1)&0xFFFFFFFF);
-		click[1] = static_cast<int>(PyInt_AS_LONG(c2)&0xFFFFFFFF);
+		click[0] = static_cast<int>(TextUS_PyInteger_AS_LONG(c1)&0xFFFFFFFF);
+		click[1] = static_cast<int>(TextUS_PyInteger_AS_LONG(c2)&0xFFFFFFFF);
 		indp[0] = this;
 		indp[1] = &click[0];
 		indp[2] = &click[1];
@@ -1427,7 +1459,7 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 	case Notitia::SET_TBUF:
 		WBUG("%s SET_TBUF", meth_str);
 		t = PyTuple_New(1);
-		PyTuple_SetItem(t, 0, PyInt_FromLong(0L));
+		PyTuple_SetItem(t, 0, TextUS_PyInteger_FromLong(0L));
 		a_tb =  (PyTBufferObj *)PyObject_CallObject((PyObject*)&PyTBufferType, t);
 		b_tb =  (PyTBufferObj *)PyObject_CallObject((PyObject*)&PyTBufferType, t);
 		//printf("!! a_tb %p, b_tb %p ---t = %p---\n", a_tb, b_tb, t);
@@ -1466,7 +1498,7 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 	case Notitia::SET_UNIPAC:
 		WBUG("%s SET_UNIPAC", meth_str);
 		t = PyTuple_New(1);
-		PyTuple_SetItem(t, 0, PyInt_FromLong(0L));
+		PyTuple_SetItem(t, 0, TextUS_PyInteger_FromLong(0L));
 		a_pac =  (PyPacketObj *)PyObject_CallObject((PyObject*)&PyPacketType, t);
 		b_pac =  (PyPacketObj *)PyObject_CallObject((PyObject*)&PyPacketType, t);
 		//printf("!! a_pac %p, b_pac %p ---t = %p---\n", a_pac, b_pac, t);
@@ -1541,7 +1573,7 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 	case Notitia::WebSock_Start:
 		WBUG("%s WebSock_Start", meth_str);
 		STRING_PRO:
-		ps_obj->indic = PyString_FromString((const char*)pius->indic);
+		ps_obj->indic = TextUS_PyStr_FromString((const char*)pius->indic);
 		ret_obj = PyObject_CallMethod(pInstance, py_method, (char*)"O", ps_obj);
 		Py_DECREF(ps_obj->indic); 
 		break;
@@ -1560,14 +1592,14 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 			WLOG(WARNING, "PyList_New return NULL when %s MAIN_PARA", meth_str);
 			goto PFAIL1;
 		}
-		num_obj = PyInt_FromLong((TEXTUS_LONG)num);
+		num_obj = TextUS_PyInteger_FromLong((TEXTUS_LONG)num);
 		if ( PyList_Append(obj_list, num_obj) == -1 ) 
 		{
 			goto QFAIL1;
 		}
 		for ( int i = 0; i < num ; i++ )
 		{
-			if ( PyList_Append(obj_list, PyString_FromString((const char*)argv[i])) == -1 )
+			if ( PyList_Append(obj_list, TextUS_PyStr_FromString((const char*)argv[i])) == -1 )
 			{
 				WLOG(WARNING, "PyList_Append argv failed when %s MAIN_PARA", meth_str);
 				goto QFAIL1;
@@ -1585,7 +1617,7 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 		/* 这些要转一个PyInt_Type, 这个不需要了 */
 		/*
 	case Notitia::TIMER:
-		ps_obj->indic = PyInt_FromLong((TEXTUS_LONG)*(reinterpret_cast<int*>(pius->indic)));
+		ps_obj->indic = TextUS_PyInteger_FromLong((TEXTUS_LONG)*(reinterpret_cast<int*>(pius->indic)));
 		ret_obj = PyObject_CallMethod(pInstance, py_method, (char*)"O", ps_obj);
 		Py_DECREF(ps_obj->indic);
 		break;
@@ -1654,7 +1686,7 @@ bool PyPort::pius2py (Pius *pius, char *py_method , const char *meth_str)
 	}
 
 	Py_DECREF(ps_obj);
-	if ( ret_obj && PyObject_Compare(ret_obj, Py_True) == 0 )
+	if ( ret_obj && TextUS_PyObj_Compare(ret_obj, Py_True) == 0 )
 	{
 		return true;
 	} else {
@@ -1695,7 +1727,7 @@ void PyPort::fetch_error()
 	{
 		PyObject *line = PyObject_Str(value);
 		if ( line ) {
-			str = PyString_AsString(PyObject_Str(value)); 
+			str = (char*)TextUS_PyStr_AsStr(PyObject_Str(value)); 
 			buf.input((unsigned char*)str, strlen(str));
 		}
 	}
@@ -1711,7 +1743,7 @@ void PyPort::fetch_error()
 		}
 */
 	/* See if we can get a full traceback */
-	module_name = PyString_FromString("traceback");
+	module_name = TextUS_PyStr_FromString("traceback");
 	pyth_module = PyImport_Import(module_name);
 	Py_DECREF(module_name);
 
@@ -1724,7 +1756,7 @@ void PyPort::fetch_error()
 		pyth_val = PyObject_CallFunctionObjArgs(pyth_func, type, value, traceback, NULL);
 
 		pystr = PyObject_Str(pyth_val);
-		str = PyString_AsString(pystr);
+		str = (char*)TextUS_PyStr_AsStr(pystr);
 		buf.input((unsigned char*)"\t", 1);
 		buf.input((unsigned char*)str, strlen(str));
 		Py_DECREF(pyth_val);
