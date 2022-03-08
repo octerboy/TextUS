@@ -18,6 +18,7 @@
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
+#include <Python.h>
 #include "Amor.h"
 #include "Notitia.h"
 #include "textus_string.h"
@@ -29,7 +30,6 @@
 #include <string.h>
 #include <assert.h>
 #include <stdarg.h>
-#include <Python.h>
 #include <structmember.h>
 
 static PyMethodDef module_null_methods[] = {
