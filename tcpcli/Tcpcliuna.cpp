@@ -644,7 +644,7 @@ void Tcpcliuna::establish()
 			errpro();
 		}
 #else	//other unix like
-
+		pollor.fd = tcpcli->connfd;
 		if ( tcpcli->annecto() )
 		{
 			if ( !tcpcli->isConnecting)
@@ -653,15 +653,13 @@ void Tcpcliuna::establish()
 			errpro();
 		}
 #if  defined(__linux__)
-		pollor.fd = tcpcli->connfd;
-		pollor.ev.events = EPOLLIN | EPOLLET |EPOLLONESHOT | EPOLLRDHUP ;
+		pollor.ev.events = EPOLLIN | EPOLLRDHUP ;
 		if ( tcpcli->isConnecting)
 			pollor.ev.events |= EPOLLOUT;
 		pollor.op = EPOLL_CTL_ADD;
 #endif	//for linux
 
 #if  defined(__sun)
-		pollor.fd = tcpcli->connfd;
 		pollor.events = POLLIN;
 		if ( tcpcli->isConnecting)
 			pollor.events |= POLLOUT;
@@ -726,6 +724,7 @@ void Tcpcliuna::establish_done()
 #endif	//for WIN32
 
 #if  defined(__linux__)
+		pollor.ev.events = EPOLLIN | EPOLLET |EPOLLONESHOT|EPOLLRDHUP;
 		pollor.ev.events &= ~EPOLLOUT;
 #endif	//for linux
 
