@@ -273,8 +273,10 @@ void DBPort::getDef(struct DBFace *face, TiXmlElement *cfg, DBFace::WHAT gin, DB
 	face->sentence = cfg->Attribute("statement");
 	if ( !face->sentence )
 	{
-		if ( cfg->FirstChildElement("statement") )
+		if ( cfg->FirstChildElement("statement") ) {
 			face->sentence = cfg->FirstChildElement("statement")->GetText();
+			face->sentence_len = strlen(face->sentence);
+		}
 	}
 
 	/* 对于FETCH这样的face, 还是继续下面的处理, 以便获得errCode_field等, 象cardmaker这样的程序就方便些 */
@@ -386,6 +388,10 @@ void DBPort::getDef(struct DBFace *face, TiXmlElement *cfg, DBFace::WHAT gin, DB
 		WHATCODE(Time)
 		WHATCODE(TimeStamp)
 		WHATCODE(VarBinary)
+		WHATCODE(DateTime)
+		WHATCODE(Bit)
+		WHATCODE(Year)
+		WHATCODE(LongText)
 				
 		if ( (comm_str = fld_ele->Attribute("length")) && atoi(comm_str) >= 0 )
 			par->outlen = atoi(comm_str);

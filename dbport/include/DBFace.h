@@ -31,7 +31,11 @@
 		Text	= 21,
 		Time	= 22,
 		TimeStamp =23,
-		VarBinary =24
+		VarBinary =24,
+		DateTime =25,
+		Bit =26,
+		Year =27,
+		LongText =28
 	};
 
 	enum WHAT {FIRST, SECOND} ;
@@ -83,6 +87,7 @@
 
 	WHAT in, out;		/* 输入/输出所指的packet */
 	const char *sentence;	/* 描述sql语名, 存储过程名等 */
+	size_t sentence_len;
 	PROCTYPE pro;		/* 处理类型 */
 	const char *id_name;	/* 名称, 也作为CMD_GET_DBFACE的索引名,所以这个名称还是唯一的好。这是来源于XML文件的 */
 	int offset;		/* 域号偏移量 */
