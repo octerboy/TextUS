@@ -156,7 +156,7 @@ bool Tcpsrv::sock_start()
 #endif
 
 /* 开始服务, 创建侦听端口, 如果成功, 则listenfd != INVALID_SOCKET */
-bool Tcpsrv::servio( bool block)
+bool Tcpsrv::servio( bool block, int backlog)
 {
 	struct sockaddr_in servaddr;
 	const int on = 1;
@@ -259,7 +259,7 @@ bool Tcpsrv::servio( bool block)
 	}
 
 	/*把生成的主动描述符转换为被动描述符*/
-	if( listen (listenfd, 100) != 0 )
+	if( listen (listenfd, backlog) != 0 )
 	{
 		ERROR_PRO("listen socket")
 		CLOSE(listenfd);

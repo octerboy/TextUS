@@ -25,7 +25,7 @@
 
 #define SLOG(Z) { Amor::Pius log_pius; \
 		log_pius.ordo = Notitia::LOG_##Z; \
-		log_pius.indic = &errMsg[0]; \
+		log_pius.indic = &(gCFG->errMsg[0]); \
 		aptus->sponte(&log_pius); \
 		}
 
@@ -61,16 +61,20 @@ public:
 	
 private:
 	Amor::Pius clr_timer_pius, alarm_pius;	/* 清超时, 设超时 */
-	bool has_config;
 	struct G_CFG {
+		unsigned on_start:1 ;
+		unsigned lonely:1;
+		unsigned use_epoll:1;
 		int down_delay; 
-		bool on_start ;
-		bool lonely;
 		int back_log;
-		bool use_epoll;
 		Amor *sch;
 		struct DPoll::PollorBase lor; /* 探询 */
-		G_CFG() {
+		char errMsg[1024];
+		const char *srv_port;
+		const char *srv_ip;
+		const char *eth_str;
+		G_CFG(TiXmlElement *cfg) {
+			const char *on_start_str, *comm_str;
 			down_delay = 3000; 	//3 seconds
 			on_start = true;
 			back_log = 100;
@@ -78,13 +82,33 @@ private:
 			lor.type = DPoll::NotUsed;
 			sch = 0;
 			lonely = false;
+
+			if ( (on_start_str = cfg->Attribute("start") ) && strcmp(on_start_str, "no") ==0 )
+				on_start = false; /* 并非一开始就启动 */
+
+			if ( (comm_str = cfg->Attribute("lonely") ) && strcmp(comm_str, "yes") ==0 )
+				lonely = true; /* 在建立一个连接后, 即关闭 */
+
+			if( (comm_str = cfg->Attribute("delay")) )
+			{
+				if ( atoi(comm_str) > 0 )
+					down_delay = atoi(comm_str);
+			}
+
+			if( (comm_str = cfg->Attribute("backlog")) )
+			{
+				if ( atoi(comm_str) > 0 )
+					back_log = atoi(comm_str);
+			}
+			srv_port = cfg->Attribute("port");
+			srv_ip = cfg->Attribute("ip");
+			eth_str = cfg->Attribute("eth");
 		};
 	};
 	struct G_CFG *gCFG;
 	void *arr[3];
 
 	Amor::Pius local_pius;
-	char errMsg[1024];
 	
 	Describo::Criptor my_tor; /* 保存套接字, 各子实例不同 */
 	DPoll::Pollor pollor; /* 保存事件句柄, 各子实例不同 */
@@ -92,9 +116,7 @@ private:
 	TBuffer *tb_arr[3];
 
 	Tcpsrv *tcpsrv;
-	Tcpsrvuna *last_child;	/* 最近一次连接的子实例 */
 
-	bool isPioneer, isListener;
 	void child_begin();
 	void parent_begin();
 	void end_service();	/* 关闭侦听套接字 */
@@ -106,58 +128,46 @@ private:
 	void child_transmit_ep_err(int);
 	void deliver(Notitia::HERE_ORDO aordo);
 	void new_conn_pro();
+	unsigned has_config:1;
+	unsigned isListener:1;
 #if defined (_WIN32)	
+	unsigned shuting:1;
+	unsigned shutted:1;
+	unsigned zeroed:1;
 	void do_accept_ex();
-	bool shuting;
-	bool shutted;
-	bool zeroed;
 #endif	//for WIN32
 #include "wlog.h"
 };
 
 void Tcpsrvuna::ignite(TiXmlElement *cfg)
 {
-	const char  *eth_str, *ip_str, *on_start_str, *comm_str;
 	assert(cfg);
 
 	if (!cfg) return;
 	if ( !gCFG ) 
 	{
-		gCFG = new struct G_CFG();
+		gCFG = new struct G_CFG(cfg);
 		has_config = true;
-	}
-
-	if ( (on_start_str = cfg->Attribute("start") ) && strcmp(on_start_str, "no") ==0 )
-		gCFG->on_start = false; /* 并非一开始就启动 */
-
-	if ( (comm_str = cfg->Attribute("lonely") ) && strcmp(comm_str, "yes") ==0 )
-		gCFG->lonely = true; /* 在建立一个连接后, 即关闭 */
-
-	if( (comm_str = cfg->Attribute("delay")) )
-	{
-		if ( atoi(comm_str) > 0 )
-			gCFG->down_delay = atoi(comm_str);
 	}
 
 	/* 开始对Tcpsrv类的变量进行赋值 */
 	tcpsrv->srvport = 0;
-	tcpsrv->setPort( cfg->Attribute("port"));
+	tcpsrv->setPort( gCFG->srv_port);
+	if ( gCFG->srv_ip)
+		TEXTUS_STRNCPY(tcpsrv->srvip, gCFG->srv_ip, sizeof(tcpsrv->srvip)-1);
 
-	if ( (ip_str = cfg->Attribute("ip")) )
-		TEXTUS_STRNCPY(tcpsrv->srvip, ip_str, sizeof(tcpsrv->srvip)-1);
-
-	if ( (eth_str = cfg->Attribute("eth")) )
+	if ( gCFG->eth_str )
 	{ 	/* 确定服务于哪个网口，网口设置有较高优先权 */
 		char ethfile[512];
 		char *myip = (char*)0;
-		TEXTUS_SNPRINTF(ethfile,sizeof(ethfile), "/etc/sysconfig/network-scripts/ifcfg-%s",eth_str);
+		TEXTUS_SNPRINTF(ethfile,sizeof(ethfile), "/etc/sysconfig/network-scripts/ifcfg-%s",gCFG->eth_str);
 		myip = BTool::getaddr(ethfile,"IPADDR");
 		if (myip)
 			TEXTUS_STRNCPY(tcpsrv->srvip, myip, sizeof(tcpsrv->srvip)-1);
 	}
 	/* End of 设置Tcpsrv类变量 */
 
-	isPioneer = true;	/* 以此标志自己为父实例 */
+	has_config = true;	/* 以此标志自己为父实例 */
 	isListener = true;	/* listener object */
 }
 
@@ -348,7 +358,7 @@ LOOP:
 
 	case Notitia::CMD_NEW_SERVICE:
 		WBUG("facio CMD_NEW_SERVICE");
-		if (!isPioneer)			/* 须从父实例派生出侦听实例 */
+		if (!has_config)			/* 须从父实例派生出侦听实例 */
 			break;
 		cfg = (TiXmlElement *)(pius->indic);
 		if( !cfg)
@@ -430,6 +440,8 @@ LOOP:
 
 	case Notitia::IGNITE_ALL_READY:
 		WBUG("facio IGNITE_ALL_READY");		
+		tcpsrv->errMsg = &(gCFG->errMsg[0]);	/* 设置相同的错误信息缓冲 */
+		tcpsrv->errstr_len = sizeof(gCFG->errMsg);
 		arr[0] = this;
 		arr[1] = &(gCFG->down_delay);
 		//arr[2] = &(gCFG->down_delay);
@@ -458,7 +470,7 @@ LOOP:
 		else
 			gCFG->use_epoll = false;
 
-		if ( isPioneer && gCFG->on_start)
+		if ( has_config && gCFG->on_start)
 			parent_begin();		/* 开始服务 */
 		break;
 
@@ -590,12 +602,9 @@ Tcpsrvuna::Tcpsrvuna()
 
 	tcpsrv = new Tcpsrv();
 
-	isPioneer = false;	/* 默认自己不是父节点 */
+	has_config = false;	/* 默认自己不是父节点 */
 	isListener = false;
-	tcpsrv->errMsg = &errMsg[0];	/* 设置相同的错误信息缓冲 */
-	tcpsrv->errstr_len = 1024;
 	memset(tcpsrv->srvip, 0, sizeof(tcpsrv->srvip));
-	last_child = (Tcpsrvuna*)0;	
 
 	gCFG = 0;
 	has_config = false;
@@ -621,7 +630,7 @@ void Tcpsrvuna::parent_begin()
 {	/* 服务开启 */
 	if ( tcpsrv->listenfd !=INVALID_SOCKET )
 		return ;
-	if (!tcpsrv->servio(false))
+	if (!tcpsrv->servio(false, gCFG->back_log))
 	{
 		SLOG(EMERG)
 		return ;
@@ -773,6 +782,7 @@ void Tcpsrvuna::parent_accept()
 void Tcpsrvuna::new_conn_pro()
 {
 	Amor::Pius tmp_p;
+	Tcpsrvuna *last_child;	/* 最近一次连接的子实例 */
 	WLOG(INFO,"create socket %d", tcpsrv->connfd);
 	tmp_p.ordo = Notitia::CMD_ALLOC_IDLE;
 	tmp_p.indic = this;
@@ -902,7 +912,7 @@ void Tcpsrvuna::end_service()
 		/*sun: The association is also  removed  if  the  port  gets  closed */
 
 	deliver(Notitia::END_SERVICE); //向下一级传递本类的会话关闭信号
-	if ( !isPioneer )
+	if ( !has_config )
 	{	/* 根实例不被收回, 且仍是侦听实例 */
 		isListener = false;
 		tmp_p.ordo = Notitia::CMD_FREE_IDLE;

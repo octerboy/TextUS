@@ -47,7 +47,7 @@ public:
 
 	int rcv_frame_size;
 
-	bool servio(bool block = false);	/* 设定侦听套接字, 如果成功,则:
+	bool servio(bool block , int back);	/* 设定侦听套接字, 如果成功,则:
 				 listenfd有值。*/
 
 	bool accipio(bool block = false);
