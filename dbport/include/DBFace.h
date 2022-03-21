@@ -5,7 +5,7 @@
 		PARA_INOUT =3, 
 		UNKNOWN = 0
 	};
-	enum PROCTYPE {DBPROC = 0 , QUERY=1, FUNC = 2, FETCH = 3, DML=4, CURSOR=5} ;
+	enum PROCTYPE {DBPROC = 0 , QUERY=1, FUNC = 2, FETCH = 3, DML=4, CURSOR=5, ASYNC_QUERY=6} ;
 	enum DataType {
 		UNKNOWN_TYPE = 0,
 		BigInt	= 1,
