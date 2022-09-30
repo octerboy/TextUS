@@ -515,7 +515,7 @@ void  TPoll::schedule( Amor *obj, Pius *ps ) {
 		}
 #endif
 #if defined(__sun)
-		if ( port_send(just_he->work_Evt, 0x02, just) != 0 ) 
+		if ( port_send(just_he->work_Evt, 0x02, just_he) != 0 ) 
 		{
 			WLOG_OSERR("port_send for schedule");
 		}
