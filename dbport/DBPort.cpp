@@ -269,8 +269,8 @@ void DBPort::getDef(struct DBFace *face, TiXmlElement *cfg, DBFace::WHAT gin, DB
 		if (strcasecmp(comm_str, "cursor") == 0 ) 
 			face->pro = DBFace::CURSOR;
 
-		if (strcasecmp(comm_str, "ASYNC_query") == 0 ) 
-			face->pro = DBFace::ASYNC_QUERY;
+		if (strcasecmp(comm_str,  "real_query") == 0 ) 
+			face->pro = DBFace::REAL_QUERY;
 	}
 
 	face->sentence = cfg->Attribute("statement");
