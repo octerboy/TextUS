@@ -1328,6 +1328,9 @@ LOOP:
 			} else if (A_GET.portev_events & POLLOUT ) {
 				poll_ps.ordo = Notitia::WR_EPOLL;
 				PPO->pupa->facio(&poll_ps);
+			} else if (A_GET.portev_events & POLLPRI ) {
+				poll_ps.ordo = Notitia::EXCEPT_EPOLL;
+				PPO->pupa->facio(&poll_ps);
 			} else if (A_GET.portev_events & POLLHUP) {
 				poll_ps.ordo = Notitia::EOF_EPOLL;
 				PPO->pupa->facio(&poll_ps);
@@ -1347,6 +1350,9 @@ LOOP:
 				PPO->pupa->facio(&(PPO->pro_ps));
 			} else if (A_GET.events & EPOLLOUT) {
 				poll_ps.ordo = Notitia::WR_EPOLL;
+				PPO->pupa->facio(&poll_ps);
+			} else if (A_GET.events & EPOLLPRI) {
+				poll_ps.ordo = Notitia::EXCEPT_EPOLL;
 				PPO->pupa->facio(&poll_ps);
 			} else if (A_GET.events & EPOLLRDHUP) {
 				poll_ps.ordo = Notitia::EOF_EPOLL;
