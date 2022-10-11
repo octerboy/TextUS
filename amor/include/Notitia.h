@@ -26,6 +26,7 @@ enum HERE_ORDO {
 	MAIN_PARA	=1,	/* the parameter of main(), *indic[0] = argc, *indic[1] = argv  */
 	WINMAIN_PARA	=2,	/* the parameter of WinMain()  */
 	CMD_MAIN_EXIT	=3,	/* 退出主程序 */
+	WILL_MAIN_EXIT	=4,	/* 退出主程序 */
 	
 	CLONE_ALL_READY	=5,	/* 所有子节点已clone完毕 */
 	CMD_GET_OWNER	=6,	/* 取得aptus的owner对象指针 */
@@ -57,6 +58,7 @@ enum HERE_ORDO {
 	CMD_GET_SCHED	=33,	/* 取得调度者的指针 */
 	CMD_PUT_PENDOR	=34,	/* 向调度者设置 */
 	DMD_SCHED_RUN	=35,	/* 调度一个对象的运行 */
+
 	CMD_GET_PIUS		=41,	/* get pius from a keeper */
 	DMD_CONTINUE_SELF	=42,	//继续下本接力者
 	DMD_STOP_NEXT 		=43,	//停止下一个接力者
@@ -97,11 +99,7 @@ enum HERE_ORDO {
 	RD_EPOLL	=77,	//process epoll when readable
 	EOF_EPOLL	=78,	//process epoll when EOF
 	ERR_EPOLL	=79,	//process epoll when abnormal, indic to errmsg
-
-	NEW_SESSION 		=80,	/* listener info when a new session */
-	END_SERVICE 		=81,	/* */
-	CMD_RELEASE_SESSION	=82,	/* release a sesion which may not to be end */
-	CMD_TIMER_TO_RELEASE	=83,	/* release a sesion which may not to be end wait for some time */
+	EXCEPT_EPOLL	=80,	//process epoll when exception
 
 	NT_SERVICE_PAUSE	=86,	/* NT service pause */
 	NT_SERVICE_RESUME	=87,	/* NT service resume */
@@ -228,6 +226,11 @@ enum HERE_ORDO {
 	Log_InsWay		=215,	//日志记录InsWay结构数据， 用于事务出现错误时的日志
 	Re_TranWay		=216,	//重走TranWay, 当前的中断
 	
+	NEW_SESSION 		=220,	/* listener info when a new session */
+	END_SERVICE 		=221,	/* */
+	CMD_RELEASE_SESSION	=222,	/* release a sesion which may not to be end */
+	CMD_TIMER_TO_RELEASE	=223,	/* release a sesion which may not to be end wait for some time */
+
 	Comm_Recv_Timeout	=280,	/* recv time out */
 	Comm_Event_Break	=281,	/* Communication Serial Event */
 	Comm_Event_CTS		=282,
