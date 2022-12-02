@@ -91,6 +91,8 @@ public:
 	);
 	NTQUERYTIMERRESOLUTION NtQueryTimerResolution;
 	ULONG cur_time_res;
+#elif defined(__sun)
+        struct DPoll::PollorBase  lor_exit;
 #else
 	struct DPoll::Pollor lor_exit;
 #endif
@@ -814,6 +816,9 @@ END_ALARM_PRO:
 		lor_exit.pupa = (Amor*)apius->indic;
 #if defined (_WIN32)
 		PostQueuedCompletionStatus(g_poll->iocp_port, 0, (ULONG_PTR)&lor_exit, 0);
+#endif
+#if defined(__sun)
+		port_send(ev_port, 0x01, &lor_exit);
 #endif
 #if defined(__linux__)
 		if ( lor_exit.fd == -1 )
