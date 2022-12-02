@@ -1,0 +1,22 @@
+# Titile: Makefile(VC)
+# ID: Textus-journal-Makefile-vc
+# Build: B01:created by octerboy 2022/12/02, Gaungzhou
+
+include ..\Rules.basemod.vc
+AMOROBJS=jor.obj
+
+all: journal.dll
+
+jor.obj: Jor.cpp
+	$(CC) $(CFLAGS) -I..\baselib\include -DNDEBUG -DAMOR_CLS_TYPE=Jor Jor.cpp
+
+journal.dll: $(AMOROBJS)
+	$(LD) $(LDFLAGS) -out:$@ $(AMOROBJS)  $(LDLIB) ..\baselib\libbase.lib
+	$(_VC_MANIFEST_PRO)
+	$(_POST_RPO_SUB)
+
+clean:
+	del *.obj
+	del *.dll.*
+	del *.exp
+	del *.lib
