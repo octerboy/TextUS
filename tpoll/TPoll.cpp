@@ -40,7 +40,11 @@
 #include <sys/timerfd.h>
 #include <sys/eventfd.h>
 #endif
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
+#include <sys/eventfd.h>
+#else
 #include <sys/timeb.h>
+#endif
 #include <time.h>
 #include <errno.h>
 #include <assert.h>
@@ -91,11 +95,15 @@ public:
 	);
 	NTQUERYTIMERRESOLUTION NtQueryTimerResolution;
 	ULONG cur_time_res;
-#elif defined(__sun)
+
+#elif defined(__sun) 
         struct DPoll::PollorBase  lor_exit;
+#elif defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
+	struct DPoll::Pollor lor_exit;
 #else
 	struct DPoll::Pollor lor_exit;
 #endif
+
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
 	int kq;
 #endif	//for bsd
@@ -144,7 +152,7 @@ public:
 private:
 	char errMsg[2048];
 	int errstr_len;
-	struct timeb t_now;
+	//struct timeb t_now;
 	Amor::Pius timer_pius,tm_hd_ps, poll_ps;
 
 	int number_threads;
@@ -485,6 +493,9 @@ bool TPoll::sponte( Amor::Pius *apius)
 #if defined (_WIN32)
 			PostQueuedCompletionStatus(g_poll->iocp_port, 0, (ULONG_PTR)apius->indic, 0);
 #endif
+#if defined(__sun)
+			port_send(ev_port, 0x01, apius->indic);
+#endif
 #if defined(__linux__)
 		ppo = (DPoll::Pollor *)apius->indic;	
 		if ( ppo->fd == -1 )
@@ -516,6 +527,28 @@ bool TPoll::sponte( Amor::Pius *apius)
 				memcpy(cnt, &a, 4);
 			}
 			write (ppo->fd , cnt, 8);
+		}
+#endif
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
+		if ( ppo->fd == -1 )
+		{
+			ppo->fd =  eventfd(1, EFD_CLOEXEC);
+			if (ppo->fd == -1) {
+				ERROR_PRO("eventfd for POST_EPOLL (User)");
+				break;
+			}
+		} 
+		EV_SET(&(lor_exit.events[0]), ppo->fd, EVFILT_USER, EV_ADD|EV_ONESHOT, NOTE_FFNOP, 0, ppo);
+		if( kevent(kq, &(ppo->events[0]), 1, NULL, 0, NULL) == -1 )
+		{
+			ERROR_PRO("kevent(EV_ADD|EV_ONESHOT for POST_EPOLL) failed");
+			break;
+		}
+		EV_SET(&(lor_exit.events[1]), ppo->fd, EVFILT_USER, 0, NOTE_FFCOPY|NOTE_TRIGGER|0x1, 0, ppo);	
+		if( kevent(kq, &(ppo->events[1]), 1, NULL, 0, NULL) ==- 1)
+		{
+			ERROR_PRO("kevent(NOTE_FFCOPY|NOTE_TRIGGER|0x1 for POST_EPOLL) failed");
+			break;
 		}
 #endif
 			break;
@@ -820,11 +853,33 @@ END_ALARM_PRO:
 #if defined(__sun)
 		port_send(ev_port, 0x01, &lor_exit);
 #endif
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
+		if ( lor_exit.fd == -1 )
+		{
+			lor_exit.fd =  eventfd(1, EFD_CLOEXEC);
+			if (lor_exit.fd == -1) {
+				ERROR_PRO("eventfd for CMD_MAIN_EXIT");
+				break;
+			}
+		} 
+		EV_SET(&(lor_exit.events[0]),  lor_exit.fd, EVFILT_USER, EV_ADD|EV_ONESHOT, NOTE_FFNOP, 0, &lor_exit);
+		if ( kevent(kq, &(lor_exit.events[0]), 1, NULL, 0, NULL) == -1) 
+		{
+			ERROR_PRO("kevent( EV_ADD|EV_ONESHOT for CMD_MAIN_EXIT) failed");
+			break;
+		}
+		EV_SET(&(lor_exit.events[1]), lor_exit.fd, EVFILT_USER, 0, NOTE_FFCOPY|NOTE_TRIGGER|0x1, 0, &lor_exit);	
+		if ( kevent(kq, &(lor_exit.events[1]), 1, NULL, 0, NULL) == -1)
+		{
+			ERROR_PRO("kevent(NOTE_FFCOPY|NOTE_TRIGGER|0x1 for CMD_MAIN_EXIT) failed");
+			break;
+		}
+#endif
 #if defined(__linux__)
 		if ( lor_exit.fd == -1 )
 		{
 			lor_exit.fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC); 
-			if (evt_fd == -1) {
+			if (lor_exit.fd == -1) {
 				ERROR_PRO("eventfd for CMD_MAIN_EXIT");
 				break;
 			}
