@@ -40,11 +40,13 @@
 #include <sys/timerfd.h>
 #include <sys/eventfd.h>
 #endif
-#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
-#include <sys/eventfd.h>
+
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
+#include <sys/event.h>
 #else
 #include <sys/timeb.h>
 #endif
+
 #include <time.h>
 #include <errno.h>
 #include <assert.h>
@@ -100,6 +102,10 @@ public:
         struct DPoll::PollorBase  lor_exit;
 #elif defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
 	struct DPoll::Pollor lor_exit;
+	uintptr_t usr_ident;
+	uintptr_t get_a_ident() {
+		return usr_ident++;
+	};
 #else
 	struct DPoll::Pollor lor_exit;
 #endif
@@ -343,6 +349,7 @@ void TPoll::ignite(TiXmlElement *cfg)
 		ERROR_PRO("kqueue failed for an event queue");
 		return ;
 	}
+	usr_ident = 1;
 #endif	//for bsd
 
 #if defined(__linux__)
@@ -532,11 +539,7 @@ bool TPoll::sponte( Amor::Pius *apius)
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
 		if ( ppo->fd == -1 )
 		{
-			ppo->fd =  eventfd(1, EFD_CLOEXEC);
-			if (ppo->fd == -1) {
-				ERROR_PRO("eventfd for POST_EPOLL (User)");
-				break;
-			}
+			ppo->fd =  get_a_ident();
 		} 
 		EV_SET(&(lor_exit.events[0]), ppo->fd, EVFILT_USER, EV_ADD|EV_ONESHOT, NOTE_FFNOP, 0, ppo);
 		if( kevent(kq, &(ppo->events[0]), 1, NULL, 0, NULL) == -1 )
@@ -856,11 +859,7 @@ END_ALARM_PRO:
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
 		if ( lor_exit.fd == -1 )
 		{
-			lor_exit.fd =  eventfd(1, EFD_CLOEXEC);
-			if (lor_exit.fd == -1) {
-				ERROR_PRO("eventfd for CMD_MAIN_EXIT");
-				break;
-			}
+			lor_exit.fd = get_a_ident();
 		} 
 		EV_SET(&(lor_exit.events[0]),  lor_exit.fd, EVFILT_USER, EV_ADD|EV_ONESHOT, NOTE_FFNOP, 0, &lor_exit);
 		if ( kevent(kq, &(lor_exit.events[0]), 1, NULL, 0, NULL) == -1) 
