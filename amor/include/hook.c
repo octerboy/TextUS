@@ -1,20 +1,6 @@
 #include "hook.h"
 #ifdef AMOR_CLS_TYPE
 
-#if defined(_WIN32) 
-	//BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
-	//{
-	//	return TRUE;
-	//}
-	#if !defined(TEXTUS_AMOR_EXPORT)
-		#define TEXTUS_AMOR_EXPORT __declspec(dllexport) 
-	#endif
-#else	/* OS: Linux/unix */
-	#if !defined(TEXTUS_AMOR_EXPORT)
-		#define TEXTUS_AMOR_EXPORT 
-    	#endif
-#endif /* end ifdef _WIN32 */
-
 extern "C"  {
 
 #ifdef TEXTUS_APTUS_TAG
