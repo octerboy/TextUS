@@ -111,6 +111,20 @@
 #define TEXTUS_AMOR_STORAGE
 #endif
 #endif
+#if defined(_WIN32) 
+	//BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
+	//{
+	//	return TRUE;
+	//}
+	#if !defined(TEXTUS_AMOR_EXPORT)
+		#define TEXTUS_AMOR_EXPORT __declspec(dllexport) 
+	#endif
+#else	/* OS: Linux/unix */
+	#if !defined(TEXTUS_AMOR_EXPORT)
+		#define TEXTUS_AMOR_EXPORT 
+    	#endif
+#endif /* end ifdef _WIN32 */
+
 
 #if __cplusplus >= 201103L
 #define register      // Deprecated in C++11.
