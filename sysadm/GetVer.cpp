@@ -16,18 +16,18 @@
 #define TEXTUS_BUILDNO  "$Revision$"
 /* $NoKeywords: $ */
 
-#include "Amor.h"
+#include "Eros.h"
 #include "Notitia.h"
 #include "casecmp.h"
 #include "textus_string.h"
+#include "Logger.h"
 
 #include <time.h>
-#include <stdarg.h>
 #if !defined (_WIN32)
 #include <sys/utsname.h>
 #endif
 
-class GetVer :public Amor
+class GetVer :public Eros, public TusLogger
 {
 public:
 	bool facio( Pius *);
@@ -40,14 +40,13 @@ public:
 private:
 	Amor::Pius local_pius;
 	Amor::Pius direct_pius;
-	#include "wlog.h"
 	#include "httpsrv_obj.h"
 };
 
 bool GetVer::facio( Amor::Pius *pius)
 {
 	Amor::Pius neo;
-	char tmpstr[256];
+	char tmpstr[512];
 	TiXmlText text("");
 	TiXmlElement ver( "OS" );
 #if defined (_WIN32)
