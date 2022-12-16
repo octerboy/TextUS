@@ -1,17 +1,42 @@
 #include <stdarg.h>
 #ifndef TEXTUS_LOGGER_H
 #define TEXTUS_LOGGER_H
-class TEXTUS_AMOR_STORAGE Logger {
+static Amor **logger_journal_arr=0;	//to Jor actually
+static unsigned int logger_apt_many= 0;
+static unsigned int logger_journal_cur= 0;
+
+class TEXTUS_AMOR_STORAGE TusLogger {
 public:
 	unsigned int instance_id;	/* for every instance */
-	Amor *log_apt;	//to Jor actually
+	unsigned int which_jor;	/* some instance have the same object */
 	/* Amor objects communicate by Pius object */
 	struct PiDat {
-		Logger *me;
+		TusLogger *me;
 		unsigned int instance_id;	//copy from this obj
-		void *log_apt;	//copy from this obj
 		va_list* h_va;
 		char *msg;
+	};
+	void give_logger( Amor *jor) {
+		if (logger_journal_arr==0 ) {
+			logger_apt_many = 16;
+			logger_journal_arr = new Amor *[logger_apt_many];
+			memset(logger_journal_arr, 0, sizeof(Amor *)*logger_apt_many);
+			logger_journal_cur=0;
+		} 
+		if ( logger_journal_cur == logger_apt_many )
+		{
+			Amor **logger_journal_arr_tmp= new Amor *[logger_apt_many + 16];
+			memset(logger_journal_arr, 0, sizeof(Amor *)*(logger_apt_many+16));
+			memcpy(logger_journal_arr_tmp, logger_journal_arr, sizeof(Amor*)*logger_apt_many);
+			logger_apt_many += 16 ;
+			delete []logger_journal_arr;
+			logger_journal_arr = logger_journal_arr_tmp;
+		}
+		logger_journal_arr[logger_journal_cur] = jor; logger_journal_cur++;
+	};
+	TusLogger::TusLogger() {
+		which_jor = 0;
+		instance_id = 0;
 	};
 
 #if defined( _MSC_VER ) && (_MSC_VER >= 1400 ) || defined(__GNUC__) && (__GNUC__ >= 3 ) || defined(__SUNPRO_CC) && (__SUNPRO_CC >= 0x560) ||  defined(__clang_major__) && (__clang_major__ >= 2)
@@ -28,11 +53,10 @@ public:
 		amor_log_pius.ordo = Notitia::LOG_DEBUG; \
 		pidat.me = this; \
 		pidat.instance_id = this->instance_id; \
-		pidat.log_apt = this->log_apt; \
 		pidat.h_va = 0; \
 		pidat.msg = amor_log_errMsg; \
 		amor_log_pius.indic = &pidat; \
-		log_apt->sponte(&amor_log_pius); \
+		logger_journal_arr[which_jor]->sponte(&amor_log_pius); \
 		}
 #else
 #define WBUG(...)
@@ -48,11 +72,10 @@ public:
 		amor_log_pius.ordo = lev;
 		pidat.me = this; 
 		pidat.instance_id = this->instance_id; 
-		pidat.log_apt = this->log_apt; 
 		pidat.h_va = &va; 
 		pidat.msg = 0; 
 		amor_log_pius.indic = &pidat; 
-		log_apt->sponte(&amor_log_pius); 
+		logger_journal_arr[which_jor]->sponte(&amor_log_pius); 
 		va_end(va);
 	};
 
@@ -82,11 +105,10 @@ public:
 		amor_log_pius.ordo = lev;
 		pidat.me = this; 
 		pidat.instance_id = this->instance_id; 
-		pidat.log_apt = this->log_apt; 
 		pidat.h_va = 0; 
 		pidat.msg = &amor_errMsg[0]; 
 		amor_log_pius.indic = &pidat; 
-		log_apt->sponte(&amor_log_pius); 
+		logger_journal_arr[which_jor]->sponte(&amor_log_pius); 
 	};
 
 #ifndef NDEBUG
@@ -107,11 +129,10 @@ public:
 		//amor_log_pius.indic = &amor_log_msg[0]; 
 		pidat.me = this; 
 		pidat.instance_id = this->instance_id; 
-		pidat.log_apt = this->log_apt; 
 		pidat.h_va = 0; 
 		pidat.msg = &amor_errMsg[0]; 
 		amor_log_pius.indic = &pidat; 
-		log_apt->sponte(&amor_log_pius);
+		logger_journal_arr[which_jor]->sponte(&amor_log_pius);
 	};
 #else
 	void inline WBUG(const char *format,...) { };
@@ -137,11 +158,10 @@ public:
 	amor_log_pius.ordo = Notitia::LOG_ERR; \
 	pidat.me = this; \
 	pidat.instance_id = this->instance_id; \
-	pidat.log_apt = this->log_apt; \
 	pidat.h_va = 0; \
 	pidat.msg = &amor_errMsg[0]; \
 	amor_log_pius.indic = &pidat; \
-	log_apt->sponte(&amor_log_pius); \
+	logger_journal_arr[which_jor]->sponte(&amor_log_pius); \
 	}
 #else
 #define WLOG_OSERR(X)  {		\
@@ -153,11 +173,10 @@ public:
 	amor_log_pius.ordo = Notitia::LOG_ERR; \
 	pidat.me = this; \
 	pidat.instance_id = this->instance_id; \
-	pidat.log_apt = this->log_apt; \
 	pidat.h_va = 0; \
 	pidat.msg = &amor_errMsg[0]; \
 	amor_log_pius.indic = &pidat; \
-	log_apt->sponte(&amor_log_pius); \
+	logger_journal_arr[which_jor]->sponte(&amor_log_pius); \
 	}
 #endif	/* for _WIN32 */
 #endif
