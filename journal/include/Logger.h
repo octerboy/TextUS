@@ -34,7 +34,7 @@ public:
 		}
 		logger_journal_arr[logger_journal_cur] = jor; logger_journal_cur++;
 	};
-	TusLogger::TusLogger() {
+	TusLogger() {
 		which_jor = 0;
 		instance_id = 0;
 	};
@@ -80,6 +80,7 @@ public:
 	};
 
 #define WLOG(Z,...) _OWN_WLOG(Notitia::LOG_VAR_##Z, __VA_ARGS__)
+
 
 #else	/* for < C99 */
 	enum HERELOGLEV { 

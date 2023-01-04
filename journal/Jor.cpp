@@ -10,12 +10,12 @@
 /**
  Title: Aptus extension, generate log for all modules and output to a module
  Build: created by octerboy, 2006/04/01, Wuhan
- $Id$
+ $Id: logdata/Jor.cpp 2021-04-13 08:47:35 +0000  octerboy $
 */
 
-#define SCM_MODULE_ID  "$Id$"
-#define TEXTUS_MODTIME  "$Date$"
-#define TEXTUS_BUILDNO  "$Revision$"
+#define SCM_MODULE_ID  "$Id: journal/Jor.cpp 2021-04-13 08:47:35 +0000  octerboy $"
+#define TEXTUS_MODTIME  "$Date:   2021-04-13 08:47:35 +0000 $"
+#define TEXTUS_BUILDNO  "$Revision: 7 $"
 /* $NoKeywords: $ */
 
 #include "Aptus.h"
@@ -141,6 +141,8 @@ void Jor::ignite_t (TiXmlElement *cfg, TiXmlElement *log_ele)
 		
 	WBUG("this %p , prius %p, aptus %p, cfg %p", this, prius, aptus, cfg);
 	if ( !log_ele) return;
+	TusLogger *o = reinterpret_cast<TusLogger*>(this->owner);
+	o->give_logger(this);
 
 	if ( (comm_str = cfg->Attribute("pid")) && (comm_str[0] == 'y' || comm_str[0] == 'Y') )
 		hasPid = true;
@@ -237,10 +239,11 @@ void Jor::ignite_t (TiXmlElement *cfg, TiXmlElement *log_ele)
 
 Amor *Jor::clone()
 {	
+/*
 	Jor *child = 0;
 	child = new Jor();
 	Aptus::inherit( (Aptus*) child);
-	canAccessed = true;	/* 至此可以认为此模块需要日志 */
+	canAccessed = true;
 	for (unsigned int j = 0; j < sizeof(levelActive); j++)
 		child->levelActive[j] = levelActive[j];
 	child->aliusID = aliusID;
@@ -250,12 +253,15 @@ Amor *Jor::clone()
 	child->instance_id = (*instance_last_id)++;
 
 	return  (Amor*) child;
+*/
+	return 0;
 }
 
 Aptus *Jor::clone_p(Aptus *animus) {
 	TusLogger *o = reinterpret_cast<TusLogger*>(animus->owner);
 	o->instance_id = instance_last_id++;
-	o->which_jor = pthread_self(); //should from sched, to do
+	//o->which_jor = pthread_self(); //should from sched, to do
+	o->which_jor = 1;
 	printf ("-f:owner %p ---- owner %p\n", owner, animus->owner);
 	return (Aptus*)this->clone();
 }
@@ -429,8 +435,8 @@ bool Jor::sponte_n ( Amor::Pius *pius, unsigned int from)
 
 bool Jor::sponte ( Amor::Pius *pius)
 {
-	struct PiDat *pdat;
-	pdat = (struct PiDat *)pius;
+	struct TusLogger::PiDat *pdat;
+	pdat = (struct TusLogger::PiDat *)pius;
 #if defined(_WIN32) && (_MSC_VER < 1400 )
 	struct _timeb now;
 #else
@@ -539,7 +545,8 @@ bool Jor::sponte ( Amor::Pius *pius)
 			log_tmp_ptr = &log_tmp_str_buf[0];
 			break;
 		case Notitia::LOG_DEBUG:
-			log_tmp_ptr = (char*)pius->indic;
+			//log_tmp_ptr = (char*)pius->indic;
+			log_tmp_ptr = pdat->msg;
 			break;
 		default:
 			break;
@@ -552,10 +559,10 @@ bool Jor::sponte ( Amor::Pius *pius)
 
 		if ( hasPid )
 			TEXTUS_SNPRINTF(log_ptr, log_size, "(%d)<%s>%s %s(%d, %p, %d)%s%s", aliusID,
-				levelstr, timestr, hostname, instance_id, owner, GETPID, alius, log_tmp_ptr);
+				levelstr, timestr, hostname, pdat->instance_id, pdat->me, GETPID, alius, log_tmp_ptr);
 		else 
 			TEXTUS_SNPRINTF(log_ptr, log_size, "(%d)<%s>%s %s(%d,%p)%s%s", aliusID,
-				levelstr, timestr, hostname, instance_id, owner, alius, log_tmp_ptr);
+				levelstr, timestr, hostname, pdat->instance_id, pdat->me, alius, log_tmp_ptr);
 	}
 
 	if ( detect_modified ) 
