@@ -49,6 +49,9 @@
 #include <time.h>
 #include <errno.h>
 #include <assert.h>
+#if  defined (MULTI_PTHREAD) 
+#include <pthread.h>
+#endif
 
 #if defined (_WIN32 )
 #define ERROR_PRO(X) { \
@@ -76,6 +79,9 @@ public:
 	Amor* clone();
 
 	TPoll();
+#if  defined (MULTI_PTHREAD) 
+	pthread_spinlock_t bsd_usr_event_id_lock;
+#endif
 #if defined (_WIN32)
 	struct DPoll::PollorBase  lor_exit;
 	HANDLE iocp_port,timer_queue;
@@ -103,7 +109,20 @@ public:
 	struct DPoll::Pollor lor_exit;
 	uintptr_t usr_ident;
 	uintptr_t get_a_ident() {
-		return usr_ident++;
+#if  defined (MULTI_PTHREAD) 
+	if (!pthread_spin_lock(&bsd_usr_event_id_lock))
+	{
+		ERROR_PRO("pthread_spin_lock for bsd_usr_event_id_lock failed");
+	}
+		usr_ident++;
+	if (!pthread_spin_unlock(&bsd_usr_event_id_lock))
+	{
+		ERROR_PRO("pthread_spin_unlock for bsd_usr_event_id_lock failed");
+	}
+#else
+		usr_ident++;
+#endif
+		return usr_ident;
 	};
 #else
 	struct DPoll::Pollor lor_exit;
@@ -383,6 +402,13 @@ void TPoll::ignite(TiXmlElement *cfg)
 #endif	//for linux
 
 	timor_init();	//≥ı ºªØ
+#if  defined (MULTI_PTHREAD) 
+	if (!pthread_spin_init(&bsd_usr_event_id_lock, PTHREAD_PROCESS_SHARED))
+	{
+		ERROR_PRO("pthread_spin_init for bsd_usr_event_id_lock failed");
+		return ;
+	}
+#endif
 	init_ok = true;
 }
 
