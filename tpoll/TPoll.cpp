@@ -50,7 +50,11 @@
 #include <errno.h>
 #include <assert.h>
 #if  defined (MULTI_PTHREAD) 
+#if defined (_WIN32)
+#include <synchapi.h>
+#else
 #include <pthread.h>
+#endif
 #endif
 
 #if defined (_WIN32 )
@@ -80,7 +84,11 @@ public:
 
 	TPoll();
 #if  defined (MULTI_PTHREAD) 
+#if defined (_WIN32)
+	CRITICAL_SECTION spo_spin_lock;
+#else
 	pthread_spinlock_t bsd_usr_event_id_lock;
+#endif
 #endif
 #if defined (_WIN32)
 	struct DPoll::PollorBase  lor_exit;
@@ -110,15 +118,18 @@ public:
 	uintptr_t usr_ident;
 	uintptr_t get_a_ident() {
 #if  defined (MULTI_PTHREAD) 
-	if (!pthread_spin_lock(&bsd_usr_event_id_lock))
+#if defined (_WIN32)
+#else
+	if (pthread_spin_lock(&bsd_usr_event_id_lock) !=0)
 	{
 		ERROR_PRO("pthread_spin_lock for bsd_usr_event_id_lock failed");
 	}
 		usr_ident++;
-	if (!pthread_spin_unlock(&bsd_usr_event_id_lock))
+	if (pthread_spin_unlock(&bsd_usr_event_id_lock) !=0)
 	{
 		ERROR_PRO("pthread_spin_unlock for bsd_usr_event_id_lock failed");
 	}
+#endif
 #else
 		usr_ident++;
 #endif
@@ -403,11 +414,21 @@ void TPoll::ignite(TiXmlElement *cfg)
 
 	timor_init();	//³õÊ¼»¯
 #if  defined (MULTI_PTHREAD) 
-	if (!pthread_spin_init(&bsd_usr_event_id_lock, PTHREAD_PROCESS_SHARED))
+#if defined (_WIN32)
+	DWORD              dwSpinCount;
+	int spin_num;
+	dwSpinCount = 1000;
+	cfg->QueryIntAttribute("spin_count", &spin_num);
+	dwSpinCount = spin_num;
+	//InitializeCriticalSection(&spo_spin_lock);
+	InitializeCriticalSectionAndSpinCount(&spo_spin_lock, dwSpinCount);
+#else
+	if (pthread_spin_init(&bsd_usr_event_id_lock, PTHREAD_PROCESS_SHARED) !=0)
 	{
 		ERROR_PRO("pthread_spin_init for bsd_usr_event_id_lock failed");
 		return ;
 	}
+#endif
 #endif
 	init_ok = true;
 }
@@ -438,6 +459,18 @@ bool TPoll::sponte( Amor::Pius *apius)
 
 	struct Timor *aor;
 	assert(apius);
+
+#if  defined (MULTI_PTHREAD) 
+#if defined (_WIN32)
+	EnterCriticalSection(&spo_spin_lock);
+#else
+	if (pthread_spin_lock(&spo_spin_lock) !=0)
+	{
+		ERROR_PRO("pthread_spin_lock for spo_spin_lock");
+		WLOG(WARNING, errMsg);
+	}
+#endif
+#endif
 
 	switch ( apius->ordo )
 	{
@@ -958,6 +991,18 @@ END_ALARM_PRO:
 	default:
 		return false;
 	}
+#if  defined (MULTI_PTHREAD) 
+#if defined (_WIN32)
+	LeaveCriticalSection(&spo_spin_lock);
+#else
+	if (pthread_spin_unlock(&spo_spin_lock) !=0)
+	{
+		ERROR_PRO("pthread_spin_unlock for spo_spin_lock failed");
+		WLOG(WARNING, errMsg);
+	}
+#endif
+#endif
+
 	return true;
 }
 
