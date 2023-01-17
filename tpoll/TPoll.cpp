@@ -87,7 +87,7 @@ public:
 #if defined (_WIN32)
 	CRITICAL_SECTION spo_spin_lock;
 #else
-	pthread_spinlock_t bsd_usr_event_id_lock;
+	pthread_spinlock_t bsd_usr_event_id_lock, spo_spin_lock;
 #endif
 #endif
 #if defined (_WIN32)
