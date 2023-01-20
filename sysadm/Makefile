@@ -4,7 +4,7 @@
 #	B01:created by octerboy 2006/12/23, Panyu
 
 include ../Rules.basemod
-INCLUDE_DIR  += -I../logdata/include -I../baselib/include
+INCLUDE_DIR  += -I../journal/include -I../baselib/include
 
 all:getversions.so restart.so sysinfo.so sysroute.so systime.so
 
