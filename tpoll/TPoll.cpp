@@ -52,6 +52,8 @@
 #if  defined (MULTI_PTHREAD) 
 #if defined (_WIN32)
 #include <synchapi.h>
+#elif  defined(__APPLE__)  
+#include <os/lock.h>
 #else
 #include <pthread.h>
 #endif
@@ -86,6 +88,8 @@ public:
 #if  defined (MULTI_PTHREAD) 
 #if defined (_WIN32)
 	CRITICAL_SECTION spo_spin_lock;
+#elif  defined(__APPLE__)  
+	os_unfair_lock bsd_usr_event_id_lock, spo_spin_lock;
 #else
 	pthread_spinlock_t bsd_usr_event_id_lock, spo_spin_lock;
 #endif
@@ -119,6 +123,10 @@ public:
 	uintptr_t get_a_ident() {
 #if  defined (MULTI_PTHREAD) 
 #if defined (_WIN32)
+#elif  defined(__APPLE__)  
+	os_unfair_lock_lock(&bsd_usr_event_id_lock);
+	usr_ident++;
+	os_unfair_lock_unlock(&bsd_usr_event_id_lock);
 #else
 	if (pthread_spin_lock(&bsd_usr_event_id_lock) !=0)
 	{
@@ -422,6 +430,8 @@ void TPoll::ignite(TiXmlElement *cfg)
 	dwSpinCount = spin_num;
 	//InitializeCriticalSection(&spo_spin_lock);
 	InitializeCriticalSectionAndSpinCount(&spo_spin_lock, dwSpinCount);
+#elif  defined(__APPLE__)  
+	bsd_usr_event_id_lock = OS_UNFAIR_LOCK_INIT;
 #else
 	if (pthread_spin_init(&bsd_usr_event_id_lock, PTHREAD_PROCESS_SHARED) !=0)
 	{
@@ -463,6 +473,7 @@ bool TPoll::sponte( Amor::Pius *apius)
 #if  defined (MULTI_PTHREAD) 
 #if defined (_WIN32)
 	EnterCriticalSection(&spo_spin_lock);
+#elif  defined(__APPLE__)  
 #else
 	if (pthread_spin_lock(&spo_spin_lock) !=0)
 	{
@@ -994,6 +1005,7 @@ END_ALARM_PRO:
 #if  defined (MULTI_PTHREAD) 
 #if defined (_WIN32)
 	LeaveCriticalSection(&spo_spin_lock);
+#elif  defined(__APPLE__)  
 #else
 	if (pthread_spin_unlock(&spo_spin_lock) !=0)
 	{
