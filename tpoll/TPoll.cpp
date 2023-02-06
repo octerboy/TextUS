@@ -90,8 +90,10 @@ public:
 	CRITICAL_SECTION spo_spin_lock;
 #elif  defined(__APPLE__)  
 	os_unfair_lock bsd_usr_event_id_lock, spo_spin_lock;
-#else
+#elif defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
 	pthread_spinlock_t bsd_usr_event_id_lock, spo_spin_lock;
+#else  
+	pthread_spinlock_t spo_spin_lock;
 #endif
 #endif
 #if defined (_WIN32)
@@ -121,13 +123,12 @@ public:
 	struct DPoll::Pollor lor_exit;
 	uintptr_t usr_ident;
 	uintptr_t get_a_ident() {
-#if  defined (MULTI_PTHREAD) 
-#if defined (_WIN32)
-#elif  defined(__APPLE__)  
+#if defined (MULTI_PTHREAD) 
+#if defined(__APPLE__)  
 	os_unfair_lock_lock(&bsd_usr_event_id_lock);
 	usr_ident++;
 	os_unfair_lock_unlock(&bsd_usr_event_id_lock);
-#else
+#elif defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
 	if (pthread_spin_lock(&bsd_usr_event_id_lock) !=0)
 	{
 		ERROR_PRO("pthread_spin_lock for bsd_usr_event_id_lock failed");
@@ -138,7 +139,7 @@ public:
 		ERROR_PRO("pthread_spin_unlock for bsd_usr_event_id_lock failed");
 	}
 #endif
-#else
+#else	//single thread
 		usr_ident++;
 #endif
 		return usr_ident;
@@ -430,12 +431,26 @@ void TPoll::ignite(TiXmlElement *cfg)
 	dwSpinCount = spin_num;
 	//InitializeCriticalSection(&spo_spin_lock);
 	InitializeCriticalSectionAndSpinCount(&spo_spin_lock, dwSpinCount);
+
 #elif  defined(__APPLE__)  
 	bsd_usr_event_id_lock = OS_UNFAIR_LOCK_INIT;
-#else
+	spo_spin_lock = OS_UNFAIR_LOCK_INIT;
+
+#elif defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
 	if (pthread_spin_init(&bsd_usr_event_id_lock, PTHREAD_PROCESS_SHARED) !=0)
 	{
 		ERROR_PRO("pthread_spin_init for bsd_usr_event_id_lock failed");
+		return ;
+	}
+	if (pthread_spin_init(&spo_spin_lock, PTHREAD_PROCESS_SHARED) !=0)
+	{
+		ERROR_PRO("pthread_spin_init for spo_spin_lock failed");
+		return ;
+	}
+#else
+	if (pthread_spin_init(&spo_spin_lock, PTHREAD_PROCESS_SHARED) !=0)
+	{
+		ERROR_PRO("pthread_spin_init for spo_spin_lock failed");
 		return ;
 	}
 #endif
@@ -474,6 +489,7 @@ bool TPoll::sponte( Amor::Pius *apius)
 #if defined (_WIN32)
 	EnterCriticalSection(&spo_spin_lock);
 #elif  defined(__APPLE__)  
+	os_unfair_lock_lock(&spo_spin_lock);
 #else
 	if (pthread_spin_lock(&spo_spin_lock) !=0)
 	{
@@ -1006,6 +1022,7 @@ END_ALARM_PRO:
 #if defined (_WIN32)
 	LeaveCriticalSection(&spo_spin_lock);
 #elif  defined(__APPLE__)  
+	os_unfair_lock_unlock(&spo_spin_lock);
 #else
 	if (pthread_spin_unlock(&spo_spin_lock) !=0)
 	{
