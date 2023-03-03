@@ -49,14 +49,41 @@
 #include <time.h>
 #include <errno.h>
 #include <assert.h>
-#if  defined (MULTI_PTHREAD) 
+
+#if defined (MULTI_PTHREAD) 
 #if defined (_WIN32)
 #include <synchapi.h>
+	typedef CRITICAL_SECTION Spin_Type;
+	#define Do_Spin_Lock(X) EnterCriticalSection(&X);
+	#define Do_Spin_UnLock(X) LeaveCriticalSection(&X);
+	#define Spin_Init(X) InitializeCriticalSectionAndSpinCount(&X, 1000);
+
 #elif  defined(__APPLE__)  
 #include <os/lock.h>
-#else
+	typedef os_unfair_lock Spin_Type;
+	#define Do_Spin_Lock(X) os_unfair_lock_lock(&X);
+	#define Do_Spin_UnLock(X) os_unfair_lock_unlock(&X);
+	#define Spin_Init(X) X=OS_UNFAIR_LOCK_INIT;
+#else	/*  for pthread, BSD, Linux, Solaris etc */
+
+#include <sys/types.h>
 #include <pthread.h>
-#endif
+	typedef pthread_spinlock_t Spin_Type;
+	#define Do_Spin_Lock(X) \
+	if (pthread_spin_lock(&X) !=0)	\
+	{				\
+		ERROR_PRO("pthread_spin_lock for " #X " failed");	\
+	}
+	#define Do_Spin_UnLock(X) \
+	if (pthread_spin_unlock(&locker) !=0) \
+	{					\
+		ERROR_PRO("pthread_spin_unlock for " #X " failed");	\
+	}			
+	#define Spin_Init(X) \
+	if (pthread_spin_init(&X, PTHREAD_PROCESS_SHARED) !=0)	\
+	{							\
+		ERROR_PRO("pthread_spin_init for " #X " failed");	\
+	}
 #endif
 
 #if defined (_WIN32 )
@@ -86,16 +113,12 @@ public:
 
 	TPoll();
 #if  defined (MULTI_PTHREAD) 
-#if defined (_WIN32)
-	CRITICAL_SECTION spo_spin_lock;
-#elif  defined(__APPLE__)  
-	os_unfair_lock bsd_usr_event_id_lock, spo_spin_lock;
-#elif defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
-	pthread_spinlock_t bsd_usr_event_id_lock, spo_spin_lock;
-#else  
-	pthread_spinlock_t spo_spin_lock;
+	Spin_Type spo_spin_lock;
+#if defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__) || defined(__APPLE__)
+	Spin_Type bsd_usr_event_id_lock;
 #endif
 #endif
+
 #if defined (_WIN32)
 	struct DPoll::PollorBase  lor_exit;
 	HANDLE iocp_port,timer_queue;
@@ -122,23 +145,12 @@ public:
 #elif defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
 	struct DPoll::Pollor lor_exit;
 	uintptr_t usr_ident;
+
 	uintptr_t get_a_ident() {
 #if defined (MULTI_PTHREAD) 
-#if defined(__APPLE__)  
-	os_unfair_lock_lock(&bsd_usr_event_id_lock);
-	usr_ident++;
-	os_unfair_lock_unlock(&bsd_usr_event_id_lock);
-#elif defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
-	if (pthread_spin_lock(&bsd_usr_event_id_lock) !=0)
-	{
-		ERROR_PRO("pthread_spin_lock for bsd_usr_event_id_lock failed");
-	}
+		do_spin_lock(&bsd_usr_event_id_lock);
 		usr_ident++;
-	if (pthread_spin_unlock(&bsd_usr_event_id_lock) !=0)
-	{
-		ERROR_PRO("pthread_spin_unlock for bsd_usr_event_id_lock failed");
-	}
-#endif
+		do_spin_unlock(&bsd_usr_event_id_lock);
 #else	//single thread
 		usr_ident++;
 #endif
@@ -193,7 +205,6 @@ public:
 	struct itimerspec	itimeout;
 #endif	//for sun
 
-private:
 	char errMsg[2048];
 	int errstr_len;
 	//struct timeb t_now;
@@ -215,6 +226,109 @@ private:
 	void run_pendors();
 
 	bool init_ok;
+	struct Job_Entry {
+		Amor *obj;
+		Pius ps;
+#if defined(_WIN32) && (_MSC_VER < 1400 )
+		struct _timeb start_when, end_when;
+#else
+#if defined(TEXTUS_PLATFORM_64) && !defined(_WIN32)
+		struct timeval start_when, end_when;
+#else
+		struct timeb start_when, end_when;
+#endif
+#endif
+		size_t duration;
+		char stage;	// 0:idle, 1:working, 2:end
+
+		struct Job_Entry *next, *prev;
+		void append(  struct Job_Entry *list) {
+			list->next = this;
+			list->prev = prev;
+			prev->next = list;
+			prev = list;
+		};
+
+		struct Job_Entry *remove() {
+			Job_Entry *list = next;
+			next = next->next;
+			next->prev = this;
+			return list;
+		};
+
+		inline Job_Entry() {
+			next = prev = this;
+			obj = 0;
+			stage = 0;
+			duration = 0;
+			ps.indic = 0;
+			ps.ordo = 0;
+		};	
+	};
+	void jobs_init();
+	struct SchThread  {
+		int no;
+		int cpu_id;
+		struct Job_Entry job_list;
+		unsigned int many ;
+		Spin_Type sch_spin;
+#if defined (_WIN32)
+		DWORD t_id;
+		HANDLE work_Evt;	//工作信号事件
+#else
+		pthread_t t_id;	//thread id
+#if defined(__linux__) 
+		int work_Evt ;	//eventfd
+#endif
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
+		struct kevent work_Evt[2];
+		int fd;		//描述符
+		int work_kq;
+#endif	//for bsd
+#if defined(__sun) 
+		int work_Evt;
+#endif
+#endif	//for non WIN32
+		SchThread () {
+			many = 0;
+			no = -1;
+			cpu_id = -1;
+		};
+		
+	};	//run multi thread , each on a core.
+	void task_init(  struct SchThread *);
+	int jobs_size;
+	int concurrent_num;
+	struct Job_Entry *jobs_buf;
+	struct Job_Entry **jobs_info;
+	struct SchThread *con_tasks;
+	int tasks_top;		
+	inline struct Job_Entry* get_job()
+	{
+		int i;
+		tasks_top--;
+		if ( -1 == tasks_top ) 	/* 空间不够，扩张之 */
+		{	
+			delete[] jobs_info;
+			delete[] jobs_buf;
+			jobs_info = new struct Job_Entry* [jobs_size*2];	/* 分配2倍的空间 */
+			jobs_buf = new struct Job_Entry [jobs_size];
+			tasks_top = jobs_size;
+			for ( i = 0 ; i < tasks_top; i++) {
+				jobs_info[i] = &jobs_buf[i];
+			}
+			jobs_size = jobs_size*2;	/* 尺寸值加倍 */
+		}
+		return jobs_info[tasks_top];
+	};
+
+	inline void put_job(struct Job_Entry* jor)
+	{
+		jobs_info[tasks_top] = jor;
+		tasks_top++;
+	};
+
+	void schedule( Amor *obj, Pius *ps );
 
 	struct Timor : DPoll::PollorBase {
 #if defined(__linux__)
@@ -292,6 +406,65 @@ private:
 #include "wlog.h"
 };
 
+#if  defined (MULTI_PTHREAD) 
+#if !defined(_WIN32)
+typedef void* (*my_thread_func)(void*);
+#else
+typedef void (_cdecl *my_thread_func)(void*);
+#endif
+static void  a_cpu_routine(struct TPoll::SchThread  *task)
+{
+#if defined(_WIN32)
+	task->t_id = GetCurrentThreadId();
+WAIT_JOB:
+	if (WaitForSingleObject(task->work_Evt, 0) == WAIT_OBJECT_0 ) {
+	}
+#else
+	pthread_detach(pthread_self());
+WAIT_JOB:
+	pthread_mutex_lock(&task->work_Evt_mut);
+	while ( ) {
+	
+	pthread_cond_wait(&task->work_Evt_cond, &task->work_Evt_mut);
+	pthread_mutex_unlock(&task->work_Evt_mut);
+	}
+#endif
+	
+	goto WAIT_JOB;
+}
+
+void  TPoll::schedule( Amor *obj, Pius *ps ) {
+	struct SchThread  *just_he;
+	bool will_notify;
+	if ( will_notify) {
+#if defined (_WIN32)
+		setEvent(just_he->work_Evt);
+#endif
+#if defined(__sun)
+		port_send(just_he->work_Evt, 0x01, just);
+#endif
+#if defined(__linux__)
+		unsigned char cnt[8];
+		TEXTUS_LONG a = 1;	
+#if defined(TEXTUS_PLATFORM_64) 
+		memcpy(cnt, &a, 8);
+#else
+		memset(cnt, 0, 8);
+		memcpy(cnt, &a, 4);
+#endif
+		write (just_he->fd, cnt, 8);
+#endif
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
+		EV_SET(&(just_he->events[1]), just_he->fd, EVFILT_USER, 0, NOTE_FFCOPY|NOTE_TRIGGER|0x1, 0, just_he);	
+		if( kevent(just_he->work_kq, &(just_he->work_Evt[1]), 1, NULL, 0, NULL) ==- 1)
+		{
+			ERROR_PRO("kevent(NOTE_FFCOPY|NOTE_TRIGGER|0x1 for task trigger) failed");
+		}
+#endif
+	}
+}
+#endif	//end if multi_thread
+
 #define DEFAULT_TIMER_MILLI 1000
 static TPoll *g_poll = 0;
 #if defined (_WIN32)
@@ -300,6 +473,54 @@ VOID CALLBACK timer_routine(PVOID lpParam, BOOLEAN TimerOrWaitFired)
 	PostQueuedCompletionStatus(g_poll->iocp_port, 0, (ULONG_PTR)lpParam, 0);
 }
 #endif
+
+void TPoll::jobs_init() {
+	int i;
+	if (tasks_top < 0 ) 
+	{
+		jobs_info = new struct Job_Entry* [jobs_size];
+		jobs_buf = new struct Job_Entry [jobs_size];
+		tasks_top = infor_size;
+		for ( i = 0 ; i < tasks_top; i++) {
+			jobs_info[i] = &jobs_buf[i];
+		}
+	}
+}
+
+void TPoll::task_init( struct SchThread *task, int num) {
+	task->no = num;
+#if defined(_WIN32)
+	task->work_Evt = CreateEvent(NULL, TRUE, FALSE, NULL);
+	if (task->work_Evt == INVALID_HANDLE_VALUE)
+	{
+		WLOG_OSERR("CreateEvent for MULTI_THREAD");
+	}
+#else
+#if defined(__linux__) || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
+	task->work_Evt = eventfd(0, EFD_CLOEXEC); 	/* event fd , for cpu tasks */
+	if (task->work_Evt == -1)
+	{
+		WLOG_OSERR("eventfd for MULTI_THREAD");
+	}
+#endif
+#if defined(__sun)
+	task->work_Evt = port_create();
+	if (task->work_Evt == -1)
+	{
+		WLOG_OSERR("port_create for MULTI_THREAD");
+	}
+#endif
+#if defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
+	task->fd =  get_a_ident();
+	EV_SET(&(task->work_Evt[0]), task->fd, EVFILT_USER, EV_ADD|EV_ONESHOT, NOTE_FFNOP, 0, task);
+	if( kevent(task->work_kq, &(task->work_Evt[0]), 1, NULL, 0, NULL) == -1 )
+	{
+		ERROR_PRO("kevent(EV_ADD|EV_ONESHOT for task_init) failed");
+	}
+#endif
+
+#endif	//end if multi thread
+}
 
 void TPoll::ignite(TiXmlElement *cfg)
 {
@@ -423,38 +644,34 @@ void TPoll::ignite(TiXmlElement *cfg)
 
 	timor_init();	//初始化
 #if  defined (MULTI_PTHREAD) 
-#if defined (_WIN32)
-	DWORD              dwSpinCount;
-	int spin_num;
-	dwSpinCount = 1000;
-	cfg->QueryIntAttribute("spin_count", &spin_num);
-	dwSpinCount = spin_num;
-	//InitializeCriticalSection(&spo_spin_lock);
-	InitializeCriticalSectionAndSpinCount(&spo_spin_lock, dwSpinCount);
-
-#elif  defined(__APPLE__)  
-	bsd_usr_event_id_lock = OS_UNFAIR_LOCK_INIT;
-	spo_spin_lock = OS_UNFAIR_LOCK_INIT;
-
-#elif defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
-	if (pthread_spin_init(&bsd_usr_event_id_lock, PTHREAD_PROCESS_SHARED) !=0)
-	{
-		ERROR_PRO("pthread_spin_init for bsd_usr_event_id_lock failed");
-		return ;
+	jobs_size = 128;
+	jobs_init();
+	concurrent_num = 0;
+	TiXmlElement *var_ele;
+	for (var_ele = cfg->FirstChildElement("tasks"); var_ele; var_ele = var_ele->NextSiblingElement("tasks") ) concurrent_num++;
+	con_tasks = new struct SchThread[concurrent_num];
+	concurrent_num = 0;
+	for (var_ele = cfg->FirstChildElement("tasks"); var_ele; var_ele = var_ele->NextSiblingElement("tasks") ) {
+		var_ele->QueryIntAttribute("cpu_id", &(con_tasks[concurrent_num]->cpu_id));
+		task_init(&con_tasks[concurrent_num], concurrent_num);
+	       	concurrent_num++;
 	}
-	if (pthread_spin_init(&spo_spin_lock, PTHREAD_PROCESS_SHARED) !=0)
-	{
-		ERROR_PRO("pthread_spin_init for spo_spin_lock failed");
-		return ;
-	}
+
+	Spin_Init(spo_spin_lock)
+#elif defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__) || defined(__APPLE__)
+	Spin_Init(bsd_usr_event_id_lock)
+#endif
+	for ( int i = 0 ; i < concurrent_num; i++) {	//start each task whith a thread
+#if defined(_WIN32)
+		if ( _beginthread((my_thread_func)a_cpu_routine, 0, &con_tasks[i]) == -1 )
+			WLOG_OSERR("_beginthread")
 #else
-	if (pthread_spin_init(&spo_spin_lock, PTHREAD_PROCESS_SHARED) !=0)
-	{
-		ERROR_PRO("pthread_spin_init for spo_spin_lock failed");
-		return ;
-	}
+		if (pthread_create(&(con_tasks[i].t_id), NULL, (my_thread_func)a_cpu_routine, (void*)&con_tasks[i]) )
+			WLOG_OSERR("pthread_create")
 #endif
-#endif
+	} 
+
+#endif	//end if multi_thread
 	init_ok = true;
 }
 
@@ -1101,6 +1318,7 @@ TPoll::TPoll()
 	infor_size = 0;
 	timer_infor = 0;
 	stack_top = -1;
+	tasks_top = -1;
 	init_ok = false;
 
 	lor_exit.type = DPoll::SysExit;
@@ -1334,12 +1552,20 @@ LOOP:
 			tm_hd_ps.indic = 0;
 			//printf(" timer_alarm  pupa %p hand\n", pupa);
 			pupa->facio(&tm_hd_ps);		//clear timer_handle 
+		#if  defined (MULTI_PTHREAD) 
+			schedule(pupa, &timer_pius);
+		#else
 			pupa->facio(&timer_pius);	//TIMER
+		#endif
 			break;
 
 		case DPoll::Timer:
 			WBUG("get DPoll:Timer");
+		#if  defined (MULTI_PTHREAD) 
+			schedule(TOR->pupa, &timer_pius);
+		#else
 			TOR->pupa->facio(&timer_pius);
+		#endif
 			break;
 
 #if defined(__linux__)
@@ -1373,7 +1599,11 @@ LOOP:
 							else
 								TEXTUS_SNPRINTF(errMsg, errstr_len, "read errno %lld, %s.", io_evs[geti].res2, strerror(io_evs[geti].res2));
 							poll_ps.indic = errMsg;
+						#if  defined (MULTI_PTHREAD) 
+							schedule(PPO->pupa, &poll_ps);
+						#else
 							PPO->pupa->facio(&poll_ps);
+						#endif
 							poll_ps.indic = 0;
 							break;
 						}
@@ -1393,7 +1623,11 @@ LOOP:
 			case 0:
 				poll_ps.ordo = Notitia::PRO_EPOLL;
 				poll_ps.indic = (void*)(Event_ID);
+			#if  defined (MULTI_PTHREAD) 
+				schedule(PPO->pupa, &poll_ps);
+			#else
 				PPO->pupa->facio(&poll_ps);
+			#endif
 				break;
 			case EINPROGRESS:
 			case EINVAL:
@@ -1407,7 +1641,11 @@ LOOP:
 				else
 					TEXTUS_SNPRINTF(errMsg, errstr_len, "read errno %d, %s.", my_error, strerror(my_error));
 				poll_ps.indic = errMsg;
+			#if  defined (MULTI_PTHREAD) 
+				schedule(PPO->pupa, &poll_ps);
+			#else
 				PPO->pupa->facio(&poll_ps);
+			#endif
 				poll_ps.indic = 0;
 				break;
 			}
@@ -1454,7 +1692,11 @@ LOOP:
 				}
 			}
 			WBUG("get DPoll:%s %s trans(%d) get(%d)", AOR->type ==  DPoll::IOCPFile ? "File" : "Sock", success ? "success" : "failed", num_trans, A_GET.dwNumberOfBytesTransferred);
+		#if  defined (MULTI_PTHREAD) 
+			schedule(PPO->pupa, &poll_ps);
+		#else
 			PPO->pupa->facio(&poll_ps);
+		#endif
 #endif
 #if defined (_WIN32XX)
 		WIN_POLL:
@@ -1473,7 +1715,11 @@ LOOP:
 					poll_ps.indic = errMsg;
 				}
 			}
+		#if  defined (MULTI_PTHREAD) 
+			schedule(PPO->pupa, &poll_ps);
+		#else
 			PPO->pupa->facio(&poll_ps);
+		#endif
 #endif
 			break;
 
@@ -1482,21 +1728,41 @@ LOOP:
 			WBUG("get DPoll:FileD");
 #if  defined(__sun)
 			if (A_GET.portev_events & (POLLIN | POLLRDNORM )) {
+			#if  defined (MULTI_PTHREAD) 
+				schedule(PPO->pupa, &(PPO->pro_ps));
+			#else
 				PPO->pupa->facio(&(PPO->pro_ps));
+			#endif
 			} else if (A_GET.portev_events & POLLOUT ) {
 				poll_ps.ordo = Notitia::WR_EPOLL;
+			#if  defined (MULTI_PTHREAD) 
+				schedule(PPO->pupa, &poll_ps);
+			#else
 				PPO->pupa->facio(&poll_ps);
+			#endif
 			} else if (A_GET.portev_events & POLLPRI ) {
 				poll_ps.ordo = Notitia::EXCEPT_EPOLL;
+			#if  defined (MULTI_PTHREAD) 
+				schedule(PPO->pupa, &poll_ps);
+			#else
 				PPO->pupa->facio(&poll_ps);
+			#endif
 			} else if (A_GET.portev_events & POLLHUP) {
 				poll_ps.ordo = Notitia::EOF_EPOLL;
+			#if  defined (MULTI_PTHREAD) 
+				schedule(PPO->pupa, &poll_ps);
+			#else
 				PPO->pupa->facio(&poll_ps);
+			#endif
 			} else 	if (A_GET.portev_events & (POLLERR |POLLNVAL )) {
 				poll_ps.ordo = Notitia::ERR_EPOLL;
 				poll_ps.indic = errMsg;
 				TEXTUS_SPRINTF(errMsg, "port_get(POLLERR)");
+			#if  defined (MULTI_PTHREAD) 
+				schedule(PPO->pupa, &poll_ps);
+			#else
 				PPO->pupa->facio(&poll_ps);
+			#endif
 				poll_ps.indic = 0;
 			} else {
 				WLOG(WARNING, "unknown events %08X", A_GET.portev_events);
@@ -1505,27 +1771,51 @@ LOOP:
 
 #if  defined(__linux__)
 			if (A_GET.events & EPOLLIN ) {
+			#if  defined (MULTI_PTHREAD) 
+				schedule(PPO->pupa, &(PPO->pro_ps));
+			#else
 				PPO->pupa->facio(&(PPO->pro_ps));
+			#endif
 			} else if (A_GET.events & EPOLLOUT) {
 				poll_ps.ordo = Notitia::WR_EPOLL;
+			#if  defined (MULTI_PTHREAD) 
+				schedule(PPO->pupa, &poll_ps);
+			#else
 				PPO->pupa->facio(&poll_ps);
+			#endif
 			} else if (A_GET.events & EPOLLPRI) {
 				poll_ps.ordo = Notitia::EXCEPT_EPOLL;
+			#if  defined (MULTI_PTHREAD) 
+				schedule(PPO->pupa, &poll_ps);
+			#else
 				PPO->pupa->facio(&poll_ps);
+			#endif
 			} else if (A_GET.events & EPOLLRDHUP) {
 				poll_ps.ordo = Notitia::EOF_EPOLL;
+			#if  defined (MULTI_PTHREAD) 
+				schedule(PPO->pupa, &poll_ps);
+			#else
 				PPO->pupa->facio(&poll_ps);
+			#endif
 			} else if (A_GET.events & EPOLLHUP ) {
 				poll_ps.ordo = Notitia::ERR_EPOLL;
 				poll_ps.indic = errMsg;
 				TEXTUS_SPRINTF(errMsg, "epoll_wait(EPOLLHUP)");
+			#if  defined (MULTI_PTHREAD) 
+				schedule(PPO->pupa, &poll_ps);
+			#else
 				PPO->pupa->facio(&poll_ps);
+			#endif
 				poll_ps.indic = 0;
 			} else if (A_GET.events & (EPOLLERR)) {
 				poll_ps.ordo = Notitia::ERR_EPOLL;
 				poll_ps.indic = errMsg;
 			 	TEXTUS_SPRINTF(errMsg, "epoll_wait(EPOLLERR)");
+			#if  defined (MULTI_PTHREAD) 
+				schedule(PPO->pupa, &poll_ps);
+			#else
 				PPO->pupa->facio(&poll_ps);
+			#endif
 				poll_ps.indic = 0;
 			} else {
 				WLOG(WARNING, "unknown events %08X", A_GET.events);
@@ -1536,22 +1826,38 @@ LOOP:
 			switch (A_GET.filter ) 
 			{
 			case EVFILT_READ:
+			#if  defined (MULTI_PTHREAD) 
+				schedule(PPO->pupa, &(PPO->pro_ps));
+			#else
 				PPO->pupa->facio(&(PPO->pro_ps));
+			#endif
 				break;
 
 			case EVFILT_WRITE:
 				poll_ps.ordo = Notitia::WR_EPOLL;
+			#if  defined (MULTI_PTHREAD) 
+				schedule(PPO->pupa, &poll_ps);
+			#else
 				PPO->pupa->facio(&poll_ps);
+			#endif
 				break;
 			default:
 				if (A_GET.flags & EV_EOF) {
 					poll_ps.ordo = Notitia::EOF_EPOLL;
+				#if  defined (MULTI_PTHREAD) 
+					schedule(PPO->pupa, &poll_ps);
+				#else
 					PPO->pupa->facio(&poll_ps);
+				#endif
 				} else if (A_GET.flags & EV_ERROR) {
 					poll_ps.ordo = Notitia::ERR_EPOLL;
 					poll_ps.indic = errMsg;
 					TEXTUS_SNPRINTF(errMsg, errstr_len, "kevent(EV_ERROR) system error(0x%08lX): %s.", A_GET.data, strerror(A_GET.data));
+				#if  defined (MULTI_PTHREAD) 
+					schedule(PPO->pupa, &poll_ps);
+				#else
 					PPO->pupa->facio(&poll_ps);
+				#endif
 					poll_ps.indic = 0;
 				} else {
 					WLOG(WARNING, "unknown events %08 or flag %08X", A_GET.filter, A_GET.flags);
@@ -1582,4 +1888,14 @@ LOOP:
 	WBUG("will exit.... ");
 }
 #include "hook.c"
+
+	/*
+	DWORD              dwSpinCount;
+	int spin_num;
+	dwSpinCount = 1000;
+	cfg->QueryIntAttribute("spin_count", &spin_num);
+	dwSpinCount = spin_num;
+	InitializeCriticalSection(&spo_spin_lock);
+	InitializeCriticalSectionAndSpinCount(&spo_spin_lock, dwSpinCount);
+	*/
 
