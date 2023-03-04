@@ -146,17 +146,7 @@ public:
 #elif defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
 	struct DPoll::Pollor lor_exit;
 	uintptr_t usr_ident;
-
-	uintptr_t get_a_ident() {
-#if defined (MULTI_PTHREAD) 
-		Do_Spin_Lock(&bsd_usr_event_id_lock);
-		usr_ident++;
-		Do_Spin_UnLock(&bsd_usr_event_id_lock);
-#else	//single thread
-		usr_ident++;
-#endif
-		return usr_ident;
-	};
+	inline uintptr_t get_a_ident();
 #else
 	struct DPoll::Pollor lor_exit;
 #endif
@@ -608,6 +598,20 @@ VOID CALLBACK timer_routine(PVOID lpParam, BOOLEAN TimerOrWaitFired)
 {
 	PostQueuedCompletionStatus(g_poll->iocp_port, 0, (ULONG_PTR)lpParam, 0);
 }
+#endif
+
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)
+inline uintptr_t TPoll::get_a_ident()
+{
+#if defined (MULTI_PTHREAD) 
+		Do_Spin_Lock(bsd_usr_event_id_lock);
+		usr_ident++;
+		Do_Spin_UnLock(bsd_usr_event_id_lock);
+#else	//single thread
+		usr_ident++;
+#endif
+		return usr_ident;
+};
 #endif
 
 void TPoll::ignite(TiXmlElement *cfg)
