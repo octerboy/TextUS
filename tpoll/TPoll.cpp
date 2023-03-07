@@ -72,18 +72,19 @@
 	#define Do_Spin_Lock(X) \
 	if (pthread_spin_lock(&X) !=0)	\
 	{				\
-		ERROR_PRO("pthread_spin_lock for " #X " failed");	\
+		WLOG_OSERR("pthread_spin_lock for " #X );	\
 	}
 	#define Do_Spin_UnLock(X) \
-	if (pthread_spin_unlock(&locker) !=0) \
+	if (pthread_spin_unlock(&X) !=0) \
 	{					\
-		ERROR_PRO("pthread_spin_unlock for " #X " failed");	\
+		WLOG_OSERR("pthread_spin_unlock for " #X );	\
 	}			
 	#define Spin_Init(X) \
 	if (pthread_spin_init(&X, PTHREAD_PROCESS_SHARED) !=0)	\
 	{							\
-		ERROR_PRO("pthread_spin_init for " #X " failed");	\
+		WLOG_OSERR("pthread_spin_init for " #X );	\
 	}
+#endif
 #endif
 
 #if defined (_WIN32 )
@@ -226,109 +227,6 @@ public:
 	void run_pendors();
 
 	bool init_ok;
-	struct Job_Entry {
-		Amor *obj;
-		Pius ps;
-#if defined(_WIN32) && (_MSC_VER < 1400 )
-		struct _timeb start_when, end_when;
-#else
-#if defined(TEXTUS_PLATFORM_64) && !defined(_WIN32)
-		struct timeval start_when, end_when;
-#else
-		struct timeb start_when, end_when;
-#endif
-#endif
-		size_t duration;
-		char stage;	// 0:idle, 1:working, 2:end
-
-		struct Job_Entry *next, *prev;
-		void append(  struct Job_Entry *list) {
-			list->next = this;
-			list->prev = prev;
-			prev->next = list;
-			prev = list;
-		};
-
-		struct Job_Entry *remove() {
-			Job_Entry *list = next;
-			next = next->next;
-			next->prev = this;
-			return list;
-		};
-
-		inline Job_Entry() {
-			next = prev = this;
-			obj = 0;
-			stage = 0;
-			duration = 0;
-			ps.indic = 0;
-			ps.ordo = 0;
-		};	
-	};
-	void jobs_init();
-	struct SchThread  {
-		int no;
-		int cpu_id;
-		struct Job_Entry job_list;
-		unsigned int many ;
-		Spin_Type sch_spin;
-#if defined (_WIN32)
-		DWORD t_id;
-		HANDLE work_Evt;	//工作信号事件
-#else
-		pthread_t t_id;	//thread id
-#if defined(__linux__) 
-		int work_Evt ;	//eventfd
-#endif
-#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
-		struct kevent work_Evt[2];
-		int fd;		//描述符
-		int work_kq;
-#endif	//for bsd
-#if defined(__sun) 
-		int work_Evt;
-#endif
-#endif	//for non WIN32
-		SchThread () {
-			many = 0;
-			no = -1;
-			cpu_id = -1;
-		};
-		
-	};	//run multi thread , each on a core.
-	void task_init(  struct SchThread *);
-	int jobs_size;
-	int concurrent_num;
-	struct Job_Entry *jobs_buf;
-	struct Job_Entry **jobs_info;
-	struct SchThread *con_tasks;
-	int tasks_top;		
-	inline struct Job_Entry* get_job()
-	{
-		int i;
-		tasks_top--;
-		if ( -1 == tasks_top ) 	/* 空间不够，扩张之 */
-		{	
-			delete[] jobs_info;
-			delete[] jobs_buf;
-			jobs_info = new struct Job_Entry* [jobs_size*2];	/* 分配2倍的空间 */
-			jobs_buf = new struct Job_Entry [jobs_size];
-			tasks_top = jobs_size;
-			for ( i = 0 ; i < tasks_top; i++) {
-				jobs_info[i] = &jobs_buf[i];
-			}
-			jobs_size = jobs_size*2;	/* 尺寸值加倍 */
-		}
-		return jobs_info[tasks_top];
-	};
-
-	inline void put_job(struct Job_Entry* jor)
-	{
-		jobs_info[tasks_top] = jor;
-		tasks_top++;
-	};
-
-	void schedule( Amor *obj, Pius *ps );
 
 	struct Timor : DPoll::PollorBase {
 #if defined(__linux__)
@@ -403,8 +301,115 @@ public:
 		timer_infor[stack_top] = aor;
 		stack_top++;
 	};
+#if defined (MULTI_PTHREAD) 
+	struct Job_Entry {
+		Amor *obj;
+		Pius ps;
+#if defined(_WIN32) && (_MSC_VER < 1400 )
+		struct _timeb start_when, end_when;
+#else
+#if defined(TEXTUS_PLATFORM_64) && !defined(_WIN32)
+		struct timeval start_when, end_when;
+#else
+		struct timeb start_when, end_when;
+#endif
+#endif
+		size_t duration;
+		char stage;	// 0:idle, 1:working, 2:end
+
+		struct Job_Entry *next, *prev;
+		void append(  struct Job_Entry *list) {
+			list->next = this;
+			list->prev = prev;
+			prev->next = list;
+			prev = list;
+		};
+
+		struct Job_Entry *remove() {
+			Job_Entry *list = next;
+			next = next->next;
+			next->prev = this;
+			return list;
+		};
+
+		inline Job_Entry() {
+			next = prev = this;
+			obj = 0;
+			stage = 0;
+			duration = 0;
+			ps.indic = 0;
+			ps.ordo = 0;
+		};	
+	};
+	void jobs_init();
+	struct Job_Entry *jobs_buf;
+	int jobs_size;
+	struct Job_Entry **jobs_info;
+	Spin_Type jobs_pool_spin;
+	int jobs_top;		
+	inline struct Job_Entry* get_job()
+	{
+		int i;
+		jobs_top--;
+		if ( -1 == jobs_top ) 	/* 空间不够，扩张之 */
+		{	
+			delete[] jobs_info;
+			delete[] jobs_buf;
+			jobs_info = new struct Job_Entry* [jobs_size*2];	/* 分配2倍的空间 */
+			jobs_buf = new struct Job_Entry [jobs_size];
+			jobs_top = jobs_size;
+			for ( i = 0 ; i < jobs_top; i++) {
+				jobs_info[i] = &jobs_buf[i];
+			}
+			jobs_size = jobs_size*2;	/* 尺寸值加倍 */
+		}
+		return jobs_info[jobs_top];
+	};
+	inline void put_job(struct Job_Entry* jor)
+	{
+		jobs_info[jobs_top] = jor;
+		jobs_top++;
+	};
+
+	struct SchThread  {
+		int no;
+		int cpu_id;
+		struct Job_Entry job_list;
+		unsigned int many ;
+		Spin_Type sch_spin;
+#if defined (_WIN32)
+		DWORD t_id;
+		HANDLE work_Evt;	//工作信号事件
+#else
+#if defined(__linux__) 
+		int work_Evt ;	//eventfd
+#endif
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
+		struct kevent work_Evt[3];
+		int fd;		//描述符
+		int work_kq;
+#endif	//for bsd
+#if defined(__sun) 
+		int work_Evt;
+#endif
+		pthread_t t_id;	//thread id
+#endif	//for non WIN32
+		SchThread () {
+			many = 0;
+			no = -1;
+			cpu_id = -1;
+		};
+		
+	};	//run multi thread , each on a core.
+	struct SchThread *con_tasks;
+	int concurrent_num;	//how many tasks 
+	void task_init(  struct SchThread *, int);
+	void schedule( Amor *obj, Pius *ps );
+	void cocurrent_sub(struct SchThread  *task);
+#endif
 #include "wlog.h"
 };
+static TPoll *g_poll = 0;
 
 #if  defined (MULTI_PTHREAD) 
 #if !defined(_WIN32)
@@ -412,36 +417,118 @@ typedef void* (*my_thread_func)(void*);
 #else
 typedef void (_cdecl *my_thread_func)(void*);
 #endif
-static void  a_cpu_routine(struct TPoll::SchThread  *task)
+static void  a_task_thread_routine(struct TPoll::SchThread  *task)
 {
 #if defined(_WIN32)
 	task->t_id = GetCurrentThreadId();
-WAIT_JOB:
-	if (WaitForSingleObject(task->work_Evt, 0) == WAIT_OBJECT_0 ) {
-	}
 #else
 	pthread_detach(pthread_self());
-WAIT_JOB:
-	pthread_mutex_lock(&task->work_Evt_mut);
-	while ( ) {
-	
-	pthread_cond_wait(&task->work_Evt_cond, &task->work_Evt_mut);
-	pthread_mutex_unlock(&task->work_Evt_mut);
-	}
 #endif
+	g_poll->cocurrent_sub(task);
+}
+
+void  TPoll::cocurrent_sub(struct SchThread  *task ) {
+	bool will_wait;
+	struct Job_Entry *g;
+WAIT_JOB:
+	Do_Spin_Lock(task->sch_spin)
+	if ( task->many >0 )
+	{
+		g = task->job_list.remove();
+		task->many--;
+		will_wait = false;
+	} else 
+		will_wait = true;
+	Do_Spin_UnLock(task->sch_spin)
 	
+	if ( will_wait) {
+#if defined (_WIN32)
+		if (WaitForSingleObject(task->work_Evt, 0) == WAIT_OBJECT_0 ) {
+			goto WAIT_JOB;
+		} else {
+			WLOG_OSERR("WaitForSingleObject for task routine");
+		}
+#endif
+#if defined(__sun)
+		port_event_t evt;
+		int ret ;
+		ret = port_get(task->work_Evt, &evt, 0);
+		if ( ret == 0 )
+			goto WAIT_JOB;
+		else {
+			WLOG_OSERR("port_get for task routine");
+		}
+#endif
+#if defined(__linux__)
+		unsigned char cnt[8];
+		int ret ;
+#if defined(TEXTUS_PLATFORM_64) 
+		ret = read(task->work_Evt, cnt,8);
+#else
+		ret = read(task->work_Evt, cnt,4);
+#endif
+		if ( ret > 0 )
+			goto WAIT_JOB;
+		else {
+			WLOG_OSERR("read for task routine");
+		}
+#endif
+#if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
+		int ret;
+		ret = kevent(task->work_kq, NULL, 0, &task->work_Evt[2], 1, NULL);
+		if ( ret == -1 ) 
+		{
+			WLOG_OSERR("kevent for task routine");
+		}
+#endif
+	} else {	//execute a job
+		g->obj->facio(&g->ps);
+		Do_Spin_Lock(jobs_pool_spin)
+		put_job(g);
+		Do_Spin_UnLock(jobs_pool_spin)
+	}
 	goto WAIT_JOB;
 }
 
 void  TPoll::schedule( Amor *obj, Pius *ps ) {
 	struct SchThread  *just_he;
+	unsigned int low_many;
+	struct Job_Entry *a_job;
 	bool will_notify;
+
+	Do_Spin_Lock(jobs_pool_spin)
+	a_job = get_job();
+	a_job->obj = obj;
+	a_job->ps.ordo = ps->ordo;
+	a_job->ps.indic = ps->indic;
+	a_job->ps.subor = ps->subor;
+	low_many = con_tasks[0].many;
+	just_he = &con_tasks[0];
+	for ( int i = 1 ; i < concurrent_num; i++) {
+		if (con_tasks[i].many < low_many ) {
+			low_many = con_tasks[i].many;
+			just_he = &con_tasks[i];
+		}
+	}
+	Do_Spin_UnLock(jobs_pool_spin)
+
+	Do_Spin_Lock(just_he->sch_spin)
+	will_notify =  ( just_he->many == 0 ) ;
+	just_he->job_list.append(a_job);
+	just_he->many++;
+	Do_Spin_UnLock(just_he->sch_spin)
 	if ( will_notify) {
 #if defined (_WIN32)
-		setEvent(just_he->work_Evt);
+		if ( !setEvent(just_he->work_Evt) )
+		{
+			WLOG_OSERR("setEvent for schedule");
+		}
 #endif
 #if defined(__sun)
-		port_send(just_he->work_Evt, 0x01, just);
+		if ( port_send(just_he->work_Evt, 0x02, just) != 0 ) 
+		{
+			WLOG_OSERR("port_send for schedule");
+		}
 #endif
 #if defined(__linux__)
 		unsigned char cnt[8];
@@ -452,50 +539,44 @@ void  TPoll::schedule( Amor *obj, Pius *ps ) {
 		memset(cnt, 0, 8);
 		memcpy(cnt, &a, 4);
 #endif
-		write (just_he->fd, cnt, 8);
+		if ( write (just_he->work_Evt, cnt, 8) == -1) 
+		{
+			WLOG_OSERR("write for schedule)");
+		}
 #endif
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
 		EV_SET(&(just_he->events[1]), just_he->fd, EVFILT_USER, 0, NOTE_FFCOPY|NOTE_TRIGGER|0x1, 0, just_he);	
 		if( kevent(just_he->work_kq, &(just_he->work_Evt[1]), 1, NULL, 0, NULL) ==- 1)
 		{
-			ERROR_PRO("kevent(NOTE_FFCOPY|NOTE_TRIGGER|0x1 for task trigger) failed");
+			WLOG_OSERR("kevent(NOTE_FFCOPY|NOTE_TRIGGER|0x1 for schedule)");
 		}
 #endif
 	}
 }
-#endif	//end if multi_thread
-
-#define DEFAULT_TIMER_MILLI 1000
-static TPoll *g_poll = 0;
-#if defined (_WIN32)
-VOID CALLBACK timer_routine(PVOID lpParam, BOOLEAN TimerOrWaitFired)
-{
-	PostQueuedCompletionStatus(g_poll->iocp_port, 0, (ULONG_PTR)lpParam, 0);
-}
-#endif
 
 void TPoll::jobs_init() {
 	int i;
-	if (tasks_top < 0 ) 
-	{
+	if (jobs_top < 0 ) {
 		jobs_info = new struct Job_Entry* [jobs_size];
 		jobs_buf = new struct Job_Entry [jobs_size];
-		tasks_top = infor_size;
-		for ( i = 0 ; i < tasks_top; i++) {
+		jobs_top = infor_size;
+		for ( i = 0 ; i < jobs_top; i++) {
 			jobs_info[i] = &jobs_buf[i];
 		}
 	}
+	Spin_Init(jobs_pool_spin)
 }
 
 void TPoll::task_init( struct SchThread *task, int num) {
 	task->no = num;
+	Spin_Init(task->sch_spin)
 #if defined(_WIN32)
 	task->work_Evt = CreateEvent(NULL, TRUE, FALSE, NULL);
 	if (task->work_Evt == INVALID_HANDLE_VALUE)
 	{
 		WLOG_OSERR("CreateEvent for MULTI_THREAD");
 	}
-#else
+#endif 
 #if defined(__linux__) || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
 	task->work_Evt = eventfd(0, EFD_CLOEXEC); 	/* event fd , for cpu tasks */
 	if (task->work_Evt == -1)
@@ -515,12 +596,19 @@ void TPoll::task_init( struct SchThread *task, int num) {
 	EV_SET(&(task->work_Evt[0]), task->fd, EVFILT_USER, EV_ADD|EV_ONESHOT, NOTE_FFNOP, 0, task);
 	if( kevent(task->work_kq, &(task->work_Evt[0]), 1, NULL, 0, NULL) == -1 )
 	{
-		ERROR_PRO("kevent(EV_ADD|EV_ONESHOT for task_init) failed");
+		WLOG_OSERR("kevent(EV_ADD|EV_ONESHOT for task_init)");
 	}
 #endif
-
-#endif	//end if multi thread
 }
+#endif	//end if multi thread
+
+#define DEFAULT_TIMER_MILLI 1000
+#if defined (_WIN32)
+VOID CALLBACK timer_routine(PVOID lpParam, BOOLEAN TimerOrWaitFired)
+{
+	PostQueuedCompletionStatus(g_poll->iocp_port, 0, (ULONG_PTR)lpParam, 0);
+}
+#endif
 
 void TPoll::ignite(TiXmlElement *cfg)
 {
@@ -644,6 +732,7 @@ void TPoll::ignite(TiXmlElement *cfg)
 
 	timor_init();	//初始化
 #if  defined (MULTI_PTHREAD) 
+	Spin_Init(spo_spin_lock)
 	jobs_size = 128;
 	jobs_init();
 	concurrent_num = 0;
@@ -652,21 +741,20 @@ void TPoll::ignite(TiXmlElement *cfg)
 	con_tasks = new struct SchThread[concurrent_num];
 	concurrent_num = 0;
 	for (var_ele = cfg->FirstChildElement("tasks"); var_ele; var_ele = var_ele->NextSiblingElement("tasks") ) {
-		var_ele->QueryIntAttribute("cpu_id", &(con_tasks[concurrent_num]->cpu_id));
+		var_ele->QueryIntAttribute("cpu_id", &(con_tasks[concurrent_num].cpu_id));
 		task_init(&con_tasks[concurrent_num], concurrent_num);
 	       	concurrent_num++;
 	}
 
-	Spin_Init(spo_spin_lock)
-#elif defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__) || defined(__APPLE__)
+#if defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__) || defined(__APPLE__)
 	Spin_Init(bsd_usr_event_id_lock)
 #endif
 	for ( int i = 0 ; i < concurrent_num; i++) {	//start each task whith a thread
 #if defined(_WIN32)
-		if ( _beginthread((my_thread_func)a_cpu_routine, 0, &con_tasks[i]) == -1 )
+		if ( _beginthread((my_thread_func)a_task_thread_routine, 0, &con_tasks[i]) == -1 )
 			WLOG_OSERR("_beginthread")
 #else
-		if (pthread_create(&(con_tasks[i].t_id), NULL, (my_thread_func)a_cpu_routine, (void*)&con_tasks[i]) )
+		if (pthread_create(&(con_tasks[i].t_id), NULL, (my_thread_func)a_task_thread_routine, (void*)&con_tasks[i]) )
 			WLOG_OSERR("pthread_create")
 #endif
 	} 
@@ -703,19 +791,8 @@ bool TPoll::sponte( Amor::Pius *apius)
 	assert(apius);
 
 #if  defined (MULTI_PTHREAD) 
-#if defined (_WIN32)
-	EnterCriticalSection(&spo_spin_lock);
-#elif  defined(__APPLE__)  
-	os_unfair_lock_lock(&spo_spin_lock);
-#else
-	if (pthread_spin_lock(&spo_spin_lock) !=0)
-	{
-		ERROR_PRO("pthread_spin_lock for spo_spin_lock");
-		WLOG(WARNING, errMsg);
-	}
+	Do_Spin_Lock(spo_spin_lock)
 #endif
-#endif
-
 	switch ( apius->ordo )
 	{
 	case Notitia::CLR_EPOLL :	/* clear epoll  */
@@ -1167,12 +1244,14 @@ END_ALARM_PRO:
 		if ( kevent(kq, &(lor_exit.events[0]), 1, NULL, 0, NULL) == -1) 
 		{
 			ERROR_PRO("kevent( EV_ADD|EV_ONESHOT for CMD_MAIN_EXIT) failed");
+			WLOG(WARNING, errMsg);
 			break;
 		}
 		EV_SET(&(lor_exit.events[1]), lor_exit.fd, EVFILT_USER, 0, NOTE_FFCOPY|NOTE_TRIGGER|0x1, 0, &lor_exit);	
 		if ( kevent(kq, &(lor_exit.events[1]), 1, NULL, 0, NULL) == -1)
 		{
 			ERROR_PRO("kevent(NOTE_FFCOPY|NOTE_TRIGGER|0x1 for CMD_MAIN_EXIT) failed");
+			WLOG(WARNING, errMsg);
 			break;
 		}
 #endif
@@ -1182,6 +1261,7 @@ END_ALARM_PRO:
 			lor_exit.fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC); 
 			if (lor_exit.fd == -1) {
 				ERROR_PRO("eventfd for CMD_MAIN_EXIT");
+				WLOG(WARNING, errMsg);
 				break;
 			}
 			lor_exit.op = EPOLL_CTL_ADD;
@@ -1231,24 +1311,12 @@ END_ALARM_PRO:
 			}
 		}
 		break;
-
 	default:
 		return false;
 	}
 #if  defined (MULTI_PTHREAD) 
-#if defined (_WIN32)
-	LeaveCriticalSection(&spo_spin_lock);
-#elif  defined(__APPLE__)  
-	os_unfair_lock_unlock(&spo_spin_lock);
-#else
-	if (pthread_spin_unlock(&spo_spin_lock) !=0)
-	{
-		ERROR_PRO("pthread_spin_unlock for spo_spin_lock failed");
-		WLOG(WARNING, errMsg);
-	}
+	Do_Spin_UnLock(spo_spin_lock)
 #endif
-#endif
-
 	return true;
 }
 
@@ -1318,9 +1386,9 @@ TPoll::TPoll()
 	infor_size = 0;
 	timer_infor = 0;
 	stack_top = -1;
-	tasks_top = -1;
 	init_ok = false;
 
+	//jobs_top = -1;
 	lor_exit.type = DPoll::SysExit;
 #if defined(_WIN32)
 	iocp_port = NULL;
