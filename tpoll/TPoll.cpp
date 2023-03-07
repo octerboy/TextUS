@@ -371,6 +371,7 @@ public:
 		DWORD t_id;
 		HANDLE work_Evt;	//工作信号事件
 #else
+		pthread_t t_id;	//thread id
 #if defined(__linux__) 
 		int work_Evt ;	//eventfd
 #endif
@@ -382,7 +383,6 @@ public:
 #if defined(__sun) 
 		int work_Evt;
 #endif
-		pthread_t t_id;	//thread id
 #endif	//for non WIN32
 		SchThread () {
 			many = 0;
@@ -419,12 +419,12 @@ static void  a_task_thread_routine(struct TPoll::SchThread  *task)
 
 void  TPoll::cocurrent_sub(struct SchThread  *task ) {
 	bool will_wait;
-	struct Job_Entry *g;
+	struct Job_Entry *prj;
 WAIT_JOB:
 	Do_Spin_Lock(task->sch_spin)
 	if ( task->many >0 )
 	{
-		g = task->job_list.remove();
+		prj = task->job_list.remove();
 		task->many--;
 		will_wait = false;
 	} else 
@@ -472,9 +472,9 @@ WAIT_JOB:
 		}
 #endif
 	} else {	//execute a job
-		g->obj->facio(&g->ps);
+		prj->obj->facio(&prj->ps);
 		Do_Spin_Lock(jobs_pool_spin)
-		put_job(g);
+		put_job(prj);
 		Do_Spin_UnLock(jobs_pool_spin)
 	}
 	goto WAIT_JOB;
