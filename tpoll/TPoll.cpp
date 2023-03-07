@@ -149,9 +149,9 @@ public:
 
 	uintptr_t get_a_ident() {
 #if defined (MULTI_PTHREAD) 
-		do_spin_lock(&bsd_usr_event_id_lock);
+		Do_Spin_Lock(&bsd_usr_event_id_lock);
 		usr_ident++;
-		do_spin_unlock(&bsd_usr_event_id_lock);
+		Do_Spin_UnLock(&bsd_usr_event_id_lock);
 #else	//single thread
 		usr_ident++;
 #endif
@@ -545,7 +545,7 @@ void  TPoll::schedule( Amor *obj, Pius *ps ) {
 		}
 #endif
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
-		EV_SET(&(just_he->events[1]), just_he->fd, EVFILT_USER, 0, NOTE_FFCOPY|NOTE_TRIGGER|0x1, 0, just_he);	
+		EV_SET(&(just_he->work_Evt[1]), just_he->fd, EVFILT_USER, 0, NOTE_FFCOPY|NOTE_TRIGGER|0x1, 0, just_he);	
 		if( kevent(just_he->work_kq, &(just_he->work_Evt[1]), 1, NULL, 0, NULL) ==- 1)
 		{
 			WLOG_OSERR("kevent(NOTE_FFCOPY|NOTE_TRIGGER|0x1 for schedule)");
@@ -577,7 +577,7 @@ void TPoll::task_init( struct SchThread *task, int num) {
 		WLOG_OSERR("CreateEvent for MULTI_THREAD");
 	}
 #endif 
-#if defined(__linux__) || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
+#if defined(__linux__) 
 	task->work_Evt = eventfd(0, EFD_CLOEXEC); 	/* event fd , for cpu tasks */
 	if (task->work_Evt == -1)
 	{
@@ -591,7 +591,7 @@ void TPoll::task_init( struct SchThread *task, int num) {
 		WLOG_OSERR("port_create for MULTI_THREAD");
 	}
 #endif
-#if defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
+#if  defined(__APPLE__) || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__) 
 	task->fd =  get_a_ident();
 	EV_SET(&(task->work_Evt[0]), task->fd, EVFILT_USER, EV_ADD|EV_ONESHOT, NOTE_FFNOP, 0, task);
 	if( kevent(task->work_kq, &(task->work_Evt[0]), 1, NULL, 0, NULL) == -1 )
