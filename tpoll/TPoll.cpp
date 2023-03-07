@@ -52,6 +52,7 @@
 
 #if defined (MULTI_PTHREAD) 
 #if defined (_WIN32)
+#include <process.h>
 #include <synchapi.h>
 	typedef CRITICAL_SECTION Spin_Type;
 	#define Do_Spin_Lock(X) EnterCriticalSection(&X);
@@ -509,9 +510,9 @@ void  TPoll::schedule( Amor *obj, Pius *ps ) {
 	Do_Spin_UnLock(just_he->sch_spin)
 	if ( will_notify) {
 #if defined (_WIN32)
-		if ( !setEvent(just_he->work_Evt) )
+		if ( !SetEvent(just_he->work_Evt) )
 		{
-			WLOG_OSERR("setEvent for schedule");
+			WLOG_OSERR("SetEvent for schedule");
 		}
 #endif
 #if defined(__sun)
