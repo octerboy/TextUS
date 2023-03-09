@@ -368,6 +368,7 @@ public:
 		struct Job_Entry job_list;
 		unsigned int many ;
 		Spin_Type sch_spin;
+		bool isWaiting;
 #if defined (_WIN32)
 		DWORD t_id;
 		HANDLE work_Evt;	//工作信号事件
@@ -389,6 +390,7 @@ public:
 			many = 0;
 			no = -1;
 			cpu_id = -1;
+			isWaiting = false;
 		};
 		
 	};	//run multi thread , each on a core.
@@ -419,24 +421,27 @@ static void  a_task_thread_routine(struct TPoll::SchThread  *task)
 }
 
 void  TPoll::cocurrent_sub(struct SchThread  *task ) {
-	bool will_wait;
-	struct Job_Entry *prj;
 WAIT_JOB:
 	Do_Spin_Lock(task->sch_spin)
 	if ( task->many >0 )
 	{
+		struct Job_Entry *prj;
 		prj = task->job_list.remove();
 		task->many--;
-		will_wait = false;
-	} else 
-		will_wait = true;
-	Do_Spin_UnLock(task->sch_spin)
-	
-	if ( will_wait) {
+		Do_Spin_UnLock(task->sch_spin)
+
+		/*  !will_wait, execute a job */
+		prj->obj->facio(&prj->ps);
+		/* ret prj to jobs pool */
+		Do_Spin_Lock(jobs_pool_spin)
+		put_job(prj);
+		Do_Spin_UnLock(jobs_pool_spin)
+	} else  {
+		task->isWaiting = true;
+		Do_Spin_UnLock(task->sch_spin)
+		/* to wait */
 #if defined (_WIN32)
-		if (WaitForSingleObject(task->work_Evt, 0) == WAIT_OBJECT_0 ) {
-			goto WAIT_JOB;
-		} else {
+		if (WaitForSingleObject(task->work_Evt, 0) != WAIT_OBJECT_0 ) {
 			WLOG_OSERR("WaitForSingleObject for task routine");
 		}
 #endif
@@ -444,9 +449,7 @@ WAIT_JOB:
 		port_event_t evt;
 		int ret ;
 		ret = port_get(task->work_Evt, &evt, 0);
-		if ( ret == 0 )
-			goto WAIT_JOB;
-		else {
+		if ( ret != 0 ) {
 			WLOG_OSERR("port_get for task routine");
 		}
 #endif
@@ -458,25 +461,21 @@ WAIT_JOB:
 #else
 		ret = read(task->work_Evt, cnt,4);
 #endif
-		if ( ret > 0 )
-			goto WAIT_JOB;
-		else {
+		if ( ret <= 0 ) {
 			WLOG_OSERR("read for task routine");
 		}
 #endif
 #if defined(__APPLE__)  || defined(__FreeBSD__)  || defined(__NetBSD__)  || defined(__OpenBSD__)  
 		int ret;
 		ret = kevent(task->work_kq, NULL, 0, &task->work_Evt[2], 1, NULL);
-		if ( ret == -1 ) 
-		{
+		if ( ret == -1 ) {
 			WLOG_OSERR("kevent for task routine");
 		}
 #endif
-	} else {	//execute a job
-		prj->obj->facio(&prj->ps);
-		Do_Spin_Lock(jobs_pool_spin)
-		put_job(prj);
-		Do_Spin_UnLock(jobs_pool_spin)
+		/* now , task->many >0 , main thread will not notify */
+		Do_Spin_Lock(task->sch_spin)
+		task->isWaiting = false;
+		Do_Spin_UnLock(task->sch_spin)
 	}
 	goto WAIT_JOB;
 }
@@ -504,7 +503,7 @@ void  TPoll::schedule( Amor *obj, Pius *ps ) {
 	Do_Spin_UnLock(jobs_pool_spin)
 
 	Do_Spin_Lock(just_he->sch_spin)
-	will_notify =  ( just_he->many == 0 ) ;
+	will_notify =  ( just_he->many == 0 && just_he->isWaiting ) ;
 	just_he->job_list.append(a_job);
 	just_he->many++;
 	Do_Spin_UnLock(just_he->sch_spin)
